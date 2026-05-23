@@ -2,10 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/layouts/MainLayout';
 import Home from './modules/home/pages/Home';
 
-import AdminLogin from './modules/login/pages/AdminLogin';
-import DoctorLogin from './modules/login/pages/DoctorLogin';
-import RecepcionistLogin from './modules/login/pages/RecepcionistLogin';
-import NurseLogin from './modules/login/pages/NurseLogin';
+import AdminLogin from './modules/login/pages/Login/AdminLogin';
+import DoctorLogin from './modules/login/pages/Login/DoctorLogin';
+import ReceptionistLogin from './modules/login/pages/Login/ReceptionistLogin';
+import NurseLogin from './modules/login/pages/Login/NurseLogin';
 
 function App() {
   return (
@@ -17,7 +17,7 @@ function App() {
           {/* Rutas sin sidebar*/}
           <Route path="/login/admin" element={<AdminLogin />} />
           <Route path="/login/doctor" element={<DoctorLogin />} />
-          <Route path="/login/receptionist" element={<RecepcionistLogin />} />
+          <Route path="/login/receptionist" element={<ReceptionistLogin />} />
           <Route path="/login/nurse" element={<NurseLogin />} />
           <Route element={<MainLayout/>}>
             <Route path="/home" element={<Home />} />
