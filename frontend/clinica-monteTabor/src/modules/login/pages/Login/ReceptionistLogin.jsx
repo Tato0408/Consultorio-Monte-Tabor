@@ -194,21 +194,6 @@ const ReceptionistLogin = () => {
                   </span>
                 ) : "Iniciar sesión"}
               </button>
-
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-xs text-gray-400 whitespace-nowrap">¿No tienes cuenta?</span>
-                <div className="flex-1 h-px bg-gray-200" />
-              </div>
-
-              <Link
-                to="/receptionist/register"
-                className="w-full py-2.5 rounded-lg border border-gray-200 flex items-center justify-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 active:scale-[0.98] transition-all duration-200"
-              >
-                <Lock className="w-3.5 h-3.5 text-gray-400" />
-                Regístrate
-              </Link>
-
             </form>
           </div>
         </div>

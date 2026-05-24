@@ -3,6 +3,7 @@ import MainLayout from './components/layouts/MainLayout';
 import Home from './modules/home/pages/Home';
 
 import AdminLogin from './modules/login/pages/Login/AdminLogin';
+import AdminRegister from './modules/login/pages/Register/AdminRegister';
 import DoctorLogin from './modules/login/pages/Login/DoctorLogin';
 import ReceptionistLogin from './modules/login/pages/Login/ReceptionistLogin';
 import NurseLogin from './modules/login/pages/Login/NurseLogin';
@@ -16,6 +17,7 @@ function App() {
         <Routes>
           {/* Rutas sin sidebar*/}
           <Route path="/login/admin" element={<AdminLogin />} />
+          <Route path="/register/admin" element={<AdminRegister />} />
           <Route path="/login/doctor" element={<DoctorLogin />} />
           <Route path="/login/receptionist" element={<ReceptionistLogin />} />
           <Route path="/login/nurse" element={<NurseLogin />} />
@@ -24,6 +26,7 @@ function App() {
           </Route>
           {/*Cambiar a login despues ahorita esta para codear asi*/}
           <Route path="*" element={<Navigate to="/home" replace />} />
+
 
         </Routes>
 
