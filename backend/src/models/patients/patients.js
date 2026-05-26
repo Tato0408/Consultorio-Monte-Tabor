@@ -100,10 +100,10 @@ const patientSchema = new Schema({
             glucosa_mgdl: {
                 type: Number
             },
-            weigth: {
+            weight: {
                 type: Number
             },
-            heigth: {
+            height: {
                 type: Number
             },
             imc: {

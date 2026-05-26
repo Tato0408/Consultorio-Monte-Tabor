@@ -7,6 +7,6 @@ const router = express.Router();
 router.route("/").get(patientsController.getAllPatients)
 
 
-router.route("/:id").delete(patientsController.deletePatient)
+router.route("/:id").delete(patientsController.deletePatient).put(patientsController.updatePatient)
 
 export default router
