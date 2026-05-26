@@ -2,11 +2,10 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from "cors";
 
-import appointmentsRoutes from "./src/routes/appointments.js"
+import appointmentsRoutes from "./src/routes/appointments/appointments.js"
 import registerPatientsRoutes from "./src/routes/patients/registerPatients.js"
 import loginPatientsRoutes from "./src/routes/patients/loginPatients.js"
 import patientsRoutes from "./src/routes/patients/patients.js"
-import registerDoctorRoute from  "./src/routes/doctors/doctors.js"
 import doctorsRoutes from "./src/routes/doctors/doctors.js"
 import registerDoctorRoutes from "./src/routes/doctors/registerDoctor.js"
 
