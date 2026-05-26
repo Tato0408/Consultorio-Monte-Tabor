@@ -4,7 +4,7 @@ import { Mail, Lock } from "lucide-react";
 import InputField from "../../../../components/ui/InputField";
 import FooterLogin from "../../components/Footer";
 
-const AdminLogin = () => {
+const Login = () => {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({ correo: "", contrasena: "" });
@@ -74,7 +74,7 @@ const AdminLogin = () => {
                 Inicia sesión en tu cuenta
               </h2>
               <p className="text-sm text-white/75 leading-relaxed">
-                Accede a tu panel de administrador para gestionar el sistema de
+                Accede a tu panel de trabajo para gestionar el sistema de
                 forma segura y responsable
               </p>
             </div>
@@ -127,13 +127,6 @@ const AdminLogin = () => {
               <h2 className="text-2xl font-bold text-gray-800 tracking-tight">
                 Iniciar sesión
               </h2>
-
-              <div className="flex flex-col items-center mt-1.5 gap-1.5">
-                <p className="text-xs text-gray-500 font-medium tracking-widest">
-                  Administrador
-                </p>
-                <div className="h-[2px] w-10 rounded-full bg-[rgb(9,94,199)]" />
-              </div>
 
             </div>
 
@@ -194,21 +187,6 @@ const AdminLogin = () => {
                   </span>
                 ) : "Iniciar sesión"}
               </button>
-
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-xs text-gray-400 whitespace-nowrap">¿No tienes cuenta?</span>
-                <div className="flex-1 h-px bg-gray-200" />
-              </div>
-
-              <Link
-                to="/admin/register"
-                className="w-full py-2.5 rounded-lg border border-gray-200 flex items-center justify-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 active:scale-[0.98] transition-all duration-200"
-              >
-                <Lock className="w-3.5 h-3.5 text-gray-400" />
-                Regístrate
-              </Link>
-
             </form>
           </div>
         </div>
@@ -219,4 +197,4 @@ const AdminLogin = () => {
   );
 };
 
-export default AdminLogin;
+export default Login;

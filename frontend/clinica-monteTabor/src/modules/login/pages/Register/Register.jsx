@@ -4,7 +4,7 @@ import { User, Mail, Lock, CreditCard, Calendar, Venus, CheckCircle2, Circle } f
 import InputField from "../../../../components/ui/InputField";
 import FooterLogin from "../../components/Footer";
 
-const AdminRegister = () => {
+const Register = () => {
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
@@ -211,4 +211,4 @@ const AdminRegister = () => {
     );
 };
 
-export default AdminRegister;
+export default Register;
