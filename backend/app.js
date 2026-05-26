@@ -6,6 +6,10 @@ import appointmentsRoutes from "./src/routes/appointments.js"
 import registerPatientsRoutes from "./src/routes/patients/registerPatients.js"
 import loginPatientsRoutes from "./src/routes/patients/loginPatients.js"
 import patientsRoutes from "./src/routes/patients/patients.js"
+import registerDoctorRoute from  "./src/routes/doctors/doctors.js"
+import doctorsRoutes from "./src/routes/doctors/doctors.js"
+import registerDoctorRoutes from "./src/routes/doctors/registerDoctor.js"
+import loginDoctorRoutes from "./src/routes/doctors/loginDoctors.js"
 
 const app = express();
 
@@ -23,9 +27,14 @@ app.use(cors({
 
 app.use("/api/appointments", appointmentsRoutes);
 
+
 //Pacientes
 app.use("/api/registerPatients", registerPatientsRoutes)
 app.use("/api/loginPatients", loginPatientsRoutes)
 app.use("/api/patients", patientsRoutes)
+
+app.use("/api/doctors", doctorsRoutes);
+app.use("/api/registerDoctors", registerDoctorRoutes);
+app.use("/api/loginDoctors", loginDoctorRoutes);
 
 export default app;
