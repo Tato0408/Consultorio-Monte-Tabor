@@ -11,12 +11,11 @@ import doctorsModel from "../../models/doctors/doctors.js";
 
 import { config } from "../../../config.js";
 
-// array de funciones
+// array de funcioness
 const registerDoctorController = {};
 
-// ========================================
-// REGISTER
-// ========================================
+
+//REGISTER
 registerDoctorController.register = async (req, res) => {
   try {
 
@@ -60,11 +59,11 @@ registerDoctorController.register = async (req, res) => {
       });
     }
 
-    // ENCRIPTAR CONTRASEÑA
+    //ENCRIPTAR CONTRASEÑA
     const passwordHashed =
       await bcryptjs.hash(password, 10);
 
-    // GENERAR CÓDIGO
+    //GENERAR CÓDIGO
     const randomCode =
       crypto.randomBytes(3).toString("hex");
 
@@ -103,13 +102,13 @@ registerDoctorController.register = async (req, res) => {
       },
     );
 
-    // COOKIE
+    //COOKIE
     res.cookie("registrationCookie", token, {
       maxAge: 15 * 60 * 1000,
       httpOnly: true,
     });
 
-    // TRANSPORTER
+    //TRANSPORTER
     const transporter =
       nodemailer.createTransport({
         service: "gmail",
@@ -120,7 +119,7 @@ registerDoctorController.register = async (req, res) => {
         },
       });
 
-    // EMAIL
+    //EMAIL
     const mailOptions = {
       from: config.email.user_email,
       to: email,
@@ -132,7 +131,7 @@ registerDoctorController.register = async (req, res) => {
         ". Expira en 15 minutos.",
     };
 
-    // ENVIAR EMAIL
+    //Se envia el email
     transporter.sendMail(
       mailOptions,
       (error, info) => {
@@ -160,9 +159,7 @@ registerDoctorController.register = async (req, res) => {
   }
 };
 
-// ========================================
-// VERIFY CODE
-// ========================================
+//Verificar codigo
 registerDoctorController.verifyCode =
   async (req, res) => {
 
@@ -209,7 +206,7 @@ registerDoctorController.verifyCode =
         timeOut,
       } = decoded;
 
-      // VALIDAR CÓDIGO
+      //VALIDAR CODIGO
       if (
         verificationCodeRequest !==
         storedCode
@@ -248,7 +245,7 @@ registerDoctorController.verifyCode =
 
       await newDoctor.save();
 
-      // BORRAR COOKIE
+      //bORRAR COOKIE
       res.clearCookie("registrationCookie");
 
       return res.status(200).json({

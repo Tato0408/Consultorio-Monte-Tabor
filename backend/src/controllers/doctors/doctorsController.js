@@ -1,16 +1,11 @@
-// ===============================
-// doctorsController.js
-// ===============================
 
 import doctorsModel from "../../models/doctors/doctors.js";
 import { v2 as cloudinary } from "cloudinary";
 
-// Array de funciones
+//Array de funciones
 const doctorController = {};
 
-// =====================
-// SELECT
-// =====================
+
 doctorController.getDoctors = async (req, res) => {
   try {
     const doctors = await doctorsModel.find();
@@ -25,9 +20,8 @@ doctorController.getDoctors = async (req, res) => {
   }
 };
 
-// =====================
-// UPDATE
-// =====================
+//UPDATE
+
 doctorController.updateDoctors = async (req, res) => {
   try {
     const {
@@ -67,7 +61,7 @@ doctorController.updateDoctors = async (req, res) => {
       is_verified,
     };
 
-    // NUEVA FOTO PERFIL
+    //NUEVA FOTO PERFIL
     if (req.files?.doctorImage) {
       await cloudinary.uploader.destroy(
         doctorFound.img_public_id,
@@ -80,7 +74,7 @@ doctorController.updateDoctors = async (req, res) => {
         req.files["doctorImage"][0].filename;
     }
 
-    // NUEVA FOTO LICENCIA
+    //NUEVA FOTO LICENCIA
     if (req.files?.licenseImage) {
       await cloudinary.uploader.destroy(
         doctorFound.license_public_id,
@@ -127,17 +121,17 @@ doctorController.deleteDoctor = async (req, res) => {
       });
     }
 
-    // BORRAR FOTO PERFIL
+    //BORRAR FOTO PERFIL
     await cloudinary.uploader.destroy(
       doctorFound.img_public_id,
     );
 
-    // BORRAR FOTO LICENCIA
+    //BORRAR FOTO LICENCIA
     await cloudinary.uploader.destroy(
       doctorFound.license_public_id,
     );
 
-    // BORRAR DOCUMENTO
+    //BORRAR DOCUMENTO
     await doctorsModel.findByIdAndDelete(
       req.params.id,
     );
