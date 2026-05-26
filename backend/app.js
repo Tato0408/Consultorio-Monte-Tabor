@@ -9,7 +9,6 @@ import patientsRoutes from "./src/routes/patients/patients.js"
 import registerDoctorRoute from  "./src/routes/doctors/doctors.js"
 import doctorsRoutes from "./src/routes/doctors/doctors.js"
 import registerDoctorRoutes from "./src/routes/doctors/registerDoctor.js"
-import loginDoctorRoutes from "./src/routes/doctors/loginDoctors.js"
 
 const app = express();
 
@@ -35,6 +34,5 @@ app.use("/api/patients", patientsRoutes)
 
 app.use("/api/doctors", doctorsRoutes);
 app.use("/api/registerDoctors", registerDoctorRoutes);
-app.use("/api/loginDoctors", loginDoctorRoutes);
 
 export default app;
