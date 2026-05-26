@@ -1,4 +1,4 @@
-import appointmentsModel from "../models/appointments.js";
+import appointmentsModel from "../../models/appointments/appointments.js";
 
 const appointmentsController = {};
 
@@ -73,8 +73,7 @@ appointmentsController.insertAppointment = async (req, res) => {
 //UPDATE
 appointmentsController.updateAppointment = async (req, res) => {
     try {
-
-        const {
+        let {
             doctor_id,
             patient_id,
             nurse_id,
