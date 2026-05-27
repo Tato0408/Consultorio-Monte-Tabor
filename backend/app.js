@@ -9,7 +9,7 @@ import registerDoctorRoutes from "./src/routes/doctors/registerDoctor.js"
 import loginDoctorRoutes from "./src/routes/doctors/loginDoctors.js"
 
 import receptionistRoutes from "./src/routes/receptionist/receptionist.js"
-import registerReceptionistRoutes from "./src/routes/receptionist/registerReceptionist.js"
+import registerReceptionistRoutes from "./src/routes/receptionist/re.js"
 
 
 
@@ -32,3 +32,4 @@ app.use("/api/registerDoctors", registerDoctorRoutes);
 app.use("/api/loginDoctors", loginDoctorRoutes);
 app.use("/api/receptionist", receptionistRoutes);
 app.use("/api/registerReceptionist", registerReceptionistRoutes);
+export default app;
