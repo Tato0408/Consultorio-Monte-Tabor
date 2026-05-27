@@ -8,6 +8,10 @@ import doctorsRoutes from "./src/routes/doctors/doctors.js"
 import registerDoctorRoutes from "./src/routes/doctors/registerDoctor.js"
 import loginDoctorRoutes from "./src/routes/doctors/loginDoctors.js"
 
+import receptionistRoutes from "./src/routes/receptionist/receptionist.js"
+import registerReceptionistRoutes from "./src/routes/receptionist/registerReceptionist.js"
+
+
 
 const app = express();
 
@@ -26,4 +30,6 @@ app.use("/api/appointments", appointmentsRoutes);
 app.use("/api/doctors", doctorsRoutes);
 app.use("/api/registerDoctors", registerDoctorRoutes);
 app.use("/api/loginDoctors", loginDoctorRoutes);
+app.use("/api/receptionist", receptionistRoutes);
+app.use("/api/registerReceptionist", registerReceptionistRoutes);
 export default app;
