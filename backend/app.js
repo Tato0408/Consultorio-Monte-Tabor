@@ -32,4 +32,3 @@ app.use("/api/registerDoctors", registerDoctorRoutes);
 app.use("/api/loginDoctors", loginDoctorRoutes);
 app.use("/api/receptionist", receptionistRoutes);
 app.use("/api/registerReceptionist", registerReceptionistRoutes);
-export default app;
