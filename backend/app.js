@@ -9,6 +9,8 @@ import patientsRoutes from "./src/routes/patients/patients.js"
 import doctorsRoutes from "./src/routes/doctors/doctors.js"
 import registerDoctorRoutes from "./src/routes/doctors/registerDoctor.js"
 
+import inventoryRoutes from "./src/routes/inventory/inventory.js";
+
 const app = express();
 
 //Para que la API maneje cookies
@@ -33,5 +35,8 @@ app.use("/api/patients", patientsRoutes)
 
 app.use("/api/doctors", doctorsRoutes);
 app.use("/api/registerDoctors", registerDoctorRoutes);
+
+//Inventario
+app.use("/api/inventory", inventoryRoutes);
 
 export default app;
