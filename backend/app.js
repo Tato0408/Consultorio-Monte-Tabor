@@ -2,14 +2,14 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from "cors";
 
-import appointmentsRoutes from "./src/routes/appointments.js"
 import registerDoctorRoute from  "./src/routes/doctors/doctors.js"
 import doctorsRoutes from "./src/routes/doctors/doctors.js"
 import registerDoctorRoutes from "./src/routes/doctors/registerDoctor.js"
 import loginDoctorRoutes from "./src/routes/doctors/loginDoctors.js"
-
+import appointmentsRoutes from "./src/routes/appointments/appointments.js"
+import recoveryPassDoctors from "./src/routes/doctors/recoveryPasswordDoctor.js"
 import receptionistRoutes from "./src/routes/receptionist/receptionist.js"
-import registerReceptionistRoutes from "./src/routes/receptionist/re.js"
+import registerReceptionistRoutes from "./src/routes/receptionist/registerReceptionist.js"
 
 
 
@@ -32,4 +32,5 @@ app.use("/api/registerDoctors", registerDoctorRoutes);
 app.use("/api/loginDoctors", loginDoctorRoutes);
 app.use("/api/receptionist", receptionistRoutes);
 app.use("/api/registerReceptionist", registerReceptionistRoutes);
+app.use("/api/recoveryPasswordDoctors", recoveryPassDoctors);
 export default app;
