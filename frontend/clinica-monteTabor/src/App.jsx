@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/layouts/MainLayout';
 import Home from './modules/home/pages/Home';
 import PatientsList from './modules/patients/pages/PatientsList';
-
+import DoctorsList from './modules/doctors/pages/DoctorsList';
 import Login from './modules/login/pages/Login/Login';
 import Register from './modules/login/pages/Register/Register';
 
@@ -20,6 +20,7 @@ function App() {
           <Route element={<MainLayout/>}>
             <Route path="/home" element={<Home />} />
             <Route path="/users/patients" element={<PatientsList />} />
+            <Route path="/users/doctors" element={<DoctorsList />} />
           </Route>
           {/*Cambiar a login despues ahorita esta para codear asi*/}
           <Route path="*" element={<Navigate to="/users/patients" replace />} />

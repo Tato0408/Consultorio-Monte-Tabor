@@ -14,7 +14,7 @@ const TablePagination = () => {
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
       <div className="flex items-center gap-2">
         <span>Filas por página</span>
-        <Select defaultValue="8">
+        <Select defaultValue="8"a>
           <SelectTrigger className="w-[65px] h-8 border-none p-0 shadow-none focus:ring-0 font-medium text-slate-700 bg-transparent flex gap-1 justify-start">
             <SelectValue />
           </SelectTrigger>
