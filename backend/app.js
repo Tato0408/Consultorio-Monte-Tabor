@@ -10,6 +10,8 @@ import appointmentsRoutes from "./src/routes/appointments/appointments.js"
 import recoveryPassDoctors from "./src/routes/doctors/recoveryPasswordDoctor.js"
 import receptionistRoutes from "./src/routes/receptionist/receptionist.js"
 import registerReceptionistRoutes from "./src/routes/receptionist/registerReceptionist.js"
+import consultationsRoutes from "./src/routes/consultations/consultation.js"
+import patientsRoute from "./src/routes/patients/patients.js"
 
 
 
@@ -33,4 +35,7 @@ app.use("/api/loginDoctors", loginDoctorRoutes);
 app.use("/api/receptionist", receptionistRoutes);
 app.use("/api/registerReceptionist", registerReceptionistRoutes);
 app.use("/api/recoveryPasswordDoctors", recoveryPassDoctors);
+app.use("/api/consultations", consultationsRoutes)
+//app.use("/api/patients", patientsRoute);
+
 export default app;
