@@ -12,8 +12,9 @@ import receptionistRoutes from "./src/routes/receptionist/receptionist.js"
 import registerReceptionistRoutes from "./src/routes/receptionist/registerReceptionist.js"
 import consultationsRoutes from "./src/routes/consultations/consultation.js"
 import patientsRoute from "./src/routes/patients/patients.js"
-
-
+import nurseRoutes from './src/routes/nurse/nurses.js'
+import loginCommonRoleRoute from './src/routes/login/loginCommonRole.js'
+import logoutRoute from './src/routes/loginlogout.js'
 
 const app = express();
 
@@ -36,6 +37,9 @@ app.use("/api/receptionist", receptionistRoutes);
 app.use("/api/registerReceptionist", registerReceptionistRoutes);
 app.use("/api/recoveryPasswordDoctors", recoveryPassDoctors);
 app.use("/api/consultations", consultationsRoutes)
+app.use("/api/nurses", nurseRoutes)
+app.use("/api/loginCommonRole", loginCommonRoleRoute)
+app.use("/api/logout", logoutRoute)
 //app.use("/api/patients", patientsRoute);
 
 export default app;
