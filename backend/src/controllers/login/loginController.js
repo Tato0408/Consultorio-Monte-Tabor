@@ -5,13 +5,17 @@ import nurseModel from '../../models/nurses/nurses.js'
 import doctorModel from '../../models/doctors/doctors.js'
 
 const loginController = {}
-let userType = " "
 loginController.loginCommonRole = async(req,res) => {
     try{
+        let userType = " "
         const {email, password} = req.body
         const nurseFound = await nurseModel.findOne({email})
-
         const doctorFound = await doctorModel.findOne({email})
+
+        //Sanitización de campos
+        email = email?.trim()
+        password = password?.trim()
+
         //Si no es ni enfermera ni doctor
         if (!nurseFound && !doctorFound){
             return res.status(400).json({message: "User not found"})
@@ -22,13 +26,10 @@ loginController.loginCommonRole = async(req,res) => {
             if(doctorFound.time_out && doctorFound.time_out > Date.now()){
             return res.status(400).json({message: "User is locked"})
         }
-        if(doctorFound.time_out && doctorFound.time_out > Date.now()){
-            return res.status(400).json({message: "User is locked"})
-        }
         const isMatch = await bcrypt.compare(password, doctorFound.password)
         if (!isMatch){
-            doctorFound.loginAttemps = (doctorFound.loginAttemps || 0) + 1
-            if(userType === "doctor" && doctorFound.loginAttemps >= 5){
+            doctorFound.loginAttempts = (doctorFound.loginAttempts || 0) + 1
+            if(userType === "doctor" && doctorFound.loginAttempts >= 5){
                 doctorFound.time_out = Date.now() + 1000 * 60 * 15 // 15 minutes
                 doctorFound.loginAttemps = 0
                 await doctorFound.save()
@@ -37,7 +38,7 @@ loginController.loginCommonRole = async(req,res) => {
             await doctorFound.save()
             return res.status(400).json({message: "Wrong password"})
         }
-        doctorFound.loginAttemps = 0
+        doctorFound.loginAttempts = 0
         doctorFound.time_out = null
         await doctorFound.save()
 
@@ -47,10 +48,10 @@ loginController.loginCommonRole = async(req,res) => {
              {expiresIn: "15m"}
         );
         res.cookie("authCookie", token)
-        return res.status(200).json({message: "Login successful",
-             token,
-             
-            data: doctorFound })
+        return res.status(200).json({
+            message: "Login successful",
+            token
+            })
  }
 
 
@@ -86,9 +87,10 @@ loginController.loginCommonRole = async(req,res) => {
              {expiresIn: "15m"}
         );
         res.cookie("authCookie", token) 
-        return res.status(200).json({message: "Login successful", 
-            token, 
-            data: nurseFound})
+        return res.status(200).json({
+            message: "Login successful", 
+            token
+        })
         }
     }
     catch(error){

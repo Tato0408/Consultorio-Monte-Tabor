@@ -1,8 +1,6 @@
 import nursesModel from "../../models/nurses/nurses.js"
 import { v2 as cloudinary } from "cloudinary"
 import * as nodemailer from 'nodemailer'
-import crypto from 'crypto'
-import jsonwebtoken from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { config } from "../../../config.js"
 const nursesController = {}
@@ -34,6 +32,67 @@ nursesController.insertNurses = async (req, res) => {
         const existNurse = await nursesModel.findOne({ email });
         if (existNurse) {
             return res.status(400).json({ message: "Nurse alredy exist" });
+        }
+
+        if(!name || !last_name || !dui || !phone || !birth_date || !email || !password ){
+            return res.status(400).json({message: "Empty data"})
+        }
+
+        //Sanitización de campos
+        name = name?.trim()
+        last_name = last_name?.trim()
+        dui = dui?.trim()
+        phone = phone?.trim()
+        birth_date = birth_date?.trim()
+        email = email?.trim()
+        password = password?.trim()
+        
+        //Validación donde el email sea de un formato correcto (Incluya @ y dominio)
+        /*
+        +: Concatenar la expresión regular
+        ^: Indica el inicio de un string
+        [^\s@]+: Uno o más caracteres que no sean espacios ni @ (parte del nombre del correo electrónico)
+        @: El carácter @
+        [^\s@]+: Uno o más caracteres que no sean espacios ni @ (parte del dominio)
+        \.: El carácter punto literal
+        [^\s@]+: Uno o más caracteres que no sean espacios ni @ (parte de la extensión del dominio ".com", ".org", etc.)
+        $: Indica el final de un string
+        */
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+            return res.status(400).json({message: "Invalid email format"})
+        }
+
+        //Validación del DUI
+        /*
+        \d{8}: Exactamente 8 dígitos
+        -: El carácter guión literal
+        \d{1}: Exactamente 1 dígito
+        */
+        if(!/^\d{8}-\d{1}$/.test(dui)){
+            return res.status(400).json({message: "Invalid DUI format"})
+        }
+        
+        //Validacion de contraseña. 
+        //Validación de almenos 8 carcteres
+        if(password.length < 8){
+            return res.status(400).json({message: "Password must be at least 8 characters long"})
+        }
+        //.test() verifica si la contraseña cumple con el patron de la expresion regular
+        //Validación de almenos 1 letra mayuscula
+        if(!/[A-Z]/.test(password)){
+            return res.status(400).json({message: "Password must contain at least one uppercase letter"})
+        }
+        //Validación de almenos 1 letra minuscula
+        if(!/[a-z]/.test(password)){
+            return res.status(400).json({message: "Password must contain at least one lowercase letter"})
+        }
+        //Validación de almenos 1 numero
+        if(!/[0-9]/.test(password)){
+            return res.status(400).json({message: "Password must contain at least one number"})
+        }
+        //Validación de almenos 1 caracter especial
+        if(!/[A-Za-z0-9]/.test(password)){
+            return res.status(400).json({message: "Password must contain at least one special character"})
         }
 
         const passwordHashed = await bcrypt.hash(password, 10)
@@ -141,15 +200,11 @@ nursesController.updateNurse = async(req,res) => {
             is_verified: response.is_verified,
             time_out: response.time_out
         }
-        console.log("Llega acá")
         if(req.file){
-            console.log(response)
             const updateImage = await cloudinary.uploader.destroy(response.public_id)
-            console.log("Entra al primer if")
             if(!updateImage){
                 const error = new Error("Error updating a nurse");
                 return res.status(500).json({message: "Internal Server error", error: error.message})
-                console.log("Error al eliminar la imagen")
             }
             payload.img_url = req.file.path
             payload.public_id = req.file.filename
