@@ -15,6 +15,7 @@ import patientsRoute from "./src/routes/patients/patients.js"
 import nurseRoutes from './src/routes/nurse/nurses.js'
 import loginCommonRoleRoute from './src/routes/login/loginCommonRole.js'
 import logoutRoute from './src/routes/login/logout.js'
+import inventoryRoutes from './src/routes/inventory/inventory.js'
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use("/api/consultations", consultationsRoutes)
 app.use("/api/nurses", nurseRoutes)
 app.use("/api/loginCommonRole", loginCommonRoleRoute)
 app.use("/api/logout", logoutRoute)
-//app.use("/api/patients", patientsRoute);
+app.use("/api/patients", patientsRoute);
+app.use("/api/inventory", inventoryRoutes);
 
 export default app;
