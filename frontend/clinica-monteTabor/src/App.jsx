@@ -5,6 +5,7 @@ import PatientsList from './modules/patients/pages/PatientsList';
 import DoctorsList from './modules/doctors/pages/DoctorsList';
 import Login from './modules/login/pages/Login/Login';
 import Register from './modules/login/pages/Register/Register';
+import Consultations from './modules/schedule/pages/Consultations';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/users/patients" element={<PatientsList />} />
             <Route path="/users/doctors" element={<DoctorsList />} />
+            <Route path="/calendar/consultations" element={<Consultations />} />
           </Route>
           {/*Cambiar a login despues ahorita esta para codear asi*/}
           <Route path="*" element={<Navigate to="/users/patients" replace />} />

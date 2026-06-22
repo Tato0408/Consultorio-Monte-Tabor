@@ -14,7 +14,7 @@ import consultationsRoutes from "./src/routes/consultations/consultation.js"
 import patientsRoute from "./src/routes/patients/patients.js"
 import nurseRoutes from './src/routes/nurse/nurses.js'
 import loginCommonRoleRoute from './src/routes/login/loginCommonRole.js'
-import logoutRoute from './src/routes/loginlogout.js'
+import logoutRoute from './src/routes/login/logout.js'
 
 const app = express();
 
