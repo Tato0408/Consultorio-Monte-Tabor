@@ -15,6 +15,7 @@ import patientsRoute from "./src/routes/patients/patients.js"
 import nurseRoutes from './src/routes/nurse/nurses.js'
 import loginCommonRoleRoute from './src/routes/login/loginCommonRole.js'
 import logoutRoute from './src/routes/login/logout.js'
+
 import inventoryRoutes from './src/routes/inventory/inventory.js'
 import proceduresRoutes from './src/routes/procedures/procedures.js'
 import authRoutes from "./src/routes/auth/authRoutes.js"

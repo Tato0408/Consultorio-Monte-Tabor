@@ -15,6 +15,7 @@ router.route("/")
     .post(appointmentsController.insertAppointment);
 
 router.route("/:id")
+    .get(appointmentsController.getAppointmentById)
     .put(appointmentsController.updateAppointment)
     .delete(appointmentsController.deleteAppointment);
 

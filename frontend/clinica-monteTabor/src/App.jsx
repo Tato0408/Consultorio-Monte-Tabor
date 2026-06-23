@@ -9,6 +9,9 @@ import Login from './modules/login/pages/Login/Login';
 import Register from './modules/login/pages/Register/Register';
 import Consultations from './modules/schedule/consultations/pages/Consultations';
 
+import AdminAppointments from './modules/appointments/pages/AdminAppointments';
+import CreateAppointmentForm from './modules/appointments/components/AppointmentsForm'
+
 function App() {
   return (
     <>
@@ -26,26 +29,14 @@ function App() {
               <Route path="/home" element={<Home />} />
               <Route path="/users/patients" element={<PatientsList />} />
               <Route path="/users/doctors" element={<DoctorsList />} />
-
               <Route path="/calendar/consultations" element={<Consultations />} />
-
+              <Route path="/calendar/appointments/new" element={<CreateAppointmentForm />} />
+              <Route path="/calendar/appointments/:id" element={<CreateAppointmentForm />} />
               <Route path="/inventory/products" element={<InventoryDashboard />} />
-
             </Route>
-            {/*Cambiar a login despues ahorita esta para codear asi*/}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-
-
           </Routes>
-
-
-
         </BrowserRouter>
-
       </AuthProvider>
-
-
-
     </>
   )
 }
