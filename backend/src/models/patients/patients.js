@@ -171,4 +171,4 @@ const patientSchema = new Schema({
     timestamps: true,
     strict: false
 });
-export default model("patients", patientSchema)
+export default model("Patients", patientSchema)

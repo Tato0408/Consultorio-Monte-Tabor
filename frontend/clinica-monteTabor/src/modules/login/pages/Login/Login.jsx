@@ -1,34 +1,37 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock } from "lucide-react";
+import Swal from "sweetalert2";
 import InputField from "../../../../components/ui/InputField";
 import FooterLogin from "../../components/Footer";
+import { useAuth } from "@/context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const [formData, setFormData] = useState({ correo: "", contrasena: "" });
-  const [errors, setErrors]     = useState({});
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError]   = useState("");
+  const [apiError, setApiError] = useState("");
 
   const handleChange = (field) => (e) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
-    if (apiError)      setApiError("");
+    if (apiError) setApiError("");
   };
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.correo.trim()) {
-      newErrors.correo = "El correo es requerido";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.correo)) {
-      newErrors.correo = "Ingresa un correo válido";
+    if (!formData.email.trim()) {
+      newErrors.email = "El email es requerido";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Ingresa un email válido";
     }
-    if (!formData.contrasena) {
-      newErrors.contrasena = "La contraseña es requerida";
-    } else if (formData.contrasena.length < 6) {
-      newErrors.contrasena = "Mínimo 6 caracteres";
+    if (!formData.password) {
+      newErrors.password = "La contraseña es requerida";
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Mínimo 6 caracteres";
     }
     return newErrors;
   };
@@ -41,12 +44,46 @@ const Login = () => {
       return;
     }
     setIsLoading(true);
+
+    //Configuracion de mensajes de sweetAlert
+    const Toast = Swal.mixin({
+    toast: true,
+    position: "top-end", 
+    showConfirmButton: false, 
+    timer: 3000, // Se cierra automáticamente en 3 segundos
+    timerProgressBar: true, // Muestra la barrita de tiempo avanzando
+    didOpen: (toast) => {
+      toast.onmouseenter = Swal.stopTimer;
+      toast.onmouseleave = Swal.resumeTimer;
+    }
+  });
+
+
     try {
       console.log("Login admin:", formData);
+
+      const succes = await login(formData.email, formData.password);
+
+      if (succes) {
+        Toast.fire({
+        icon: "success",
+        title: "¡Bienvenido de nuevo!"
+      });
+        navigate("/home");
+      } else {
+       Toast.fire({
+        icon: "error",
+        title: "No se pudo iniciar sesión",
+        text: "Verifica tu correo o contraseña."
+      });
+      }
+
     } catch (error) {
-      setApiError(
-        error?.response?.data?.message || "Credenciales incorrectas. Intenta de nuevo."
-      );
+      Toast.fire({
+      icon: "warning",
+      title: "Error de conexión",
+      text: error?.response?.data?.message || "Sin respuesta del servidor."
+    });
     } finally {
       setIsLoading(false);
     }
@@ -140,26 +177,26 @@ const Login = () => {
 
               <InputField
                 label="Correo"
-                id="correo"
+                id="email"
                 type="email"
-                placeholder="Ingresa tu correo"
-                value={formData.correo}
-                onChange={handleChange("correo")}
+                placeholder="Ingresa tu email"
+                value={formData.email}
+                onChange={handleChange("email")}
                 icon={<Mail className="w-4 h-4" />}
-                error={errors.correo}
+                error={errors.email}
                 disabled={isLoading}
               />
 
               <div className="flex flex-col gap-1">
                 <InputField
                   label="Contraseña"
-                  id="contrasena"
+                  id="password"
                   type="password"
                   placeholder="Ingresa tu contraseña"
-                  value={formData.contrasena}
-                  onChange={handleChange("contrasena")}
+                  value={formData.password}
+                  onChange={handleChange("password")}
                   icon={<Lock className="w-4 h-4" />}
-                  error={errors.contrasena}
+                  error={errors.password}
                   disabled={isLoading}
                 />
                 <div className="flex justify-end mt-1">

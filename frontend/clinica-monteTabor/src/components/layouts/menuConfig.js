@@ -1,5 +1,3 @@
-// src/components/layouts/menuConfig.js
-
 //Roles existentes en el proyecto
 
 //Usar export al inicio nos permite exportar multiples elementos de este archivo al contrario del default que exporta todo un componente
@@ -7,9 +5,9 @@ export const roles = {
     admin: "admin",
     doctor: "doctor",
     nurse: "nurse",
-    receptionist: "recepcionist"
+    receptionist: "receptionist"
 };
-
+ 
 //Apartados que conforman el menu lateral
 export const sideBarMenu = [
     {
@@ -53,7 +51,7 @@ export const sideBarMenu = [
         allowedRoles: [roles.admin, roles.doctor],
         subItems: [
             { title: 'Citas', icon: 'CalendarCheck2', path: '/reports/appointments', allowedRoles: [roles.admin, roles.doctor] },
-            { title: 'Expediente', icon: 'FileClock', path: '/reports/record', allowedRoles: [roles.admin, roles.doctor] },
+            { title: 'Historial clínico', icon: 'FileClock', path: '/reports/clinicalHistory', allowedRoles: [roles.admin, roles.doctor] },
             { title: 'Pacientes', icon: 'UserRound', path: '/reports/patients', allowedRoles: [roles.admin, roles.doctor] },
             { title: 'Doctores', icon: 'User', path: '/reports/doctors', allowedRoles: [roles.admin] }
         ]
