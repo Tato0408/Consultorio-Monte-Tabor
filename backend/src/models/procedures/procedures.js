@@ -41,4 +41,4 @@ const procedureSchema = new Schema(
     }
 );
 
-export default model("Procedure", procedureSchema);
+export default model("procedure", procedureSchema);

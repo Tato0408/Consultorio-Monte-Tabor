@@ -16,6 +16,8 @@ import nurseRoutes from './src/routes/nurse/nurses.js'
 import loginCommonRoleRoute from './src/routes/login/loginCommonRole.js'
 import logoutRoute from './src/routes/login/logout.js'
 
+import inventoryRoutes from './src/routes/inventory/inventory.js'
+import proceduresRoutes from './src/routes/procedures/procedures.js'
 const app = express();
 
 app.use(cookieParser());
@@ -41,5 +43,7 @@ app.use("/api/nurses", nurseRoutes)
 app.use("/api/loginCommonRole", loginCommonRoleRoute)
 app.use("/api/logout", logoutRoute)
 app.use("/api/patients", patientsRoute);
+app.use("/api/inventory", inventoryRoutes);
+app.use("/api/procedures", proceduresRoutes);
 
 export default app;

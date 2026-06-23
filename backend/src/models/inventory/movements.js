@@ -1,25 +1,25 @@
 import { Schema, model } from "mongoose";
 
-const movimientoSchema = new Schema(
+const movementSchema = new Schema(
   {
-    tipo: {
+    type: {
       type: String,
-      enum: ["Uso en tratamiento", "Entrada de stock", "Ajuste de inventario", "Uso manual"],
+      enum: ["Treatment use", "Stock entry", "Inventory adjustment", "Manual use"],
       required: true,
     },
-    insumo: {
+    item: {
       type: Schema.Types.ObjectId,
-      ref: "insumos",
+      ref: "inventory",
       required: true,
     },
-    nombreInsumo: { type: String },               // desnormalizado para reportes
-    cantidad:     { type: Number, required: true }, // negativo = salida, positivo = entrada
-    detalle:      { type: String },
-    usuario:      { type: String },
-    paciente:     { type: String },
-    fecha:        { type: Date, default: Date.now },
+    itemName:  { type: String },               // denormalized for reports
+    quantity:  { type: Number, required: true }, // negative = output, positive = input
+    detail:    { type: String },
+    user:      { type: String },
+    patient:   { type: String },
+    date:      { type: Date, default: Date.now },
   },
   { timestamps: true }
 );
 
-export default model("movements", movimientoSchema);
+export default model("movements", movementSchema);

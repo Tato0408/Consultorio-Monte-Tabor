@@ -4,20 +4,25 @@ import inventoryController from "../../controllers/inventory/inventoryController
 
 const router = express.Router();
 
-router.get("/stats", inventoryController.getStats);
-router.get("/movimientos", inventoryController.getMovimientos);
+// Stats, movimientos y gráficas (antes de /:id para evitar conflictos)
+router.get("/stats",     inventoryController.getStats);
+router.get("/movements", inventoryController.getMovements);
+router.get("/charts",    inventoryController.getCharts);
 
+// CRUD principal
 router.route("/")
-  .get(inventoryController.getInsumos)
-  .post(upload.single("imagen"), inventoryController.createInsumo);
+  .get(inventoryController.getAll)
+  .post(upload.single("imagen"), inventoryController.create);
 
 router.route("/:id")
-  .get(inventoryController.getInsumoById)
-  .put(upload.single("imagen"), inventoryController.updateInsumo)
-  .delete(inventoryController.deleteInsumo);
+  .get(inventoryController.getById)
+  .put(upload.single("imagen"), inventoryController.update)
+  .delete(inventoryController.remove);
 
-router.post("/:id/ajuste", inventoryController.ajusteInventario);
-router.post("/entrada-stock", upload.single("documento"), inventoryController.entradaStock);
-router.post("/uso-manual", inventoryController.usoManual);
+// Acciones
+router.post("/:id/adjust",         inventoryController.adjustStock);
+router.post("/stock-entry",        upload.single("documento"), inventoryController.stockEntry);
+router.post("/manual-usage",       inventoryController.manualUsage);
+router.post("/procedure-discount", inventoryController.discountFromProcedure);
 
 export default router;
