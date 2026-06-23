@@ -5,6 +5,8 @@ const proceduresController = {}
 proceduresController.getProcedures = async (req, res) => {
     try {
         const response = await proceduresModel.find()
+        //Mostrar mediante el populate solamente el nombre del material referenciado
+        .populate("materials.name", "name")
         if(!response) return res.status(400).json({message: "Data not found"})
         return res.status(200).json(response)
     } catch (error) {

@@ -19,8 +19,11 @@ const procedureSchema = new Schema(
         },
         materials: [
             {
-                name: { type: String, required: true },
-                quantity: { type: Number, required: true, default: 1 },
+                name: { 
+                    type: Schema.Types.ObjectId,
+                    ref: "inventory"
+                 },
+                quantity: { type: Number, default: 1 },
             },
         ],
         post_operative_instructions: { 
