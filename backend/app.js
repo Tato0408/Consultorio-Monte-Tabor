@@ -19,6 +19,9 @@ import logoutRoute from './src/routes/login/logout.js'
 import inventoryRoutes from './src/routes/inventory/inventory.js'
 import proceduresRoutes from './src/routes/procedures/procedures.js'
 import authRoutes from "./src/routes/auth/authRoutes.js"
+import adminRoutes from "./src/routes/admin/admin.js"
+import registerAdminRoute from "./src/routes/admin/registerAdmin.js"
+import recoveryAdminPassword from "./src/routes/admin/recoveryPasswordAdmin.js"
 const app = express();
 
 app.use(cookieParser());
@@ -47,5 +50,8 @@ app.use("/api/patients", patientsRoute);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/procedures", proceduresRoutes);
 app.use("/api/auth" , authRoutes)
+app.use("/api/admin" , adminRoutes)
+app.use("/api/registerAdmin" , registerAdminRoute)
+app.use("/api/recoveryAdminPassword" , recoveryAdminPassword)
 
 export default app;

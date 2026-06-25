@@ -19,7 +19,7 @@ import mongoose, { Schema, model } from "mongoose";
 
 const appointmentsSchema = new Schema({
     doctor_id: { type: mongoose.Schema.Types.ObjectId, ref: "Doctors", required: true },
-    patient_id: { type: mongoose.Schema.Types.ObjectId, ref: "patients", required: true },
+    patient_id: { type: mongoose.Schema.Types.ObjectId, ref: "Patients", required: true },
     nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "nurses" },
     procedure_id: { type: mongoose.Schema.Types.ObjectId, ref: "Procedure" },
     type: { type: String, required: true },

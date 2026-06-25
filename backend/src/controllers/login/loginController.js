@@ -1,15 +1,16 @@
 import bcrypt from "bcryptjs";
-import jsonwebtoken from 'jsonwebtoken'
-import { config } from '../../../config.js'
-import nurseModel from '../../models/nurses/nurses.js'
-import doctorModel from '../../models/doctors/doctors.js'
-import receptionistModel from "../../models/receptionist/receptionist.js"
+import jsonwebtoken from 'jsonwebtoken';
+import { config } from '../../../config.js';
+import adminModel from "../../models/admin/admins.js";
+import nurseModel from '../../models/nurses/nurses.js';
+import doctorModel from '../../models/doctors/doctors.js';
+import receptionistModel from "../../models/receptionist/receptionist.js";
 
 const loginController = {}
 
 //mapeo del nombre del rol con el su modelo para hacer busquedas dinamicas
 const role_models = {
-    //admin: adminModel,
+    admin: adminModel,
     doctor: doctorModel,
     nurse: nurseModel,
     receptionist: receptionistModel
