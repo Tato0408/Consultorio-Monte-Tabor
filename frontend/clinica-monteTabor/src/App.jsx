@@ -8,7 +8,7 @@ import InventoryDashboard from './modules/inventory/pages/InventoryDashboard';
 import Login from './modules/login/pages/Login/Login';
 import Register from './modules/login/pages/Register/Register';
 import Consultations from './modules/schedule/consultations/pages/Consultations';
-
+import Procedures from './modules//procedures/pages/ProceduresPage';
 import AdminAppointments from './modules/appointments/pages/AdminAppointments';
 import CreateAppointmentForm from './modules/appointments/components/AppointmentsForm'
 
@@ -33,6 +33,7 @@ function App() {
               <Route path="/calendar/appointments/new" element={<CreateAppointmentForm />} />
               <Route path="/calendar/appointments/:id" element={<CreateAppointmentForm />} />
               <Route path="/inventory/products" element={<InventoryDashboard />} />
+              <Route path="/procedures" element={<Procedures />} />
             </Route>
           </Routes>
         </BrowserRouter>
