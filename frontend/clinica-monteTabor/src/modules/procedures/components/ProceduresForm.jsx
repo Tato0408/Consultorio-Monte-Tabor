@@ -2,9 +2,14 @@ import React from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Plus, Trash2, Clock, DollarSign, Package, Activity, FileText, Info } from "lucide-react";
 
-const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) => {
-  // Inicializamos react-hook-form adaptado al Modelo de Mongoose
-  const { register, control, handleSubmit, watch, setValue, reset } = useForm({
+/*
+  formId — prop opcional que se pone en el <form id={formId}>.
+  Cuando viene desde el modal de edición, el botón de submit
+  del footer usa form="edit-procedure-form" para vincularse a este form.
+  Si no viene (creación desde página), el botón de submit está dentro del form normal.
+*/
+const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, formId }) => {
+  const { register, control, handleSubmit, watch } = useForm({
     defaultValues: initialData || {
       name: "",
       description: "",
@@ -13,32 +18,29 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) =
       requires_nurse: false,
       is_active: true,
       post_operative_instructions: "",
-      materials: [{ name: "", quantity: 1 }] // Inicializa con una fila vacía
-    }
+      materials: [{ name: "", quantity: 1 }],
+    },
   });
 
-  // useFieldArray nos permite agregar/quitar materiales dinámicamente
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "materials"
-  });
-
-  // "Observamos" los valores del formulario para actualizar el widget de Resumen en vivo
+  const { fields, append, remove } = useFieldArray({ control, name: "materials" });
   const watchedValues = watch();
 
   return (
-    <form id="edit-procedure-form" onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-      
-      {/* COLUMNA IZQUIERDA: BLOQUES DE FORMULARIOS (Ocupa 2 columnas en pantallas grandes) */}
+    <form
+      id={formId}
+      onSubmit={handleSubmit(onSubmit)}
+      className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start"
+    >
+      {/* COLUMNA IZQUIERDA */}
       <div className="lg:col-span-2 space-y-6">
-        
+
         {/* Tarjeta 1: Información básica */}
         <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
             <FileText className="w-5 h-5 text-blue-600" />
             <h3 className="font-bold text-gray-900 text-sm">Información del procedimiento</h3>
           </div>
-          
+
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Nombre del procedimiento *</label>
             <input
@@ -93,7 +95,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) =
           </div>
         </div>
 
-        {/* Tarjeta 2: Materiales Necesarios (Dinámico) */}
+        {/* Tarjeta 2: Materiales */}
         <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
             <Package className="w-5 h-5 text-blue-600" />
@@ -110,21 +112,18 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) =
 
             {fields.map((item, index) => (
               <div key={item.id} className="grid grid-cols-12 gap-3 items-center">
-                {/* Selector de Material (Se conecta al ref: "inventory" en tu backend) */}
                 <div className="col-span-7">
                   <select
                     {...register(`materials.${index}.name`, { required: true })}
                     className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
                   >
                     <option value="">Buscar material...</option>
-                    {/* Aquí mapearías tus materiales del inventario real en producción */}
-                    <option value="65f123456789abcdef012345">Gasa estéril 10x10</option>
-                    <option value="65f123456789abcdef012346">Guantes quirúrgicos N° 7</option>
-                    <option value="65f123456789abcdef012347">Jeringa descartable 5ml</option>
+                    <option value="Gasa estéril 10x10">Gasa estéril 10x10</option>
+                    <option value="Guantes quirúrgicos N° 7">Guantes quirúrgicos N° 7</option>
+                    <option value="Jeringa descartable 5ml">Jeringa descartable 5ml</option>
                   </select>
                 </div>
 
-                {/* Cantidad */}
                 <div className="col-span-3">
                   <input
                     type="number"
@@ -134,7 +133,6 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) =
                   />
                 </div>
 
-                {/* Botón Eliminar fila */}
                 <div className="col-span-2 text-right">
                   <button
                     type="button"
@@ -157,17 +155,17 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) =
           </button>
         </div>
 
-        {/* Tarjeta 3: Indicaciones Post-Operatorias */}
+        {/* Tarjeta 3: Post-operatorias */}
         <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
             <FileText className="w-5 h-5 text-blue-600" />
             <h3 className="font-bold text-gray-900 text-sm">Indicaciones post-operatorias</h3>
           </div>
           <p className="text-xs text-gray-500">Instrucciones y cuidados que debe seguir el paciente después del procedimiento.</p>
-          
+
           <div>
             <textarea
-              placeholder="Describa las indicaciones post-operatorias, cuidados, restricciones, señales de alarma, etc..."
+              placeholder="Describa las indicaciones post-operatorias..."
               rows={4}
               maxLength={1000}
               {...register("post_operative_instructions")}
@@ -180,17 +178,16 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) =
         </div>
       </div>
 
-      {/* COLUMNA DERECHA: CONFIGURACIONES Y SWITCHES */}
+      {/* COLUMNA DERECHA */}
       <div className="space-y-6">
-        
-        {/* Configuración de Estado y Enfermera */}
+
+        {/* Configuración */}
         <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm space-y-5">
           <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
             <Activity className="w-5 h-5 text-blue-600" />
             <h3 className="font-bold text-gray-900 text-sm">Configuración del procedimiento</h3>
           </div>
 
-          {/* Toggle Requiere Enfermera */}
           <div className="flex items-center justify-between">
             <div className="max-w-[80%]">
               <label className="block text-xs font-semibold text-gray-900">¿Requiere enfermera?</label>
@@ -202,7 +199,6 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) =
             </label>
           </div>
 
-          {/* Toggle Estado Activo */}
           <div className="flex items-center justify-between border-t border-gray-50 pt-4">
             <div className="max-w-[80%]">
               <label className="block text-xs font-semibold text-gray-900">Estado del procedimiento</label>
@@ -215,7 +211,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) =
           </div>
         </div>
 
-        {/* Resumen del procedimiento (Live Preview Widget) */}
+        {/* Resumen en vivo */}
         <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
             <Activity className="w-5 h-5 text-blue-600" />
@@ -248,7 +244,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) =
           </div>
         </div>
 
-        {/* Información Importante */}
+        {/* Info */}
         <div className="bg-green-50/40 border border-green-100 rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-2 text-green-800 font-bold text-xs">
             <Info className="w-4 h-4 text-green-600" />
@@ -261,7 +257,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false }) =
           </ul>
         </div>
 
-        {/* Botones Globales cuando se renderiza como Nueva Pantalla */}
+        {/* Botones — solo cuando es creación (no edición desde modal) */}
         {!initialData && (
           <div className="flex items-center justify-end gap-3 pt-2">
             <button type="button" className="px-5 py-2 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">

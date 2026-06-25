@@ -1,5 +1,5 @@
 import React from "react";
-import Modal from "@/components/ui/Modal"; // Ajusta la ruta de tu Modal global
+import Modal from "@/components/ui/Modal";
 import ProcedureForm from "./ProceduresForm";
 
 const EditProcedureModal = ({ isOpen, onClose, procedureData, onUpdate, isSubmitting }) => {
@@ -10,7 +10,7 @@ const EditProcedureModal = ({ isOpen, onClose, procedureData, onUpdate, isSubmit
       title="Editar procedimiento"
       subtitle="Modifique la información del procedimiento médico seleccionado en el sistema."
       onClose={onClose}
-      width="w-[600px]" // Un poco más ancho para que los campos dinámicos se acomoden perfectamente
+      width="w-[600px]"
       footer={
         <>
           <button
@@ -20,8 +20,13 @@ const EditProcedureModal = ({ isOpen, onClose, procedureData, onUpdate, isSubmit
           >
             Cancelar
           </button>
+          {/*
+            form="edit-procedure-form" vincula este botón al <form> real.
+            El id tiene que vivir en el elemento <form> del HTML, no en un div
+            contenedor — ese era el bug que impedía que el submit funcionara.
+          */}
           <button
-            form="edit-procedure-form" // Vincula el botón del footer al formulario nativo de HTML
+            form="edit-procedure-form"
             type="submit"
             disabled={isSubmitting}
             className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
@@ -31,17 +36,18 @@ const EditProcedureModal = ({ isOpen, onClose, procedureData, onUpdate, isSubmit
         </>
       }
     >
-      {/* Incrustamos el ProcedureForm dentro del cuerpo scrollable del modal.
-        Le inyectamos un id para que responda al botón de submit que se encuentra fuera en el footer.
-      */}
-      <div id="edit-procedure-form-container" className="pr-1">
-        <div className="block-form-wrapper" id="edit-procedure-form">
-          <ProcedureForm 
-            initialData={procedureData} 
-            onSubmit={(data) => onUpdate(procedureData._id, data)}
-            isSubmitting={isSubmitting}
-          />
-        </div>
+      <div className="pr-1">
+        {/*
+          El id "edit-procedure-form" se pasa como prop a ProcedureForm
+          para que lo coloque directamente en el elemento <form>,
+          que es el único lugar válido para que form="edit-procedure-form" funcione.
+        */}
+        <ProcedureForm
+          formId="edit-procedure-form"
+          initialData={procedureData}
+          onSubmit={(data) => onUpdate(procedureData._id, data)}
+          isSubmitting={isSubmitting}
+        />
       </div>
     </Modal>
   );
