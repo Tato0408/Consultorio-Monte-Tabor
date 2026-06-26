@@ -32,7 +32,7 @@ console.log(email);
     //Guardamos todo en un token
     const token = jsonwebtoken.sign(
       //#1- ¿Qué vamos a guardar?
-      { email, randomCode, userType: "customer", verified: false },
+      { email, randomCode, userType: "recepcionist", verified: false },
       //#2- Secret key
       config.JWT.secret,
       //#3- ¿cuando expira?
@@ -94,7 +94,7 @@ recoveryPasswordController.verifyCode = async (req, res) => {
     //vamos a colocar en el token que ya está verificado
     const newToken = jsonwebtoken.sign(
       //#1- ¿Qué vamos a guardar?
-      { email: decoded.email, userType: "customer", verified: true },
+      { email: decoded.email, userType: "recepcionist", verified: true },
       //#2- Secret key
       config.JWT.secret,
       //#3- ¿Cúando expira?

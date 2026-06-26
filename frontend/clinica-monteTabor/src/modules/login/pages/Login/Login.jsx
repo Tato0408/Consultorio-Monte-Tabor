@@ -164,7 +164,7 @@ const Login = () => {
                 />
                 <div className="flex justify-end mt-1">
                   <Link
-                    to="/admin/forgot-password"
+                    to="/recovery"
                     className="text-xs text-[#3B6FCA] hover:text-[#2d5ab5] hover:underline transition-colors"
                   >
                     ¿Olvidaste tu contraseña?

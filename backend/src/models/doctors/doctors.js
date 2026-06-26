@@ -23,10 +23,10 @@ const doctorSchema = new Schema(
       required: true,
       unique: true,
     },
-    age: {
-      type: Number,
-      required: true,
-    },
+  birth_date: {
+  type: Date,
+  required: true,
+},
     gender: {
       type: String,
       required: true,

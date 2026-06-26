@@ -6,11 +6,11 @@ import {
   BriefcaseMedical,
 } from "lucide-react";
 
-const DoctorsStats = () => {
+const DoctorsStats = ({ doctors, loading }) => {
   const cards = [
     {
       title: "Doctores",
-      value: 10,
+      value: loading ? "..." : doctors.length,
       icon: UserRound,
     },
     {

@@ -1,14 +1,27 @@
 import React from "react";
-import { UserRound } from "lucide-react";
 
-const DoctorProfileCard = () => {
+const DoctorProfileCard = ({ doctor }) => {
+  if (!doctor) {
+    return (
+      <div className="border rounded-xl p-6 shadow-sm bg-white">
+        <p className="text-center text-slate-500">
+          Seleccione un doctor para ver sus detalles
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="border rounded-xl overflow-hidden shadow-sm">
+    <div className="border rounded-xl overflow-hidden shadow-sm bg-white">
       <div className="bg-blue-600 text-white p-6 flex flex-col items-center">
-        <UserRound size={60} />
+        <img
+          src={doctor.img_url}
+          alt={`${doctor.name} ${doctor.last_name}`}
+          className="w-24 h-24 rounded-full bg-white object-cover"
+        />
 
-        <h3 className="font-semibold mt-3">
-          Gabriela Isabel Castillo Mena
+        <h3 className="font-semibold mt-3 text-center">
+          {doctor.name} {doctor.last_name}
         </h3>
       </div>
 
@@ -17,35 +30,61 @@ const DoctorProfileCard = () => {
           <span className="font-semibold">
             Género:
           </span>{" "}
-          Femenino
+          {doctor.gender}
         </div>
 
         <div>
           <span className="font-semibold">
-            Edad:
+            Fecha de nacimiento:
           </span>{" "}
-          18
+          {new Date(
+            doctor.birth_date
+          ).toLocaleDateString("es-SV")}
         </div>
 
         <div>
           <span className="font-semibold">
             DUI:
           </span>{" "}
-          12313819-7
+          {doctor.dui}
         </div>
 
         <div>
           <span className="font-semibold">
             Teléfono:
           </span>{" "}
-          8594-8174
+          {doctor.phone}
         </div>
 
         <div>
           <span className="font-semibold">
             Email:
           </span>{" "}
-          ejemplo@gmail.com
+          {doctor.email}
+        </div>
+
+        <div>
+          <span className="font-semibold">
+            Licencia:
+          </span>{" "}
+          {doctor.license_number}
+        </div>
+
+        <div>
+          <span className="font-semibold">
+            Estado:
+          </span>{" "}
+          <span
+            className={
+              doctor.is_active
+                ? "text-green-600"
+                : "text-red-600"
+            }
+          >
+            {doctor.is_active
+              ? "Activo"
+              : "Inactivo"}
+          </span>
         </div>
       </div>
     </div>

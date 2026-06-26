@@ -5,6 +5,10 @@ import PatientsList from './modules/patients/pages/PatientsList';
 import DoctorsList from './modules/doctors/pages/DoctorsList';
 import Login from './modules/login/pages/Login/Login';
 import Register from './modules/login/pages/Register/Register';
+import Recovery from './modules/login/pages/Recovery/Recovery';
+import Verify from './modules/login/pages/Recovery/VerifyCode';
+import PasswordUpdated from './modules/login/pages/Recovery/PasswordUpdated';
+import Password from './modules/login/pages/Recovery/NewPassword';
 
 function App() {
   return (
@@ -16,6 +20,13 @@ function App() {
           {/* Rutas sin sidebar*/}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/recovery" element={<Recovery />} />
+          <Route path="/verify-code" element={<Verify />} />
+          <Route path="/new-password" element={<Password />} />
+          <Route path="/password-updated" element={<PasswordUpdated />} />
+          
+
+
 
           <Route element={<MainLayout/>}>
             <Route path="/home" element={<Home />} />

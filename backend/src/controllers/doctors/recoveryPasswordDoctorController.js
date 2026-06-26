@@ -32,7 +32,7 @@ console.log(email);
     //Guardamos todo en un token
     const token = jsonwebtoken.sign(
       //#1- ¿Qué vamos a guardar?
-      { email, randomCode, userType: "customer", verified: false },
+      { email, randomCode, userType: "doctor", verified: false },
       //#2- Secret key
       config.JWT.secret,
       //#3- ¿cuando expira?
@@ -84,6 +84,9 @@ recoveryPasswordController.verifyCode = async (req, res) => {
     const token = req.cookies.recoveryCookie;
     const decoded = jsonwebtoken.verify(token, config.JWT.secret);
 
+    console.log("Código recibido:", code);
+    console.log("Código guardado:", decoded.randomCode);
+
     //Ahora, comparar el código que el usuario escribió
     //con el que está guardado en el token
     if (code !== decoded.randomCode) {
@@ -94,7 +97,7 @@ recoveryPasswordController.verifyCode = async (req, res) => {
     //vamos a colocar en el token que ya está verificado
     const newToken = jsonwebtoken.sign(
       //#1- ¿Qué vamos a guardar?
-      { email: decoded.email, userType: "customer", verified: true },
+      { email: decoded.email, userType: "doctor", verified: true },
       //#2- Secret key
       config.JWT.secret,
       //#3- ¿Cúando expira?

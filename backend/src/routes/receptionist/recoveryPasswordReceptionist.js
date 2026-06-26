@@ -1,5 +1,5 @@
 import express from "express";
-import recoveryPasswordController from "../../controllers/receptionist/recoveryPasswordReceptionistController.js";
+import recoveryPasswordController from "../../controllers/receptionist/recoveryPasswordRecepcionistController.js";
 
 const router = express.Router();
 

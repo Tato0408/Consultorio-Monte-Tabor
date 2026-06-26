@@ -1,11 +1,13 @@
-
 import doctorsModel from "../../models/doctors/doctors.js";
 import { v2 as cloudinary } from "cloudinary";
+import bcryptjs from "bcryptjs";
 
-//Array de funciones
+// Array de funciones
 const doctorController = {};
 
-
+// =====================
+// GET ALL
+// =====================
 doctorController.getDoctors = async (req, res) => {
   try {
     const doctors = await doctorsModel.find();
@@ -20,30 +22,117 @@ doctorController.getDoctors = async (req, res) => {
   }
 };
 
-//UPDATE
+// =====================
+// CREATE
+// =====================
+doctorController.createDoctor = async (req, res) => {
+  try {
+    const {
+      name,
+      last_name,
+      dui,
+      birth_date,
+      gender,
+      phone,
+      license_number,
+      email,
+      password,
+    } = req.body;
 
+    const doctorExists =
+      await doctorsModel.findOne({
+        $or: [
+          { email },
+          { dui },
+          { license_number },
+        ],
+      });
+
+    if (doctorExists) {
+      return res.status(400).json({
+        message:
+          "Ya existe un doctor con ese correo, DUI o licencia",
+      });
+    }
+
+    const passwordHashed =
+      await bcryptjs.hash(password, 10);
+
+    const newDoctor =
+      new doctorsModel({
+        img_url:
+          req.files["doctorImage"][0].path,
+
+        img_public_id:
+          req.files["doctorImage"][0].filename,
+
+        name,
+        last_name,
+        dui,
+        birth_date,
+        gender,
+        phone,
+        license_number,
+
+        license_url:
+          req.files["licenseImage"][0].path,
+
+        license_public_id:
+          req.files["licenseImage"][0].filename,
+
+        email,
+        password:
+          passwordHashed,
+
+        is_active: true,
+        is_verified: true,
+        loginAttempts: 0,
+      });
+
+    await newDoctor.save();
+
+    return res.status(201).json({
+      message:
+        "Doctor creado correctamente",
+    });
+
+  } catch (error) {
+    console.log("error " + error);
+
+    return res.status(500).json({
+      message:
+        "Internal server error",
+    });
+  }
+};
+
+// =====================
+// UPDATE
+// =====================
 doctorController.updateDoctors = async (req, res) => {
   try {
     const {
       name,
       last_name,
       dui,
-      age,
+      birth_date,
       gender,
       phone,
       license_number,
       email,
-      password,
       is_active,
       is_verified,
     } = req.body;
 
     const doctorFound =
-      await doctorsModel.findById(req.params.id);
+      await doctorsModel.findById(
+        req.params.id
+      );
 
     if (!doctorFound) {
       return res.status(404).json({
-        message: "Doctor not found",
+        message:
+          "Doctor not found",
       });
     }
 
@@ -51,20 +140,19 @@ doctorController.updateDoctors = async (req, res) => {
       name,
       last_name,
       dui,
-      age,
+      birth_date,
       gender,
       phone,
       license_number,
       email,
-      password,
       is_active,
       is_verified,
     };
 
-    //NUEVA FOTO PERFIL
+    // FOTO PERFIL
     if (req.files?.doctorImage) {
       await cloudinary.uploader.destroy(
-        doctorFound.img_public_id,
+        doctorFound.img_public_id
       );
 
       updatedData.img_url =
@@ -74,10 +162,10 @@ doctorController.updateDoctors = async (req, res) => {
         req.files["doctorImage"][0].filename;
     }
 
-    //NUEVA FOTO LICENCIA
+    // FOTO LICENCIA
     if (req.files?.licenseImage) {
       await cloudinary.uploader.destroy(
-        doctorFound.license_public_id,
+        doctorFound.license_public_id
       );
 
       updatedData.license_url =
@@ -90,18 +178,20 @@ doctorController.updateDoctors = async (req, res) => {
     await doctorsModel.findByIdAndUpdate(
       req.params.id,
       updatedData,
-      { new: true },
+      { new: true }
     );
 
     return res.status(200).json({
-      message: "Doctor updated",
+      message:
+        "Doctor updated",
     });
 
   } catch (error) {
     console.log("error " + error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message:
+        "Internal server error",
     });
   }
 };
@@ -111,40 +201,44 @@ doctorController.updateDoctors = async (req, res) => {
 // =====================
 doctorController.deleteDoctor = async (req, res) => {
   try {
-
     const doctorFound =
-      await doctorsModel.findById(req.params.id);
+      await doctorsModel.findById(
+        req.params.id
+      );
 
     if (!doctorFound) {
       return res.status(404).json({
-        message: "Doctor not found",
+        message:
+          "Doctor not found",
       });
     }
 
-    //BORRAR FOTO PERFIL
+    // BORRAR FOTO PERFIL
     await cloudinary.uploader.destroy(
-      doctorFound.img_public_id,
+      doctorFound.img_public_id
     );
 
-    //BORRAR FOTO LICENCIA
+    // BORRAR FOTO LICENCIA
     await cloudinary.uploader.destroy(
-      doctorFound.license_public_id,
+      doctorFound.license_public_id
     );
 
-    //BORRAR DOCUMENTO
+    // BORRAR DOCUMENTO
     await doctorsModel.findByIdAndDelete(
-      req.params.id,
+      req.params.id
     );
 
     return res.status(200).json({
-      message: "Doctor deleted",
+      message:
+        "Doctor deleted",
     });
 
   } catch (error) {
     console.log("error " + error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message:
+        "Internal server error",
     });
   }
 };
