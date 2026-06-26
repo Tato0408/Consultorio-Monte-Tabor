@@ -2,37 +2,37 @@ import { Schema, model } from "mongoose";
 
 const procedureSchema = new Schema(
     {
-        name: { 
-            type: String, 
-            required: true 
+        name: {
+            type: String,
+            required: true
         },
-        description: { 
-            type: String 
+        description: {
+            type: String
         },
-
-        estimated_duration: { 
-            type: Number 
+        estimated_duration: {
+            type: Number
         },
-        price: { 
-            type: Number, 
-            default: 0 
+        price: {
+            type: Number,
+            default: 0
         },
         materials: [
             {
-                name: { type: String, required: true },
-                quantity: { type: Number, required: true, default: 1 },
+                insumo: { type: Schema.Types.ObjectId, ref: "inventory" },
+                name: { type: String },
+                quantity: { type: Number, default: 1 },
             },
         ],
-        post_operative_instructions: { 
+        post_operative_instructions: {
             type: String
         },
-        requires_nurse: { 
-            type: Boolean, 
-            default: false 
+        requires_nurse: {
+            type: Boolean,
+            default: false
         },
-        is_active: { 
-            type: Boolean, 
-            default: true 
+        is_active: {
+            type: Boolean,
+            default: true
         },
     },
     {
@@ -41,4 +41,4 @@ const procedureSchema = new Schema(
     }
 );
 
-export default model("Procedure", procedureSchema);
+export default model("procedure", procedureSchema);

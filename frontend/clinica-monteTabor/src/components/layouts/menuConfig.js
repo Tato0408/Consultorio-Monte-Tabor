@@ -5,9 +5,9 @@ export const roles = {
     admin: "admin",
     doctor: "doctor",
     nurse: "nurse",
-    receptionist: "recepcionist"
+    receptionist: "receptionist"
 };
-
+ 
 //Apartados que conforman el menu lateral
 export const sideBarMenu = [
     {
@@ -21,8 +21,9 @@ export const sideBarMenu = [
         icon: 'Calendar',
         allowedRoles: [roles.admin, roles.doctor, roles.receptionist],
         subItems: [
-            { title: 'Horarios', path: '/calendar/schedules', allowedRoles: [roles.admin, roles.doctor] },
-            { title: 'Citas', path: '/calendar/appointments', allowedRoles: [roles.admin, roles.doctor, roles.receptionist] }
+            { title: 'Horarios', icon: 'CalendarClock', path: '/calendar/schedules', allowedRoles: [roles.admin, roles.doctor] },
+            { title: 'Citas', icon: 'CalendarCheck2', path: '/calendar/appointments', allowedRoles: [roles.admin, roles.doctor, roles.receptionist] },
+            { title: 'Consultas', icon: 'ClipboardList', path: '/calendar/consultations', allowedRoles: [roles.admin, roles.doctor, roles.receptionist] }
         ]
     },
     {
@@ -30,21 +31,10 @@ export const sideBarMenu = [
         icon: 'Users',
         allowedRoles: [roles.admin],
         subItems: [
-            { title: 'Doctores', path: '/users/doctors', allowedRoles: [roles.admin] },
-            { title: 'Pacientes', path: '/users/patients', allowedRoles: [roles.admin] },
-            { title: 'Recepcionista', path: '/users/receptionist', allowedRoles: [roles.admin] },
-            { title: 'Enfermeras', path: '/users/nurses', allowedRoles: [roles.admin] }
-        ]
-    },
-    {
-        title: 'Reportes',
-        icon: 'FileText',
-        allowedRoles: [roles.admin, roles.doctor],
-        subItems: [
-            { title: 'Citas', path: '/reports/appointments', allowedRoles: [roles.admin, roles.doctor] },
-            { title: 'Historial clínico', path: '/reports/clinicalHistory', allowedRoles: [roles.admin, roles.doctor] },
-            { title: 'Pacientes', path: '/reports/patients', allowedRoles: [roles.admin, roles.doctor] },
-            { title: 'Doctores', path: '/reports/doctors', allowedRoles: [roles.admin] }
+            { title: 'Doctores', icon: 'UserPlus', path: '/users/doctors', allowedRoles: [roles.admin] },
+            { title: 'Pacientes', icon: 'UserCheck', path: '/users/patients', allowedRoles: [roles.admin] },
+            { title: 'Recepcionista', icon: 'User', path: '/users/receptionist', allowedRoles: [roles.admin] },
+            { title: 'Enfermeras', icon: 'UserPlus2', path: '/users/nurses', allowedRoles: [roles.admin] }
         ]
     },
     {
@@ -52,7 +42,18 @@ export const sideBarMenu = [
         icon: 'Activity',
         allowedRoles: [roles.admin, roles.doctor],
         subItems: [
-            { title: 'Procedimientos', path: '/procedures', allowedRoles: [roles.admin, roles.doctor] }
+            { title: 'Procedimientos', icon: 'Stethoscope', path: '/procedures', allowedRoles: [roles.admin, roles.doctor] }
+        ]
+    },
+    {
+        title: 'Reportes',
+        icon: 'FileText',
+        allowedRoles: [roles.admin, roles.doctor],
+        subItems: [
+            { title: 'Citas', icon: 'CalendarCheck2', path: '/reports/appointments', allowedRoles: [roles.admin, roles.doctor] },
+            { title: 'Historial clínico', icon: 'FileClock', path: '/reports/clinicalHistory', allowedRoles: [roles.admin, roles.doctor] },
+            { title: 'Pacientes', icon: 'UserRound', path: '/reports/patients', allowedRoles: [roles.admin, roles.doctor] },
+            { title: 'Doctores', icon: 'User', path: '/reports/doctors', allowedRoles: [roles.admin] }
         ]
     },
     {
@@ -60,10 +61,10 @@ export const sideBarMenu = [
         icon: 'Package',
         allowedRoles: [roles.admin],
         subItems: [
-            { title: 'Productos', path: '/inventory/products', allowedRoles: [roles.admin] },
-            { title: 'Tratamientos', path: '/iventory/treatments', allowedRoles: [roles.admin] },
-            { title: 'Movimientos', path: '/inventory/movements', allowedRoles: [roles.admin] },
-            { title: 'Reportes de inventario', path: '/inventory/reports', allowedRoles: [roles.admin] }
+            { title: 'Productos', icon: 'Briefcase', path: '/inventory/products', allowedRoles: [roles.admin] },
+            { title: 'Tratamientos', icon: 'FileBox', path: '/iventory/treatments', allowedRoles: [roles.admin] },
+            { title: 'Movimientos', icon: 'FileSignature', path: '/inventory/movements', allowedRoles: [roles.admin] },
+            { title: 'Reportes de inventario', icon: 'ClipboardCheck', path: '/inventory/reports', allowedRoles: [roles.admin] }
         ]
     },
     {
@@ -71,8 +72,8 @@ export const sideBarMenu = [
         icon: 'Settings',
         allowedRoles: [roles.admin, roles.doctor, roles.receptionist, roles.nurse],
         subItems: [
-            { title: 'Roles y permisos', path: '/system/privileges', allowedRoles: [roles.admin] },
-            { title: 'Mi perfil', path: '/system/profile', allowedRoles: [roles.admin, roles.doctor, roles.receptionist, roles.nurse] }
+            { title: 'Roles y permisos', icon: 'FileSignature', path: '/system/privileges', allowedRoles: [roles.admin] },
+            { title: 'Mi perfil', icon: 'User', path: '/system/profile', allowedRoles: [roles.admin, roles.doctor, roles.receptionist, roles.nurse] }
         ]
     }
 ];

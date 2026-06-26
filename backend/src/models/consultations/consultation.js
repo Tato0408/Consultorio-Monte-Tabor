@@ -59,7 +59,7 @@ const consultationSchema = new Schema({
   },
   patient_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "patients",
+    ref: "Patients",
   },
 
   clinical_data: {
