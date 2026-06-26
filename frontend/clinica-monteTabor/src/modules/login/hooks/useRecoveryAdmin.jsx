@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 const API_URL =
-  "http://localhost:4000/api/recoveryAfmin";
+  "http://localhost:4000/api/recoveryAdminPassword";
 
 export const useRecoveryAdmin = () => {
   const [loading, setLoading] =

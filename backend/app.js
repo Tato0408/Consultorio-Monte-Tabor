@@ -14,7 +14,7 @@ import loginCommonRoleRoute from './src/routes/login/loginCommonRole.js'
 import receptionistRecoveryRoutes from './src/routes/receptionist/recoveryPasswordReceptionist.js'
 import doctorRecoveryRoutes from './src/routes/doctors/recoveryPasswordDoctor.js'
 import logoutRoute from './src/routes/login/logout.js'
-
+import recoveryNursePassword from './src/routes/nurse/recoveryPasswordNurses.js'
 import inventoryRoutes from './src/routes/inventory/inventory.js'
 import proceduresRoutes from './src/routes/procedures/procedures.js'
 import authRoutes from "./src/routes/auth/authRoutes.js"
@@ -42,17 +42,18 @@ app.use("/api/loginDoctors", loginDoctorRoutes);
 app.use("/api/receptionist", receptionistRoutes);
 app.use("/api/recoveryReceptionist", receptionistRecoveryRoutes);
 app.use("/api/registerReceptionist", registerReceptionistRoutes);
-app.use("/api/consultations", consultationsRoutes)
-app.use("/api/nurses", nurseRoutes)
-app.use("/api/loginCommonRole", loginCommonRoleRoute)
+app.use("/api/consultations", consultationsRoutes);
+app.use("/api/nurses", nurseRoutes);
+app.use("/api/recoveryNursesPassword", recoveryNursePassword);
+app.use("/api/loginCommonRole", loginCommonRoleRoute);
 //app.use("/api/patients", patientsRoute);
-app.use("/api/logout", logoutRoute)
+app.use("/api/logout", logoutRoute);
 app.use("/api/patients", patientsRoute);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/procedures", proceduresRoutes);
-app.use("/api/auth" , authRoutes)
-app.use("/api/admin" , adminRoutes)
-app.use("/api/registerAdmin" , registerAdminRoute)
-app.use("/api/recoveryAdminPassword" , recoveryAdminPassword)
+app.use("/api/auth" , authRoutes);
+app.use("/api/admin" , adminRoutes);
+app.use("/api/registerAdmin" , registerAdminRoute);
+app.use("/api/recoveryAdminPassword" , recoveryAdminPassword);
 
 export default app;
