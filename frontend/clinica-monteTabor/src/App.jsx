@@ -19,35 +19,6 @@ import CreateAppointmentForm from './modules/appointments/components/Appointment
 function App() {
   return (
     <>
-    {/*BrowserRouter sirve para cambiar de página en la web usando la barra de arriba, pero sin que la pantalla se trabe o parpadee al cargar*/}
-      <BrowserRouter>
-
-        <Routes>
-          {/* Rutas sin sidebar*/}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/recovery" element={<Recovery />} />
-          <Route path="/verify-code" element={<Verify />} />
-          <Route path="/new-password" element={<Password />} />
-          <Route path="/password-updated" element={<PasswordUpdated />} />
-          
-
-
-
-          <Route element={<MainLayout/>}>
-            <Route path="/home" element={<Home />} />
-            <Route path="/users/patients" element={<PatientsList />} />
-            <Route path="/users/doctors" element={<DoctorsList />} />
-          </Route>
-          {/*Cambiar a login despues ahorita esta para codear asi*/}
-          <Route path="*" element={<Navigate to="/users/patients" replace />} />
-
-
-        </Routes>
-
-
-
-      </BrowserRouter>
       {/*BrowserRouter sirve para cambiar de página en la web usando la barra de arriba, pero sin que la pantalla se trabe o parpadee al cargar*/}
       <AuthProvider>
         <BrowserRouter>
@@ -57,12 +28,17 @@ function App() {
             {/* Rutas sin sidebar*/}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/recovery" element={<Recovery />} />
+            <Route path="/verify-code" element={<Verify />} />
+            <Route path="/new-password" element={<Password />} />
+            <Route path="/password-updated" element={<PasswordUpdated />} />
 
             <Route element={<MainLayout />}>
               <Route path="/home" element={<Home />} />
               <Route path="/users/patients" element={<PatientsList />} />
               <Route path="/users/doctors" element={<DoctorsList />} />
               <Route path="/calendar/consultations" element={<Consultations />} />
+              <Route path="/calendar/appointments" element={<AdminAppointments/>} />
               <Route path="/calendar/appointments/new" element={<CreateAppointmentForm />} />
               <Route path="/calendar/appointments/:id" element={<CreateAppointmentForm />} />
               <Route path="/inventory/products" element={<InventoryDashboard />} />
