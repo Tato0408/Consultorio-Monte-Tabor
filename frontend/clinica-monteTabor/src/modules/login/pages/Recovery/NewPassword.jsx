@@ -11,6 +11,7 @@ import FooterLogin from "../../components/Footer";
 
 import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
 import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
+import { useRecoveryAdmin } from "../../hooks/useRecoveryAdmin";
 
 const NewPassword = () => {
   const [password, setPassword] = useState("");
@@ -19,16 +20,33 @@ const NewPassword = () => {
 
   const navigate = useNavigate();
 
-  // 🔥 SOLO LEEMOS EL TIPO REAL GUARDADO EN EL PASO ANTERIOR
+  // Se lee el tipo de usuario desde RecoveryPassword.jsx
   const recoveryType = localStorage.getItem("recoveryType");
 
   const doctorRecovery = useRecoveryDoctor();
   const receptionistRecovery = useRecoveryReceptionist();
+  const adminRecovery = useRecoveryAdmin();
 
-  const recovery =
-    recoveryType === "receptionist"
-      ? receptionistRecovery
-      : doctorRecovery;
+  // Selecciona el hook correspondiente según el tipo de usuario
+  let recovery;
+
+  switch (recoveryType) {
+    case "doctor":
+      recovery = doctorRecovery;
+      break;
+
+    case "receptionist":
+      recovery = receptionistRecovery;
+      break;
+
+    case "admin":
+      recovery = adminRecovery;
+      break;
+
+    default:
+      recovery = doctorRecovery;
+      break;
+  }
 
   const loading = recovery.loading;
 
@@ -54,7 +72,7 @@ const NewPassword = () => {
 
       console.log("RESPUESTA CAMBIO PASSWORD:", response);
 
-      // limpiar flujo
+      // Limpia el flujo
       localStorage.removeItem("recoveryType");
       localStorage.removeItem("recoveryEmail");
 
@@ -71,11 +89,8 @@ const NewPassword = () => {
       subtitle="Crea una nueva contraseña segura para proteger tu cuenta"
     >
       <div className="flex-1 flex flex-col justify-between px-8 sm:px-12 py-5">
-
         <div className="flex-1 flex items-center justify-center">
-
           <div className="w-full max-w-[450px]">
-
             <div className="text-center mb-8">
               <h2 className="text-4xl font-bold text-gray-900">
                 Confirma tu contraseña
@@ -87,7 +102,6 @@ const NewPassword = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
-
               <InputField
                 label="Contraseña"
                 id="password"
@@ -121,11 +135,8 @@ const NewPassword = () => {
               <SecondaryButton to="/login">
                 Volver al inicio de sesión
               </SecondaryButton>
-
             </form>
-
           </div>
-
         </div>
 
         <FooterLogin />

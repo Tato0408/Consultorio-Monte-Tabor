@@ -10,6 +10,9 @@ import FooterLogin from "../../components/Footer";
 
 import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
 import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
+import { useRecoveryAdmin } from "../../hooks/useRecoveryAdmin";
+
+import { showError } from "../../../../lib/alerts";
 
 const RecoveryPassword = () => {
   const [email, setEmail] = useState("");
@@ -19,39 +22,59 @@ const RecoveryPassword = () => {
 
   const doctorRecovery = useRecoveryDoctor();
   const receptionistRecovery = useRecoveryReceptionist();
-
-  const recovery = {
-    doctor: doctorRecovery,
-    receptionist: receptionistRecovery,
-  };
+  const adminRecovery = useRecoveryAdmin();
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  try {
-    const doctorRes = await doctorRecovery.requestCode(email);
+    setError("");
 
-    if (doctorRes.message === "email sent") {
-      localStorage.setItem("recoveryType", "doctor");
-      localStorage.setItem("recoveryEmail", email);
-      navigate("/verify-code");
+    if (!email.trim()) {
+      setError("Ingresa tu correo electrónico");
       return;
     }
-  } catch (e) {}
 
-  try {
-    const recRes = await receptionistRecovery.requestCode(email);
+    // Doctor
+    try {
+      const doctorRes = await doctorRecovery.requestCode(email);
 
-    if (recRes.message === "email sent") {
-      localStorage.setItem("recoveryType", "receptionist");
-      localStorage.setItem("recoveryEmail", email);
-      navigate("/verify-code");
-      return;
-    }
-  } catch (e) {
-    setError("Correo no encontrado");
-  }
-};
+      if (doctorRes.message === "email sent") {
+        localStorage.setItem("recoveryType", "doctor");
+        localStorage.setItem("recoveryEmail", email);
+        navigate("/verify-code");
+        return;
+      }
+    } catch (e) {}
+
+    // Receptionist
+    try {
+      const recRes = await receptionistRecovery.requestCode(email);
+
+      if (recRes.message === "email sent") {
+        localStorage.setItem("recoveryType", "receptionist");
+        localStorage.setItem("recoveryEmail", email);
+        navigate("/verify-code");
+        return;
+      }
+    } catch (e) {}
+
+    // Admin
+    try {
+      const adminRes = await adminRecovery.requestCode(email);
+
+      if (adminRes.message === "email sent") {
+        localStorage.setItem("recoveryType", "admin");
+        localStorage.setItem("recoveryEmail", email);
+        navigate("/verify-code");
+        return;
+      }
+    } catch (e) {}
+
+    showError(
+      "Correo no encontrado",
+      "No existe ninguna cuenta registrada con ese correo electrónico."
+    );
+  };
 
   return (
     <AuthLayout
@@ -61,7 +84,6 @@ const RecoveryPassword = () => {
       <div className="flex-1 flex flex-col justify-between px-8 sm:px-12 py-5">
         <div className="flex-1 flex items-center justify-center">
           <div className="w-full max-w-[450px]">
-
             <div className="text-center mb-8">
               <h2 className="text-4xl font-bold text-gray-900">
                 Recupera tu contraseña
@@ -73,7 +95,6 @@ const RecoveryPassword = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-
               <InputField
                 label="Correo"
                 id="email"
@@ -92,9 +113,7 @@ const RecoveryPassword = () => {
               <SecondaryButton to="/login">
                 Volver al inicio de sesión
               </SecondaryButton>
-
             </form>
-
           </div>
         </div>
 
