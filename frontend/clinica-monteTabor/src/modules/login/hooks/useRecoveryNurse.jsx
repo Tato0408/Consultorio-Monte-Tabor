@@ -3,7 +3,7 @@ import { useState } from "react";
 const API_URL =
     "http://localhost:4000/api/recoveryNursePassword";
 
-export const useRecoveryReceptionist = () => {
+export const useRecoveryNurse = () => {
 
     const [loading, setLoading] = useState(false);
 
