@@ -11,6 +11,7 @@ import consultationsRoutes from "./src/routes/consultations/consultation.js"
 import patientsRoute from "./src/routes/patients/patients.js"
 import nurseRoutes from './src/routes/nurse/nurses.js'
 import loginCommonRoleRoute from './src/routes/login/loginCommonRole.js'
+import loginPatientRoute from './src/routes/login/loginPatient/loginPatient.js'
 import receptionistRecoveryRoutes from './src/routes/receptionist/recoveryPasswordReceptionist.js'
 import doctorRecoveryRoutes from './src/routes/doctors/recoveryPasswordDoctor.js'
 import logoutRoute from './src/routes/login/logout.js'
@@ -46,7 +47,7 @@ app.use("/api/consultations", consultationsRoutes);
 app.use("/api/nurses", nurseRoutes);
 app.use("/api/recoveryNursesPassword", recoveryNursePassword);
 app.use("/api/loginCommonRole", loginCommonRoleRoute);
-//app.use("/api/patients", patientsRoute);
+app.use("/api/loginPatient", loginPatientRoute);
 app.use("/api/logout", logoutRoute);
 app.use("/api/patients", patientsRoute);
 app.use("/api/inventory", inventoryRoutes);
