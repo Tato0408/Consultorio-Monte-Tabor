@@ -12,6 +12,7 @@ import FooterLogin from "../../components/Footer";
 import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
 import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
 import { useRecoveryAdmin } from "../../hooks/useRecoveryAdmin";
+import { useRecoveryNurse } from "../../hooks/useRecoveryNurse";
 
 const NewPassword = () => {
   const [password, setPassword] = useState("");
@@ -26,6 +27,7 @@ const NewPassword = () => {
   const doctorRecovery = useRecoveryDoctor();
   const receptionistRecovery = useRecoveryReceptionist();
   const adminRecovery = useRecoveryAdmin();
+  const nurseRecovery = useRecoveryNurse();
 
   // Selecciona el hook correspondiente según el tipo de usuario
   let recovery;
@@ -41,6 +43,10 @@ const NewPassword = () => {
 
     case "admin":
       recovery = adminRecovery;
+      break;
+
+    case "nurse":
+      recovery = nurseRecovery;
       break;
 
     default:

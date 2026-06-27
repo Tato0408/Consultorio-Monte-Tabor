@@ -11,6 +11,7 @@ import FooterLogin from "../../components/Footer";
 import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
 import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
 import { useRecoveryAdmin } from "../../hooks/useRecoveryAdmin";
+import { useRecoveryNurse } from "../../hooks/useRecoveryNurse";
 
 import { showError } from "../../../../lib/alerts";
 
@@ -23,6 +24,7 @@ const RecoveryPassword = () => {
   const doctorRecovery = useRecoveryDoctor();
   const receptionistRecovery = useRecoveryReceptionist();
   const adminRecovery = useRecoveryAdmin();
+  const nurseRecovery = useRecoveryNurse();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,6 +66,18 @@ const RecoveryPassword = () => {
 
       if (adminRes.message === "email sent") {
         localStorage.setItem("recoveryType", "admin");
+        localStorage.setItem("recoveryEmail", email);
+        navigate("/verify-code");
+        return;
+      }
+    } catch (e) {}
+
+    // Nurse
+    try {
+      const nurseRes = await nurseRecovery.requestCode(email);
+
+      if (nurseRes.message === "email sent") {
+        localStorage.setItem("recoveryType", "nurse");
         localStorage.setItem("recoveryEmail", email);
         navigate("/verify-code");
         return;
