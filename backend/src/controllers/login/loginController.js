@@ -103,6 +103,13 @@ loginController.loginCommonRole = async (req, res) => {
                 email: userFound.email,
                 name: userFound.name,
                 last_name: userFound.last_name,
+                dui: userFound.dui,
+                age: userFound.age,
+                gender: userFound.gender,
+                is_active: userFound.is_active,
+                is_verified: userFound.is_verified,
+                image: userFound.image,
+                public_id: userFound.public_id,
             },
         });
     }

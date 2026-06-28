@@ -15,6 +15,7 @@ import Consultations from './modules/schedule/consultations/pages/Consultations'
 import Procedures from './modules//procedures/pages/ProceduresPage';
 import AdminAppointments from './modules/appointments/pages/AdminAppointments';
 import CreateAppointmentForm from './modules/appointments/components/AppointmentsForm'
+import ProfilePage from './modules/profile/page/ProfilePage'
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
               <Route path="/calendar/appointments/:id" element={<CreateAppointmentForm />} />
               <Route path="/inventory/products" element={<InventoryDashboard />} />
               <Route path="/procedures" element={<Procedures />} />
+              <Route path="/system/profile" element={<ProfilePage/>} />
             </Route>
           </Routes>
         </BrowserRouter>
