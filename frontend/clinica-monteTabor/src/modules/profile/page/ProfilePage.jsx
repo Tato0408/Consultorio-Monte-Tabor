@@ -94,7 +94,6 @@ const ProfilePage = () => {
                 </div>
               ) : (
                 <img
-                  /* Basado en tu JSON, la foto se guarda en 'image' */
                   src={user.image || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=256&auto=format&fit=crop"}
                   alt="Avatar del usuario"
                   className="w-full h-full rounded-full object-cover border border-gray-100 shadow-inner"
@@ -110,7 +109,6 @@ const ProfilePage = () => {
               >
                 Cambiar foto
               </button>
-              {/* Mostramos el botón de borrar solo si existe la propiedad image en el JSON */}
               {user.image && (
                 <button
                   onClick={deleteAvatar}
@@ -128,7 +126,6 @@ const ProfilePage = () => {
             </span>
 
             <div className="flex flex-col items-center gap-2 mt-4 w-full px-4">
-              {/* Leemos is_active y is_verified desde tu JSON */}
               <span className={`w-full max-w-[140px] py-1 text-center text-xs font-semibold rounded-full ${user.is_active ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
                 {user.is_active ? "Activo" : "Inactivo"}
               </span>
@@ -177,19 +174,16 @@ const ProfilePage = () => {
 
               <div>
                 <label className="block text-[11px] font-medium text-gray-400 mb-1">DUI</label>
-                {/* Leemos el dui del JSON */}
                 <p className="text-sm font-bold text-gray-800">{user.dui || "—"}</p>
               </div>
 
               <div>
                 <label className="block text-[11px] font-medium text-gray-400 mb-1">Edad</label>
-                {/* Leemos la age del JSON */}
                 <p className="text-sm font-bold text-gray-800">{user.age ? `${user.age} años` : "—"}</p>
               </div>
 
               <div>
                 <label className="block text-[11px] font-medium text-gray-400 mb-1">Género</label>
-                {/* Leemos el gender del JSON */}
                 <p className="text-sm font-bold text-gray-800">{user.gender || "—"}</p>
               </div>
 

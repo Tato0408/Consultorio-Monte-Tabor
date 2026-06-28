@@ -5,14 +5,6 @@ import InputField from "@/components/ui/InputField";
 import apiClient from "@/lib/apiClient";
 import { useAuth } from "@/context/AuthContext";
 
-/**
- * ChangePasswordModal — Modal para cambiar la contraseña del usuario logueado.
- * Se activa desde el botón "Modificar contraseña" en ProfilePage.
- *
- * Props:
- *  - isOpen:   boolean
- *  - onClose:  function
- */
 const ChangePasswordModal = ({ isOpen, onClose }) => {
   const { user, userType } = useAuth();
 
@@ -22,7 +14,6 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // ── Reglas de validación en tiempo real ──────────────────────────────────
   const passwordRules = [
     {
       id:    "length",
@@ -55,7 +46,6 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
     r.test(formData.contrasena, formData.confirmContrasena)
   );
 
-  // ── Endpoint dinámico según el rol ────────────────────────────────────────
   const getEndpoint = () => {
     const routes = {
       admin:        `/admin/${user?.id}`,
@@ -117,11 +107,9 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    /* Overlay */
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200">
 
-        {/* Botón cerrar */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
@@ -129,7 +117,6 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
           <X className="w-4 h-4" />
         </button>
 
-        {/* Título */}
         <h2 className="text-lg font-bold text-gray-900 mb-1">Cambiar contraseña</h2>
         <p className="text-xs text-gray-500 mb-6">
           Ingresa tu nueva contraseña y asegúrate de que cumpla con los requisitos.
@@ -137,7 +124,6 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-          {/* Contraseña */}
           <InputField
             label="Contraseña"
             id="contrasena"
@@ -149,7 +135,6 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
             disabled={submitting}
           />
 
-          {/* Confirmación */}
           <InputField
             label="Confirmación de Contraseña"
             id="confirmContrasena"
@@ -161,7 +146,6 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
             disabled={submitting}
           />
 
-          {/* Indicadores de reglas */}
           <div className="flex flex-col gap-2 px-1">
             {passwordRules.map((rule) => {
               const passed = rule.test(formData.contrasena, formData.confirmContrasena);
@@ -180,7 +164,6 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
             })}
           </div>
 
-          {/* Botones */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"

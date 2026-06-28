@@ -8,7 +8,6 @@ const useProfile = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState("");
 
-  // Endpoint PUT según el rol
   const getEndpoint = () => {
     const routes = {
       admin:        `/admin/${user?.id}`,
@@ -19,7 +18,6 @@ const useProfile = () => {
     return routes[userType];
   };
 
-  // Nombre del campo de imagen según el modelo del rol
   const getImageField = () => {
     const fields = {
       admin:        "image",
@@ -30,17 +28,14 @@ const useProfile = () => {
     return fields[userType];
   };
 
-  // ── Subir / cambiar foto ──────────────────────────────────────────────────
   const uploadAvatar = async (file) => {
     try {
       setSubmitting(true);
       setError("");
 
-      // FormData para que el backend lo reciba como multipart (multer/cloudinary)
       const formData = new FormData();
       formData.append(getImageField(), file);
 
-      // apiClient detecta FormData y NO agrega Content-Type manualmente
       await apiClient(getEndpoint(), {
         method: "PUT",
         body: formData,
@@ -55,7 +50,6 @@ const useProfile = () => {
         timerProgressBar: true,
       });
 
-      // Refresca el AuthContext para que la nueva imagen aparezca en pantalla
       await refetchUser();
       return true;
     } catch (err) {
@@ -72,7 +66,6 @@ const useProfile = () => {
     }
   };
 
-  // ── Eliminar foto ─────────────────────────────────────────────────────────
   const deleteAvatar = async () => {
     const confirm = await Swal.fire({
       icon: "warning",
@@ -91,7 +84,6 @@ const useProfile = () => {
       setSubmitting(true);
       setError("");
 
-      // Mandamos JSON normal — el backend borra la imagen de Cloudinary y limpia el campo
       await apiClient(getEndpoint(), {
         method: "PUT",
         body: {
