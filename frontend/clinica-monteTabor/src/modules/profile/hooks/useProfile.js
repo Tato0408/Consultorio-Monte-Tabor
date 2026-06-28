@@ -5,52 +5,42 @@ import apiClient from "../../../lib/apiClient";
 
 const useProfile = () => {
   const { refetchUser, user, userType } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError]           = useState("");
 
-  // Endpoint dinámico según el rol
+  // Endpoint PUT según el rol
   const getEndpoint = () => {
     const routes = {
-      admin: `/admin/${user?.id}`,
-      doctor: `/doctors/${user?.id}`,
-      nurse: `/nurses/${user?.id}`,
+      admin:        `/admin/${user?.id}`,
+      doctor:       `/doctors/${user?.id}`,
+      nurse:        `/nurses/${user?.id}`,
       receptionist: `/receptionist/${user?.id}`,
     };
     return routes[userType];
   };
 
-  // Nombre del campo de imagen según el modelo de cada rol
+  // Nombre del campo de imagen según el modelo del rol
   const getImageField = () => {
     const fields = {
-      admin: "image",
-      doctor: "doctorImage",
-      nurse: "img_url",
+      admin:        "image",
+      doctor:       "doctorImage",
+      nurse:        "img_url",
       receptionist: "img_url",
     };
     return fields[userType];
   };
 
-  // Nombre del public_id según el modelo de cada rol
-  const getPublicIdField = () => {
-    const fields = {
-      admin: user?.public_id,       // campo: public_id
-      doctor: user?.img_public_id,  // campo: img_public_id
-      nurse: user?.public_id,       // campo: public_id
-      receptionist: user?.public_id, // no tiene public_id en el modelo, ajusta si lo agregas
-    };
-    return fields[userType];
-  };
-
-  // Subir o actualizar foto
+  // ── Subir / cambiar foto ──────────────────────────────────────────────────
   const uploadAvatar = async (file) => {
     try {
       setSubmitting(true);
       setError("");
 
+      // FormData para que el backend lo reciba como multipart (multer/cloudinary)
       const formData = new FormData();
       formData.append(getImageField(), file);
 
+      // apiClient detecta FormData y NO agrega Content-Type manualmente
       await apiClient(getEndpoint(), {
         method: "PUT",
         body: formData,
@@ -65,6 +55,7 @@ const useProfile = () => {
         timerProgressBar: true,
       });
 
+      // Refresca el AuthContext para que la nueva imagen aparezca en pantalla
       await refetchUser();
       return true;
     } catch (err) {
@@ -81,7 +72,7 @@ const useProfile = () => {
     }
   };
 
-  // Eliminar foto
+  // ── Eliminar foto ─────────────────────────────────────────────────────────
   const deleteAvatar = async () => {
     const confirm = await Swal.fire({
       icon: "warning",
@@ -100,12 +91,12 @@ const useProfile = () => {
       setSubmitting(true);
       setError("");
 
-      // Enviamos el public_id correcto según el rol para que Cloudinary elimine la imagen
+      // Mandamos JSON normal — el backend borra la imagen de Cloudinary y limpia el campo
       await apiClient(getEndpoint(), {
         method: "PUT",
-        body: { 
-          [getImageField()]: null,           // limpia la imagen
-          public_id: getPublicIdField(),     // para que el backend la elimine de Cloudinary
+        body: {
+          [getImageField()]: null,
+          public_id: user?.public_id,
         },
       });
 
@@ -133,7 +124,6 @@ const useProfile = () => {
   };
 
   return {
-    loading,
     error,
     submitting,
     uploadAvatar,

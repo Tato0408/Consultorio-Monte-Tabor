@@ -55,11 +55,18 @@ adminController.updateAdmin = async (req, res) => {
 
         //Nueva imagen
         if (req.file) {
-            await cloudinary.uploader.destroy(adminFound.public_id,);
-
+            // Solo destruir si existía una imagen previa
+            if (adminFound.public_id) {
+                await cloudinary.uploader.destroy(adminFound.public_id);
+            }
             updatedData.image = req.file.path;
-
             updatedData.public_id = req.file.filename;
+        } else if (req.body.image === null || req.body.image === "null") {
+            if (adminFound.public_id) {
+                await cloudinary.uploader.destroy(adminFound.public_id);
+            }
+            updatedData.image = null;
+            updatedData.public_id = null;
         }
 
         await adminModel.findByIdAndUpdate(
@@ -130,8 +137,7 @@ adminController.updateAdmin = async (req, res) => {
         return res.status(200).json({ message: "Admin updated" });
 
     } catch (error) {
-        console.log("error " + error);
-
+        console.log("error:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
