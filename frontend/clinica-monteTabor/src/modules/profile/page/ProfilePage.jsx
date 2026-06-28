@@ -2,11 +2,16 @@ import React, { useRef } from "react";
 import { ChevronRight, LogOut, Trash2, Loader2 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext"; // Ajusta la ruta según tu proyecto
 import useProfile from '../hooks/useProfile'
+import ChangePasswordModal from "../components/ChangePasswordModal";
+import {useState} from 'react'
+
 
 const ProfilePage = () => {
   const { user, userType, logout, isLoading: authLoading } = useAuth();
   const { submitting, uploadAvatar, deleteAvatar } = useProfile();
   const fileInputRef = useRef(null);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
 
   const roleTranslations = {
     admin: "Administrador del sistema",
@@ -22,10 +27,10 @@ const ProfilePage = () => {
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const success = await uploadAvatar(file);
     if (success) {
-      e.target.value = null; 
+      e.target.value = null;
     }
   };
 
@@ -41,8 +46,8 @@ const ProfilePage = () => {
 
   return (
     <div className="space-y-6 p-6 bg-gray-50/50 min-h-screen">
-      
-      <input 
+
+      <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
@@ -63,7 +68,7 @@ const ProfilePage = () => {
           </p>
         </div>
 
-        <button 
+        <button
           onClick={logout}
           className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-all self-start md:self-center"
         >
@@ -73,32 +78,32 @@ const ProfilePage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2 items-start">
-        
+
         {/* COLUMNA IZQUIERDA: Avatar */}
         <div className="lg:col-span-1 space-y-6">
-          
+
           <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col items-center">
             <h3 className="w-full text-left font-bold text-blue-900 text-xs uppercase tracking-wider mb-6">
               Información básica
             </h3>
-            
+
             <div className="relative w-28 h-28 mb-4">
               {submitting ? (
                 <div className="w-full h-full rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center shadow-inner">
                   <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
                 </div>
               ) : (
-                <img 
+                <img
                   /* Basado en tu JSON, la foto se guarda en 'image' */
-                  src={user.image || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=256&auto=format&fit=crop"} 
-                  alt="Avatar del usuario" 
+                  src={user.image || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=256&auto=format&fit=crop"}
+                  alt="Avatar del usuario"
                   className="w-full h-full rounded-full object-cover border border-gray-100 shadow-inner"
                 />
               )}
             </div>
 
             <div className="flex items-center gap-2 mb-6">
-              <button 
+              <button
                 onClick={handleTriggerFileInput}
                 disabled={submitting}
                 className="px-3 py-1.5 border border-gray-200 text-blue-600 text-xs font-semibold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
@@ -107,7 +112,7 @@ const ProfilePage = () => {
               </button>
               {/* Mostramos el botón de borrar solo si existe la propiedad image en el JSON */}
               {user.image && (
-                <button 
+                <button
                   onClick={deleteAvatar}
                   disabled={submitting}
                   className="p-2 border border-gray-200 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
@@ -121,7 +126,7 @@ const ProfilePage = () => {
             <span className="text-sm font-bold text-gray-800 text-center">
               {roleTranslations[userType] || "Usuario del sistema"}
             </span>
-            
+
             <div className="flex flex-col items-center gap-2 mt-4 w-full px-4">
               {/* Leemos is_active y is_verified desde tu JSON */}
               <span className={`w-full max-w-[140px] py-1 text-center text-xs font-semibold rounded-full ${user.is_active ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
@@ -153,7 +158,7 @@ const ProfilePage = () => {
 
         {/* COLUMNA DERECHA: Datos personales */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
             <h3 className="font-bold text-blue-900 text-xs uppercase tracking-wider mb-6">
               Datos personales
@@ -204,7 +209,8 @@ const ProfilePage = () => {
               <p className="text-xs text-gray-500">Actualiza tu contraseña de ingreso al sistema en cualquier momento.</p>
             </div>
             <div className="pt-2">
-              <button 
+              <button
+                onClick={() => setIsPasswordModalOpen(true)}
                 className="px-4 py-2.5 border border-blue-600 text-blue-600 text-xs font-semibold rounded-xl hover:bg-blue-50 transition-colors"
               >
                 Modificar contraseña
@@ -214,7 +220,12 @@ const ProfilePage = () => {
 
         </div>
       </div>
+      <ChangePasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
     </div>
+
   );
 };
 

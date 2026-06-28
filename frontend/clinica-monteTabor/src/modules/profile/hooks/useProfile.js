@@ -4,7 +4,7 @@ import { useAuth } from "../../../context/AuthContext";
 import apiClient from "../../../lib/apiClient";
 
 const useProfile = () => {
-  const { refetchUser, user, userType } = useAuth();
+  const { refetchUser, user, userType, logout } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState("");
 
@@ -128,6 +128,7 @@ const useProfile = () => {
     submitting,
     uploadAvatar,
     deleteAvatar,
+    logout
   };
 };
 

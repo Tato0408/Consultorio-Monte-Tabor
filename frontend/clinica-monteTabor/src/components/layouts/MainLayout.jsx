@@ -1,7 +1,13 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, Navigate } from "react-router-dom";
 import SideBar from "./SideBar";
-
+import {useAuth} from "../../context/AuthContext"
 const MainLayout = () => {
+    const { isLoggedIn, isLoading} = useAuth()
+    // Mientras verifica la sesión no hace nada
+    if (isLoading) return null;
+
+    // Si no hay sesión activa redirige al login
+    if (!isLoggedIn) return <Navigate to="/login" replace />;
     return (
         <>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
