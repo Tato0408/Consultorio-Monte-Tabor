@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-hot-toast";
+import { showSuccess, showError } from "../../../lib/alerts";
 import { useAuth } from "../../../context/AuthContext";
 import apiClient from "@/lib/apiClient";
 
@@ -33,7 +33,7 @@ const useRegisterAdmin = () => {
         body: data,
       });
 
-      toast.success("Cuenta de administrador creada con éxito.");
+      showSuccess("Cuenta de administrador creada con éxito.");
 
       // Actualizamos el estado global para que hasAdmins pase a true
       await refetchAdminStatus();
@@ -43,7 +43,7 @@ const useRegisterAdmin = () => {
 
     } catch (err) {
       setError(err.message || "Ocurrió un error inesperado.");
-      toast.error(err.message || "Ocurrió un error inesperado.");
+      showError(err.message || "Ocurrió un error inesperado.");
     } finally {
       setLoading(false);
     }
