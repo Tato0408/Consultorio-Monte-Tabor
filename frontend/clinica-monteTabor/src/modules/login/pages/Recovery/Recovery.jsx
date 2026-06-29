@@ -13,7 +13,7 @@ import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
 import { useRecoveryAdmin } from "../../hooks/useRecoveryAdmin";
 import { useRecoveryNurse } from "../../hooks/useRecoveryNurse";
 
-import { showError } from "../../../../lib/alerts";
+import { showError, showSuccess } from "../../../../lib/alerts";
 
 const RecoveryPassword = () => {
   const [email, setEmail] = useState("");
@@ -28,7 +28,6 @@ const RecoveryPassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setError("");
 
     if (!email.trim()) {
@@ -36,57 +35,68 @@ const RecoveryPassword = () => {
       return;
     }
 
-    // Doctor
+    // 1. Intentamos con Doctor
     try {
       const doctorRes = await doctorRecovery.requestCode(email);
-
+      // Solo entramos al IF si fue exitoso
       if (doctorRes.message === "email sent") {
         localStorage.setItem("recoveryType", "doctor");
         localStorage.setItem("recoveryEmail", email);
+        showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo.");
         navigate("/verify-code");
-        return;
+        return; // Como fue exitoso, detenemos la función aquí
       }
-    } catch (e) {}
+    } catch (e) {
+      console.log("No es doctor:", e.message);
+    }
 
-    // Receptionist
+    // 2. Intentamos con Receptionist
     try {
       const recRes = await receptionistRecovery.requestCode(email);
-
       if (recRes.message === "email sent") {
         localStorage.setItem("recoveryType", "receptionist");
         localStorage.setItem("recoveryEmail", email);
+        showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo.");
         navigate("/verify-code");
-        return;
+        return; // Como fue exitoso, detenemos la función aquí
       }
-    } catch (e) {}
+    } catch (e) {
+      console.log("No es recepcionista:", e.message);
+    }
 
-    // Admin
+    // 3. Intentamos con Admin
     try {
       const adminRes = await adminRecovery.requestCode(email);
-
       if (adminRes.message === "email sent") {
         localStorage.setItem("recoveryType", "admin");
         localStorage.setItem("recoveryEmail", email);
+        showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo.");
         navigate("/verify-code");
-        return;
+        return; // Como fue exitoso, detenemos la función aquí
       }
-    } catch (e) {}
+    } catch (e) {
+      console.log("No es admin:", e.message);
+    }
 
-    // Nurse
+    // 4. Intentamos con Nurse
     try {
       const nurseRes = await nurseRecovery.requestCode(email);
-
       if (nurseRes.message === "email sent") {
         localStorage.setItem("recoveryType", "nurse");
         localStorage.setItem("recoveryEmail", email);
+        showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo.");
         navigate("/verify-code");
-        return;
+        return; // Como fue exitoso, detenemos la función aquí
       }
-    } catch (e) {}
+    } catch (e) {
+      console.log("No es enfermera:", e.message);
+    }
 
+    // 5. Si el código llega hasta esta línea, significa que todos los intentos anteriores fallaron 
+    // y ninguno hizo "return". Por lo tanto, el correo no existe en ninguna colección.
     showError(
-      "Correo no encontrado",
-      "No existe ninguna cuenta registrada con ese correo electrónico."
+      "Correo incorrecto",
+      "No se ha encontrado una cuenta con ese correo electrónico."
     );
   };
 

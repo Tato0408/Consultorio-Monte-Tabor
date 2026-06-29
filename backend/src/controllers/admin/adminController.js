@@ -4,6 +4,7 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 import jsonwebtoken from "jsonwebtoken";
 import { config } from "../../../config.js";
+import bcrypt from "bcryptjs";
 
 //Array de funciones
 const adminController = {};
@@ -42,13 +43,14 @@ adminController.updateAdmin = async (req, res) => {
             return res.status(404).json({ message: "Admin not found" });
         }
 
+        const passwordHashed = await bcrypt.hash(password, 10);
         const updatedData = {
             name,
             last_name,
             dui,
             age,
             gender,
-            password,
+            password: passwordHashed,
             is_active,
             is_verified,
         };
