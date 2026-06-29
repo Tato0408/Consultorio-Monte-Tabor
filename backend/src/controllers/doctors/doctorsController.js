@@ -241,6 +241,74 @@ doctorController.deleteDoctor = async (req, res) => {
   }
 };
 
+
+doctorController.updateOwnProfile = async (req, res) => {
+  try {
+    const doctorId = req.user.id; 
+
+    const doctorFound = await doctorsModel.findById(doctorId);
+
+    if (!doctorFound) {
+      return res.status(404).json({
+        message: "Doctor profile not found",
+      });
+    }
+
+    const {
+      name,
+      last_name,
+      dui,
+      birth_date,
+      gender,
+      phone,
+      email,
+    } = req.body;
+
+    const updatedData = {
+      name,
+      last_name,
+      dui,
+      birth_date,
+      gender,
+      phone,
+      email,
+    };
+
+    if (req.files?.doctorImage) {
+      if (doctorFound.img_public_id) {
+        await cloudinary.uploader.destroy(doctorFound.img_public_id);
+      }
+      updatedData.img_url = req.files["doctorImage"][0].path;
+      updatedData.img_public_id = req.files["doctorImage"][0].filename;
+    }
+
+    if (req.files?.licenseImage) {
+      if (doctorFound.license_public_id) {
+        await cloudinary.uploader.destroy(doctorFound.license_public_id);
+      }
+      updatedData.license_url = req.files["licenseImage"][0].path;
+      updatedData.license_public_id = req.files["licenseImage"][0].filename;
+    }
+
+    const profileUpdated = await doctorsModel.findByIdAndUpdate(
+      doctorId,
+      updatedData,
+      { new: true }
+    );
+
+    return res.status(200).json({
+      message: "Your profile has been updated successfully",
+      user: profileUpdated
+    });
+
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({
+      message: "Internal server error updating your profile",
+    }); // Cerrado correctamente el objeto y el método .json()
+  } // Cerrado correctamente el bloque catch
+}; // Cerrada correctamente la función asíncrona
+
 // =====================
 // SEARCH
 // =====================

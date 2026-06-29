@@ -221,4 +221,64 @@ nursesController.updateNurse = async(req,res) => {
     }
 }
 
+nursesController.updateOwnProfile = async (req, res) => {
+    try {
+        const nurseId = req.user.id;
+
+        // Buscamos a la enfermera en la base de datos
+        const nurseFound = await nursesModel.findById(nurseId);
+        if (!nurseFound) {
+            return res.status(404).json({ message: "Nurse profile not found" });
+        }
+
+        // Excluimos 'is_active', 'is_verified', 'password' y 'time_out' por seguridad.
+        const {
+            name,
+            last_name,
+            dui,
+            phone,
+            birth_date,
+            email
+        } = req.body;
+
+        const payload = {
+            name,
+            last_name,
+            dui,
+            phone,
+            birth_date,
+            email,
+            password: nurseFound.password, // Mantenemos la contraseña actual intacta
+            is_active: nurseFound.is_active,
+            is_verified: nurseFound.is_verified,
+            time_out: nurseFound.time_out
+        };
+
+        if (req.file) {
+            // Borramos la imagen anterior solo si tiene un public_id registrado
+            if (nurseFound.public_id) {
+                await cloudinary.uploader.destroy(nurseFound.public_id);
+            }
+            
+            payload.img_url = req.file.path;
+            payload.public_id = req.file.filename;
+        }
+
+        // Actualizamos el perfil de la enfermera autenticada
+        const nurseUpdated = await nursesModel.findByIdAndUpdate(nurseId, payload, { new: true }).select("-password");
+        if (!nurseUpdated) {
+            return res.status(500).json({ message: "Error updating your profile" });
+        }
+
+        return res.status(200).json({ 
+            message: "Your profile has been updated successfully", 
+            user: nurseUpdated 
+        });
+
+    } catch (error) {
+        console.log("Error: ", error);
+        return res.status(500).json({ message: "Internal Server error updating your profile" });
+    }
+};
+
 export default nursesController;

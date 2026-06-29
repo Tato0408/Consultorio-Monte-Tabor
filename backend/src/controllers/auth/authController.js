@@ -7,7 +7,7 @@ const role_models = {
     admin: adminModel,
     doctor: doctorModel,
     nurse: nurseModel,
-    receptionist: recepcionistModel,  // corregido el typo
+    receptionist: recepcionistModel,
 };
 
 const authController = {};
