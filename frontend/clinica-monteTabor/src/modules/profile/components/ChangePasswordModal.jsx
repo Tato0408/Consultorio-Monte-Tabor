@@ -178,7 +178,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
               disabled={submitting || !allRulesPassed}
               className="px-5 py-2.5 text-sm font-semibold bg-[#3B6FCA] text-white rounded-xl hover:bg-[#2d5ab5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? "Guardando..." : "Registrate"}
+              {submitting ? "Guardando..." : "Actualizar"}
             </button>
           </div>
 

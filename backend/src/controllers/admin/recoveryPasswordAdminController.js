@@ -37,7 +37,7 @@ recoveryPasswordAdminController.requestCode = async (req, res) => {
       { expiresIn: "15m" },
     );
 
-    res.cookie("recoveryCookie", token, { maxAge: 15 * 60 * 1000 });
+    res.cookie("recoveryCookie", token, { maxAge: 30 * 60 * 1000 });
 
     //Enviar el código por correo electrónico
     //#1- ¿Quien lo envía?
@@ -96,10 +96,10 @@ recoveryPasswordAdminController.verifyCode = async (req, res) => {
       //#2- Secret key
       config.JWT.secret,
       //#3- ¿Cúando expira?
-      { expiresIn: "15m" },
+      { expiresIn: "30m" },
     );
 
-    res.cookie("recoveryCookie", newToken, { maxAge: 15 * 60 * 1000 });
+    res.cookie("recoveryCookie", newToken, { maxAge: 30 * 60 * 1000 });
 
     return res.status(200).json({ message: "Code verified successfully" });
   } catch (error) {
@@ -140,6 +140,74 @@ recoveryPasswordAdminController.newPassword = async (req, res) => {
 
     return res.status(200).json({ message: "Password updated" });
   } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+recoveryPasswordAdminController.resendCode = async (req, res) => {
+  try {
+    // Leemos el email desde la cookie anterior, no del body
+    // así el usuario no tiene que volver a ingresarlo
+    const token = req.cookies.recoveryCookie;
+
+    if (!token) {
+      return res.status(400).json({ message: "No active recovery session found" });
+    }
+
+    const decoded = jsonwebtoken.verify(token, config.JWT.secret);
+    const email = decoded.email;
+
+    // Verificamos que el usuario siga existiendo
+    const userFound = await adminModel.findOne({ email });
+    if (!userFound) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generamos un nuevo código aleatorio
+    const randomCode = crypto.randomBytes(3).toString("hex");
+
+    // Creamos un nuevo token — esto invalida el anterior automáticamente
+    // porque la cookie se sobreescribe con el nuevo valor
+    const newToken = jsonwebtoken.sign(
+      { email, randomCode, userType: "admin", verified: false },
+      config.JWT.secret,
+      { expiresIn: "15m" }
+    );
+
+    // Sobreescribimos la cookie — el código anterior queda invalidado
+    res.cookie("recoveryCookie", newToken, { maxAge: 30 * 60 * 1000 });
+
+    // Enviamos el nuevo código por correo
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: config.email.user_email,
+        pass: config.email.user_password,
+      },
+    });
+
+    const mailOptions = {
+      from: config.email.user_email,
+      to: email,
+      subject: "Recuperación de contraseña - Nuevo código",
+      body: "El código vence en 15 minutos",
+      html: HTMLRecoveryEmail(randomCode),
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.log("error" + error);
+        return res.status(500).json({ message: "Error sending mail" });
+      }
+      return res.status(200).json({ message: "Code resent successfully" });
+    });
+
+  } catch (error) {
+    // Si el token expiró, la cookie ya no es válida
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Recovery session expired, please start again" });
+    }
     console.log("error" + error);
     return res.status(500).json({ message: "Internal server error" });
   }
