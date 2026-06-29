@@ -254,7 +254,6 @@ doctorController.updateOwnProfile = async (req, res) => {
       });
     }
 
-    // Solo extraemos campos personales. Excluimos 'is_active', 'is_verified' y 'license_number' por seguridad.
     const {
       name,
       last_name,
@@ -306,6 +305,70 @@ doctorController.updateOwnProfile = async (req, res) => {
     console.log("error " + error);
     return res.status(500).json({
       message: "Internal server error updating your profile",
+    }); // Cerrado correctamente el objeto y el método .json()
+  } // Cerrado correctamente el bloque catch
+}; // Cerrada correctamente la función asíncrona
+
+// =====================
+// SEARCH
+// =====================
+doctorController.searchDoctors = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    if (!search || search.trim() === "") {
+      const doctors = await doctorsModel.find();
+
+      return res.status(200).json(doctors);
+    }
+
+    const doctors = await doctorsModel.find({
+      $or: [
+        {
+          name: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          last_name: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          email: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          dui: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          license_number: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          phone: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+      ],
+    });
+
+    return res.status(200).json(doctors);
+  } catch (error) {
+    console.log("error " + error);
+
+    return res.status(500).json({
+      message: "Internal server error",
     });
   }
 };

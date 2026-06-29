@@ -1,4 +1,4 @@
-# Sistema de Gestión Médica — Clínica Monte Tabor🔥🤣👄👄
+# Sistema de Gestión Médica — Clínica Monte Tabor
 
 
 > Sistema integral para la gestión de citas médicas e historiales clínicos de la **Clínica Monte Tabor**, diseñado para optimizar la atención al paciente y facilitar la administración interna.

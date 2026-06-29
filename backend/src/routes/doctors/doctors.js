@@ -7,7 +7,8 @@ const router = express.Router();
 
 router
   .route("/")
-  .get(validateAuthCookie(["admin"]), doctorsController.getDoctors)
+  .get(doctorsController.getDoctors)
+  
   .post(
     validateAuthCookie(["admin"]),
     upload.fields([
@@ -17,15 +18,8 @@ router
     doctorsController.createDoctor
   );
 
-  router
-  .route("/profile/update")
-  .put(
-    validateAuthCookie(["doctor"]),
-    upload.fields([{ name: "doctorImage", maxCount: 1 }]),
-    doctorsController.updateOwnProfile
-  );
-
-  router
+  
+router
   .route("/:id")
   .put(
     validateAuthCookie(["admin"]), 
@@ -36,5 +30,9 @@ router
     doctorsController.updateDoctors
   )
   .delete(validateAuthCookie(["admin"]), doctorsController.deleteDoctor);
+
+ router
+ .route("/search")
+  .get(doctorsController.getDoctors)
 
 export default router;

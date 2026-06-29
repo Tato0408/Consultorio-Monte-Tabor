@@ -7,18 +7,43 @@ import PrimaryButton from "../../components/PrimaryButton";
 import SecondaryButton from "../../components/SecondaryButton";
 import FooterLogin from "../../components/Footer";
 
+// 1. Importamos TODOS los hooks
 import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
-import { showSuccess } from "@/lib/alerts";
+import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
+import { useRecoveryAdmin } from "../../hooks/useRecoveryAdmin";
+import { useRecoveryNurse } from "../../hooks/useRecoveryNurse";
+
+import { showError, showSuccess } from "../../../../lib/alerts";
 
 const VerifyCode = () => {
   const [code, setCode] = useState(Array(6).fill(""));
   const [error, setError] = useState("");
-
   const navigate = useNavigate();
+
+  // 2. Inicializamos todos los hooks (las reglas de React exigen que los hooks siempre se llamen arriba)
   const doctorRecovery = useRecoveryDoctor();
-  const loading = doctorRecovery.loading;
+  const receptionistRecovery = useRecoveryReceptionist();
+  const adminRecovery = useRecoveryAdmin();
+  const nurseRecovery = useRecoveryNurse();
 
   const codeString = code.join("");
+
+  // 3. Función auxiliar para saber qué hook usar dependiendo de quién está recuperando la contraseña
+  const getActiveRecoveryHook = () => {
+    const role = localStorage.getItem("recoveryType");
+    switch (role) {
+      case "admin": return adminRecovery;
+      case "receptionist": return receptionistRecovery;
+      case "nurse": return nurseRecovery;
+      case "doctor": 
+      default: 
+        return doctorRecovery;
+    }
+  };
+
+  // Para saber si está cargando, usamos el hook activo
+  const activeHook = getActiveRecoveryHook();
+  const loading = activeHook.loading;
 
   const codeRules = [
     {
@@ -37,7 +62,6 @@ const VerifyCode = () => {
 
   const handleChange = (value, index) => {
     if (!/^[a-fA-F0-9]*$/.test(value)) return;
-
     const newCode = [...code];
     newCode[index] = value;
     setCode(newCode);
@@ -63,12 +87,34 @@ const VerifyCode = () => {
     }
 
     try {
-      await doctorRecovery.verifyCode(codeString);
+      // Usamos dinámicamente el hook del rol correcto
+      await activeHook.verifyCode(codeString);
       showSuccess("Código verificado correctamente");
       navigate("/new-password");
     } catch (error) {
       console.log("Error código:", error);
       setError("Código incorrecto o expirado");
+    }
+  };
+
+  const handleResendCode = async (e) => {
+    e.preventDefault();
+    setError("");
+    
+    try {
+      const savedEmail = localStorage.getItem("recoveryEmail");
+      
+      if (!savedEmail) {
+        setError("No se encontró el correo. Vuelve a iniciar el proceso.");
+        return;
+      }
+
+      // Reutilizamos requestCode que sabemos que funciona, pasándole el correo
+      await activeHook.requestCode(savedEmail);
+      showSuccess("Código reenviado correctamente");
+    } catch (error) {
+      console.log("Error reenviando código:", error);
+      setError("Error al reenviar el código");
     }
   };
 
@@ -92,7 +138,6 @@ const VerifyCode = () => {
 
             <form onSubmit={handleVerify} className="flex flex-col gap-5">
 
-              {/* Inputs del código */}
               <div className="flex justify-center gap-3">
                 {code.map((digit, index) => (
                   <input
@@ -107,7 +152,6 @@ const VerifyCode = () => {
                 ))}
               </div>
 
-              {/* Validaciones */}
               <div className="flex flex-col gap-2 px-1">
                 {codeRules.map((rule) => {
                   const passed = rule.test(codeString);
@@ -126,7 +170,6 @@ const VerifyCode = () => {
                 })}
               </div>
 
-              {/* Error del backend */}
               {error && (
                 <p className="text-red-500 text-sm text-center">{error}</p>
               )}
@@ -144,6 +187,7 @@ const VerifyCode = () => {
                 <button
                   type="button"
                   className="text-blue-600 font-medium ml-1"
+                  onClick={handleResendCode}
                 >
                   Reenviar código
                 </button>
