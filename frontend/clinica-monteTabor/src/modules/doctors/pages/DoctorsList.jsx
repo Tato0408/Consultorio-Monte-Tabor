@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+
 import DoctorsStats from "../components/DoctorsStats";
 import TableBar from "../components/TableBar";
 import DoctorsTable from "../components/DoctorsTable";
@@ -21,60 +22,50 @@ const DoctorsList = () => {
     loading,
     error,
     getDoctors,
+    searchDoctors,
     deleteDoctor,
   } = useDoctors();
 
-  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [selectedDoctor, setSelectedDoctor] =
+    useState(null);
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] =
+    useState(false);
 
   const [doctorToEdit, setDoctorToEdit] =
     useState(null);
 
-  // BUSCADOR
   const [search, setSearch] =
     useState("");
 
-  // Filtrar doctores
-  const filteredDoctors =
-    doctors.filter((doctor) => {
-      const text =
-        search.toLowerCase();
+  // ==========================
+  // BUSCADOR
+  // ==========================
+  const handleSearch = async (
+    value
+  ) => {
+    setSearch(value);
 
-      return (
-        doctor.firstName
-          ?.toLowerCase()
-          .includes(text) ||
-        doctor.lastName
-          ?.toLowerCase()
-          .includes(text) ||
-        doctor.email
-          ?.toLowerCase()
-          .includes(text)
-      );
-    });
+    await searchDoctors(value);
+  };
 
   useEffect(() => {
-    if (filteredDoctors.length > 0) {
-      const exists =
-        filteredDoctors.find(
-          (d) =>
-            d._id ===
-            selectedDoctor?._id
-        );
+    if (doctors.length > 0) {
+      const exists = doctors.find(
+        (d) =>
+          d._id ===
+          selectedDoctor?._id
+      );
 
       if (!exists) {
         setSelectedDoctor(
-          filteredDoctors[0]
+          doctors[0]
         );
       }
     } else {
       setSelectedDoctor(null);
     }
-  }, [
-    filteredDoctors,
-    selectedDoctor,
-  ]);
+  }, [doctors, selectedDoctor]);
 
   // ==========================
   // ABRIR CREAR
@@ -181,11 +172,12 @@ const DoctorsList = () => {
 
           <TableBar
             search={search}
-            setSearch={setSearch}
+            setSearch={handleSearch}
+            onAdd={handleOpenCreate}
           />
 
           <DoctorsTable
-            doctors={filteredDoctors}
+            doctors={doctors}
             loading={loading}
             error={error}
             onSelectDoctor={
