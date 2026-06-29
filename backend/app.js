@@ -22,6 +22,9 @@ import authRoutes from "./src/routes/auth/authRoutes.js"
 import adminRoutes from "./src/routes/admin/admin.js"
 import registerAdminRoute from "./src/routes/admin/registerAdmin.js"
 import recoveryAdminPassword from "./src/routes/admin/recoveryPasswordAdmin.js"
+import { validateAuthCookie } from './src/middlewares/authMiddleware.js';
+import registerPatientRoutes from "./src/routes/patients/registerPatients.js"
+
 const app = express();
 
 app.use(cookieParser());
@@ -35,26 +38,37 @@ app.use(cors({
     credentials: true
 }))
 
-app.use("/api/recoveryDoctor", doctorRecoveryRoutes);
-app.use("/api/appointments", appointmentsRoutes);
-app.use("/api/doctors", doctorsRoutes);
-app.use("/api/registerDoctors", registerDoctorRoutes);
-app.use("/api/loginDoctors", loginDoctorRoutes);
-app.use("/api/receptionist", receptionistRoutes);
-app.use("/api/recoveryReceptionist", receptionistRecoveryRoutes);
-app.use("/api/registerReceptionist", registerReceptionistRoutes);
-app.use("/api/consultations", consultationsRoutes);
-app.use("/api/nurses", nurseRoutes);
-app.use("/api/recoveryNursesPassword", recoveryNursePassword);
+//Enpoints publicos
+app.use("/api/auth" , authRoutes);
+app.use("/api/registerAdmin" , registerAdminRoute);
 app.use("/api/loginCommonRole", loginCommonRoleRoute);
 app.use("/api/loginPatient", loginPatientRoute);
-app.use("/api/logout", logoutRoute);
-app.use("/api/patients", patientsRoute);
-app.use("/api/inventory", inventoryRoutes);
-app.use("/api/procedures", proceduresRoutes);
-app.use("/api/auth" , authRoutes);
-app.use("/api/admin" , adminRoutes);
-app.use("/api/registerAdmin" , registerAdminRoute);
-app.use("/api/recoveryAdminPassword" , recoveryAdminPassword);
+app.use("/api/recoveryDoctor", doctorRecoveryRoutes);
+app.use("/api/recoveryAdminPassword" ,recoveryAdminPassword);
+app.use("/api/recoveryReceptionist", receptionistRecoveryRoutes);
+app.use("/api/recoveryNursesPassword", recoveryNursePassword);
+
+//Endpoints privados
+app.use("/api/registerDoctors", validateAuthCookie(["admin"]), registerDoctorRoutes);
+app.use("/api/doctors", doctorsRoutes);
+app.use("/api/loginDoctors", loginDoctorRoutes);
+
+app.use("/api/admin" , validateAuthCookie(["admin"]),  adminRoutes);
+
+app.use("/api/registerReceptionist",validateAuthCookie(["admin"]), registerReceptionistRoutes);
+app.use("/api/receptionist", receptionistRoutes);
+
+app.use("/api/patients", validateAuthCookie(["admin", "doctor"]), patientsRoute);
+app.use("/api/registerPatient", registerPatientRoutes);
+
+app.use("/api/nurses",validateAuthCookie(["admin"]),  nurseRoutes);
+
+app.use("/api/consultations", validateAuthCookie(["admin", "doctor"]), consultationsRoutes);
+app.use("/api/appointments" , validateAuthCookie(["admin", "doctor", "receptionist"]) , appointmentsRoutes);
+app.use("/api/inventory",validateAuthCookie(["admin"]), inventoryRoutes);
+app.use("/api/procedures", validateAuthCookie(["admin", "doctor"]),  proceduresRoutes);
+
+app.use("/api/logout", validateAuthCookie(), logoutRoute);
+
 
 export default app;
