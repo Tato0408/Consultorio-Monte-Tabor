@@ -30,6 +30,6 @@ router
 
  router
  .route("/search")
-  .get(doctorsController.getDoctors)
+  .get(doctorsController.searchDoctors)
 
 export default router;
