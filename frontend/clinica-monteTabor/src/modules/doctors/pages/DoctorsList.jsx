@@ -25,22 +25,56 @@ const DoctorsList = () => {
   } = useDoctors();
 
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [doctorToEdit, setDoctorToEdit] = useState(null);
+
+  const [doctorToEdit, setDoctorToEdit] =
+    useState(null);
+
+  // BUSCADOR
+  const [search, setSearch] =
+    useState("");
+
+  // Filtrar doctores
+  const filteredDoctors =
+    doctors.filter((doctor) => {
+      const text =
+        search.toLowerCase();
+
+      return (
+        doctor.firstName
+          ?.toLowerCase()
+          .includes(text) ||
+        doctor.lastName
+          ?.toLowerCase()
+          .includes(text) ||
+        doctor.email
+          ?.toLowerCase()
+          .includes(text)
+      );
+    });
 
   useEffect(() => {
-    if (doctors.length > 0) {
-      const exists = doctors.find(
-        (d) => d._id === selectedDoctor?._id
-      );
+    if (filteredDoctors.length > 0) {
+      const exists =
+        filteredDoctors.find(
+          (d) =>
+            d._id ===
+            selectedDoctor?._id
+        );
 
       if (!exists) {
-        setSelectedDoctor(doctors[0]);
+        setSelectedDoctor(
+          filteredDoctors[0]
+        );
       }
     } else {
       setSelectedDoctor(null);
     }
-  }, [doctors, selectedDoctor]);
+  }, [
+    filteredDoctors,
+    selectedDoctor,
+  ]);
 
   // ==========================
   // ABRIR CREAR
@@ -53,7 +87,9 @@ const DoctorsList = () => {
   // ==========================
   // ABRIR EDITAR
   // ==========================
-  const handleOpenEdit = (doctor) => {
+  const handleOpenEdit = (
+    doctor
+  ) => {
     setDoctorToEdit(doctor);
     setIsFormOpen(true);
   };
@@ -61,59 +97,69 @@ const DoctorsList = () => {
   // ==========================
   // CERRAR FORMULARIO
   // ==========================
-  const handleCloseForm = async () => {
-    setIsFormOpen(false);
+  const handleCloseForm =
+    async () => {
+      setIsFormOpen(false);
 
-    await getDoctors();
+      await getDoctors();
 
-    if (doctorToEdit) {
-      showSuccess(
-        "Doctor actualizado",
-        "La información del doctor fue actualizada correctamente."
-      );
-    } else {
-      showSuccess(
-        "Doctor agregado",
-        "El doctor fue registrado correctamente."
-      );
-    }
+      if (doctorToEdit) {
+        showSuccess(
+          "Doctor actualizado",
+          "La información del doctor fue actualizada correctamente."
+        );
+      } else {
+        showSuccess(
+          "Doctor agregado",
+          "El doctor fue registrado correctamente."
+        );
+      }
 
-    setDoctorToEdit(null);
-  };
+      setDoctorToEdit(null);
+    };
 
   // ==========================
   // ELIMINAR
   // ==========================
-  const handleDeleteDoctor = async (id) => {
-    const confirmed = await confirmDelete();
+  const handleDeleteDoctor =
+    async (id) => {
+      const confirmed =
+        await confirmDelete();
 
-    if (!confirmed) return;
+      if (!confirmed) return;
 
-    try {
-      await deleteDoctor(id);
+      try {
+        await deleteDoctor(id);
 
-      await getDoctors();
+        await getDoctors();
 
-      showSuccess(
-        "Doctor eliminado",
-        "El doctor fue eliminado correctamente."
-      );
+        showSuccess(
+          "Doctor eliminado",
+          "El doctor fue eliminado correctamente."
+        );
 
-      if (selectedDoctor?._id === id) {
-        setSelectedDoctor(null);
+        if (
+          selectedDoctor?._id ===
+          id
+        ) {
+          setSelectedDoctor(
+            null
+          );
+        }
+      } catch (error) {
+        console.error(error);
+
+        showError(
+          "Error",
+          error.message ||
+            "No se pudo eliminar el doctor."
+        );
       }
-    } catch (error) {
-      console.error(error);
-
-      showError(
-        "Error",
-        error.message || "No se pudo eliminar el doctor."
-      );
-    }
-  };
+    };
 
   return (
     <div className="p-8 bg-white min-h-screen w-full">
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">
           Doctores
@@ -130,27 +176,46 @@ const DoctorsList = () => {
       />
 
       <div className="grid grid-cols-12 gap-6 mt-8">
+
         <div className="col-span-8">
-          <TableBar />
+
+          <TableBar
+            search={search}
+            setSearch={setSearch}
+          />
 
           <DoctorsTable
-            doctors={doctors}
+            doctors={filteredDoctors}
             loading={loading}
             error={error}
-            onSelectDoctor={setSelectedDoctor}
-            onOpenForm={handleOpenCreate}
-            onEditDoctor={handleOpenEdit}
-            onDeleteDoctor={handleDeleteDoctor}
+            onSelectDoctor={
+              setSelectedDoctor
+            }
+            onOpenForm={
+              handleOpenCreate
+            }
+            onEditDoctor={
+              handleOpenEdit
+            }
+            onDeleteDoctor={
+              handleDeleteDoctor
+            }
           />
 
           <TablePagination />
+
         </div>
 
         <div className="col-span-4">
+
           <DoctorProfileCard
-            doctor={selectedDoctor}
+            doctor={
+              selectedDoctor
+            }
           />
+
         </div>
+
       </div>
 
       <div className="mt-8">
@@ -158,12 +223,20 @@ const DoctorsList = () => {
       </div>
 
       <DoctorForm
-        key={doctorToEdit?._id || "new"}
+        key={
+          doctorToEdit?._id ||
+          "new"
+        }
         isOpen={isFormOpen}
-        onClose={handleCloseForm}
+        onClose={
+          handleCloseForm
+        }
         doctor={doctorToEdit}
-        refreshDoctors={getDoctors}
+        refreshDoctors={
+          getDoctors
+        }
       />
+
     </div>
   );
 };

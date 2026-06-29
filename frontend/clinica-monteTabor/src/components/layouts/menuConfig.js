@@ -33,7 +33,7 @@ export const sideBarMenu = [
         subItems: [
             { title: 'Doctores', icon: 'UserPlus', path: '/users/doctors', allowedRoles: [roles.admin] },
             { title: 'Pacientes', icon: 'UserCheck', path: '/users/patients', allowedRoles: [roles.admin] },
-            { title: 'Recepcionista', icon: 'User', path: '/users/receptionist', allowedRoles: [roles.admin] },
+            { title: 'Recepcionista', icon: 'User', path: '/users/recepcionist', allowedRoles: [roles.admin] },
             { title: 'Enfermeras', icon: 'UserPlus2', path: '/users/nurses', allowedRoles: [roles.admin] }
         ]
     },

@@ -241,4 +241,68 @@ doctorController.deleteDoctor = async (req, res) => {
   }
 };
 
+// =====================
+// SEARCH
+// =====================
+doctorController.searchDoctors = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    if (!search || search.trim() === "") {
+      const doctors = await doctorsModel.find();
+
+      return res.status(200).json(doctors);
+    }
+
+    const doctors = await doctorsModel.find({
+      $or: [
+        {
+          name: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          last_name: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          email: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          dui: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          license_number: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          phone: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+      ],
+    });
+
+    return res.status(200).json(doctors);
+  } catch (error) {
+    console.log("error " + error);
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
 export default doctorController;

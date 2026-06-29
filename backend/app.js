@@ -40,7 +40,7 @@ app.use("/api/appointments", appointmentsRoutes);
 app.use("/api/doctors", doctorsRoutes);
 app.use("/api/registerDoctors", registerDoctorRoutes);
 app.use("/api/loginDoctors", loginDoctorRoutes);
-app.use("/api/receptionist", receptionistRoutes);
+app.use("/api/recepcionist", receptionistRoutes);
 app.use("/api/recoveryReceptionist", receptionistRecoveryRoutes);
 app.use("/api/registerReceptionist", registerReceptionistRoutes);
 app.use("/api/consultations", consultationsRoutes);

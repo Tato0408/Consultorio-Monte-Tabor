@@ -7,6 +7,7 @@ const router = express.Router();
 router
   .route("/")
   .get(doctorsController.getDoctors)
+  
   .post(
     upload.fields([
       { name: "doctorImage", maxCount: 1 },
@@ -15,6 +16,7 @@ router
     doctorsController.createDoctor
   );
 
+  
 router
   .route("/:id")
   .put(
@@ -25,5 +27,9 @@ router
     doctorsController.updateDoctors
   )
   .delete(doctorsController.deleteDoctor);
+
+ router
+ .route("/search")
+  .get(doctorsController.getDoctors)
 
 export default router;

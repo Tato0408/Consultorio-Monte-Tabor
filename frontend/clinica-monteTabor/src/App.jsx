@@ -17,6 +17,7 @@ import Procedures from './modules//procedures/pages/ProceduresPage';
 import AdminAppointments from './modules/appointments/pages/AdminAppointments';
 import CreateAppointmentForm from './modules/appointments/components/AppointmentsForm'
 import ProfilePage from './modules/profile/page/ProfilePage'
+import RecepcionistList from './modules/recepcionist/pages/RecepcionistList' 
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
               <Route path="/home" element={<Home />} />
               <Route path="/users/patients" element={<PatientsList />} />
               <Route path="/users/doctors" element={<DoctorsList />} />
+              <Route path="/users/recepcionist" element={<RecepcionistList />} />
               <Route path="/calendar/consultations" element={<Consultations />} />
               <Route path="/calendar/consultations/:appointmentId" element={<ConsultationForm />} />
               <Route path="/calendar/appointments" element={<AdminAppointments/>} />
