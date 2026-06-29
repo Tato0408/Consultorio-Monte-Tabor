@@ -104,6 +104,49 @@ export const useRecoveryDoctor = () => {
     }
   };
 
+  //REENVIAR CÓDIGO
+  const resendCode = 
+  async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(
+        `${API_URL}/resendCode`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            `Error HTTP: ${response.status}`
+        );
+      }
+
+      return data;
+    } catch (error) {
+      console.error(
+        "Error reenviando código:",
+        error
+      );
+
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // CAMBIAR CONTRASEÑA
   const newPassword =
     async (
@@ -165,5 +208,6 @@ export const useRecoveryDoctor = () => {
     requestCode,
     verifyCode,
     newPassword,
+    resendCode
   };
 };
