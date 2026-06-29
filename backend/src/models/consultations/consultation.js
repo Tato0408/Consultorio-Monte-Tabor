@@ -97,7 +97,7 @@ const consultationSchema = new Schema({
     },
   },
 
-  pysical_exam: {
+  physical_exam: {
     general: {
       type: String,
     },

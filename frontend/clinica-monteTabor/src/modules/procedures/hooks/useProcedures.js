@@ -1,56 +1,57 @@
-import { useState, useEffect } from "react";
+// src/features/procedures/hooks/useProcedures.js
+import { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
-
-const API_URL = "http://localhost:4000/api/procedures";
+import apiClient from "@/lib/apiClient";
 
 const useProcedures = () => {
   const [procedures, setProcedures] = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchProcedures = async () => {
+  const fetchProcedures = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error("No se pudo obtener la lista de procedimientos");
-      const data = await response.json();
+      // apiClient ya devuelve el JSON parseado directo (sin envoltorio { data }), así que aquí asignamos la respuesta tal cual.
+      const data = await apiClient("/procedures");
       setProcedures(data);
     } catch (err) {
       setError(err.message || "Error al cargar los procedimientos");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchProcedures(); }, []);
+  useEffect(() => {
+    fetchProcedures();
+  }, [fetchProcedures]);
+
+   const getProcedureById = useCallback((id) => {
+    if (!id) return null;
+    return procedures.find(proc => proc._id === id) || null;
+  }, [procedures]);
+
+
+  const getProcedureName = useCallback((id) => {
+    const procedure = getProcedureById(id);
+    return procedure?.name || "Procedimiento no encontrado";
+  }, [getProcedureById]);
 
   const saveProcedure = async (id, data) => {
     try {
       setSubmitting(true);
       setError("");
 
-      const url    = id ? `${API_URL}/${id}` : API_URL;
-      const method = id ? "PUT" : "POST";
-
-      // Limpiar _id de subdocumentos de materials antes de enviar.
-      // Mongoose genera _id automáticamente en cada subdocumento del array,
-      // y si los mandamos de vuelta el backend los intenta castear como ObjectId
-      // del campo name causando CastError.
       const cleanedData = {
         ...data,
         materials: (data.materials || []).map(({ _id, ...rest }) => rest),
       };
 
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cleanedData),
+      await apiClient(id ? `/procedures/${id}` : "/procedures", {
+        method: id ? "PUT" : "POST",
+        body: cleanedData,
       });
-
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message || `Error HTTP: ${response.status}`);
 
       await Swal.fire({
         icon: "success",
@@ -94,8 +95,7 @@ const useProcedures = () => {
 
     try {
       setError("");
-      const response = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("No se pudo eliminar el procedimiento");
+      await apiClient(`/procedures/${id}`, { method: "DELETE" });
 
       await Swal.fire({
         icon: "success",
@@ -117,15 +117,7 @@ const useProcedures = () => {
     }
   };
 
-  return {
-    procedures,
-    loading,
-    error,
-    submitting,
-    saveProcedure,
-    handleDelete,
-    fetchProcedures,
-  };
+  return { procedures, loading, error, submitting, saveProcedure, handleDelete, fetchProcedures , getProcedureById, getProcedureName};
 };
 
 export default useProcedures;

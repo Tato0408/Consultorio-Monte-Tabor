@@ -32,7 +32,7 @@ const Consultations =() => {
     } = useAppointments({
         dateFrom: today,
         dateTo: today,
-        status: "confirmed,completed",
+        status: "scheduled",
         limit: 8,
     });
  

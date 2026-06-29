@@ -90,6 +90,9 @@ const patientSchema = new Schema({
         non_pathological: {
             type: String
         },
+        ecologycal_social:{
+            type: String
+        },
         blood_type: {
             type: String
         },

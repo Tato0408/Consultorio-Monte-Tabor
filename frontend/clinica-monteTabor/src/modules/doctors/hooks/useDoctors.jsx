@@ -1,160 +1,74 @@
-import { useState, useEffect } from "react";
-
-const API_URL = "http://localhost:4000/api/doctors";
+// src/features/doctors/hooks/useDoctors.js
+import { useState, useEffect, useCallback } from "react";
+import apiClient from "@/lib/apiClient";
 
 export const useDoctors = () => {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // GET ALL
-  const getDoctors = async () => {
+  const getDoctors = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-
-      const response = await fetch(API_URL);
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // apiClient ya devuelve el JSON parseado directo (sin envoltorio { data }), así que aquí asignamos la respuesta tal cual.
+      const data = await apiClient("/doctors");
       setDoctors(data);
-    } catch (error) {
-      console.error("Error al obtener los doctores:", error);
-      setError(error.message);
+    } catch (err) {
+      console.error("Error al obtener los doctores:", err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // GET BY ID
   const getDoctorById = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/${id}`);
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error(
-        `Error al obtener el doctor con ID ${id}:`,
-        error
-      );
-      throw error;
+      return await apiClient(`/doctors/${id}`);
+    } catch (err) {
+      console.error(`Error al obtener el doctor con ID ${id}:`, err);
+      throw err;
     }
   };
 
-  // CREATE
+  // CREATE — FormData pasa intacto por apiClient (ya confirmamos que no
+  // fuerza Content-Type ni hace JSON.stringify cuando body es FormData).
   const createDoctor = async (formData) => {
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            `Error HTTP: ${response.status}`
-        );
-      }
-
+      const data = await apiClient("/doctors", { method: "POST", body: formData });
       await getDoctors();
-
       return data;
-    } catch (error) {
-      console.error(
-        "Error al crear el doctor:",
-        error
-      );
-      throw error;
+    } catch (err) {
+      console.error("Error al crear el doctor:", err);
+      throw err;
     }
   };
 
-  // UPDATE
-  const updateDoctor = async (
-    id,
-    formData
-  ) => {
+  const updateDoctor = async (id, formData) => {
     try {
-      const response = await fetch(
-        `${API_URL}/${id}`,
-        {
-          method: "PUT",
-          body: formData,
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            `Error HTTP: ${response.status}`
-        );
-      }
-
+      const data = await apiClient(`/doctors/${id}`, { method: "PUT", body: formData });
       await getDoctors();
-
       return data;
-    } catch (error) {
-      console.error(
-        `Error al actualizar el doctor con ID ${id}:`,
-        error
-      );
-      throw error;
+    } catch (err) {
+      console.error(`Error al actualizar el doctor con ID ${id}:`, err);
+      throw err;
     }
   };
 
-  // DELETE
   const deleteDoctor = async (id) => {
     try {
-      const response = await fetch(
-        `${API_URL}/${id}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            `Error HTTP: ${response.status}`
-        );
-      }
-
+      const data = await apiClient(`/doctors/${id}`, { method: "DELETE" });
       await getDoctors();
-
       return data;
-    } catch (error) {
-      console.error(
-        `Error al eliminar el doctor con ID ${id}:`,
-        error
-      );
-      throw error;
+    } catch (err) {
+      console.error(`Error al eliminar el doctor con ID ${id}:`, err);
+      throw err;
     }
   };
 
   useEffect(() => {
     getDoctors();
-  }, []);
+  }, [getDoctors]);
 
-  return {
-    doctors,
-    loading,
-    error,
-    getDoctors,
-    getDoctorById,
-    createDoctor,
-    updateDoctor,
-    deleteDoctor,
-  };
+  return { doctors, loading, error, getDoctors, getDoctorById, createDoctor, updateDoctor, deleteDoctor };
 };
