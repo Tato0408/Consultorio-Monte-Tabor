@@ -22,9 +22,7 @@ doctorController.getDoctors = async (req, res) => {
   }
 };
 
-// =====================
-// CREATE
-// =====================
+//create
 doctorController.createDoctor = async (req, res) => {
   try {
     const {

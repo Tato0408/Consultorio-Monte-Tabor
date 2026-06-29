@@ -1,6 +1,6 @@
 import receptionistsModel from "../../models/receptionist/receptionist.js";
 import { v2 as cloudinary } from "cloudinary";
-
+import bcrypt from "bcryptjs";
 //Array de funciones
 const receptionistController = {};
 
@@ -20,6 +20,82 @@ receptionistController.getReceptionists = async (req, res) => {
   }
 };
 
+receptionistController.createReceptionist =
+  async (req, res) => {
+    try {
+      const {
+        name,
+        last_name,
+        dui,
+        age,
+        phone,
+        email,
+        password,
+      } = req.body;
+
+      const receptionistExists =
+        await receptionistsModel.findOne({
+          $or: [
+            { email },
+            { dui },
+          ],
+        });
+
+      if (receptionistExists) {
+        return res.status(400).json({
+          message:
+            "Ya existe un recepcionista con ese correo o DUI",
+        });
+      }
+
+      const passwordHashed =
+        await bcryptjs.hash(
+          password,
+          10
+        );
+
+      const newReceptionist =
+        new receptionistsModel({
+          img_url:
+            req.files[
+              "receptionistImage"
+            ][0].path,
+
+          img_public_id:
+            req.files[
+              "receptionistImage"
+            ][0].filename,
+
+          name,
+          last_name,
+          dui,
+          age,
+          phone,
+          email,
+
+          password:
+            passwordHashed,
+
+          is_active: true,
+          is_verified: true,
+          loginAttempts: 0,
+        });
+
+      await newReceptionist.save();
+
+      return res.status(201).json({
+        message:
+          "Recepcionista creado correctamente",
+      });
+    } catch (error) {
+      console.log("error " + error);
+
+      return res.status(500).json({
+        message:
+          "Internal server error",
+      });
+    }
+  };
 
 receptionistController.updateReceptionist = async (
   req,

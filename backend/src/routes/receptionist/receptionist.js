@@ -8,6 +8,15 @@ router
   .route("/")
   .get(
     receptionistsController.getReceptionists
+  )
+  .post(
+    upload.fields([
+      {
+        name: "receptionistImage",
+        maxCount: 1,
+      },
+    ]),
+    receptionistsController.createReceptionist
   );
 
 router
@@ -19,10 +28,10 @@ router
         maxCount: 1,
       },
     ]),
-    receptionistsController.updateReceptionist,
+    receptionistsController.updateReceptionist
   )
   .delete(
-    receptionistsController.deleteReceptionist,
+    receptionistsController.deleteReceptionist
   );
 
 export default router;

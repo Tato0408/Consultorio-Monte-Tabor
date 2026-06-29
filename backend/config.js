@@ -8,7 +8,7 @@ export const config = {
         URI: process.env.DB_URI,
     },
     JWT: {
-        secret: process.env.JWT_Secret_key,
+        secret: process.env.JWT_secret_key,
     },
     email: {
         user_email: process.env.USER_EMAIL,
