@@ -49,11 +49,11 @@ app.use("/api/recoveryReceptionist", receptionistRecoveryRoutes);
 app.use("/api/recoveryNursesPassword", recoveryNursePassword);
 
 //Endpoints privados
-app.use("/api/registerDoctors", validateAuthCookie(["admin"]), registerDoctorRoutes);
+app.use("/api/registerDoctors", validateAuthCookie(["admin"]),registerDoctorRoutes);
 app.use("/api/doctors", doctorsRoutes);
 app.use("/api/loginDoctors", loginDoctorRoutes);
 
-app.use("/api/admin" , validateAuthCookie(["admin"]),  adminRoutes);
+app.use("/api/admin" ,adminRoutes);
 
 app.use("/api/registerReceptionist",validateAuthCookie(["admin"]), registerReceptionistRoutes);
 app.use("/api/receptionist", receptionistRoutes);

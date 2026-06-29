@@ -13,7 +13,10 @@ const adminController = {};
 adminController.getAdmins = async (req, res) => {
     try {
         const admins = await adminModel.find();
-
+        const adminCount = await adminModel.countDocuments();
+        if (adminCount === 0) {
+            return res.status(404).json({ message: "No admins found" });
+        }
         return res.status(200).json(admins);
     } catch (error) {
         console.log("error " + error);
@@ -194,7 +197,16 @@ adminController.deleteAdmin = async (req, res) => {
         return res.status(200).json({ message: "Admin deleted" });
 
     } catch (error) {
-        console.log("error " + error);
+        console.log("error", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+adminController.checkAdminExists = async (req, res) => {
+    try {
+        const count = await adminModel.countDocuments();
+        return res.status(200).json({ exists: count > 0 });
+    } catch (error) {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
