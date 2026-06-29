@@ -1,7 +1,7 @@
 import { Calendar, Filter } from "lucide-react";
 
 const STATUS_OPTIONS = [
-    { value: "confirmed,completed", label: "En espera y Atendidos (hoy)" },
+    { value: "scheduled, confirmed", label: "Agendados" },
     { value: "", label: "Todos los estados" },
     { value: "scheduled", label: "Agendado (sin confirmar)" },
     { value: "confirmed", label: "En espera" },

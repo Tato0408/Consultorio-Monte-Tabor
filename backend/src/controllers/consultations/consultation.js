@@ -173,4 +173,66 @@ consultationController.updateConsultation = async (req, res) => {
   }
 };
 
+//Select by id
+consultationController.getConsultationById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const consultation = await consultationsModel.findById(id).populate("patient_id").populate("appointment_id");
+
+    if (!consultation) {
+      return res.status(404).json({ message: "Consultation not found" });
+    }
+
+    //Buscamos si hay alguna prescripcion asociada a la consulta
+    const prescription = await prescriptionsModel.findOne({ consultation_id: id });
+
+    //Juntamos la informacion en una sola respuesta, para eso lo convertimos en un objeto plano de js
+    const responseData = {
+      //Los ... sirven para copiar toda las propiedades de consultation y pegarlas, para asi poder crear un solo objeto con ambos json
+      ...consultation.toObject(),
+      presciption: prescription || null
+    }
+
+    return res.status(200).json(responseData);
+  } catch (error) {
+
+    console.log("error " + error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+consultationController.getConsultationByAppointmentId = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+
+    // Validación previa para asegurar que el parámetro sea un ObjectId válido de Mongo
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      return res.status(400).json({ message: "El ID de la cita provisto no es válido." });
+    }
+
+    const consultation = await consultationsModel
+      .findOne({ appointment_id: appointmentId })
+      .populate("patient_id")
+      .populate("appointment_id");
+
+    if (!consultation) {
+      return res.status(200).json({ data: null, message: "No hay consulta previa" });
+    }
+
+    const prescription = await prescriptionsModel.findOne({ consultation_id: consultation._id });
+
+    const responseData = {
+      ...consultation.toObject(),
+      prescription: prescription || null,
+    };
+
+    return res.status(200).json(responseData);
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
 export default consultationController;

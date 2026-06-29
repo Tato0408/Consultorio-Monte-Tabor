@@ -1,15 +1,15 @@
 import React from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { Plus, Trash2, Clock, DollarSign, Package, Activity, FileText, Info } from "lucide-react";
+import { Plus, Trash2, Clock, Package, Activity, FileText, Info } from "lucide-react";
 
 /*
   formId — prop opcional que se pone en el <form id={formId}>.
   Cuando viene desde el modal de edición, el botón de submit
   del footer usa form="edit-procedure-form" para vincularse a este form.
-  Si no viene (creación desde página), el botón de submit está dentro del form normal.
 */
 const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, formId }) => {
-  const { register, control, handleSubmit, watch } = useForm({
+  // Extraemos 'formState: { errors }' para manejar los estados de error visuales
+  const { register, control, handleSubmit, watch, formState: { errors } } = useForm({
     defaultValues: initialData || {
       name: "",
       description: "",
@@ -41,56 +41,92 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
             <h3 className="font-bold text-gray-900 text-sm">Información del procedimiento</h3>
           </div>
 
+          {/* CAMPO: NOMBRE */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Nombre del procedimiento *</label>
             <input
               type="text"
               placeholder="Ej. Apendicectomía laparoscópica"
-              {...register("name", { required: true })}
-              className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:bg-white transition-colors"
+              {...register("name", { required: "El campo tiene que llenarse" })}
+              className={`w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
+                errors.name 
+                  ? "border border-red-500 bg-red-50/30 focus:border-red-500" 
+                  : "bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white"
+              }`}
             />
+            {errors.name && (
+              <span className="text-xs text-red-500 font-medium mt-1 block">{errors.name.message}</span>
+            )}
           </div>
 
+          {/* CAMPO: DESCRIPCIÓN */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Descripción *</label>
             <textarea
               placeholder="Describa el procedimiento, su objetivo, alcance..."
               rows={4}
               maxLength={1000}
-              {...register("description", { required: true })}
-              className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:bg-white transition-colors resize-none"
+              {...register("description", { required: "El campo tiene que llenarse" })}
+              className={`w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors resize-none ${
+                errors.description 
+                  ? "border border-red-500 bg-red-50/30 focus:border-red-500" 
+                  : "bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white"
+              }`}
             />
-            <span className="text-[10px] text-gray-400 float-right mt-1">
-              {(watchedValues.description || "").length}/1000
-            </span>
+            <div className="flex justify-between items-start mt-1">
+              <div>
+                {errors.description && (
+                  <span className="text-xs text-red-500 font-medium">{errors.description.message}</span>
+                )}
+              </div>
+              <span className="text-[10px] text-gray-400">
+                {(watchedValues.description || "").length}/1000
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            {/* CAMPO: DURACIÓN */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">Duración estimada (minutos) *</label>
               <div className="relative">
-                <Clock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Clock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${errors.estimated_duration ? 'text-red-400' : 'text-gray-400'}`} />
                 <input
                   type="number"
                   placeholder="Ej. 45"
-                  {...register("estimated_duration", { required: true, valueAsNumber: true })}
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:bg-white"
+                  {...register("estimated_duration", { required: "El campo tiene que llenarse", valueAsNumber: true })}
+                  className={`w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
+                    errors.estimated_duration 
+                      ? "border border-red-500 bg-red-50/30 focus:border-red-500" 
+                      : "bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white"
+                  }`}
                 />
               </div>
+              {errors.estimated_duration && (
+                <span className="text-xs text-red-500 font-medium mt-1 block">{errors.estimated_duration.message}</span>
+              )}
             </div>
 
+            {/* CAMPO: PRECIO */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">Precio (USD) *</label>
               <div className="relative">
-                <span className="text-sm font-medium text-gray-400 absolute left-3 top-1/2 -translate-y-1/2">$</span>
+                <span className={`text-sm font-medium absolute left-3 top-1/2 -translate-y-1/2 ${errors.price ? 'text-red-400' : 'text-gray-400'}`}>$</span>
                 <input
                   type="number"
                   step="0.01"
                   placeholder="Ej. 120.00"
-                  {...register("price", { required: true, valueAsNumber: true })}
-                  className="w-full pl-7 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:bg-white"
+                  {...register("price", { required: "El campo tiene que llenarse", valueAsNumber: true })}
+                  className={`w-full pl-7 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
+                    errors.price 
+                      ? "border border-red-500 bg-red-50/30 focus:border-red-500" 
+                      : "bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white"
+                  }`}
                 />
               </div>
+              {errors.price && (
+                <span className="text-xs text-red-500 font-medium mt-1 block">{errors.price.message}</span>
+              )}
             </div>
           </div>
         </div>
@@ -110,40 +146,69 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
               <div className="col-span-2 text-right">ACCIONES</div>
             </div>
 
-            {fields.map((item, index) => (
-              <div key={item.id} className="grid grid-cols-12 gap-3 items-center">
-                <div className="col-span-7">
-                  <select
-                    {...register(`materials.${index}.name`, { required: true })}
-                    className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="">Buscar material...</option>
-                    <option value="Gasa estéril 10x10">Gasa estéril 10x10</option>
-                    <option value="Guantes quirúrgicos N° 7">Guantes quirúrgicos N° 7</option>
-                    <option value="Jeringa descartable 5ml">Jeringa descartable 5ml</option>
-                  </select>
-                </div>
+            {fields.map((item, index) => {
+              const nameError = errors.materials?.[index]?.name;
+              const quantityError = errors.materials?.[index]?.quantity;
 
-                <div className="col-span-3">
-                  <input
-                    type="number"
-                    min="1"
-                    {...register(`materials.${index}.quantity`, { required: true, valueAsNumber: true })}
-                    className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
-                  />
-                </div>
+              return (
+                <div key={item.id} className="space-y-1">
+                  <div className="grid grid-cols-12 gap-3 items-center">
+                    {/* SELECT MATERIAL */}
+                    <div className="col-span-7">
+                      <select
+                        {...register(`materials.${index}.name`, { required: "Seleccione un material" })}
+                        className={`w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
+                          nameError 
+                            ? "border border-red-500 bg-red-50/30 focus:border-red-500 text-red-900" 
+                            : "bg-gray-50 border border-gray-200 focus:border-blue-500"
+                        }`}
+                      >
+                        <option value="">Buscar material...</option>
+                        <option value="Gasa estéril 10x10">Gasa estéril 10x10</option>
+                        <option value="Guantes quirúrgicos N° 7">Guantes quirúrgicos N° 7</option>
+                        <option value="Jeringa descartable 5ml">Jeringa descartable 5ml</option>
+                      </select>
+                    </div>
 
-                <div className="col-span-2 text-right">
-                  <button
-                    type="button"
-                    onClick={() => remove(index)}
-                    className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    {/* INPUT CANTIDAD */}
+                    <div className="col-span-3">
+                      <input
+                        type="number"
+                        min="1"
+                        {...register(`materials.${index}.quantity`, { required: "Requerido", valueAsNumber: true })}
+                        className={`w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
+                          quantityError 
+                            ? "border border-red-500 bg-red-50/30 focus:border-red-500" 
+                            : "bg-gray-50 border border-gray-200 focus:border-blue-500"
+                        }`}
+                      />
+                    </div>
+
+                    <div className="col-span-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => remove(index)}
+                        className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* MENSAJES DE ERROR PARA FILA DE MATERIAL */}
+                  {(nameError || quantityError) && (
+                    <div className="grid grid-cols-12 gap-3 px-1">
+                      <div className="col-span-7">
+                        {nameError && <span className="text-[11px] text-red-500 font-medium">{nameError.message}</span>}
+                      </div>
+                      <div className="col-span-3">
+                        {quantityError && <span className="text-[11px] text-red-500 font-medium">{quantityError.message}</span>}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <button

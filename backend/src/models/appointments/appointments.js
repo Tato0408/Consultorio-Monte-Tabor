@@ -37,4 +37,4 @@ const appointmentsSchema = new Schema({
     strict: false
 });
 
-export default model("appointments", appointmentsSchema);
+export default model("Appointments", appointmentsSchema);

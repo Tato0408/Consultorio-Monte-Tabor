@@ -1,13 +1,13 @@
-import nurseModel from "../../models/nurses/nurses.js"
-import doctorModel from "../../models/doctors/doctors.js"
-//agregar admin model
-import recepcionistModel from "../../models/receptionist/receptionist.js"
+import nurseModel from "../../models/nurses/nurses.js";
+import doctorModel from "../../models/doctors/doctors.js";
+import adminModel from "../../models/admin/admins.js";
+import recepcionistModel from "../../models/receptionist/receptionist.js";
 
 const role_models = {
-    //admin: adminModel
+    admin: adminModel,
     doctor: doctorModel,
     nurse: nurseModel,
-    recepctionist: recepcionistModel
+    receptionist: recepcionistModel,  // corregido el typo
 };
 
 const authController = {};
@@ -22,13 +22,26 @@ authController.getCurrentUser = async (req, res) => {
         }
 
         const userFound = await model.findById(id).select("-password");
-
         if (!userFound) {
             return res.status(404).json({ message: "User not found" });
         }
 
         return res.status(200).json({
-            userType, user: { id: userFound._id, email: userFound.email, name: userFound.name, last_name: userFound.last_name },
+            userType,
+            user: {
+                id: userFound._id,
+                name: userFound.name,
+                last_name: userFound.last_name,
+                email: userFound.email,
+                dui: userFound.dui,
+                age: userFound.age,
+                gender: userFound.gender,
+                // imagen — cada modelo usa un nombre diferente, devolvemos el que existe
+                image: userFound.image || userFound.img_url || userFound.doctorImage || null,
+                public_id: userFound.public_id || userFound.img_public_id || null,
+                is_active: userFound.is_active,
+                is_verified: userFound.is_verified,
+            },
         });
 
     } catch (error) {
@@ -36,4 +49,5 @@ authController.getCurrentUser = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
 export default authController;

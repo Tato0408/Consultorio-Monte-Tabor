@@ -12,9 +12,11 @@ import Verify from './modules/login/pages/Recovery/VerifyCode';
 import PasswordUpdated from './modules/login/pages/Recovery/PasswordUpdated';
 import Password from './modules/login/pages/Recovery/NewPassword';
 import Consultations from './modules/schedule/consultations/pages/Consultations';
+import ConsultationForm from './modules/schedule/consultations/pages/ConsultationForm';
 import Procedures from './modules//procedures/pages/ProceduresPage';
 import AdminAppointments from './modules/appointments/pages/AdminAppointments';
 import CreateAppointmentForm from './modules/appointments/components/AppointmentsForm'
+import ProfilePage from './modules/profile/page/ProfilePage'
 
 function App() {
   return (
@@ -38,11 +40,13 @@ function App() {
               <Route path="/users/patients" element={<PatientsList />} />
               <Route path="/users/doctors" element={<DoctorsList />} />
               <Route path="/calendar/consultations" element={<Consultations />} />
+              <Route path="/calendar/consultations/:appointmentId" element={<ConsultationForm />} />
               <Route path="/calendar/appointments" element={<AdminAppointments/>} />
               <Route path="/calendar/appointments/new" element={<CreateAppointmentForm />} />
               <Route path="/calendar/appointments/:id" element={<CreateAppointmentForm />} />
               <Route path="/inventory/products" element={<InventoryDashboard />} />
               <Route path="/procedures" element={<Procedures />} />
+              <Route path="/system/profile" element={<ProfilePage/>} />
             </Route>
           </Routes>
         </BrowserRouter>

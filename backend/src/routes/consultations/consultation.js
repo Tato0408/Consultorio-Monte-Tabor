@@ -3,7 +3,16 @@ import consultationController from "../../controllers/consultations/consultation
 
 const router = express.Router();
 
-router.route("/").get(consultationController.getConsultations).post(consultationController.insertConsultation);
-router.route("/:id").post(consultationController.updateConsultation).delete(consultationController.deleteConsultation);
+router.route("/by-appointment/:appointmentId")
+    .get(consultationController.getConsultationByAppointmentId);
+
+router.route("/")
+    .get(consultationController.getConsultations)
+    .post(consultationController.insertConsultation);
+
+router.route("/:id")
+    .put(consultationController.updateConsultation)
+    .delete(consultationController.deleteConsultation)
+    .get(consultationController.getConsultationById);
 
 export default router;

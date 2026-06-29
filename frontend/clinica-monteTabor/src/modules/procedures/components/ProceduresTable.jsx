@@ -41,88 +41,97 @@ const ProceduresTable = ({ data, loading, onEdit, onDelete }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50 text-sm text-gray-700">
-            {data.map((proc) => (
-              <tr key={proc._id} className="hover:bg-gray-50/50 transition-colors">
-                <td className="py-4 font-medium text-gray-900">{proc.name}</td>
-                
-                <td className="py-4 text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-gray-400" />
-                    <span>{proc.estimated_duration ? `${proc.estimated_duration} min` : "N/A"}</span>
-                  </div>
-                </td>
-                
-                <td className="py-4 font-medium text-gray-900">
-                  ${proc.price ? proc.price.toFixed(2) : "0.00"}
-                </td>
-                
-                <td className="py-4 text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-4 h-4 text-gray-400" />
-                    <span>{proc.materials ? proc.materials.length : 0} materiales</span>
-                  </div>
-                </td>
-                
-                <td className="py-4">
-                  {proc.requires_nurse ? (
-                    <span className="inline-flex items-center gap-1.5 text-green-600 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Sí
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-gray-500 font-medium">
-                      <X className="w-3.5 h-3.5 text-red-400 stroke-[3]" /> No
-                    </span>
-                  )}
-                </td>
-                
-                {/* Columna de Acciones con menú contenedor relativo */}
-                <td className="py-4 text-right pr-4 relative">
-                  <button 
-                    onClick={() => toggleMenu(proc._id)}
-                    className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${
-                      activeMenuId === proc._id ? "bg-gray-100 text-gray-900" : "text-gray-400"
-                    }`}
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
+            {data.map((proc, index) => {
+              // DETECCIÓN DE FILAS INFERIORES: Si son las últimas 2 filas de la lista, abrimos hacia arriba
+              const openUpwards = index >= data.length - 2 && data.length > 2;
 
-                  {/* "Modal chiquito" / Menú Dropdown Flotante */}
-                  {activeMenuId === proc._id && (
-                    <div 
-                      ref={menuRef}
-                      className="absolute right-4 mt-1 w-36 bg-white border border-gray-100 rounded-xl shadow-xl py-1.5 z-30 text-left animate-in fade-in slide-in-from-top-1 duration-150"
-                    >
-                      {/* Opción Editar */}
-                      <button
-                        onClick={() => {
-                          onEdit(proc);
-                          setActiveMenuId(null); // Cierra el menú chiquito
-                        }}
-                        className="w-full px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 text-gray-400" />
-                        Editar
-                      </button>
-
-                      {/* Divisor */}
-                      <div className="border-t border-gray-50 my-1" />
-
-                      {/* Opción Eliminar */}
-                      <button
-                        onClick={() => {
-                          onDelete(proc._id);
-                          setActiveMenuId(null); // Cierra el menú chiquito
-                        }}
-                        className="w-full px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50/60 flex items-center gap-2 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                        Eliminar
-                      </button>
+              return (
+                <tr key={proc._id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-4 font-medium text-gray-900">{proc.name}</td>
+                  
+                  <td className="py-4 text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      <span>{proc.estimated_duration ? `${proc.estimated_duration} min` : "N/A"}</span>
                     </div>
-                  )}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  
+                  <td className="py-4 font-medium text-gray-900">
+                    ${proc.price ? proc.price.toFixed(2) : "0.00"}
+                  </td>
+                  
+                  <td className="py-4 text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-gray-400" />
+                      <span>{proc.materials ? proc.materials.length : 0} materiales</span>
+                    </div>
+                  </td>
+                  
+                  <td className="py-4">
+                    {proc.requires_nurse ? (
+                      <span className="inline-flex items-center gap-1.5 text-green-600 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Sí
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-gray-500 font-medium">
+                        <X className="w-3.5 h-3.5 text-red-400 stroke-[3]" /> No
+                      </span>
+                    )}
+                  </td>
+                  
+                  {/* Columna de Acciones con menú contenedor relativo */}
+                  <td className="py-4 text-right pr-4 relative">
+                    <button 
+                      onClick={() => toggleMenu(proc._id)}
+                      className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${
+                        activeMenuId === proc._id ? "bg-gray-100 text-gray-900" : "text-gray-400"
+                      }`}
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {/* "Modal chiquito" / Menú Dropdown Flotante */}
+                    {activeMenuId === proc._id && (
+                      <div 
+                        ref={menuRef}
+                        className={`absolute w-36 bg-white border border-gray-100 rounded-xl shadow-xl py-1.5 z-30 text-left animate-in fade-in duration-150 right-12 ${
+                          openUpwards 
+                            ? "bottom-full mb-1 slide-in-from-bottom-1" 
+                            : "top-full mt-1 slide-in-from-top-1"
+                        }`}
+                      >
+                        {/* Opción Editar */}
+                        <button
+                          onClick={() => {
+                            onEdit(proc);
+                            setActiveMenuId(null);
+                          }}
+                          className="w-full px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-gray-400" />
+                          Editar
+                        </button>
+
+                        {/* Divisor */}
+                        <div className="border-t border-gray-50 my-1" />
+
+                        {/* Opción Eliminar */}
+                        <button
+                          onClick={() => {
+                            onDelete(proc._id);
+                            setActiveMenuId(null);
+                          }}
+                          className="w-full px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50/60 flex items-center gap-2 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

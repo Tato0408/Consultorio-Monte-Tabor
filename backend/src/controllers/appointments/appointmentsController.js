@@ -149,7 +149,7 @@ appointmentsController.getAppointmentById = async (req, res) => {
 
         // Buscamos por ID y le aplicamos el populate para tener los datos del paciente completo
         const appointment = await appointmentsModel.findById(id)
-            .populate("patient_id", "name last_name")
+            .populate("patient_id", "name last_name phone gender birth_date dui clinical_history.blood_type email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social")
             .populate("doctor_id", "name last_name")
             .populate("nurse_id", "name last_name");
 
