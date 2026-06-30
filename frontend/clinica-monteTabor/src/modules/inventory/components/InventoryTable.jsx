@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Search, Filter, Pencil, MoreVertical, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { getInsumos, deleteInsumo } from "../../../services/insumosService";
+import useInsumos from "../hooks/useInsumos";
 
 const CATEGORIAS = ["Todas", "Curación", "Protección", "Desinfección", "Procedimiento", "EPI", "Limpieza"];
 const ESTADOS    = ["Todos", "Disponible", "Bajo", "Crítico"];
@@ -23,6 +23,7 @@ const fmtDate = (d) => {
 };
 
 const InventoryTable = ({ onEdit, onRefresh, refreshTrigger }) => {
+  const { getInsumos, deleteInsumo } = useInsumos();
   const [items, setItems]       = useState([]);
   const [total, setTotal]       = useState(0);
   const [totalPages, setTotalPages] = useState(1);

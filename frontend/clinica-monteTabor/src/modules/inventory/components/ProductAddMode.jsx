@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Upload } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import InputField from "../../../components/ui/InputField";
-import { createInsumo, updateInsumo } from "../../../services/insumosService";
+import useInsumos from "../hooks/useInsumos";
 
 const CATEGORIAS = ["Curación", "Protección", "Desinfección", "Procedimiento", "EPI", "Limpieza"];
 const UNIDADES   = ["unidades", "pares", "ml", "litros", "kg", "cajas", "galón", "caja", "ampolla", "frasco"];
@@ -35,6 +35,7 @@ const SectionTitle = ({ children }) => (
 );
 
 const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
+  const { createInsumo, updateInsumo } = useInsumos();
   const isEdit = Boolean(item);
 
   const [form, setForm]       = useState(EMPTY);

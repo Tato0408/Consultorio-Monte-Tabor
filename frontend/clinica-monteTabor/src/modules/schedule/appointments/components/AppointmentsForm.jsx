@@ -7,7 +7,8 @@ import { useNavigate, useParams, useLocation } from "react-router-dom"
 import useAppointments from "../hooks/useAppointments"
 import useMedicalData from "../hooks/useMedicalData";
 import { showSuccess, showError } from "@/lib/alerts";
-import { getAvailableSlots, getSchedule } from "@/services/scheduleService";
+import useSchedule from "../hooks/useSchedule";
+import { useAuth } from "@/context/AuthContext";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmt12 = (t) => {
@@ -58,8 +59,12 @@ export default function AppointmentsForm() {
   const location  = useLocation();
   const { id }    = useParams();
 
+  const { user, userType } = useAuth();
+  const isDoctor = userType === "doctor";
+
   const { getAppointmentById, createAppointment, updateAppointment, submitting } = useAppointments();
   const { patients, doctors, nurses } = useMedicalData();
+  const { getAvailableSlots, getSchedule } = useSchedule();
 
   const isViewOrEditMode = !!id;
   const [isEditing, setIsEditing] = useState(!isViewOrEditMode || location.state?.editMode || false);
@@ -68,7 +73,14 @@ export default function AppointmentsForm() {
   // Form state
   const [formData, setFormData] = useState({ patient_id: "", doctor_id: "", nurse_id: "" });
   const [procedure, setProcedure]             = useState("Consulta");
-  const [date, setDate]                       = useState(new Date());
+  const [date, setDate]                       = useState(() => {
+    const param = new URLSearchParams(location.search).get("date");
+    if (param && !id) {
+      const [yr, mo, dy] = param.split("-").map(Number);
+      return new Date(yr, mo - 1, dy);
+    }
+    return new Date();
+  });
   const [status, setStatus]                   = useState("pending");
   const [notes, setNotes]                     = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
@@ -79,6 +91,14 @@ export default function AppointmentsForm() {
   const [selectedSlot, setSelectedSlot]       = useState(null);
   const [scheduleData, setScheduleData]       = useState(null);
   const scheduleId = scheduleData?._id || null;
+
+  // Si el usuario es doctor, pre-rellenar su propio ID en citas nuevas
+  useEffect(() => {
+    if (!isDoctor || !user || !doctors.length || id) return;
+    const me = doctors.find(d => d.email === user.email);
+    const myId = me?._id || user?.id || "";
+    if (myId) setFormData(p => ({ ...p, doctor_id: myId }));
+  }, [isDoctor, user, doctors, id]);
 
   // Load existing appointment for edit/view
   useEffect(() => {
@@ -165,7 +185,7 @@ export default function AppointmentsForm() {
         if (success) { setIsEditing(false); showSuccess("Cita modificada con éxito"); }
       } else {
         const success = await createAppointment(appointmentData);
-        if (success) { await showSuccess("Cita guardada exitosamente"); navigate("/calendar/appointments"); }
+        if (success) { navigate("/calendar/appointments"); showSuccess("Cita guardada exitosamente"); }
       }
     } catch (err) {
       showError(`No se pudo guardar la cita: ${err.message}`);
@@ -289,7 +309,7 @@ export default function AppointmentsForm() {
                 onChange={v => setFormData(p => ({ ...p, doctor_id: v }))}
                 options={doctors.map(d => ({ value: d._id, label: `Dr. ${d.name} ${d.last_name}` }))}
                 placeholder="Seleccione un doctor"
-                disabled={!isEditing}
+                disabled={isDoctor || !isEditing}
               />
               <SelectField
                 label="Enfermera asignada"
@@ -338,6 +358,7 @@ export default function AppointmentsForm() {
                   mode="single"
                   locale={es}
                   selected={date}
+                  defaultMonth={date}
                   onSelect={isEditing ? setDate : undefined}
                   fromDate={today}
                   disabled={isDateDisabled}

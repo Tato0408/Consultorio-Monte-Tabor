@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { ChevronDown, ArrowUp, ArrowDown } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import InputField from "../../../components/ui/InputField";
-import { adjustStock, getInsumos } from "../../../services/insumosService";
+import useInsumos from "../hooks/useInsumos";
 
 const SectionTitle = ({ children }) => (
   <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">{children}</h3>
@@ -10,6 +10,7 @@ const SectionTitle = ({ children }) => (
 
 /* ── Combobox de producto existente ─────────────────────── */
 const ProductCombobox = ({ value, onSelect, error }) => {
+  const { getInsumos } = useInsumos();
   const [query, setQuery]           = useState(value?.name || "");
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen]             = useState(false);
@@ -102,6 +103,7 @@ const InfoField = ({ label, value }) => (
 
 /* ── Modal principal ────────────────────────────────────── */
 const ModalAdjustStock = ({ onClose, onSuccess }) => {
+  const { adjustStock } = useInsumos();
   const [product, setProduct]       = useState(null); // insumo seleccionado
   const [adjustType, setAdjustType] = useState("aumentar"); // "aumentar" | "disminuir"
   const [quantity, setQuantity]     = useState("");

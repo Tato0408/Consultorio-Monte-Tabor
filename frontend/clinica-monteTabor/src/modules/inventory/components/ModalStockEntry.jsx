@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import InputField from "../../../components/ui/InputField";
-import { stockEntry, getInsumos } from "../../../services/insumosService";
+import useInsumos from "../hooks/useInsumos";
 
 const CATEGORIAS = ["Curación", "Protección", "Desinfección", "Procedimiento", "EPI", "Limpieza"];
 const UNIDADES   = ["unidades", "pares", "ml", "litros", "kg", "cajas", "galón", "caja", "ampolla", "frasco"];
@@ -30,6 +30,7 @@ const SectionTitle = ({ children }) => (
 
 /* ── Combobox de producto ──────────────────────────────── */
 const ProductCombobox = ({ value, onChange, onSelect, error }) => {
+  const { getInsumos } = useInsumos();
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen]               = useState(false);
   const [loading, setLoading]         = useState(false);
@@ -114,6 +115,7 @@ const ProductCombobox = ({ value, onChange, onSelect, error }) => {
 
 /* ── Modal principal ───────────────────────────────────── */
 const ModalStockEntry = ({ onClose, onSuccess }) => {
+  const { stockEntry } = useInsumos();
   const [form, setForm] = useState({
     name: "", category: "", unit_measure: "",
     supplier: "", quantity: "", unit_cost: "", detalle: "",

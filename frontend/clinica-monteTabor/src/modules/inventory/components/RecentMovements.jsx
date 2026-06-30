@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getMovements } from "../../../services/insumosService";
+import useInsumos from "../hooks/useInsumos";
 
 const TYPE_LABEL = {
   "Treatment use":       "Uso en tratamiento",
@@ -22,6 +22,7 @@ const fmtDate = (d) =>
   });
 
 const RecentMovements = ({ refreshTrigger }) => {
+  const { getMovements } = useInsumos();
   const [movements, setMovements] = useState([]);
   const [loading, setLoading]     = useState(false);
 
