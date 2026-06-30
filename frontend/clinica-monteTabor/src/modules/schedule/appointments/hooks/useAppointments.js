@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 
 const API_URL = "http://localhost:4000/api/appointments";
 
+const OPTS = { credentials: "include" };
+
 const useAppointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9,20 +11,17 @@ const useAppointments = () => {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  // Obtener todas las citas
   const fetchAppointments = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch(API_URL);
+      const response = await fetch(API_URL, OPTS);
 
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
       const data = await response.json();
-      setAppointments(data);
+      setAppointments(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || "Error al obtener las citas");
     } finally {
@@ -34,15 +33,10 @@ const useAppointments = () => {
     fetchAppointments();
   }, []);
 
-  // Obtener una cita por ID
   const getAppointmentById = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/${id}`);
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
+      const response = await fetch(`${API_URL}/${id}`, OPTS);
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
       return await response.json();
     } catch (err) {
       setError(err.message || "Error al obtener la cita");
@@ -50,7 +44,6 @@ const useAppointments = () => {
     }
   };
 
-  // Crear cita
   const createAppointment = async (appointmentData) => {
     try {
       setSubmitting(true);
@@ -58,22 +51,17 @@ const useAppointments = () => {
       setMessage("");
 
       const response = await fetch(API_URL, {
+        ...OPTS,
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(appointmentData),
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Error al crear la cita");
-      }
+      if (!response.ok) throw new Error(data.message || "Error al crear la cita");
 
       setMessage("Cita creada correctamente");
       await fetchAppointments();
-
       return true;
     } catch (err) {
       setError(err.message || "Error al crear la cita");
@@ -83,7 +71,6 @@ const useAppointments = () => {
     }
   };
 
-  // Actualizar cita
   const updateAppointment = async (id, appointmentData) => {
     try {
       setSubmitting(true);
@@ -91,22 +78,17 @@ const useAppointments = () => {
       setMessage("");
 
       const response = await fetch(`${API_URL}/${id}`, {
+        ...OPTS,
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(appointmentData),
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Error al actualizar la cita");
-      }
+      if (!response.ok) throw new Error(data.message || "Error al actualizar la cita");
 
       setMessage("Cita actualizada correctamente");
       await fetchAppointments();
-
       return true;
     } catch (err) {
       setError(err.message || "Error al actualizar la cita");
@@ -116,19 +98,13 @@ const useAppointments = () => {
     }
   };
 
-  // Eliminar cita
   const deleteAppointment = async (id) => {
     try {
       setError("");
       setMessage("");
 
-      const response = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
+      const response = await fetch(`${API_URL}/${id}`, { ...OPTS, method: "DELETE" });
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
       setMessage("Cita eliminada correctamente");
       await fetchAppointments();

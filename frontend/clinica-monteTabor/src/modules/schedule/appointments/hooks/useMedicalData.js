@@ -10,18 +10,18 @@ const useMedicalData = () => {
     try {
       const [patientsRes, doctorsRes, nursesRes] =
         await Promise.all([
-          fetch("http://localhost:4000/api/patients"),
-          fetch("http://localhost:4000/api/doctors"),
-          fetch("http://localhost:4000/api/nurses"),
+          fetch("http://localhost:4000/api/patients", { credentials: "include" }),
+          fetch("http://localhost:4000/api/doctors",  { credentials: "include" }),
+          fetch("http://localhost:4000/api/nurses",   { credentials: "include" }),
         ]);
 
       const patientsData = await patientsRes.json();
-      const doctorsData = await doctorsRes.json();
-      const nursesData = await nursesRes.json();
+      const doctorsData  = await doctorsRes.json();
+      const nursesData   = await nursesRes.json();
 
-      setPatients(patientsData);
-      setDoctors(doctorsData);
-      setNurses(nursesData);
+      setPatients(Array.isArray(patientsData) ? patientsData : []);
+      setDoctors(Array.isArray(doctorsData)   ? doctorsData  : []);
+      setNurses(Array.isArray(nursesData)     ? nursesData   : []);
     } catch (error) {
       console.error(error);
     } finally {
