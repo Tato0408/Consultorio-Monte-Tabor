@@ -1,4 +1,5 @@
 import appointmentsModel from "../../models/appointments/appointments.js";
+import "../../models/patients/patients.js"; // ensures "Patients" is registered for populate
 
 const appointmentsController = {};
 
@@ -61,7 +62,7 @@ appointmentsController.getAppointments = async (req, res) => {
             appointmentsModel
                 .find(filters)
                 .populate("doctor_id", "name last_name specialty")
-                .populate("patient_id", "name last_name")
+                .populate({ path: "patient_id", model: "Patients", select: "name last_name" })
                 .sort({ date: 1, start_time: 1 })
                 .skip(skip)
                 .limit(limitNumber),
@@ -110,15 +111,15 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
             .findOne({ ...dayFilter, status: "confirmed", start_time: { $gte: currentTimeString() } })
             .sort({ start_time: 1 })
             .populate("doctor_id", "name last_name specialty")
-            .populate("patient_id", "name last_name");
- 
+            .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
+
         // 2. Si no quedan citas confirmadas hoy, buscar la siguiente en días futuros
         if (!nextAppointment) {
             nextAppointment = await appointmentsModel
                 .findOne({ date: { $gt: end }, status: "confirmed" })
                 .sort({ date: 1, start_time: 1 })
                 .populate("doctor_id", "name last_name specialty")
-                .populate("patient_id", "name last_name");
+                .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
         }
  
         return res.status(200).json({
@@ -149,7 +150,7 @@ appointmentsController.getAppointmentById = async (req, res) => {
 
         // Buscamos por ID y le aplicamos el populate para tener los datos del paciente completo
         const appointment = await appointmentsModel.findById(id)
-            .populate("patient_id", "name last_name phone gender birth_date dui clinical_history.blood_type email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social")
+            .populate({ path: "patient_id", model: "Patients", select: "name last_name phone gender birth_date dui clinical_history.blood_type email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social" })
             .populate("doctor_id", "name last_name")
             .populate("nurse_id", "name last_name");
 
@@ -173,6 +174,7 @@ appointmentsController.insertAppointment = async (req, res) => {
             patient_id,
             nurse_id,
             procedure_id,
+            schedule_id,
             type,
             date,
             start_time,
@@ -218,6 +220,7 @@ appointmentsController.insertAppointment = async (req, res) => {
             patient_id,
             nurse_id,
             procedure_id,
+            schedule_id,
             type,
             date,
             start_time,
@@ -379,9 +382,9 @@ appointmentsController.getAppointmentsHistory = async (req, res) => {
  
         const history = await appointmentsModel
             .find({ date: { $gte: start, $lte: end }, status: "completed" })
-            .sort({ updatedAt: -1 }) // más reciente primero (usamos updatedAt como proxy de "finalizado")
+            .sort({ updatedAt: -1 })
             .limit(Math.max(parseInt(limit, 10) || 5, 1))
-            .populate("patient_id", "name last_name");
+            .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
  
         return res.status(200).json(history);
     } catch (error) {

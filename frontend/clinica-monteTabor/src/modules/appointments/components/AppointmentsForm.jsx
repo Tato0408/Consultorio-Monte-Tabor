@@ -1,554 +1,535 @@
 import React, { useState, useEffect } from "react"
-import { Search, Plus, CheckCircle2, X, Edit2, Save, AlertCircle, Clock } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { CheckCircle2, X, Edit2, Save, AlertCircle, Clock, Loader2, User, Stethoscope, CalendarDays, DollarSign } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
-import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { es } from "date-fns/locale"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import useAppointments from "../hooks/useAppointments"
 import useMedicalData from "../hooks/useMedicalData";
 import { showSuccess, showError } from "@/lib/alerts";
+import { getAvailableSlots, getSchedule } from "../../../services/scheduleService";
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const fmt12 = (t) => {
+  if (!t) return t;
+  const [h, m] = t.split(":").map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+};
+const timeToMins = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+
+const STATUS_CONFIG = {
+  pending:   { label: "Pendiente",   color: "bg-amber-100 text-amber-700 border-amber-200" },
+  scheduled: { label: "Programada",  color: "bg-blue-100 text-blue-700 border-blue-200" },
+  completed: { label: "Completada",  color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  cancelled: { label: "Cancelada",   color: "bg-red-100 text-red-700 border-red-200" },
+};
+
+// ── Subcomponents ─────────────────────────────────────────────────────────────
+const SectionCard = ({ title, icon: Icon, children }) => (
+  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+    <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-50 bg-slate-50/60">
+      {Icon && <Icon className="w-4 h-4 text-slate-400" />}
+      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{title}</span>
+    </div>
+    <div className="p-5">{children}</div>
+  </div>
+);
+
+const SelectField = ({ label, value, onChange, options, placeholder, disabled }) => (
+  <div className="flex flex-col gap-1.5">
+    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</label>
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 bg-white disabled:bg-slate-50 disabled:text-slate-400 transition-all"
+    >
+      <option value="">{placeholder}</option>
+      {options.map(o => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
+  </div>
+);
+
+// ── Main form ─────────────────────────────────────────────────────────────────
 export default function AppointmentsForm() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { id } = useParams()
-  const {
-    getAppointmentById,
-    createAppointment,
-    updateAppointment,
-    submitting,
-  } = useAppointments();
-  const {
-    patients,
-    doctors,
-    nurses,
-    loadingData
-  } = useMedicalData();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const { id }    = useParams();
 
-  const isViewOrEditMode = !!id
-  const [isEditing, setIsEditing] = useState(!isViewOrEditMode || location.state?.editMode || false)
-  const [loading, setLoading] = useState(false)
+  const { getAppointmentById, createAppointment, updateAppointment, submitting } = useAppointments();
+  const { patients, doctors, nurses } = useMedicalData();
 
-  // Estados del Formulario
-  const [formData, setFormData] = useState({
-    patient_id: "",
-    doctor_id: "",
-    nurse_id: "",
-  });
-  const [procedure, setProcedure] = useState("Consulta Médica General")
-  const [date, setDate] = useState(new Date(2026, 4, 25))
-  const [selectedTime, setSelectedTime] = useState("")
-  const [status, setStatus] = useState("")
-  const [notes, setNotes] = useState("")
-  const [cancellationReason, setCancellationReason] = useState("")
-  const [total, setTotal] = useState();
+  const isViewOrEditMode = !!id;
+  const [isEditing, setIsEditing] = useState(!isViewOrEditMode || location.state?.editMode || false);
+  const [loading, setLoading]     = useState(false);
 
-  // Carga Real de datos desde el Service de la API
+  // Form state
+  const [formData, setFormData] = useState({ patient_id: "", doctor_id: "", nurse_id: "" });
+  const [procedure, setProcedure]             = useState("Consulta");
+  const [date, setDate]                       = useState(new Date());
+  const [status, setStatus]                   = useState("pending");
+  const [notes, setNotes]                     = useState("");
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [total, setTotal]                     = useState("");
+  const [duration, setDuration]               = useState(30);
+  const [availableSlots, setAvailableSlots]   = useState([]);
+  const [slotsLoading, setSlotsLoading]       = useState(false);
+  const [selectedSlot, setSelectedSlot]       = useState(null);
+  const [scheduleData, setScheduleData]       = useState(null);
+  const scheduleId = scheduleData?._id || null;
+
+  // Load existing appointment for edit/view
   useEffect(() => {
-    if (id) {
-      const cargarDetallesCita = async () => {
-        try {
-          setLoading(true)
-          const cita = await getAppointmentById(id)
-
-          if (cita) {
-            // Concatenamos nombre y apellido que resolvimos con el .populate()
-            const nombreCompleto = cita.patient_id
-              ? `${cita.patient_id.name || ""} ${cita.patient_id.last_name || ""}`.trim()
-              : ""
-
-            setFormData({
-              patient_id: cita.patient_id?._id || "",
-              doctor_id: cita.doctor_id?._id || cita.doctor_id || "",
-              nurse_id: cita.nurse_id?._id || cita.nurse_id || "",
-            });
-            setProcedure(cita.procedure_id || "Consulta Médica General")
-            setDate(cita.date ? new Date(cita.date) : new Date(2026, 4, 25))
-            setSelectedTime(
-              cita.start_time && cita.end_time
-                ? `${cita.start_time} - ${cita.end_time}`
-                : ""
-            );
-            setStatus(cita.status || "pending")
-            setNotes(cita.description || "")
-            setCancellationReason(cita.cancellation_reason || "")
-            setTotal(cita.total || 15);
-          }
-        } catch (err) {
-          console.error("Error cargando la cita:", err)
-          showError("No se pudo recuperar la información de la cita.");
-        } finally {
-          setLoading(false)
-        }
+    if (!id) return;
+    setLoading(true);
+    getAppointmentById(id).then(cita => {
+      if (!cita) return;
+      setFormData({
+        patient_id: cita.patient_id?._id || "",
+        doctor_id:  cita.doctor_id?._id  || cita.doctor_id || "",
+        nurse_id:   cita.nurse_id?._id   || cita.nurse_id  || "",
+      });
+      setProcedure(cita.type || "Consulta");
+      setDate(cita.date ? new Date(cita.date) : new Date());
+      setStatus(cita.status || "pending");
+      setNotes(cita.description || "");
+      setCancellationReason(cita.cancellation_reason || "");
+      setTotal(String(cita.total || ""));
+      setScheduleData(cita.schedule_id ? { _id: cita.schedule_id } : null);
+      if (cita.start_time && cita.end_time) {
+        setSelectedSlot({ start_time: cita.start_time, end_time: cita.end_time });
       }
+    }).catch(() => showError("No se pudo recuperar la información de la cita."))
+      .finally(() => setLoading(false));
+  }, [id]);
 
-      cargarDetallesCita()
-    }
-  }, [id])
+  // Load schedule when doctor changes (to get _id + weekly_availability for calendar)
+  useEffect(() => {
+    if (!formData.doctor_id) { setScheduleData(null); return; }
+    getSchedule(formData.doctor_id)
+      .then(s => setScheduleData(s))
+      .catch(() => setScheduleData(null));
+  }, [formData.doctor_id]);
 
-  const timeSlots = [
-    "9:00 AM - 9:30 AM",
-    "9:30 AM - 10:00 AM",
-    "10:00 AM - 10:30 AM",
-    "10:30 AM - 11:00 AM",
-    "11:00 AM - 11:30 AM",
-    "11:30 AM - 12:00 M",
-    "1:00 PM - 1:30 PM"
-  ]
-
-  const statusLabels = {
-    pending: "Pendiente",
-    scheduled: "Programada",
-    completed: "Completada",
-    cancelled: "Cancelada",
-  };
+  // Load available slots when doctor or date changes
+  useEffect(() => {
+    if (!formData.doctor_id || !date) { setAvailableSlots([]); setSelectedSlot(null); return; }
+    setSlotsLoading(true);
+    setSelectedSlot(null);
+    // Usar fecha LOCAL para que no cambie de día en zonas UTC+
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+    getAvailableSlots(formData.doctor_id, dateStr, duration)
+      .then(res => setAvailableSlots(res.slots || []))
+      .catch(() => setAvailableSlots([]))
+      .finally(() => setSlotsLoading(false));
+  }, [formData.doctor_id, date, duration]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-
+    e.preventDefault();
     if (!formData.patient_id || !formData.doctor_id) {
-      showError("Debe seleccionar un paciente y un doctor.");
-      return;
+      showError("Debe seleccionar un paciente y un doctor."); return;
     }
-
+    if (!selectedSlot) {
+      showError("Debe seleccionar un horario."); return;
+    }
     if (!total || Number(total) <= 0) {
-      showError(
-        "Datos incompletos",
-        "Debe ingresar un costo válido."
-      );
-      return;
+      showError("Debe ingresar un costo válido."); return;
+    }
+    if (!scheduleId) {
+      showError("El doctor seleccionado no tiene horario configurado."); return;
     }
 
-    if (!isEditing) return
-
-    let startTime = "10:00 AM"
-    let endTime = "10:30 AM"
-
-    if (selectedTime && selectedTime.includes(" - ")) {
-      const parts = selectedTime.split(" - ")
-      startTime = parts[0]
-      endTime = parts[1]
-    }
-
+    const durationMins = timeToMins(selectedSlot.end_time) - timeToMins(selectedSlot.start_time);
     const appointmentData = {
-      doctor_id: formData.doctor_id,
-      patient_id: formData.patient_id,
-      nurse_id: formData.nurse_id,
-      procedure_id: null,
-      type: procedure,
-      date: date ? date.toISOString() : new Date().toISOString(),
-      start_time: startTime,
-      end_time: endTime,
-      duration_minutes: 30,
-      description: notes.trim(),
+      doctor_id:         formData.doctor_id,
+      patient_id:        formData.patient_id,
+      nurse_id:          formData.nurse_id || undefined,
+      procedure_id:      null,
+      schedule_id:       scheduleId,
+      type:              procedure,
+      date:              date.toISOString(),
+      start_time:        selectedSlot.start_time,
+      end_time:          selectedSlot.end_time,
+      duration_minutes:  durationMins,
+      description:       notes.trim(),
       status,
-      total: Number(total),
-      cancellation_reason:
-        status === "cancelled"
-          ? cancellationReason.trim()
-          : "",
+      total:             Number(total),
+      cancellation_reason: status === "cancelled" ? cancellationReason.trim() : "",
     };
 
     try {
       if (id) {
-        // Modo Edición
-        const success = await updateAppointment(id, appointmentData)
-
-        if (success) {
-          setIsEditing(false);
-
-          showSuccess("Cita modificada con éxito");
-        }
+        const success = await updateAppointment(id, appointmentData);
+        if (success) { setIsEditing(false); showSuccess("Cita modificada con éxito"); }
       } else {
-        const success = await createAppointment(appointmentData)
-
-        if (success) {
-          await showSuccess("Cita guardada exitosamente");
-
-          navigate("/calendar/appointments");
-        }
+        const success = await createAppointment(appointmentData);
+        if (success) { await showSuccess("Cita guardada exitosamente"); navigate("/calendar/appointments"); }
       }
     } catch (err) {
-      console.error("Error detallado al guardar la cita:", err)
       showError(`No se pudo guardar la cita: ${err.message}`);
     }
-  }
+  };
 
-  const getHeaderTitle = () => {
-    if (!id) return "Creación de Cita"
-    return isEditing ? "Editar Cita" : "Detalles de la Cita"
-  }
+  // Derived info
+  const selectedPatient = patients.find(p => p._id === formData.patient_id);
+  const selectedDoctor  = doctors.find(d => d._id === formData.doctor_id);
+  const selectedNurse   = nurses.find(n => n._id === formData.nurse_id);
 
-  const selectedPatient = patients.find(
-    p => p._id === formData.patient_id
+  // Filtra slots ya pasados cuando la fecha seleccionada es hoy
+  const now = new Date();
+  const isToday = date && date.toDateString() === now.toDateString();
+  const currentMins = now.getHours() * 60 + now.getMinutes();
+  const visibleSlots = isToday
+    ? availableSlots.filter(s => timeToMins(s.start_time) > currentMins)
+    : availableSlots;
+  const pastCount = availableSlots.length - visibleSlots.length;
+
+  // Deshabilita días sin horario ni excepciones en el calendario
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  const toDStr = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
+  const isDateDisabled = (d) => {
+    if (d < today) return true;
+
+    // Días no disponibles por horario semanal
+    if (scheduleData?.weekly_availability) {
+      const cfg = scheduleData.weekly_availability.find(x => x.day === d.getDay());
+      if (cfg && !cfg.is_available) return true;
+    }
+
+    // Excepciones: días no laborables y vacaciones (no aplica special_hours porque aún hay atención)
+    if (scheduleData?.exceptions?.length) {
+      const dStr = toDStr(d);
+      const blocked = scheduleData.exceptions.some(ex => {
+        if (ex.type === "special_hours") return false;
+        const start = (ex.date || "").split("T")[0];
+        if (ex.end_date) {
+          const end = (ex.end_date || "").split("T")[0];
+          return dStr >= start && dStr <= end;
+        }
+        return start === dStr;
+      });
+      if (blocked) return true;
+    }
+
+    return false;
+  };
+
+  // Días con descanso recurrente (para marcar con un punto en el calendario)
+  const breakDayNums = new Set(scheduleData?.breaks?.map(b => b.day) ?? []);
+
+  if (loading) return (
+    <div className="w-full min-h-screen flex flex-col items-center justify-center bg-slate-50">
+      <Loader2 className="h-8 w-8 text-blue-600 animate-spin mb-3" />
+      <p className="text-sm text-slate-500">Cargando cita...</p>
+    </div>
   );
-
-  const selectedDoctor = doctors.find(
-    p => p._id === formData.doctor_id
-  );
-
-  const selectedNurse = nurses.find(
-    p => p._id === formData.nurse_id
-  );
-
-  if (loading) {
-    return (
-      <div className="w-full min-h-screen flex flex-col items-center justify-center bg-[#f8fafc]">
-        <Clock className="h-10 w-10 text-[#0b66d6] animate-spin mb-4" />
-        <p className="text-sm font-medium text-slate-500">Cargando expediente de la cita...</p>
-      </div>
-    )
-  }
 
   return (
-    <div className="w-full p-8 bg-[#f8fafc] min-h-screen">
-      {/* Cabecera Dinámica */}
-      <div className="mb-8 flex justify-between items-center">
+    <div className="w-full bg-slate-50 min-h-screen">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{getHeaderTitle()}</h1>
-          {id && (
-            <p className="text-sm text-slate-500 mt-1">
-              {isEditing ? "Modificando registros de la cita" : "Modo lectura"}
-            </p>
-          )}
+          <h1 className="text-lg font-bold text-slate-900">
+            {!id ? "Nueva cita" : isEditing ? "Editar cita" : "Detalle de la cita"}
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {!id ? "Completa los datos para agendar una nueva cita médica" : isEditing ? "Modifica los datos de la cita" : "Vista de solo lectura"}
+          </p>
         </div>
-
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           {id && !isEditing && (
-            <Button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl flex items-center gap-2 px-4 h-10 shadow-sm"
-            >
-              <Edit2 className="h-4 w-4" />
-              Editar Cita
-            </Button>
+            <button onClick={() => setIsEditing(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors">
+              <Edit2 className="w-3.5 h-3.5" /> Editar
+            </button>
           )}
-
-          <button
-            type="button"
-            onClick={() => navigate("/calendar/appointments")}
-            className="p-2 rounded-full hover:bg-slate-200/60 transition-colors text-slate-500"
-          >
-            <X className="h-6 w-6" />
+          <button onClick={() => navigate("/calendar/appointments")}
+            className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+            <X className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <form onSubmit={handleSubmit} className="max-w-5xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        {/* COLUMNA IZQUIERDA Y CENTRAL */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* ── Col izquierda + centro ── */}
+        <div className="lg:col-span-2 flex flex-col gap-5">
 
-            {/* Paciente */}
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">
-                Paciente
-              </Label>
-              <div className="flex gap-2">
-                <Select
-                  value={formData.patient_id}
-                  onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      patient_id: value
-                    })
-                  }
-                  disabled={!isEditing}
-                >
-                  <SelectTrigger className="w-full border-slate-200 focus:ring-[#0b66d6] h-11 rounded-xl disabled:bg-slate-50 disabled:text-slate-500">
-                    <SelectValue>
-                      {selectedPatient
-                        ? `${selectedPatient.name} ${selectedPatient.last_name}`
-                        : "Seleccione un paciente"}
-                    </SelectValue>
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {patients.map((patient) => (
-                      <SelectItem
-                        key={patient._id}
-                        value={patient._id}
-                      >
-                        {patient.name} {patient.last_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Tipo de procedimiento */}
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Tipo de Procedimiento</Label>
-              <div className="flex gap-2">
-                <Select disabled={!isEditing} value={procedure} onValueChange={setProcedure}>
-                  <SelectTrigger className="w-full border-slate-200 focus:ring-[#0b66d6] h-11 rounded-xl text-slate-700 font-medium disabled:bg-slate-50 disabled:text-slate-500">
-                    <SelectValue placeholder="Consulta Médica General" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Consulta Médica General">Consulta Médica General</SelectItem>
-                    <SelectItem value="Procedimiento">Procedimiento</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!isEditing}
-                  className="h-11 w-11 p-0 border-slate-200 rounded-xl text-slate-500 hover:text-[#0b66d6] hover:border-[#0b66d6]"
-                >
-                  <Plus className="h-5 w-5" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Doctor */}
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Doctor Asignado</Label>
-              <Select
+          {/* Participantes */}
+          <SectionCard title="Participantes" icon={User}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SelectField
+                label="Paciente"
+                value={formData.patient_id}
+                onChange={v => setFormData(p => ({ ...p, patient_id: v }))}
+                options={patients.map(p => ({ value: p._id, label: `${p.name} ${p.last_name}` }))}
+                placeholder="Seleccione un paciente"
+                disabled={!isEditing}
+              />
+              <SelectField
+                label="Tipo de cita"
+                value={procedure}
+                onChange={setProcedure}
+                options={[
+                  { value: "Consulta", label: "Consulta" },
+                  { value: "Control/Seguimiento", label: "Control / Seguimiento" },
+                  { value: "Procedimiento", label: "Procedimiento" },
+                ]}
+                placeholder="Selecciona tipo"
+                disabled={!isEditing}
+              />
+              <SelectField
+                label="Doctor asignado"
                 value={formData.doctor_id}
-                onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    doctor_id: value
-                  })
-                }
+                onChange={v => setFormData(p => ({ ...p, doctor_id: v }))}
+                options={doctors.map(d => ({ value: d._id, label: `Dr. ${d.name} ${d.last_name}` }))}
+                placeholder="Seleccione un doctor"
                 disabled={!isEditing}
-              >
-                <SelectTrigger className="w-full border-slate-200 focus:ring-[#0b66d6] h-11 rounded-xl">
-                  <SelectValue>
-                    {selectedDoctor
-                      ? `${selectedDoctor.name} ${selectedDoctor.last_name}`
-                      : "Seleccione un doctor"}
-                  </SelectValue>
-                </SelectTrigger>
-
-                <SelectContent>
-                  {doctors.map((doctor) => (
-                    <SelectItem
-                      key={doctor._id}
-                      value={doctor._id}
-                    >
-                      {doctor.name} {doctor.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Enfermera */}
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Enfermera Asignada</Label>
-              <Select
+              />
+              <SelectField
+                label="Enfermera asignada"
                 value={formData.nurse_id}
-                onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    nurse_id: value
-                  })
-                }
+                onChange={v => setFormData(p => ({ ...p, nurse_id: v }))}
+                options={nurses.map(n => ({ value: n._id, label: `${n.name} ${n.last_name}` }))}
+                placeholder="Opcional"
                 disabled={!isEditing}
-              >
-                <SelectTrigger className="w-full border-slate-200 focus:ring-[#0b66d6] h-11 rounded-xl">
-                  <SelectValue>
-                    {selectedNurse
-                      ? `${selectedNurse.name} ${selectedNurse.last_name}`
-                      : "Seleccione un enfermero"}
-                  </SelectValue>
-                </SelectTrigger>
-
-                <SelectContent>
-                  {nurses.map((nurse) => (
-                    <SelectItem
-                      key={nurse._id}
-                      value={nurse._id}
-                    >
-                      {nurse.name} {nurse.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-          </div>
-
-          {/* Calendario y Horas */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-6">
-            <div
-              className={`md:col-span-3 flex flex-col items-center border-r border-slate-100 pr-2 ${!isEditing ? "cursor-not-allowed" : ""
-                }`}
-            >
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={isEditing ? setDate : undefined}
-                className={`rounded-md border-0 w-full flex justify-center ${!isEditing ? "pointer-events-none" : ""
-                  }`}
-                classNames={{
-                  day_selected:
-                    "bg-[#0b66d6] text-white rounded-full font-bold",
-                  day_today:
-                    "bg-slate-100 text-slate-900 font-bold rounded-full",
-                  day:
-                    "h-9 w-9 p-0 font-medium text-sm text-slate-700 hover:bg-slate-100 rounded-full flex items-center justify-center aria-selected:bg-[#0b66d6] aria-selected:text-white",
-                }}
               />
             </div>
 
-            <div className="md:col-span-2 space-y-3 flex flex-col">
-              <span className="text-xs font-bold text-slate-400 text-right uppercase tracking-wider block mb-1">
-                Personalizar Horario
-              </span>
-              <div className="overflow-y-auto max-h-[300px] space-y-2 pr-1 custom-scrollbar flex-1">
-                {timeSlots.map((slot) => {
-                  const isSelected = selectedTime === slot;
-                  return (
-                    <button
-                      key={slot}
-                      type="button"
-                      disabled={!isEditing}
-                      onClick={() => setSelectedTime(slot)}
-                      className={`w-full text-center py-2.5 px-4 rounded-full text-xs font-medium transition-all duration-150 border ${isSelected
-                        ? "bg-[#0b66d6] text-white border-[#0b66d6] shadow-md shadow-blue-100"
-                        : "bg-white text-slate-600 border-blue-200 hover:bg-blue-50/50"
-                        } disabled:opacity-80 disabled:cursor-not-allowed`}
-                    >
-                      {slot}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* COLUMNA DERECHA: Estado, Notas, Cancelación y Guardado */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6 min-h-[520px] flex flex-col justify-between">
-
-          <div className="space-y-5">
-            {/* Selector de Estado */}
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Estado</Label>
-              <Select disabled={!isEditing} value={status} onValueChange={setStatus} >
-                <SelectTrigger className="w-full border-slate-200 focus:ring-[#0b66d6] h-10 rounded-xl text-slate-700">
-                  <SelectValue>
-                    {statusLabels[status] || "Seleccione un estado"}
-                  </SelectValue>
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="pending">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      <span>Pendiente</span>
+            {/* Chips de selección */}
+            {(selectedDoctor || selectedPatient) && (
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-50">
+                {selectedDoctor && (
+                  <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5">
+                    <div className="w-6 h-6 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 text-xs font-bold flex-shrink-0">
+                      {selectedDoctor.name?.[0]}
                     </div>
-                  </SelectItem>
-
-                  <SelectItem value="scheduled">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-blue-500" />
-                      <span>Programada</span>
+                    <span className="text-xs font-medium text-blue-800">Dr. {selectedDoctor.name} {selectedDoctor.last_name}</span>
+                    {selectedDoctor.specialty && <span className="text-xs text-blue-500">· {selectedDoctor.specialty}</span>}
+                    {scheduleId
+                      ? <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full font-medium">Horario ✓</span>
+                      : <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full font-medium">Sin horario</span>
+                    }
+                  </div>
+                )}
+                {selectedPatient && (
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                    <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold flex-shrink-0">
+                      {selectedPatient.name?.[0]}
                     </div>
-                  </SelectItem>
-
-                  <SelectItem value="completed">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      <span>Completada</span>
-                    </div>
-                  </SelectItem>
-
-                  <SelectItem value="cancelled">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-rose-500" />
-                      <span>Cancelada</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Precio total */}
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">
-                Costo Total ($)
-              </Label>
-
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                disabled={!isEditing}
-                value={total}
-                onChange={(e) => setTotal(e.target.value)}
-                placeholder="Ingrese el costo"
-                className="border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl h-10"
-              />
-            </div>
-
-            {/* Descripción / Notas */}
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Descripción / Notas</Label>
-              <Textarea
-                disabled={!isEditing}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ingrese detalles de la cita..."
-                className="min-h-[150px] border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl text-slate-600 resize-none p-4 disabled:bg-slate-50"
-              />
-            </div>
-
-            {/* Motivo de Cancelación */}
-            {status === "cancelled" && (
-              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1">
-                  Motivo de Cancelación
-                </Label>
-                <Textarea
-                  disabled={!isEditing}
-                  value={cancellationReason}
-                  onChange={(e) => setCancellationReason(e.target.value)}
-                  placeholder="Escriba aquí la razón del por qué se canceló la consulta..."
-                  className="min-h-[100px] border-rose-200 focus-visible:ring-rose-500 bg-rose-50/20 text-slate-700 rounded-xl resize-none p-3 placeholder:text-slate-400 disabled:bg-slate-50/80"
-                />
+                    <span className="text-xs font-medium text-slate-700">{selectedPatient.name} {selectedPatient.last_name}</span>
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </SectionCard>
 
-          {/* Botón Guardar */}
+          {/* Fecha y horario */}
+          <SectionCard title="Fecha y horario" icon={CalendarDays}>
+            <div className="flex flex-col lg:flex-row gap-5">
+              {/* Calendario */}
+              <div className={`flex-shrink-0 ${!isEditing ? "pointer-events-none opacity-70" : ""}`}>
+                <Calendar
+                  mode="single"
+                  locale={es}
+                  selected={date}
+                  onSelect={isEditing ? setDate : undefined}
+                  fromDate={today}
+                  disabled={isDateDisabled}
+                  modifiers={{
+                    hasBreak: (d) => !isDateDisabled(d) && breakDayNums.has(d.getDay()),
+                  }}
+                  modifiersStyles={{
+                    hasBreak: { borderBottom: "2px solid #fbbf24", borderRadius: "0" },
+                  }}
+                  className="rounded-xl border border-slate-100"
+                  classNames={{
+                    month: "space-y-3",
+                    caption: "flex justify-center pt-1 relative items-center",
+                    caption_label: "text-sm font-semibold text-slate-800 capitalize",
+                    nav_button: "h-7 w-7 bg-transparent hover:bg-slate-100 rounded-lg flex items-center justify-center text-slate-500",
+                    head_cell: "text-slate-400 rounded-md w-9 font-medium text-[0.8rem] uppercase",
+                    day: "h-9 w-9 p-0 font-medium text-sm text-slate-700 hover:bg-blue-50 rounded-full flex items-center justify-center transition-colors",
+                    day_selected: "bg-blue-600 text-white rounded-full font-bold hover:bg-blue-700",
+                    day_today: "border-2 border-blue-400 text-blue-600 font-bold rounded-full",
+                    day_outside: "text-slate-300",
+                    day_disabled: "text-slate-200 cursor-not-allowed opacity-40",
+                  }}
+                />
+                {scheduleData && (
+                  <div className="flex flex-wrap items-center gap-3 mt-2 px-1">
+                    <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                      <span className="w-3 h-0.5 bg-amber-400 rounded-full inline-block" />
+                      Con descanso
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                      <span className="w-3 h-3 rounded-full bg-slate-200 inline-block opacity-40" />
+                      No disponible
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Slots */}
+              <div className="flex-1 flex flex-col gap-3 min-w-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-slate-700">Horarios disponibles</span>
+                    {visibleSlots.length > 0 && (
+                      <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">
+                        {visibleSlots.length} disponibles
+                      </span>
+                    )}
+                    {pastCount > 0 && (
+                      <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full font-medium">
+                        {pastCount} ya pasaron
+                      </span>
+                    )}
+                  </div>
+                  <select value={duration} onChange={e => setDuration(Number(e.target.value))} disabled={!isEditing}
+                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white disabled:opacity-60">
+                    <option value={15}>15 min</option>
+                    <option value={30}>30 min</option>
+                    <option value={45}>45 min</option>
+                    <option value={60}>60 min</option>
+                  </select>
+                </div>
+
+                {slotsLoading ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-2 text-slate-400">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                    <span className="text-xs">Cargando horarios...</span>
+                  </div>
+                ) : !formData.doctor_id ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                      <Stethoscope className="w-6 h-6 text-slate-300" />
+                    </div>
+                    <p className="text-xs text-slate-400 max-w-[160px]">Selecciona un doctor para ver los horarios</p>
+                  </div>
+                ) : visibleSlots.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                      <Clock className="w-6 h-6 text-slate-300" />
+                    </div>
+                    <p className="text-xs font-medium text-slate-500">Sin horarios disponibles</p>
+                    <p className="text-[10px] text-slate-400">
+                      {pastCount > 0 ? "Todos los turnos de hoy ya pasaron — elige otro día" : "Prueba otra fecha o revisa la configuración del doctor"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-y-auto pr-1" style={{ maxHeight: "260px" }}>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {visibleSlots.map((slot, i) => {
+                        const isSelected = selectedSlot?.start_time === slot.start_time;
+                        return (
+                          <button key={i} type="button" disabled={!isEditing}
+                            onClick={() => setSelectedSlot(isSelected ? null : slot)}
+                            className={`flex flex-col items-center py-2.5 px-2 rounded-xl text-xs font-semibold transition-all border ${
+                              isSelected
+                                ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200 scale-[1.02]"
+                                : "bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                            } disabled:opacity-60 disabled:cursor-not-allowed`}
+                          >
+                            <span className={isSelected ? "text-blue-100 text-[9px] font-medium" : "text-[9px] text-slate-400 font-medium"}>
+                              {fmt12(slot.start_time).split(" ")[1]}
+                            </span>
+                            <span className="text-[13px] font-bold leading-tight">
+                              {fmt12(slot.start_time).split(" ")[0]}
+                            </span>
+                            <span className={`text-[9px] mt-0.5 ${isSelected ? "text-blue-200" : "text-slate-400"}`}>
+                              hasta {fmt12(slot.end_time).split(" ")[0]}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {selectedSlot && (
+                  <div className="flex items-center gap-2 bg-blue-600 rounded-xl px-4 py-2.5 mt-1">
+                    <Clock className="w-3.5 h-3.5 text-blue-200 flex-shrink-0" />
+                    <div className="flex-1">
+                      <span className="text-[10px] text-blue-300 block leading-none">Horario seleccionado</span>
+                      <span className="text-xs font-bold text-white">
+                        {fmt12(selectedSlot.start_time)} – {fmt12(selectedSlot.end_time)}
+                      </span>
+                    </div>
+                    <button type="button" onClick={() => setSelectedSlot(null)}
+                      className="text-blue-300 hover:text-white transition-colors">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </SectionCard>
+        </div>
+
+        {/* ── Col derecha ── */}
+        <div className="flex flex-col gap-5">
+
+          {/* Estado */}
+          <SectionCard title="Estado" icon={CheckCircle2}>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+                <button key={key} type="button" disabled={!isEditing}
+                  onClick={() => setStatus(key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    status === key ? cfg.color + " ring-2 ring-offset-1 ring-current" : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                  } disabled:opacity-60`}
+                >
+                  {cfg.label}
+                </button>
+              ))}
+            </div>
+
+            {status === "cancelled" && (
+              <div className="mt-3">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Motivo de cancelación</label>
+                <Textarea disabled={!isEditing} value={cancellationReason}
+                  onChange={e => setCancellationReason(e.target.value)}
+                  placeholder="¿Por qué se canceló la cita?"
+                  className="min-h-[80px] border-red-200 focus-visible:ring-red-300 bg-red-50/30 rounded-xl resize-none text-sm" />
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Costo */}
+          <SectionCard title="Costo total" icon={DollarSign}>
+            <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-blue-200 focus-within:border-blue-400 transition-all bg-white">
+              <span className="text-slate-400 text-sm font-medium">$</span>
+              <input type="number" min="0" step="0.01" disabled={!isEditing}
+                value={total} onChange={e => setTotal(e.target.value)}
+                placeholder="0.00"
+                className="flex-1 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-300 disabled:text-slate-400" />
+            </div>
+          </SectionCard>
+
+          {/* Notas */}
+          <SectionCard title="Notas / Descripción" icon={AlertCircle}>
+            <Textarea disabled={!isEditing} value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Ingrese detalles adicionales de la cita..."
+              className="min-h-[120px] border-slate-200 focus-visible:ring-blue-200 rounded-xl text-sm resize-none disabled:bg-slate-50" />
+          </SectionCard>
+
+          {/* Botones */}
           {isEditing && (
-            <Button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-[#0b66d6] hover:bg-blue-700 text-white font-semibold py-6 rounded-xl transition-all shadow-md shadow-blue-100 text-sm flex items-center justify-center gap-2"
-            >
-              {submitting ? (
-                <>
-                  <Clock className="h-4 w-4 animate-spin" />
-                  Guardando...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  {id ? "Guardar Cambios" : "Guardar Cita"}
-                </>
-              )}
-            </Button>
+            <button type="submit" disabled={submitting}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 shadow-sm shadow-blue-200 text-sm">
+              {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>
+                           : <><Save className="w-4 h-4" /> {id ? "Guardar cambios" : "Crear cita"}</>}
+            </button>
           )}
-
         </div>
       </form>
     </div>
-  )
+  );
 }

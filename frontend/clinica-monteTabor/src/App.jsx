@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth, AuthProvider } from './context/AuthContext'; // Importamos useAuth
+import { Toaster } from 'react-hot-toast';
+import { useAuth, AuthProvider } from './context/AuthContext';
 import MainLayout from './components/layouts/MainLayout';
 import Home from './modules/home/pages/Home';
 import PatientsList from './modules/patients/pages/PatientsList';
@@ -14,15 +15,15 @@ import Password from './modules/login/pages/Recovery/NewPassword';
 import Consultations from './modules/schedule/consultations/pages/Consultations';
 import ConsultationForm from './modules/schedule/consultations/pages/ConsultationForm';
 import Procedures from './modules//procedures/pages/ProceduresPage';
-import AdminAppointments from './modules/appointments/pages/AdminAppointments';
+import ScheduleConfig       from './modules/schedule/pages/ScheduleConfig';
+import AppointmentsCalendar from './modules/schedule/pages/AppointmentsCalendar';
 import CreateAppointmentForm from './modules/appointments/components/AppointmentsForm'
 import ProfilePage from './modules/profile/page/ProfilePage'
-import RecepcionistList from './modules/recepcionist/pages/RecepcionistList' 
+import RecepcionistList from './modules/recepcionist/pages/RecepcionistList'
 
 function AppRoutes() {
   const { isLoading, hasAdmins } = useAuth();
 
-  // Pantalla de carga preventiva mientras se resuelven las comprobaciones del backend
   if (isLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-white">
@@ -39,37 +40,34 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Si NO HAY admins, la raíz manda a registrar, si SÍ HAY va al login */}
       <Route path="/" element={<Navigate to={hasAdmins ? "/login" : "/register"} replace />} />
-      
-      {/* Rutas sin sidebar */}
-      <Route 
-        path="/login" 
-        element={hasAdmins ? <Login /> : <Navigate to="/register" replace />} 
+
+      <Route
+        path="/login"
+        element={hasAdmins ? <Login /> : <Navigate to="/register" replace />}
       />
-      
-      {/* Escudo de Protección: Si hay administradores registrados, bloquea permanentemente el acceso al formulario de registro */}
-      <Route 
-        path="/register" 
-        element={hasAdmins ? <Navigate to="/login" replace /> : <Register />} 
+
+      <Route
+        path="/register"
+        element={hasAdmins ? <Navigate to="/login" replace /> : <Register />}
       />
-      
+
       <Route path="/recovery" element={<Recovery />} />
       <Route path="/verify-code" element={<Verify />} />
       <Route path="/new-password" element={<Password />} />
       <Route path="/password-updated" element={<PasswordUpdated />} />
 
-      {/* Rutas Protegidas bajo Sidebar */}
       <Route element={<MainLayout />}>
         <Route path="/home" element={<Home />} />
         <Route path="/users/patients" element={<PatientsList />} />
         <Route path="/users/doctors" element={<DoctorsList />} />
         <Route path="/users/recepcionist" element={<RecepcionistList />} />
-        <Route path="/calendar/consultations" element={<Consultations />} />
-        <Route path="/calendar/consultations/:appointmentId" element={<ConsultationForm />} />
-        <Route path="/calendar/appointments" element={<AdminAppointments/>} />
+        <Route path="/calendar/appointments" element={<AppointmentsCalendar />} />
         <Route path="/calendar/appointments/new" element={<CreateAppointmentForm />} />
         <Route path="/calendar/appointments/:id" element={<CreateAppointmentForm />} />
+        <Route path="/calendar/consultations" element={<Consultations />} />
+        <Route path="/calendar/consultations/:appointmentId" element={<ConsultationForm />} />
+        <Route path="/calendar/schedule-config" element={<ScheduleConfig />} />
         <Route path="/inventory/products" element={<InventoryDashboard />} />
         <Route path="/procedures" element={<Procedures />} />
         <Route path="/system/profile" element={<ProfilePage/>} />
@@ -81,6 +79,7 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" />
       <BrowserRouter>
         <AppRoutes />
       </BrowserRouter>

@@ -21,7 +21,7 @@ export const sideBarMenu = [
         icon: 'Calendar',
         allowedRoles: [roles.admin, roles.doctor, roles.receptionist],
         subItems: [
-            { title: 'Horarios', icon: 'CalendarClock', path: '/calendar/schedules', allowedRoles: [roles.admin, roles.doctor] },
+            { title: 'Horarios', icon: 'CalendarClock', path: '/calendar/schedule-config', allowedRoles: [roles.admin, roles.doctor] },
             { title: 'Citas', icon: 'CalendarCheck2', path: '/calendar/appointments', allowedRoles: [roles.admin, roles.doctor, roles.receptionist] },
             { title: 'Consultas', icon: 'ClipboardList', path: '/calendar/consultations', allowedRoles: [roles.admin, roles.doctor, roles.receptionist] }
         ]
