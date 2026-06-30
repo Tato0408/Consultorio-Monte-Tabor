@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
-import InputField from "../../../components/ui/InputField";
+import InputField from "@/components/ui/InputField";
 
 const COLORS = ["#6366f1","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
 const DURATIONS = [15, 30, 45, 60, 90];

@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, X, RefreshCw } from "lucide-react";
-import { useAuth } from "../../../context/AuthContext";
-import { getAppointments, getAppointmentsStats, updateAppointmentStatus } from "../../../services/appointmentsService";
-import { getSchedule } from "../../../services/scheduleService";
-import { confirmDelete, showError } from "../../../lib/alerts";
+import { useAuth } from "@/context/AuthContext";
+import { getAppointments, getAppointmentsStats, updateAppointmentStatus } from "@/services/appointmentsService";
+import { getSchedule } from "@/services/scheduleService";
+import { confirmDelete, showError } from "@/lib/alerts";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const HOUR_HEIGHT = 64; // px per hour

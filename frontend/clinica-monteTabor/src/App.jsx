@@ -15,9 +15,9 @@ import Password from './modules/login/pages/Recovery/NewPassword';
 import Consultations from './modules/schedule/consultations/pages/Consultations';
 import ConsultationForm from './modules/schedule/consultations/pages/ConsultationForm';
 import Procedures from './modules//procedures/pages/ProceduresPage';
-import ScheduleConfig       from './modules/schedule/pages/ScheduleConfig';
-import AppointmentsCalendar from './modules/schedule/pages/AppointmentsCalendar';
-import CreateAppointmentForm from './modules/appointments/components/AppointmentsForm'
+import ScheduleConfig       from './modules/schedule/appointments/pages/ScheduleConfig';
+import AppointmentsCalendar from './modules/schedule/appointments/pages/AppointmentsCalendar';
+import CreateAppointmentForm from './modules/schedule/appointments/components/AppointmentsForm'
 import ProfilePage from './modules/profile/page/ProfilePage'
 import RecepcionistList from './modules/recepcionist/pages/RecepcionistList'
 

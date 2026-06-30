@@ -7,7 +7,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom"
 import useAppointments from "../hooks/useAppointments"
 import useMedicalData from "../hooks/useMedicalData";
 import { showSuccess, showError } from "@/lib/alerts";
-import { getAvailableSlots, getSchedule } from "../../../services/scheduleService";
+import { getAvailableSlots, getSchedule } from "@/services/scheduleService";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmt12 = (t) => {

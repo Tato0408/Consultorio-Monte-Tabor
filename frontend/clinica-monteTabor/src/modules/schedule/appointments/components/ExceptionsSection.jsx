@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
-import InputField from "../../../components/ui/InputField";
+import InputField from "@/components/ui/InputField";
 
 const TYPE_LABEL = {
     non_working:    "Día no laborable",

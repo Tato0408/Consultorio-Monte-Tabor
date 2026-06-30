@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Save } from "lucide-react";
-import { useAuth } from "../../../context/AuthContext";
-import { getSchedule, saveSchedule } from "../../../services/scheduleService";
-import { showError } from "../../../lib/alerts";
+import { useAuth } from "@/context/AuthContext";
+import { getSchedule, saveSchedule } from "@/services/scheduleService";
+import { showError } from "@/lib/alerts";
 import AppointmentTypesSection  from "../components/AppointmentTypesSection";
 import WeeklyAvailabilitySection from "../components/WeeklyAvailabilitySection";
 import BreaksSection             from "../components/BreaksSection";
@@ -60,15 +60,18 @@ const ScheduleConfig = () => {
         if (!doctorId) return;
         setLoading(true);
 
-        const applyConfig = (data) => setConfig({
-            appointment_types:   data.appointment_types   ?? [],
-            weekly_availability: data.weekly_availability ?? defaultWeekly,
-            breaks:              data.breaks              ?? defaultBreaks,
-            exceptions:          data.exceptions          ?? [],
-            buffer_time:         data.buffer_time         ?? 10,
-            min_block_duration:  data.min_block_duration  ?? 30,
-            allow_outside_hours: data.allow_outside_hours ?? false,
-        });
+        const applyConfig = (data) => {
+            if (!data) return;
+            setConfig({
+                appointment_types:   data.appointment_types   ?? [],
+                weekly_availability: data.weekly_availability ?? defaultWeekly,
+                breaks:              data.breaks              ?? defaultBreaks,
+                exceptions:          data.exceptions          ?? [],
+                buffer_time:         data.buffer_time         ?? 10,
+                min_block_duration:  data.min_block_duration  ?? 30,
+                allow_outside_hours: data.allow_outside_hours ?? false,
+            });
+        };
 
         getSchedule(doctorId)
             .then(applyConfig)
