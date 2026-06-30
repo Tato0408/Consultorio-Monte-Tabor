@@ -81,33 +81,178 @@ const calcNowOffset = () => {
     return px >= 0 && px <= HOURS.length * HOUR_HEIGHT ? px : null;
 };
 
+const getNowLabel = () => {
+    const now = new Date();
+    return `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
+};
+
 const typeColors = (type, status) => {
     if (status === "cancelled") return { dot: "bg-red-400", card: "bg-red-50 border-l-[3px] border-red-300 text-red-800 opacity-60" };
     return TYPE_COLORS[type] ?? { dot: "bg-slate-400", card: "bg-slate-50 border-l-[3px] border-slate-300 text-slate-700" };
 };
 
-// ── Appointment card on grid ─────────────────────────────────────────────────
-const ApptCard = ({ appt, isSelected, onClick }) => {
-    const startMins  = timeToMins(appt.start_time);
-    const endMins    = timeToMins(appt.end_time);
-    const topPx      = ((startMins - START_HOUR * 60) / 60) * HOUR_HEIGHT;
-    const heightPx   = Math.max(((endMins - startMins) / 60) * HOUR_HEIGHT, 22);
-    const colors     = typeColors(appt.type, appt.status);
+// ── Overlap column layout ────────────────────────────────────────────────────
+const computeColumns = (appts) => {
+    if (!appts.length) return [];
+    const sorted = [...appts].sort((a, b) => timeToMins(a.start_time) - timeToMins(b.start_time));
+    const layout = sorted.map(appt => ({ appt, col: -1, totalCols: 1 }));
+    const colEnds = [];
+
+    layout.forEach(item => {
+        const start = timeToMins(item.appt.start_time);
+        let placed = false;
+        for (let c = 0; c < colEnds.length; c++) {
+            if (colEnds[c] <= start) {
+                item.col = c;
+                colEnds[c] = timeToMins(item.appt.end_time);
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            item.col = colEnds.length;
+            colEnds.push(timeToMins(item.appt.end_time));
+        }
+    });
+
+    layout.forEach(item => {
+        const start = timeToMins(item.appt.start_time);
+        const end   = timeToMins(item.appt.end_time);
+        let maxCol  = item.col;
+        layout.forEach(other => {
+            if (other === item) return;
+            if (start < timeToMins(other.appt.end_time) && end > timeToMins(other.appt.start_time))
+                maxCol = Math.max(maxCol, other.col);
+        });
+        item.totalCols = maxCol + 1;
+    });
+
+    return layout;
+};
+
+// ── Appointment dot with hover popup ─────────────────────────────────────────
+const ApptDot = ({ appt, col = 0, colIdx = 0, isSelected, onSelect }) => {
+    const [hovered, setHovered] = useState(false);
+    const startMins = timeToMins(appt.start_time);
+    const topPx     = ((startMins - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+    const colors    = typeColors(appt.type, appt.status);
 
     if (topPx < 0 || topPx > HOURS.length * HOUR_HEIGHT) return null;
 
+    const popupOnLeft = colIdx >= 5;
+
     return (
         <div
-            className={`absolute left-0.5 right-0.5 rounded-md px-1.5 py-0.5 cursor-pointer overflow-hidden text-xs transition-shadow ${colors.card} ${isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:shadow-sm"}`}
-            style={{ top: `${topPx}px`, height: `${heightPx}px` }}
-            onClick={() => onClick(appt)}
+            className="absolute z-10"
+            style={{ top: `${topPx + 4}px`, left: `${6 + col * 14}px` }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onClick={e => { e.stopPropagation(); onSelect(appt); }}
         >
-            <p className="font-semibold leading-tight truncate">{appt.start_time} – {appt.end_time}</p>
-            {heightPx > 28 && <p className="text-[10px] leading-tight truncate">{appt.type}</p>}
-            {heightPx > 44 && (
-                <p className="text-[10px] leading-tight truncate opacity-75">
-                    {appt.patient_id ? `${appt.patient_id.name} ${appt.patient_id.last_name}` : ""}
-                </p>
+            <div className={`w-4 h-4 rounded-full cursor-pointer border-2 border-white shadow-sm transition-transform ${colors.dot} ${isSelected ? "ring-2 ring-offset-1 ring-blue-500 scale-125" : "hover:scale-125"}`} />
+
+            {hovered && (
+                <div
+                    className="absolute z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-3 pointer-events-none"
+                    style={{
+                        ...(popupOnLeft ? { right: "18px" } : { left: "18px" }),
+                        top: "-6px",
+                        width: "210px",
+                    }}
+                >
+                    <div className="flex items-center gap-1.5 mb-2">
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
+                        <span className="text-xs font-semibold text-slate-800 flex-1 truncate">{appt.type}</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STATUS_BADGES[appt.status] || "bg-slate-100 text-slate-600"}`}>
+                            {STATUS_LABELS[appt.status] || appt.status}
+                        </span>
+                    </div>
+                    <div className="space-y-1 text-[11px] text-slate-500">
+                        <p className="flex items-center gap-1.5">
+                            <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                            {fmt12(appt.start_time)} – {fmt12(appt.end_time)}
+                        </p>
+                        {appt.patient_id && (
+                            <p className="truncate">{appt.patient_id.name} {appt.patient_id.last_name}</p>
+                        )}
+                        {appt.doctor_id && (
+                            <p className="truncate">Dr. {appt.doctor_id.name} {appt.doctor_id.last_name}</p>
+                        )}
+                    </div>
+                    <p className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400 text-center">
+                        Haz clic para ver el detalle completo
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── Appointment card (isolated, no conflict) ─────────────────────────────────
+const ApptCard = ({ appt, col = 0, totalCols = 1, colIdx = 0, isSelected, onSelect }) => {
+    const [hovered, setHovered] = useState(false);
+    const startMins = timeToMins(appt.start_time);
+    const endMins   = timeToMins(appt.end_time);
+    const topPx     = ((startMins - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+    const heightPx  = Math.max(((endMins - startMins) / 60) * HOUR_HEIGHT, 22);
+    const colors    = typeColors(appt.type, appt.status);
+
+    if (topPx < 0 || topPx > HOURS.length * HOUR_HEIGHT) return null;
+
+    const popupOnLeft = colIdx >= 5;
+
+    return (
+        <div
+            className="absolute z-10"
+            style={{
+                top:    `${topPx}px`,
+                height: `${heightPx}px`,
+                left:   `calc(${(col / totalCols) * 100}% + 1px)`,
+                width:  `calc(${(1 / totalCols) * 100}% - 2px)`,
+            }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onClick={e => { e.stopPropagation(); onSelect(appt); }}
+        >
+            <div className={`w-full h-full rounded-md px-1.5 py-0.5 cursor-pointer overflow-hidden text-xs transition-shadow ${colors.card} ${isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:shadow-sm"}`}>
+                <p className="font-semibold leading-tight truncate">{appt.start_time} – {appt.end_time}</p>
+                {heightPx > 28 && <p className="text-[10px] leading-tight truncate">{appt.type}</p>}
+                {heightPx > 44 && (
+                    <p className="text-[10px] leading-tight truncate opacity-75">
+                        {appt.patient_id ? `${appt.patient_id.name} ${appt.patient_id.last_name}` : ""}
+                    </p>
+                )}
+            </div>
+
+            {hovered && (
+                <div
+                    className="absolute z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-3 pointer-events-none"
+                    style={{
+                        ...(popupOnLeft ? { right: "calc(100% + 6px)" } : { left: "calc(100% + 6px)" }),
+                        top: "0",
+                        width: "210px",
+                    }}
+                >
+                    <div className="flex items-center gap-1.5 mb-2">
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
+                        <span className="text-xs font-semibold text-slate-800 flex-1 truncate">{appt.type}</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STATUS_BADGES[appt.status] || "bg-slate-100 text-slate-600"}`}>
+                            {STATUS_LABELS[appt.status] || appt.status}
+                        </span>
+                    </div>
+                    <div className="space-y-1 text-[11px] text-slate-500">
+                        <p className="flex items-center gap-1.5">
+                            <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                            {fmt12(appt.start_time)} – {fmt12(appt.end_time)}
+                        </p>
+                        {appt.patient_id && (
+                            <p className="truncate">{appt.patient_id.name} {appt.patient_id.last_name}</p>
+                        )}
+                        {appt.doctor_id && (
+                            <p className="truncate">Dr. {appt.doctor_id.name} {appt.doctor_id.last_name}</p>
+                        )}
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -350,10 +495,12 @@ const AppointmentsCalendar = () => {
     const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); };
     const triggerRefresh = () => setRefresh(r => r + 1);
 
-    // Current time offset (px) for the red "now" line — updates every minute
+    // Current time offset (px) + label — updates every minute
     const [nowOffset, setNowOffset] = useState(calcNowOffset);
+    const [nowLabel,  setNowLabel]  = useState(getNowLabel);
     useEffect(() => {
-        const id = setInterval(() => setNowOffset(calcNowOffset()), 60_000);
+        const tick = () => { setNowOffset(calcNowOffset()); setNowLabel(getNowLabel()); };
+        const id = setInterval(tick, 60_000);
         return () => clearInterval(id);
     }, []);
     const todayColIdx = weekDays.findIndex(d => toISO(d) === today);
@@ -512,7 +659,7 @@ const AppointmentsCalendar = () => {
                     ) : (
                         <div className="min-w-[560px]">
                             {/* Day headers */}
-                            <div className="sticky top-0 z-10 bg-white border-b border-slate-100 grid"
+                            <div className="sticky top-0 z-[100] bg-white border-b border-slate-100 grid"
                                 style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}>
                                 <div className="border-r border-slate-100" />
                                 {weekDays.map((day, i) => {
@@ -554,15 +701,23 @@ const AppointmentsCalendar = () => {
 
                                 {/* Current time line */}
                                 {nowOffset !== null && todayColIdx >= 0 && (
-                                    <div className="absolute pointer-events-none z-20 flex items-center"
-                                        style={{
-                                            top: `${nowOffset}px`,
-                                            left: `calc(48px + ${todayColIdx} * (100% - 48px) / 7)`,
-                                            width: `calc((100% - 48px) / 7)`,
-                                        }}>
-                                        <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 flex-shrink-0" />
-                                        <div className="flex-1 border-t-2 border-red-500" />
-                                    </div>
+                                    <>
+                                        <div className="absolute pointer-events-none z-[5] flex justify-end pr-1 items-center"
+                                            style={{ top: `${nowOffset - 9}px`, left: 0, width: "48px", height: "18px" }}>
+                                            <span className="bg-slate-800 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                                                {nowLabel}
+                                            </span>
+                                        </div>
+                                        <div className="absolute pointer-events-none z-[5] flex items-center"
+                                            style={{
+                                                top:   `${nowOffset}px`,
+                                                left:  `calc(48px + ${todayColIdx} * (100% - 48px) / 7)`,
+                                                width: `calc((100% - 48px) / 7)`,
+                                            }}>
+                                            <div className="w-2 h-2 rounded-full bg-slate-800 -ml-1 flex-shrink-0" />
+                                            <div className="flex-1 border-t-2 border-slate-800" />
+                                        </div>
+                                    </>
                                 )}
 
                                 {/* Appointment + break cards per day */}
@@ -570,15 +725,18 @@ const AppointmentsCalendar = () => {
                                     const key    = toISO(day);
                                     const appts  = byDay[key] || [];
                                     const breaks = breakBlocks[key] || [];
+                                    const layout = computeColumns(appts);
                                     const dow    = day.getDay();
                                     const avail  = scheduleData?.weekly_availability?.find(d => d.day === dow);
                                     const isDayOff = scheduleData && avail && !avail.is_available;
                                     return (
-                                        <div key={di} className="absolute top-0 bottom-0"
+                                        <div key={di} className="absolute top-0 bottom-0 cursor-pointer"
                                             style={{
                                                 left:  `calc(48px + ${di} * (100% - 48px) / 7)`,
                                                 width: `calc((100% - 48px) / 7)`,
-                                            }}>
+                                            }}
+                                            onClick={() => navigate(`/calendar/appointments/new?date=${toISO(day)}`)}
+                                        >
                                             {isDayOff && (
                                                 <div className="absolute inset-0 pointer-events-none z-10"
                                                     style={{ backgroundColor: "rgba(241,245,249,0.75)" }} />
@@ -586,14 +744,33 @@ const AppointmentsCalendar = () => {
                                             {!isDayOff && breaks.map((brk, bi) => (
                                                 <BreakCard key={`brk-${bi}`} brk={brk} />
                                             ))}
-                                            {appts.map(appt => (
-                                                <ApptCard
-                                                    key={appt._id}
-                                                    appt={appt}
-                                                    isSelected={selected?._id === appt._id}
-                                                    onClick={setSelected}
-                                                />
-                                            ))}
+                                            {layout.map(({ appt, col, totalCols }) => {
+                                                const startMins  = timeToMins(appt.start_time);
+                                                const hasConflict = appts.some(other =>
+                                                    other._id !== appt._id &&
+                                                    Math.abs(startMins - timeToMins(other.start_time)) <= 10
+                                                );
+                                                return hasConflict ? (
+                                                    <ApptDot
+                                                        key={appt._id}
+                                                        appt={appt}
+                                                        col={col}
+                                                        colIdx={di}
+                                                        isSelected={selected?._id === appt._id}
+                                                        onSelect={setSelected}
+                                                    />
+                                                ) : (
+                                                    <ApptCard
+                                                        key={appt._id}
+                                                        appt={appt}
+                                                        col={col}
+                                                        totalCols={totalCols}
+                                                        colIdx={di}
+                                                        isSelected={selected?._id === appt._id}
+                                                        onSelect={setSelected}
+                                                    />
+                                                );
+                                            })}
                                         </div>
                                     );
                                 })}
