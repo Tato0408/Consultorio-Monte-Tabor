@@ -1,5 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { User, Plus, X } from "lucide-react";
+import React, {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  User,
+  Plus,
+  X,
+} from "lucide-react";
 
 import { showError } from "../../../lib/alerts";
 import { useReceptionist } from "../hooks/useRecepcionist";
@@ -15,63 +23,75 @@ const ReceptionistForm = ({
     updateReceptionist,
   } = useReceptionist();
 
-  const [loading, setLoading] = useState(false);
-
-  const [imagePreview, setImagePreview] =
-    useState("");
+  const [loading, setLoading] =
+    useState(false);
 
   const [imageFile, setImageFile] =
     useState(null);
 
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
-    email: "",
-    dui: "",
-    age: "",
-  });
+  const [formData, setFormData] =
+    useState({
+      name: "",
+      last_name: "",
+      phone: "",
+      email: "",
+      dui: "",
+      birth_date: "",
+      password: "",
+    });
 
   useEffect(() => {
     if (receptionist) {
-      setForm({
-        firstName:
-          receptionist.firstName || "",
-        lastName:
-          receptionist.lastName || "",
+      setFormData({
+        name:
+          receptionist.name || "",
+        last_name:
+          receptionist.last_name ||
+          "",
         phone:
           receptionist.phone || "",
         email:
           receptionist.email || "",
         dui:
           receptionist.dui || "",
-        age:
-          receptionist.age || "",
+    birth_date: 
+          receptionist?.birth_date || "",
+        password: "",
       });
-
-      setImagePreview(
-        receptionist.image || ""
-      );
     } else {
-      setForm({
-        firstName: "",
-        lastName: "",
+      setFormData({
+        name: "",
+        last_name: "",
         phone: "",
         email: "",
         dui: "",
-        age: "",
+        birth_date: "",
+        password: "",
       });
 
-      setImagePreview("");
       setImageFile(null);
     }
   }, [receptionist]);
 
+  useEffect(() => {
+    return () => {
+      if (imageFile) {
+        URL.revokeObjectURL(
+          URL.createObjectURL(imageFile)
+        );
+      }
+    };
+  }, [imageFile]);
+
   if (!isOpen) return null;
 
+  const profilePreview = imageFile
+    ? URL.createObjectURL(imageFile)
+    : receptionist?.img_url;
+
   const handleChange = (e) => {
-    setForm({
-      ...form,
+    setFormData({
+      ...formData,
       [e.target.name]:
         e.target.value,
     });
@@ -84,28 +104,10 @@ const ReceptionistForm = ({
     if (!file) return;
 
     setImageFile(file);
-
-    setImagePreview(
-      URL.createObjectURL(file)
-    );
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (
-      !form.firstName ||
-      !form.lastName ||
-      !form.phone ||
-      !form.email ||
-      !form.dui ||
-      !form.age
-    ) {
-      return showError(
-        "Campos incompletos",
-        "Completa toda la información."
-      );
-    }
 
     try {
       setLoading(true);
@@ -113,39 +115,20 @@ const ReceptionistForm = ({
       const data =
         new FormData();
 
-      data.append(
-        "firstName",
-        form.firstName
-      );
-
-      data.append(
-        "lastName",
-        form.lastName
-      );
-
-      data.append(
-        "phone",
-        form.phone
-      );
-
-      data.append(
-        "email",
-        form.email
-      );
-
-      data.append(
-        "dui",
-        form.dui
-      );
-
-      data.append(
-        "age",
-        form.age
+      Object.entries(formData).forEach(
+        ([key, value]) => {
+          if (
+            value !== undefined &&
+            value !== null
+          ) {
+            data.append(key, value);
+          }
+        }
       );
 
       if (imageFile) {
         data.append(
-          "image",
+          "receptionistImage",
           imageFile
         );
       }
@@ -165,9 +148,12 @@ const ReceptionistForm = ({
 
       onClose();
     } catch (error) {
+      console.error(error);
+
       showError(
         "Error",
-        error.message
+        error.message ||
+          "No se pudo guardar el recepcionista."
       );
     } finally {
       setLoading(false);
@@ -175,170 +161,216 @@ const ReceptionistForm = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
 
-      <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl p-8">
+      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-xl p-8">
 
-        <button
-          onClick={onClose}
-          className="absolute right-6 top-6 text-gray-400 hover:text-black"
-        >
-          <X size={22} />
-        </button>
+        {/* HEADER */}
+
+        <div className="flex justify-between items-center mb-8">
+
+          <h2 className="text-2xl font-bold">
+            {receptionist
+              ? "Editar Recepcionista"
+              : "Agregar Recepcionista"}
+          </h2>
+
+          <button onClick={onClose}>
+            <X />
+          </button>
+
+        </div>
 
         <form onSubmit={handleSubmit}>
 
-          {/* FOTO */}
+          <div className="grid grid-cols-2 gap-8">
 
-          <div className="flex justify-center mb-8">
+            {/* IZQUIERDA */}
 
-            <div className="relative">
+            <div>
 
-              <label
-                htmlFor="image"
-                className="cursor-pointer"
-              >
+              <div className="flex justify-center mb-8">
 
-                {imagePreview ? (
-                  <img
-                    src={imagePreview}
-                    alt=""
-                    className="w-24 h-24 rounded-full object-cover border"
-                  />
-                ) : (
-                  <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center">
-                    <User
-                      size={46}
-                      className="text-blue-600"
-                    />
+                <div className="relative">
+
+                  <div className="w-32 h-32 rounded-full overflow-hidden bg-slate-100 border">
+
+                    {profilePreview ? (
+                      <img
+                        src={profilePreview}
+                        alt="Recepcionista"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+
+                        <User
+                          size={50}
+                          className="text-slate-400"
+                        />
+
+                      </div>
+                    )}
+
                   </div>
-                )}
 
-                <div className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-lg">
-                  <Plus size={18} />
+                  <label className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 cursor-pointer shadow-md">
+
+                    <Plus size={18} />
+
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={
+                        handleImage
+                      }
+                    />
+
+                  </label>
+
                 </div>
 
-              </label>
+              </div>
 
-              <input
-                id="image"
-                type="file"
-                hidden
-                accept="image/*"
-                onChange={handleImage}
-              />
+              <div className="grid grid-cols-2 gap-4">
+
+                <input
+                  name="name"
+                  value={
+                    formData.name
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  placeholder="Nombres"
+                  className="border p-2 rounded"
+                />
+
+                <input
+                  name="last_name"
+                  value={
+                    formData.last_name
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  placeholder="Apellidos"
+                  className="border p-2 rounded"
+                />
+
+                <input
+                  name="phone"
+                  value={
+                    formData.phone
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  placeholder="Teléfono"
+                  className="border p-2 rounded"
+                />
+
+                <input
+                  type="email"
+                  name="email"
+                  value={
+                    formData.email
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  placeholder="Correo"
+                  className="border p-2 rounded"
+                />
+                                <input
+                  name="dui"
+                  value={
+                    formData.dui
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  placeholder="DUI"
+                  className="border p-2 rounded"
+                />
+
+              <div>
+  <label className="block text-sm text-gray-600 mb-2">
+    Fecha de nacimiento
+  </label>
+
+  <input
+    type="date"
+    name="birth_date"
+    value={formData.birth_date}
+    onChange={handleChange}
+    className="border p-2 rounded w-full"
+  />
+</div>
+
+                {!receptionist && (
+                  <input
+                    type="password"
+                    name="password"
+                    value={
+                      formData.password
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    placeholder="Contraseña"
+                    className="border p-2 rounded col-span-2"
+                  />
+                )}
+
+              </div>
 
             </div>
 
-          </div>
+            {/* DERECHA */}
 
-          <div className="grid grid-cols-2 gap-6">
-                      {/* NOMBRES */}
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">
-                Nombres
-              </label>
+            <div className="flex items-center justify-center">
 
-              <input
-                type="text"
-                name="firstName"
-                value={form.firstName}
-                onChange={handleChange}
-                placeholder="Ingrese los nombres"
-                className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none focus:border-blue-600"
-              />
-            </div>
+              <div className="w-full h-full rounded-2xl border border-dashed border-slate-300 flex items-center justify-center bg-slate-50">
 
-            {/* APELLIDOS */}
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">
-                Apellidos
-              </label>
+                <div className="text-center">
 
-              <input
-                type="text"
-                name="lastName"
-                value={form.lastName}
-                onChange={handleChange}
-                placeholder="Ingrese los apellidos"
-                className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none focus:border-blue-600"
-              />
-            </div>
+                  {profilePreview ? (
+                    <img
+                      src={profilePreview}
+                      alt="Preview"
+                      className="w-60 h-60 rounded-xl object-cover mx-auto"
+                    />
+                  ) : (
+                    <>
+                      <User
+                        size={70}
+                        className="mx-auto text-slate-400 mb-3"
+                      />
 
-            {/* TELEFONO */}
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">
-                Teléfono
-              </label>
+                      <p className="text-slate-500">
+                        Vista previa
+                      </p>
+                    </>
+                  )}
 
-              <input
-                type="text"
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                placeholder="+503"
-                className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none focus:border-blue-600"
-              />
-            </div>
+                </div>
 
-            {/* EMAIL */}
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">
-                Correo electrónico
-              </label>
+              </div>
 
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="Correo@gmail.com"
-                className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none focus:border-blue-600"
-              />
-            </div>
-
-            {/* DUI */}
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">
-                DUI
-              </label>
-
-              <input
-                type="text"
-                name="dui"
-                value={form.dui}
-                onChange={handleChange}
-                placeholder="00000000-0"
-                className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none focus:border-blue-600"
-              />
-            </div>
-
-                       {/* EDAD */}
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">
-                Edad
-              </label>
-
-              <input
-                type="number"
-                name="age"
-                value={form.age}
-                onChange={handleChange}
-                placeholder="Ingrese la edad"
-                className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none focus:border-blue-600"
-              />
             </div>
 
           </div>
 
           {/* BOTONES */}
 
-          <div className="flex justify-center gap-6 mt-10">
+          <div className="flex justify-end gap-4 mt-8">
 
             <button
               type="button"
               onClick={onClose}
-              className="w-40 py-3 rounded-lg border-2 border-blue-600 text-blue-600 font-semibold hover:bg-blue-50 transition"
+              className="border px-6 py-2 rounded hover:bg-slate-100"
             >
               Cancelar
             </button>
@@ -346,7 +378,7 @@ const ReceptionistForm = ({
             <button
               type="submit"
               disabled={loading}
-              className="w-40 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
             >
               {loading
                 ? "Guardando..."
@@ -358,7 +390,6 @@ const ReceptionistForm = ({
           </div>
 
         </form>
-        
 
       </div>
 
