@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
-import { showError } from "../../../lib/alerts"
+import { showError } from "../../../lib/alerts";
 import { useDoctors } from "../hooks/useDoctors";
 
 const DoctorForm = ({
@@ -27,17 +27,76 @@ const DoctorForm = ({
     password: "",
   });
 
-useEffect(() => {
-  return () => {
-    if (doctorImage) {
-      URL.revokeObjectURL(URL.createObjectURL(doctorImage));
+  const [profilePreview, setProfilePreview] = useState("");
+  const [licensePreview, setLicensePreview] = useState("");
+
+  // ==========================================
+  // 1. CARGAR DATOS DEL DOCTOR AL EDITAR
+  // ==========================================
+  useEffect(() => {
+    if (doctor && isOpen) {
+      setFormData({
+        name: doctor.name || "",
+        last_name: doctor.last_name || "",
+        dui: doctor.dui || "",
+        // Formatear fecha a YYYY-MM-DD para el input HTML5
+        birth_date: doctor.birth_date ? doctor.birth_date.split("T")[0] : "",
+        gender: doctor.gender || "Masculino",
+        phone: doctor.phone || "",
+        email: doctor.email || "",
+        license_number: doctor.license_number || "",
+        password: "", // Se deja vacío al editar por seguridad
+      });
+    } else if (!doctor && isOpen) {
+      // Limpiar si es un doctor nuevo
+      setFormData({
+        name: "",
+        last_name: "",
+        dui: "",
+        birth_date: "",
+        gender: "Masculino",
+        phone: "",
+        email: "",
+        license_number: "",
+        password: "",
+      });
     }
 
-    if (licenseImage) {
-      URL.revokeObjectURL(URL.createObjectURL(licenseImage));
+    // Limpiar archivos seleccionados al abrir/cerrar modal
+    setDoctorImage(null);
+    setLicenseImage(null);
+  }, [doctor, isOpen]);
+
+  // ==========================================
+  // 2. PREVISUALIZACIÓN DE IMÁGENES (SEGURO)
+  // ==========================================
+  useEffect(() => {
+    if (!doctorImage) {
+      setProfilePreview(doctor?.img_url || "");
+      return;
     }
-  };
-}, [doctorImage, licenseImage]);
+
+    const objectUrl = URL.createObjectURL(doctorImage);
+    setProfilePreview(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [doctorImage, doctor]);
+
+  useEffect(() => {
+    if (!licenseImage) {
+      setLicensePreview(doctor?.license_url || "");
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(licenseImage);
+    setLicensePreview(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [licenseImage, doctor]);
+
+  // ==========================================
+  // 3. MANEJADORES DE EVENTOS
+  // ==========================================
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -45,58 +104,51 @@ useEffect(() => {
     });
   };
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const data = new FormData();
+      const data = new FormData();
 
-    Object.entries(formData).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        data.append(key, value);
+      Object.entries(formData).forEach(([key, value]) => {
+        // Al editar, no enviamos la contraseña si se dejó en blanco
+        if (key === "password" && doctor && !value) return;
+        
+        if (value !== undefined && value !== null) {
+          data.append(key, value);
+        }
+      });
+
+      if (doctorImage) {
+        data.append("doctorImage", doctorImage);
       }
-    });
 
-    if (doctorImage) {
-      data.append("doctorImage", doctorImage);
+      if (licenseImage) {
+        data.append("licenseImage", licenseImage);
+      }
+
+      if (doctor) {
+        await updateDoctor(doctor._id, data);
+      } else {
+        await createDoctor(data);
+      }
+
+      await refreshDoctors();
+      onClose();
+    } catch (error) {
+      console.error(error);
+      showError(
+        "Error",
+        error.message || "No se pudo guardar el doctor."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    if (licenseImage) {
-      data.append("licenseImage", licenseImage);
-    }
-
-    if (doctor) {
-      await updateDoctor(doctor._id, data);
-    } else {
-      await createDoctor(data);
-    }
-
-    await refreshDoctors();
-
-    onClose();
-  } catch (error) {
-    console.error(error);
-
-    showError(
-      "Error",
-      error.message || "No se pudo guardar el doctor."
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   if (!isOpen) return null;
-
-  const profilePreview = doctorImage
-    ? URL.createObjectURL(doctorImage)
-    : doctor?.img_url;
-
-  const licensePreview = licenseImage
-    ? URL.createObjectURL(licenseImage)
-    : doctor?.license_url;
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -142,9 +194,7 @@ useEffect(() => {
                       type="file"
                       hidden
                       accept="image/*"
-                      onChange={(e) =>
-                        setDoctorImage(e.target.files[0])
-                      }
+                      onChange={(e) => setDoctorImage(e.target.files[0])}
                     />
                   </label>
                 </div>
@@ -157,8 +207,8 @@ useEffect(() => {
                 <input name="email" value={formData.email} onChange={handleChange} placeholder="Correo" className="border p-2 rounded" />
 
                 <select name="gender" value={formData.gender} onChange={handleChange} className="border p-2 rounded">
-                  <option>Masculino</option>
-                  <option>Femenino</option>
+                  <option value="Masculino">Masculino</option>
+                  <option value="Femenino">Femenino</option>
                 </select>
 
                 <input type="date" name="birth_date" value={formData.birth_date} onChange={handleChange} className="border p-2 rounded" />
@@ -181,9 +231,20 @@ useEffect(() => {
               <input name="dui" value={formData.dui} onChange={handleChange} placeholder="DUI" className="border p-2 rounded w-full mb-2" />
               <input name="license_number" value={formData.license_number} onChange={handleChange} placeholder="Licencia" className="border p-2 rounded w-full mb-4" />
 
-              <div className="border rounded-xl h-72 flex items-center justify-center bg-slate-50">
+              <div className="relative border rounded-xl h-72 flex items-center justify-center bg-slate-50 overflow-hidden">
                 {licensePreview ? (
-                  <img src={licensePreview} className="w-full h-full object-cover" />
+                  <>
+                    <img src={licensePreview} className="w-full h-full object-cover" alt="Licencia" />
+                    <label className="absolute bottom-2 right-2 bg-blue-600 text-white rounded-full p-2 cursor-pointer shadow-md">
+                      <Plus size={18} />
+                      <input
+                        type="file"
+                        hidden
+                        accept="image/*"
+                        onChange={(e) => setLicenseImage(e.target.files[0])}
+                      />
+                    </label>
+                  </>
                 ) : (
                   <label className="text-blue-600 cursor-pointer">
                     Subir licencia
@@ -191,9 +252,7 @@ useEffect(() => {
                       type="file"
                       hidden
                       accept="image/*"
-                      onChange={(e) =>
-                        setLicenseImage(e.target.files[0])
-                      }
+                      onChange={(e) => setLicenseImage(e.target.files[0])}
                     />
                   </label>
                 )}

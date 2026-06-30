@@ -55,8 +55,8 @@ app.use("/api/loginDoctors", loginDoctorRoutes);
 
 app.use("/api/admin" ,adminRoutes);
 
-app.use("/api/registerReceptionist",validateAuthCookie(["admin"]), registerReceptionistRoutes);
-app.use("/api/receptionist", receptionistRoutes);
+app.use("/api/registerRecepcionist",validateAuthCookie(["admin"]), registerReceptionistRoutes);
+app.use("/api/recepcionist", receptionistRoutes);
 
 app.use("/api/patients", validateAuthCookie(["admin", "doctor"]), patientsRoute);
 app.use("/api/registerPatient", registerPatientRoutes);
