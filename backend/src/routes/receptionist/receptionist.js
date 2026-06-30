@@ -41,4 +41,8 @@ router
   )
   .delete(receptionistsController.deleteReceptionist);
 
+router
+.route("/search")
+.get(receptionistsController.searchReceptionist);
+
 export default router;

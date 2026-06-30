@@ -28,10 +28,10 @@ const receptionistSchema = new Schema(
       required: true,
     },
 
-    age: {
-      type: Number,
-      required: true,
-    },
+  birth_date: {
+  type: Date,
+  required: true,
+},
 
     email: {
       type: String,
