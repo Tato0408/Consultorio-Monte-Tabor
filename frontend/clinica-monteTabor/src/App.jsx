@@ -20,7 +20,7 @@ import AppointmentsCalendar from './modules/schedule/appointments/pages/Appointm
 import CreateAppointmentForm from './modules/schedule/appointments/components/AppointmentsForm'
 import ProfilePage from './modules/profile/page/ProfilePage'
 import RecepcionistList from './modules/recepcionist/pages/RecepcionistList'
-
+import RolesPage from './modules/role/page/RolesPage';
 function AppRoutes() {
   const { isLoading, hasAdmins } = useAuth();
 
@@ -71,6 +71,7 @@ function AppRoutes() {
         <Route path="/inventory/products" element={<InventoryDashboard />} />
         <Route path="/procedures" element={<Procedures />} />
         <Route path="/system/profile" element={<ProfilePage/>} />
+        <Route path="/system/privileges" element={<RolesPage/>} />
       </Route>
     </Routes>
   );
