@@ -1,17 +1,16 @@
 import receptionistsModel from "../../models/receptionist/receptionist.js";
 import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
+
 //Array de funciones
 const receptionistController = {};
 
 receptionistController.getReceptionists = async (req, res) => {
   try {
     const receptionists = await receptionistsModel.find();
-
     return res.status(200).json(receptionists);
   } catch (error) {
     console.log("error " + error);
-
     return res.status(500).json({
       message: "Internal server error",
     });
@@ -36,18 +35,14 @@ receptionistController.createReceptionist = async (req, res) => {
 
     const newReceptionist = new receptionistsModel({
       img_url: req.files["receptionistImage"][0].path,
-
       img_public_id: req.files["receptionistImage"][0].filename,
-
       name,
       last_name,
       dui,
       birth_date,
       phone,
       email,
-
       password: passwordHashed,
-
       is_active: true,
       is_verified: true,
       loginAttempts: 0,
@@ -60,7 +55,6 @@ receptionistController.createReceptionist = async (req, res) => {
     });
   } catch (error) {
     console.log("error " + error);
-
     return res.status(500).json({
       message: "Internal server error",
     });
@@ -96,20 +90,21 @@ receptionistController.updateReceptionist = async (req, res) => {
       birth_date,
       phone,
       email,
-      password,
       is_active,
       is_verified,
     };
 
+    // Si viene una nueva contraseña, la encriptamos antes de guardar
+    if (password && password.trim() !== "") {
+      updatedData.password = await bcryptjs.hash(password, 10);
+    }
+
     // NUEVA FOTO PERFIL
     if (req.files?.receptionistImage) {
-      // borrar imbirth_daten anterior
       if (receptionistFound.img_public_id) {
         await cloudinary.uploader.destroy(receptionistFound.img_public_id);
       }
-
       updatedData.img_url = req.files["receptionistImage"][0].path;
-
       updatedData.img_public_id = req.files["receptionistImage"][0].filename;
     }
 
@@ -122,7 +117,6 @@ receptionistController.updateReceptionist = async (req, res) => {
     });
   } catch (error) {
     console.log("error " + error);
-
     return res.status(500).json({
       message: "Internal server error",
     });
@@ -139,12 +133,10 @@ receptionistController.deleteReceptionist = async (req, res) => {
       });
     }
 
-    // BORRAR FOTO PERFIL
     if (receptionistFound.img_public_id) {
       await cloudinary.uploader.destroy(receptionistFound.img_public_id);
     }
 
-    // BORRAR DOCUMENTO
     await receptionistsModel.findByIdAndDelete(req.params.id);
 
     return res.status(200).json({
@@ -152,7 +144,6 @@ receptionistController.deleteReceptionist = async (req, res) => {
     });
   } catch (error) {
     console.log("error " + error);
-
     return res.status(500).json({
       message: "Internal server error",
     });
@@ -162,8 +153,6 @@ receptionistController.deleteReceptionist = async (req, res) => {
 receptionistController.updateOwnProfile = async (req, res) => {
   try {
     const receptionistId = req.user.id;
-
-    // Buscamos a la recepcionista en la base de datos
     const receptionistFound = await receptionistsModel.findById(receptionistId);
 
     if (!receptionistFound) {
@@ -171,7 +160,7 @@ receptionistController.updateOwnProfile = async (req, res) => {
         message: "Receptionist profile not found",
       });
     }
-    // Excluimos 'is_active', 'is_verified' y 'password' por seguridad.
+    
     const { name, last_name, dui, birth_date, phone, email } = req.body;
 
     const updatedData = {
@@ -184,17 +173,13 @@ receptionistController.updateOwnProfile = async (req, res) => {
     };
 
     if (req.files?.receptionistImage) {
-      // Borramos la imbirth_daten anterior si ya tenía una registrada
       if (receptionistFound.img_public_id) {
         await cloudinary.uploader.destroy(receptionistFound.img_public_id);
       }
-
-      // Guardamos las rutas de los nuevos archivos procesados por Multer
       updatedData.img_url = req.files["receptionistImage"][0].path;
       updatedData.img_public_id = req.files["receptionistImage"][0].filename;
     }
 
-    // Actualizamos únicamente la cuenta de la recepcionista logueada
     const profileUpdated = await receptionistsModel.findByIdAndUpdate(
       receptionistId,
       updatedData,
@@ -213,60 +198,37 @@ receptionistController.updateOwnProfile = async (req, res) => {
   }
 };
 
+// ==========================================
+// ¡MÉTODO DE BÚSQUEDA TOTALMENTE CORREGIDO!
+// ==========================================
 receptionistController.searchReceptionist = async (req, res) => {
   try {
     const { search } = req.query;
 
     if (!search || search.trim() === "") {
-      const receptionist = await receptionistsModel.find();
-
-      return res.status(200).json(receptionist);
+      const allReceptionists = await receptionistsModel.find();
+      return res.status(200).json(allReceptionists);
     }
 
-    const receptionist = await receptionist.find({
+    // CORRECCIÓN: Llamamos correctamente a 'receptionistsModel' y guardamos en 'results'
+    const results = await receptionistsModel.find({
       $or: [
-        {
-          name: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          last_name: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          email: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          dui: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          phone: {
-            $regex: search,
-            $options: "i",
-          },
-        },
+        { name: { $regex: search, $options: "i" } },
+        { last_name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { dui: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
       ],
     });
 
-    return res.status(200).json(doctors);
+    // CORRECCIÓN: Retornamos 'results', no la variable 'doctors' inexistente
+    return res.status(200).json(results);
   } catch (error) {
     console.log("error " + error);
-
     return res.status(500).json({
       message: "Internal server error",
     });
   }
 };
-
 
 export default receptionistController;
