@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2, Minus } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import InputField from "../../../components/ui/InputField";
-import { manualUsage, getInsumos } from "../../../services/insumosService";
+import useInsumos from "../hooks/useInsumos";
 
 const newRow = () => ({
   insumoId: "", name: "", image: "", unit_measure: "",
@@ -10,6 +10,7 @@ const newRow = () => ({
 });
 
 const ModalManualUsage = ({ onClose, onSuccess }) => {
+  const { getInsumos, manualUsage } = useInsumos();
   const [responsible, setResp]  = useState("");
   const [reason, setReason]     = useState("");
   const [patient, setPatient]   = useState("");

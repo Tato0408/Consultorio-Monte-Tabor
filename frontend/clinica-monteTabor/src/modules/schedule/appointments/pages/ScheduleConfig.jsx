@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Save } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getSchedule, saveSchedule } from "@/services/scheduleService";
+import useSchedule from "../hooks/useSchedule";
 import { showError } from "@/lib/alerts";
 import AppointmentTypesSection  from "../components/AppointmentTypesSection";
 import WeeklyAvailabilitySection from "../components/WeeklyAvailabilitySection";
@@ -34,6 +34,7 @@ const EMPTY_SCHEDULE = {
 
 const ScheduleConfig = () => {
     const { user, isLoading: authLoading } = useAuth();
+    const { getSchedule, saveSchedule } = useSchedule();
 
     // El user.id del JWT puede diferir del _id en la colección doctors.
     // Buscamos al usuario por email en la lista de doctores para obtener el _id correcto.

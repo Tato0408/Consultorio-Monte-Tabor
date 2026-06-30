@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, X, RefreshCw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getAppointments, getAppointmentsStats, updateAppointmentStatus } from "@/services/appointmentsService";
-import { getSchedule } from "@/services/scheduleService";
+import useAppointmentsApi from "../hooks/useAppointmentsApi";
+import useSchedule from "../hooks/useSchedule";
 import { confirmDelete, showError } from "@/lib/alerts";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ const ApptDot = ({ appt, col = 0, colIdx = 0, isSelected, onSelect }) => {
 
     return (
         <div
-            className="absolute z-10"
+            className={`absolute ${hovered ? "z-30" : "z-10"}`}
             style={{ top: `${topPx + 4}px`, left: `${6 + col * 14}px` }}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
@@ -203,7 +203,7 @@ const ApptCard = ({ appt, col = 0, totalCols = 1, colIdx = 0, isSelected, onSele
 
     return (
         <div
-            className="absolute z-10"
+            className={`absolute ${hovered ? "z-30" : "z-10"}`}
             style={{
                 top:    `${topPx}px`,
                 height: `${heightPx}px`,
@@ -288,6 +288,7 @@ const BreakCard = ({ brk }) => {
 
 // ── Detail panel ─────────────────────────────────────────────────────────────
 const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate }) => {
+    const { updateAppointmentStatus } = useAppointmentsApi();
     const [cancelling, setCancelling] = useState(false);
 
     const handleCancel = async () => {
@@ -410,6 +411,8 @@ const AppointmentsCalendar = () => {
     const navigate  = useNavigate();
     const { user, userType } = useAuth();
     const isDoctor  = userType === "doctor";
+    const { getAppointments, getAppointmentsStats } = useAppointmentsApi();
+    const { getSchedule } = useSchedule();
 
     const [weekStart,    setWeekStart]    = useState(() => getWeekStart(new Date()));
     const [appointments, setAppointments] = useState([]);
@@ -729,15 +732,16 @@ const AppointmentsCalendar = () => {
                                     const dow    = day.getDay();
                                     const avail  = scheduleData?.weekly_availability?.find(d => d.day === dow);
                                     const isDayOff = scheduleData && avail && !avail.is_available;
+                                    const isPast = key < today;
                                     return (
-                                        <div key={di} className="absolute top-0 bottom-0 cursor-pointer"
+                                        <div key={di} className={`absolute top-0 bottom-0 ${isPast ? "cursor-not-allowed" : "cursor-pointer"}`}
                                             style={{
                                                 left:  `calc(48px + ${di} * (100% - 48px) / 7)`,
                                                 width: `calc((100% - 48px) / 7)`,
                                             }}
-                                            onClick={() => navigate(`/calendar/appointments/new?date=${toISO(day)}`)}
+                                            onClick={() => { if (isPast) return; navigate(`/calendar/appointments/new?date=${toISO(day)}`); }}
                                         >
-                                            {isDayOff && (
+                                            {(isDayOff || isPast) && (
                                                 <div className="absolute inset-0 pointer-events-none z-10"
                                                     style={{ backgroundColor: "rgba(241,245,249,0.75)" }} />
                                             )}

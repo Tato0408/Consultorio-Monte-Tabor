@@ -4,12 +4,13 @@ import {
   PieChart, Pie, Cell,
   BarChart, Bar,
 } from "recharts";
-import { getCharts } from "../../../services/insumosService";
+import useInsumos from "../hooks/useInsumos";
 
 const PIE_COLORS  = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#94a3b8"];
 const LINE_COLOR  = "#3b82f6";
 
 const InventoryCharts = ({ refreshTrigger }) => {
+  const { getCharts } = useInsumos();
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
 

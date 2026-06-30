@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Download, Plus } from "lucide-react";
-import { getStats } from "../../../services/insumosService";
+import useInsumos from "../hooks/useInsumos";
 
 import InventoryStats    from "../components/InventoryStats";
 import InventoryTable    from "../components/InventoryTable";
@@ -14,6 +14,7 @@ import ModalManualUsage  from "../components/ModalManualUsage";
 import ModalAdjustStock  from "../components/ModalAdjustStock";
 
 const InventoryDashboard = () => {
+  const { getStats } = useInsumos();
   const [stats, setStats]           = useState(null);
   const [refresh, setRefresh]       = useState(0);
   const [modal, setModal]           = useState(null); // "add" | "edit" | "stock" | "usage" | "adjust"

@@ -7,7 +7,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom"
 import useAppointments from "../hooks/useAppointments"
 import useMedicalData from "../hooks/useMedicalData";
 import { showSuccess, showError } from "@/lib/alerts";
-import { getAvailableSlots, getSchedule } from "@/services/scheduleService";
+import useSchedule from "../hooks/useSchedule";
 import { useAuth } from "@/context/AuthContext";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -64,6 +64,7 @@ export default function AppointmentsForm() {
 
   const { getAppointmentById, createAppointment, updateAppointment, submitting } = useAppointments();
   const { patients, doctors, nurses } = useMedicalData();
+  const { getAvailableSlots, getSchedule } = useSchedule();
 
   const isViewOrEditMode = !!id;
   const [isEditing, setIsEditing] = useState(!isViewOrEditMode || location.state?.editMode || false);
