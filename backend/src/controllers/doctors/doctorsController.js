@@ -193,54 +193,44 @@ doctorController.updateDoctors = async (req, res) => {
     });
   }
 };
-
 // =====================
-// DELETE
+// DELETE (CORREGIDO)
 // =====================
 doctorController.deleteDoctor = async (req, res) => {
   try {
-    const doctorFound =
-      await doctorsModel.findById(
-        req.params.id
-      );
+    const doctorFound = await doctorsModel.findById(req.params.id);
 
     if (!doctorFound) {
       return res.status(404).json({
-        message:
-          "Doctor not found",
+        message: "Doctor not found",
       });
     }
 
-    // BORRAR FOTO PERFIL
-    await cloudinary.uploader.destroy(
-      doctorFound.img_public_id
-    );
+    // VALIDACIÓN: Solo borrar de Cloudinary si el ID público existe
+    if (doctorFound.img_public_id) {
+      await cloudinary.uploader.destroy(doctorFound.img_public_id);
+    }
 
-    // BORRAR FOTO LICENCIA
-    await cloudinary.uploader.destroy(
-      doctorFound.license_public_id
-    );
+    // VALIDACIÓN: Solo borrar de Cloudinary si el ID público existe
+    if (doctorFound.license_public_id) {
+      await cloudinary.uploader.destroy(doctorFound.license_public_id);
+    }
 
-    // BORRAR DOCUMENTO
-    await doctorsModel.findByIdAndDelete(
-      req.params.id
-    );
+    // BORRAR DOCUMENTO DE LA BASE DE DATOS
+    await doctorsModel.findByIdAndDelete(req.params.id);
 
     return res.status(200).json({
-      message:
-        "Doctor deleted",
+      message: "Doctor deleted",
     });
 
   } catch (error) {
     console.log("error " + error);
 
     return res.status(500).json({
-      message:
-        "Internal server error",
+      message: "Internal server error",
     });
   }
 };
-
 
 doctorController.updateOwnProfile = async (req, res) => {
   try {
