@@ -20,7 +20,7 @@ registerReceptionistController.register =
         name,
         last_name,
         dui,
-        age,
+        birth_date,
         phone,
         email,
         password,
@@ -29,12 +29,12 @@ registerReceptionistController.register =
         timeOut,
       } = req.body;
 
-      // IMAGEN PERFIL
+      // IMbirth_dateN PERFIL
       const img_url =
-        req.files["receptionistImage"][0].path;
+        req.files["receptionistImbirth_date"][0].path;
 
       const img_public_id =
-        req.files["receptionistImage"][0].filename;
+        req.files["receptionistImbirth_date"][0].filename;
 
       //#2- Validar si el correo existe
       const existsReceptionist =
@@ -44,7 +44,7 @@ registerReceptionistController.register =
 
       if (existsReceptionist) {
         return res.status(400).json({
-          message:
+          messbirth_date:
             "Receptionist already exists",
         });
       }
@@ -70,7 +70,7 @@ registerReceptionistController.register =
           name,
           last_name,
           dui,
-          age,
+          birth_date,
           phone,
 
           email,
@@ -93,7 +93,7 @@ registerReceptionistController.register =
         "registrationCookie",
         token,
         {
-          maxAge: 15 * 60 * 1000,
+          maxbirth_date: 15 * 60 * 1000,
           httpOnly: true,
         },
       );
@@ -140,13 +140,13 @@ registerReceptionistController.register =
             return res
               .status(500)
               .json({
-                message:
+                messbirth_date:
                   "Error sending email",
               });
           }
 
           return res.status(200).json({
-            message:
+            messbirth_date:
               "Verification email sent",
           });
         },
@@ -157,7 +157,7 @@ registerReceptionistController.register =
       console.log("error " + error);
 
       return res.status(500).json({
-        message: "Internal server error",
+        messbirth_date: "Internal server error",
       });
     }
   };
@@ -190,7 +190,7 @@ registerReceptionistController.verifyCode =
         name,
         last_name,
         dui,
-        age,
+        birth_date,
         phone,
 
         email,
@@ -207,7 +207,7 @@ registerReceptionistController.verifyCode =
         storedCode
       ) {
         return res.status(400).json({
-          message: "Invalid code",
+          messbirth_date: "Invalid code",
         });
       }
 
@@ -220,7 +220,7 @@ registerReceptionistController.verifyCode =
           name,
           last_name,
           dui,
-          age,
+          birth_date,
           phone,
 
           email,
@@ -240,7 +240,7 @@ registerReceptionistController.verifyCode =
       );
 
       return res.status(200).json({
-        message:
+        messbirth_date:
           "Receptionist registered",
       });
 
@@ -249,7 +249,7 @@ registerReceptionistController.verifyCode =
       console.log("error " + error);
 
       return res.status(500).json({
-        message: "Internal server error",
+        messbirth_date: "Internal server error",
       });
     }
   };

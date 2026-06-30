@@ -1,6 +1,6 @@
 import receptionistsModel from "../../models/receptionist/receptionist.js";
 import { v2 as cloudinary } from "cloudinary";
-import bcrypt from "bcryptjs";
+import bcryptjs from "bcryptjs";
 //Array de funciones
 const receptionistController = {};
 
@@ -20,7 +20,7 @@ receptionistController.getReceptionists = async (req, res) => {
 
 receptionistController.createReceptionist = async (req, res) => {
   try {
-    const { name, last_name, dui, age, phone, email, password } = req.body;
+    const { name, last_name, dui, birth_date, phone, email, password } = req.body;
 
     const receptionistExists = await receptionistsModel.findOne({
       $or: [{ email }, { dui }],
@@ -42,7 +42,7 @@ receptionistController.createReceptionist = async (req, res) => {
       name,
       last_name,
       dui,
-      age,
+      birth_date,
       phone,
       email,
 
@@ -73,7 +73,7 @@ receptionistController.updateReceptionist = async (req, res) => {
       name,
       last_name,
       dui,
-      age,
+      birth_date,
       phone,
       email,
       password,
@@ -93,7 +93,7 @@ receptionistController.updateReceptionist = async (req, res) => {
       name,
       last_name,
       dui,
-      age,
+      birth_date,
       phone,
       email,
       password,
@@ -103,7 +103,7 @@ receptionistController.updateReceptionist = async (req, res) => {
 
     // NUEVA FOTO PERFIL
     if (req.files?.receptionistImage) {
-      // borrar imagen anterior
+      // borrar imbirth_daten anterior
       if (receptionistFound.img_public_id) {
         await cloudinary.uploader.destroy(receptionistFound.img_public_id);
       }
@@ -172,19 +172,19 @@ receptionistController.updateOwnProfile = async (req, res) => {
       });
     }
     // Excluimos 'is_active', 'is_verified' y 'password' por seguridad.
-    const { name, last_name, dui, age, phone, email } = req.body;
+    const { name, last_name, dui, birth_date, phone, email } = req.body;
 
     const updatedData = {
       name,
       last_name,
       dui,
-      age,
+      birth_date,
       phone,
       email,
     };
 
     if (req.files?.receptionistImage) {
-      // Borramos la imagen anterior si ya tenía una registrada
+      // Borramos la imbirth_daten anterior si ya tenía una registrada
       if (receptionistFound.img_public_id) {
         await cloudinary.uploader.destroy(receptionistFound.img_public_id);
       }
@@ -212,5 +212,61 @@ receptionistController.updateOwnProfile = async (req, res) => {
     });
   }
 };
+
+receptionistController.searchReceptionist = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    if (!search || search.trim() === "") {
+      const receptionist = await receptionistsModel.find();
+
+      return res.status(200).json(receptionist);
+    }
+
+    const receptionist = await receptionist.find({
+      $or: [
+        {
+          name: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          last_name: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          email: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          dui: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          phone: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+      ],
+    });
+
+    return res.status(200).json(doctors);
+  } catch (error) {
+    console.log("error " + error);
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
 
 export default receptionistController;
