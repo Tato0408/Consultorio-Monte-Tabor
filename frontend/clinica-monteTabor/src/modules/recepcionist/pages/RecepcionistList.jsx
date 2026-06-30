@@ -12,15 +12,29 @@ const ReceptionistsList = () => {
     loading,
     error,
     getReceptionists,
+    searchRecepcionist, // <-- Importamos la función de búsqueda de tu hook
     deleteReceptionist,
   } = useReceptionist();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [receptionistToEdit, setReceptionistToEdit] = useState(null);
+  
+  // ==========================================
+  // ESTADO PARA LA BÚSQUEDA
+  // ==========================================
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     getReceptionists();
   }, []);
+
+  // ==========================================
+  // MANEJADOR DE BÚSQUEDA (Filtra en tiempo real)
+  // ==========================================
+  const handleSearch = async (value) => {
+    setSearch(value);
+    await searchRecepcionist(value);
+  };
 
   const handleOpenCreate = () => {
     setReceptionistToEdit(null);
@@ -32,9 +46,6 @@ const ReceptionistsList = () => {
     setIsFormOpen(true);
   };
 
-  // ==========================================
-  // MANEJO AL CIERRE: Solo alerta si wasSaved es true
-  // ==========================================
   const handleCloseForm = async (wasSaved = false) => {
     setIsFormOpen(false);
 
@@ -85,7 +96,12 @@ const ReceptionistsList = () => {
         </p>
       </div>
 
-      <TableBar onAdd={handleOpenCreate} />
+      {/* REEMPLAZA TU ANTERIOR TABLEBAR POR ESTE CORREGIDO */}
+      <TableBar
+        search={search}
+        setSearch={handleSearch}
+        onAdd={handleOpenCreate}
+      />
 
       <ReceptionistsTable
         receptionists={receptionists}
