@@ -25,6 +25,8 @@ import recoveryAdminPassword from "./src/routes/admin/recoveryPasswordAdmin.js"
 import { validateAuthCookie } from './src/middlewares/authMiddleware.js';
 import registerPatientRoutes from "./src/routes/patients/registerPatients.js"
 import scheduleRoutes from './src/routes/schedule/schedule.js'
+import dashboardRoutes from './src/routes/dashboard/dashboard.js'
+import doctorDashboardRoutes from './src/routes/dashboard/doctorDashboard.js'
 const app = express();
 
 app.use(cookieParser());
@@ -68,6 +70,8 @@ app.use("/api/appointments" , validateAuthCookie(["admin", "doctor", "receptioni
 app.use("/api/inventory",validateAuthCookie(["admin"]), inventoryRoutes);
 app.use("/api/procedures", validateAuthCookie(["admin", "doctor"]),  proceduresRoutes);
 app.use("/api/schedule", validateAuthCookie(["admin", "doctor"]), scheduleRoutes);
+app.use("/api/dashboard", validateAuthCookie(["admin"]), dashboardRoutes);
+app.use("/api/doctor-dashboard", validateAuthCookie(["doctor"]), doctorDashboardRoutes);
 
 app.use("/api/logout", validateAuthCookie(), logoutRoute);
 
