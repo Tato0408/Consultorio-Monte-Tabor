@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import Swal from "sweetalert2";
 import apiClient from "../../../lib/apiClient";
 
 const useNurse = () => {
@@ -10,7 +11,6 @@ const useNurse = () => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError]                 = useState(null);
 
-  // Carga inicial de datos
   const fetchNurses = useCallback(async () => {
     try {
       setLoading(true);
@@ -26,10 +26,10 @@ const useNurse = () => {
 
       setNurses(Array.isArray(nursesData) ? nursesData : []);
       setStats({
-        nurses:       nursesCountRes.status === "fulfilled"       ? (nursesCountRes.value?.count || 0)       : 0,
-        notes:        notesCountRes.status === "fulfilled"        ? (notesCountRes.value?.count || 0)        : 0,
+        nurses:       nursesCountRes.status === "fulfilled"       ? (nursesCountRes.value?.count       || 0) : 0,
+        notes:        notesCountRes.status === "fulfilled"        ? (notesCountRes.value?.count        || 0) : 0,
         appointments: appointmentsCountRes.status === "fulfilled" ? (appointmentsCountRes.value?.count || 0) : 0,
-        procedures:   proceduresCountRes.status === "fulfilled"   ? (proceduresCountRes.value?.count || 0)   : 0,
+        procedures:   proceduresCountRes.status === "fulfilled"   ? (proceduresCountRes.value?.count   || 0) : 0,
       });
     } catch (err) {
       setError(err.message || "Error al cargar datos del módulo de enfermería");
@@ -38,52 +38,86 @@ const useNurse = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchNurses();
-  }, [fetchNurses]);
+  useEffect(() => { fetchNurses(); }, [fetchNurses]);
 
-  // ─── Crear Enfermera Actualizado ─────────────────────────────────────────────
+  // ── Crear ────────────────────────────────────────────────────────────────
   const createNurse = useCallback(async (formData) => {
     try {
       setError(null);
-      
-      // Usar .post directo ayuda a Axios a identificar el FormData de forma nativa
       await apiClient("/nurses", {
         method: "POST",
         body: formData,
-        headers: {
-          "Content-Type": "multipart/form-data",
-        }
+        headers: { "Content-Type": "multipart/form-data" },
       });
-
-      await fetchNurses(); 
+      await fetchNurses();
       return { success: true };
     } catch (err) {
       return { success: false, error: err.response?.data?.message || err.message || "Error al crear registro" };
     }
   }, [fetchNurses]);
 
-  // ─── Editar Enfermera (Solución Definitiva) ──────────────────────────────
+  // ── Actualizar ───────────────────────────────────────────────────────────
   const updateNurse = useCallback(async (id, formData) => {
     try {
       setError(null);
-
-      // Usar .put directo pasando el ID en la URL
       await apiClient(`/nurses/${id}`, {
         method: "PUT",
         body: formData,
-        headers: {
-          "Content-Type": "multipart/form-data",
-        }
+        headers: { "Content-Type": "multipart/form-data" },
       });
-
-      await fetchNurses(); 
+      await fetchNurses();
       return { success: true };
     } catch (err) {
       return { success: false, error: err.response?.data?.message || err.message || "Error al actualizar registro" };
     }
   }, [fetchNurses]);
 
+  // ── FIX #2 — Eliminar con confirmación Swal ───────────────────────────────
+  const deleteNurse = useCallback(async (nurse) => {
+    const confirm = await Swal.fire({
+      icon:               "warning",
+      title:              "¿Eliminar enfermera?",
+      text:               `Se eliminará a ${nurse.name} ${nurse.last_name}. Esta acción no se puede deshacer.`,
+      showCancelButton:   true,
+      confirmButtonText:  "Sí, eliminar",
+      cancelButtonText:   "Cancelar",
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor:  "#6b7280",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setError(null);
+      await apiClient(`/nurses/${nurse._id}`, { method: "DELETE" });
+
+      // Si la enfermera eliminada era la seleccionada, limpiar el panel
+      if (selectedNurse?._id === nurse._id) {
+        setSelectedNurse(null);
+        setNextProcedure(null);
+      }
+
+      await fetchNurses();
+
+      await Swal.fire({
+        icon:             "success",
+        title:            "¡Eliminada!",
+        text:             "La enfermera fue eliminada correctamente.",
+        confirmButtonColor: "#2563eb",
+        timer:            2000,
+        timerProgressBar: true,
+      });
+    } catch (err) {
+      Swal.fire({
+        icon:               "error",
+        title:              "Error",
+        text:               err.message || "No se pudo eliminar la enfermera.",
+        confirmButtonColor: "#2563eb",
+      });
+    }
+  }, [fetchNurses, selectedNurse]);
+
+  // ── Seleccionar enfermera y cargar su próximo procedimiento ──────────────
   const selectNurse = useCallback(async (nurse) => {
     setSelectedNurse(nurse);
     setNextProcedure(null);
@@ -93,10 +127,7 @@ const useNurse = () => {
       const now = new Date();
       const upcoming = Array.isArray(appointments)
         ? appointments
-            .filter((a) => {
-              const apptDate = new Date(a.date);
-              return apptDate >= now && (a.status === "pending" || a.status === "scheduled");
-            })
+            .filter((a) => new Date(a.date) >= now && ["pending", "scheduled"].includes(a.status))
             .sort((a, b) => new Date(a.date) - new Date(b.date))
         : [];
       setNextProcedure(upcoming[0] || null);
@@ -124,6 +155,7 @@ const useNurse = () => {
     clearSelection,
     createNurse,
     updateNurse,
+    deleteNurse,    // ← exportado
     refetch: fetchNurses,
   };
 };
