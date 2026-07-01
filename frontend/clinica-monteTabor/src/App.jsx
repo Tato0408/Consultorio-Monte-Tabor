@@ -21,6 +21,10 @@ import CreateAppointmentForm from './modules/schedule/appointments/components/Ap
 import ProfilePage from './modules/profile/page/ProfilePage'
 import RecepcionistList from './modules/recepcionist/pages/RecepcionistList'
 import RolesPage from './modules/role/page/RolesPage';
+import ReportsPatientsPage from './modules/reports/patients/pages/PatientsPage'
+import ReportsDoctorsPage from './modules/reports/doctors/pages/DoctorPage'
+import ReportAppointmentPage from './modules/reports/appointments/pages/AppointmentsPage'
+import NursesPage from './modules/nurses/pages/NursePage'
 function AppRoutes() {
   const { isLoading, hasAdmins } = useAuth();
 
@@ -72,7 +76,11 @@ function AppRoutes() {
         <Route path="/procedures" element={<Procedures />} />
         <Route path="/system/profile" element={<ProfilePage/>} />
         <Route path="/system/privileges" element={<RolesPage/>} />
-      </Route>
+        <Route path="/reports/appointments" element={<ReportAppointmentPage/>} />
+        <Route path="/reports/patients" element={<ReportsPatientsPage/>} />
+        <Route path="/reports/doctors" element={<ReportsDoctorsPage/>} />
+        <Route path="/users/nurses" element={<NursesPage/>} />
+        </Route>
     </Routes>
   );
 }

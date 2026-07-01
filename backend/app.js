@@ -15,7 +15,6 @@ import loginPatientRoute from './src/routes/login/loginPatient/loginPatient.js'
 import receptionistRecoveryRoutes from './src/routes/receptionist/recoveryPasswordReceptionist.js'
 import doctorRecoveryRoutes from './src/routes/doctors/recoveryPasswordDoctor.js'
 import logoutRoute from './src/routes/login/logout.js'
-import recoveryNursePassword from './src/routes/nurse/recoveryPasswordNurses.js'
 import inventoryRoutes from './src/routes/inventory/inventory.js'
 import proceduresRoutes from './src/routes/procedures/procedures.js'
 import authRoutes from "./src/routes/auth/authRoutes.js"
@@ -25,6 +24,9 @@ import recoveryAdminPassword from "./src/routes/admin/recoveryPasswordAdmin.js"
 import { validateAuthCookie } from './src/middlewares/authMiddleware.js';
 import registerPatientRoutes from "./src/routes/patients/registerPatients.js"
 import scheduleRoutes from './src/routes/schedule/schedule.js'
+import dashboardRoutes from './src/routes/dashboard/dashboard.js'
+import doctorDashboardRoutes from './src/routes/dashboard/doctorDashboard.js'
+import nurse_noteRoute from './src/routes/nurse_notes/nurse_notes.js'
 const app = express();
 
 app.use(cookieParser());
@@ -46,7 +48,6 @@ app.use("/api/loginPatient", loginPatientRoute);
 app.use("/api/recoveryDoctor", doctorRecoveryRoutes);
 app.use("/api/recoveryAdminPassword" ,recoveryAdminPassword);
 app.use("/api/recoveryReceptionist", receptionistRecoveryRoutes);
-app.use("/api/recoveryNursesPassword", recoveryNursePassword);
 
 //Endpoints privados
 app.use("/api/registerDoctors", validateAuthCookie(["admin"]),registerDoctorRoutes);
@@ -68,7 +69,10 @@ app.use("/api/appointments" , validateAuthCookie(["admin", "doctor", "receptioni
 app.use("/api/inventory",validateAuthCookie(["admin"]), inventoryRoutes);
 app.use("/api/procedures", validateAuthCookie(["admin", "doctor"]),  proceduresRoutes);
 app.use("/api/schedule", validateAuthCookie(["admin", "doctor"]), scheduleRoutes);
+app.use("/api/dashboard", validateAuthCookie(["admin"]), dashboardRoutes);
+app.use("/api/doctor-dashboard", validateAuthCookie(["doctor"]), doctorDashboardRoutes);
 
 app.use("/api/logout", validateAuthCookie(), logoutRoute);
+app.use("/api/nurse_notes",  nurse_noteRoute);
 
 export default app;
