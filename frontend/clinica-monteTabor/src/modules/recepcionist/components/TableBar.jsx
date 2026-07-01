@@ -36,26 +36,6 @@ const TableBar = ({
 
         <div className="flex items-center gap-3">
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-400">
-              Ordenar
-            </span>
-
-            <Select defaultValue="a-z">
-              <SelectTrigger className="w-[100px] h-9 text-slate-800 font-medium border-slate-200">
-                <SelectValue />
-              </SelectTrigger>
-
-              <SelectContent>
-                <SelectItem value="a-z">
-                  A-Z
-                </SelectItem>
-                <SelectItem value="z-a">
-                  Z-A
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
           <Button
             onClick={onAdd}
@@ -83,14 +63,6 @@ const TableBar = ({
             className="pl-10 h-10 border-slate-200 text-sm focus-visible:ring-1 focus-visible:ring-slate-400 placeholder:text-slate-400 w-full"
           />
         </div>
-
-        <Button
-          variant="outline"
-          className="h-10 border-slate-200 text-slate-600 font-medium gap-2 px-4"
-        >
-          <Filter className="w-4 h-4 text-slate-400" />
-          Filtrar
-        </Button>
 
       </div>
     </>

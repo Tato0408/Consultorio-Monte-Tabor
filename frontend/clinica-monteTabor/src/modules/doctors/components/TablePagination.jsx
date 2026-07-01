@@ -9,12 +9,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const TablePagination = () => {
+const TablePagination = ({
+  currentPage,
+  totalPages,
+  itemsPerPage,
+  setItemsPerPage,
+  onNextPage,
+  onPrevPage,
+}) => {
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500 mt-4">
+      {/* Selector de filas por página */}
       <div className="flex items-center gap-2">
         <span>Filas por página</span>
-        <Select defaultValue="8"a>
+        <Select 
+          value={String(itemsPerPage)} 
+          onValueChange={(value) => {
+            if (typeof setItemsPerPage === "function") {
+              setItemsPerPage(Number(value));
+            }
+          }}
+        >
           <SelectTrigger className="w-[65px] h-8 border-none p-0 shadow-none focus:ring-0 font-medium text-slate-700 bg-transparent flex gap-1 justify-start">
             <SelectValue />
           </SelectTrigger>
@@ -26,26 +41,31 @@ const TablePagination = () => {
         </Select>
       </div>
 
+      {/* Controles de páginas (Anterior / Siguiente) */}
       <div className="flex items-center gap-6">
         <Button
           variant="ghost"
           size="sm"
-          className="text-slate-500 hover:text-slate-800 gap-1 font-medium p-0 h-auto hover:bg-transparent"
+          onClick={onPrevPage}
+          disabled={currentPage === 1}
+          className="text-slate-500 hover:text-slate-800 gap-1 font-medium p-0 h-auto hover:bg-transparent disabled:opacity-40"
         >
           <ChevronLeft className="w-4 h-4" />
           Anterior
         </Button>
 
         <div className="text-sm">
-          <span className="font-semibold text-slate-800">1</span>
+          <span className="font-semibold text-slate-800">{currentPage}</span>
           <span className="text-slate-400 mx-1">de</span>
-          <span className="text-slate-400">5</span>
+          <span className="text-slate-400">{totalPages || 1}</span>
         </div>
 
         <Button
           variant="ghost"
           size="sm"
-          className="text-slate-500 hover:text-slate-800 gap-1 font-medium p-0 h-auto hover:bg-transparent"
+          onClick={onNextPage}
+          disabled={currentPage === totalPages || totalPages === 0}
+          className="text-slate-500 hover:text-slate-800 gap-1 font-medium p-0 h-auto hover:bg-transparent disabled:opacity-40"
         >
           Siguiente
           <ChevronRight className="w-4 h-4" />
@@ -54,4 +74,5 @@ const TablePagination = () => {
     </div>
   );
 };
-export default TablePagination
+
+export default TablePagination;

@@ -4,17 +4,11 @@ import DoctorsStats from "../components/DoctorsStats";
 import TableBar from "../components/TableBar";
 import DoctorsTable from "../components/DoctorsTable";
 import DoctorProfileCard from "../components/DoctorProfileCard";
-import DoctorsCalendar from "../components/DoctorsCalendar";
 import TablePagination from "../components/TablePagination";
 import DoctorForm from "../components/DoctorsForm";
 
 import { useDoctors } from "../hooks/useDoctors";
-
-import {
-  showSuccess,
-  showError,
-  confirmDelete,
-} from "../../../lib/alerts";
+import { showSuccess, showError } from "../../../lib/alerts";
 
 const DoctorsList = () => {
   const {
@@ -26,41 +20,42 @@ const DoctorsList = () => {
     deleteDoctor,
   } = useDoctors();
 
-  const [selectedDoctor, setSelectedDoctor] =
-    useState(null);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [doctorToEdit, setDoctorToEdit] = useState(null);
+  const [search, setSearch] = useState("");
 
-  const [isFormOpen, setIsFormOpen] =
-    useState(false);
-
-  const [doctorToEdit, setDoctorToEdit] =
-    useState(null);
-
-  const [search, setSearch] =
-    useState("");
+  // ==========================================
+  // ESTADOS PARA LA PAGINACIÓN
+  // ==========================================
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(8);
 
   // ==========================
   // BUSCADOR
   // ==========================
-  const handleSearch = async (
-    value
-  ) => {
+  const handleSearch = async (value) => {
     setSearch(value);
-
     await searchDoctors(value);
   };
 
   useEffect(() => {
+    getDoctors();
+  }, []);
+
+  // Resetear a página 1 si cambia la cantidad de registros o filas por página
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, itemsPerPage]);
+
+  useEffect(() => {
     if (doctors.length > 0) {
       const exists = doctors.find(
-        (d) =>
-          d._id ===
-          selectedDoctor?._id
+        (d) => d._id === selectedDoctor?._id
       );
 
       if (!exists) {
-        setSelectedDoctor(
-          doctors[0]
-        );
+        setSelectedDoctor(doctors[0]);
       }
     } else {
       setSelectedDoctor(null);
@@ -78,9 +73,7 @@ const DoctorsList = () => {
   // ==========================
   // ABRIR EDITAR
   // ==========================
-  const handleOpenEdit = (
-    doctor
-  ) => {
+  const handleOpenEdit = (doctor) => {
     setDoctorToEdit(doctor);
     setIsFormOpen(true);
   };
@@ -88,147 +81,115 @@ const DoctorsList = () => {
   // ==========================
   // CERRAR FORMULARIO
   // ==========================
-  const handleCloseForm =
-    async () => {
-      setIsFormOpen(false);
+  const handleCloseForm = async () => {
+    setIsFormOpen(false);
+    await getDoctors();
 
+    if (doctorToEdit) {
+      showSuccess(
+        "Doctor actualizado",
+        "La información del doctor fue actualizada correctamente."
+      );
+    } else {
+      showSuccess(
+        "Doctor agregado",
+        "El doctor fue registrado correctamente."
+      );
+    }
+
+    setDoctorToEdit(null);
+  };
+
+  // ==========================
+  // ELIMINAR DIRECTO
+  // ==========================
+  const handleDeleteDoctor = async (id) => {
+    try {
+      await deleteDoctor(id);
       await getDoctors();
 
-      if (doctorToEdit) {
-        showSuccess(
-          "Doctor actualizado",
-          "La información del doctor fue actualizada correctamente."
-        );
-      } else {
-        showSuccess(
-          "Doctor agregado",
-          "El doctor fue registrado correctamente."
-        );
+      showSuccess(
+        "Doctor eliminado",
+        "El doctor fue eliminado correctamente."
+      );
+
+      if (selectedDoctor?._id === id) {
+        setSelectedDoctor(null);
       }
+    } catch (error) {
+      console.error(error);
+      showError(
+        "Error",
+        error.message || "No se pudo eliminar el doctor."
+      );
+    }
+  };
 
-      setDoctorToEdit(null);
-    };
+  // ==========================================
+  // CÁLCULOS LOGÍSTICOS DE PAGINACIÓN
+  // ==========================================
+  const totalItems = doctors.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
 
-  // ==========================
-  // ELIMINAR
-  // ==========================
-  const handleDeleteDoctor =
-    async (id) => {
-      const confirmed =
-        await confirmDelete();
-
-      if (!confirmed) return;
-
-      try {
-        await deleteDoctor(id);
-
-        await getDoctors();
-
-        showSuccess(
-          "Doctor eliminado",
-          "El doctor fue eliminado correctamente."
-        );
-
-        if (
-          selectedDoctor?._id ===
-          id
-        ) {
-          setSelectedDoctor(
-            null
-          );
-        }
-      } catch (error) {
-        console.error(error);
-
-        showError(
-          "Error",
-          error.message ||
-            "No se pudo eliminar el doctor."
-        );
-      }
-    };
+  // Segmentar el array de doctores según la página activa
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = doctors.slice(indexOfFirstItem, indexOfLastItem);
 
   return (
     <div className="p-8 bg-white min-h-screen w-full">
-
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">
-          Doctores
-        </h1>
-
+        <h1 className="text-3xl font-bold text-slate-900">Doctores</h1>
         <p className="text-sm text-slate-400 mt-1">
           Gestiona y administra a los diferentes doctores
         </p>
       </div>
 
-      <DoctorsStats
-        doctors={doctors}
-        loading={loading}
-      />
+      <DoctorsStats doctors={doctors} loading={loading} />
 
       <div className="grid grid-cols-12 gap-6 mt-8">
-
         <div className="col-span-8">
-
           <TableBar
             search={search}
             setSearch={handleSearch}
             onAdd={handleOpenCreate}
           />
 
+          {/* Enviamos únicamente los registros cortados para la página actual */}
           <DoctorsTable
-            doctors={doctors}
+            doctors={currentItems}
             loading={loading}
             error={error}
-            onSelectDoctor={
-              setSelectedDoctor
-            }
-            onOpenForm={
-              handleOpenCreate
-            }
-            onEditDoctor={
-              handleOpenEdit
-            }
-            onDeleteDoctor={
-              handleDeleteDoctor
-            }
+            onSelectDoctor={setSelectedDoctor}
+            onOpenForm={handleOpenCreate}
+            onEditDoctor={handleOpenEdit}
+            onDeleteDoctor={handleDeleteDoctor}
           />
 
-          <TablePagination />
-
+          {/* Enlazamos todas las props requeridas al paginador */}
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            setItemsPerPage={setItemsPerPage}
+            onNextPage={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            onPrevPage={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          />
         </div>
 
         <div className="col-span-4">
-
-          <DoctorProfileCard
-            doctor={
-              selectedDoctor
-            }
-          />
-
+          <DoctorProfileCard doctor={selectedDoctor} />
         </div>
-
       </div>
 
-      <div className="mt-8">
-        <DoctorsCalendar />
-      </div>
 
       <DoctorForm
-        key={
-          doctorToEdit?._id ||
-          "new"
-        }
+        key={doctorToEdit?._id || "new"}
         isOpen={isFormOpen}
-        onClose={
-          handleCloseForm
-        }
+        onClose={handleCloseForm}
         doctor={doctorToEdit}
-        refreshDoctors={
-          getDoctors
-        }
+        refreshDoctors={getDoctors}
       />
-
     </div>
   );
 };

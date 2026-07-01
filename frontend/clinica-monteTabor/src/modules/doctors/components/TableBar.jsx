@@ -35,32 +35,6 @@ const TableBar = ({
           <ChevronDown className="w-5 h-5 text-slate-500" />
         </div>
 
-        <div className="flex items-center gap-3">
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-400">
-              Ordenar
-            </span>
-
-            <Select defaultValue="a-z">
-              <SelectTrigger className="w-[100px] h-9 text-slate-800 font-medium border-slate-200">
-                <SelectValue />
-              </SelectTrigger>
-
-              <SelectContent>
-                <SelectItem value="a-z">
-                  A-Z
-                </SelectItem>
-
-                <SelectItem value="z-a">
-                  Z-A
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-        </div>
-
       </div>
 
       {/* Barra de búsqueda */}
@@ -82,13 +56,7 @@ const TableBar = ({
 
         </div>
 
-        <Button
-          variant="outline"
-          className="h-10 border-slate-200 text-slate-600 font-medium gap-2 px-4"
-        >
-          <Filter className="w-4 h-4 text-slate-400" />
-          Filtrar
-        </Button>
+      
 
       </div>
     </>
