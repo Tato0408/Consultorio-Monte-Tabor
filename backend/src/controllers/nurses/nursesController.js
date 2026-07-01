@@ -1,4 +1,7 @@
 import nursesModel from "../../models/nurses/nurses.js"
+import appointmentsModel from "../../models/appointments/appointments.js"
+import proceduresModel from "../../models/procedures/procedures.js"
+import nurseNotesModel from "../../models/nurse_notes/nurse_notes.js"
 import { v2 as cloudinary } from "cloudinary"
 import * as nodemailer from 'nodemailer'
 import bcrypt from 'bcryptjs'
@@ -17,9 +20,46 @@ nursesController.getAllNurses = async (req, res) => {
     }
 }
 
+nursesController.countNurses = async (req, res) => {
+    try {
+        const count = await nursesModel.countDocuments();
+        return res.status(200).json({ count });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+}
+
+// Asumiendo que tu controlador se llama nurseNotesController y tu modelo nurseNotesModel
+nursesController.countNotes = async (req, res) => {
+    try {
+        const count = await nurseNotesModel.countDocuments();
+        return res.status(200).json({ count });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+}
+
+nursesController.countAppointments = async (req, res) => {
+    try {
+        // Ajusta "completed" al estado real que uses en tu base de datos para citas atendidas
+        const count = await appointmentsModel.countDocuments({ status: "completed" });
+        return res.status(200).json({ count });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+}
+
+nursesController.countProcedures = async (req, res) => {
+    try {
+        const count = await proceduresModel.countDocuments();
+        return res.status(200).json({ count });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+}
 nursesController.insertNurses = async (req, res) => {
     try {
-        const {
+        let {
             name,
             last_name,
             dui,
@@ -97,7 +137,7 @@ nursesController.insertNurses = async (req, res) => {
 
         const passwordHashed = await bcrypt.hash(password, 10)
 
-        const payload = new nursesModel({
+        let payload = new nursesModel({
             name,
             last_name,
             dui,
@@ -172,7 +212,7 @@ nursesController.deleteNurse = async (req, res) => {
 
 nursesController.updateNurse = async(req,res) => {
     try {
-        const{
+        let{
             name,
             last_name,
             dui,
@@ -188,7 +228,7 @@ nursesController.updateNurse = async(req,res) => {
         if(!response){
             return res.status(404).json({message: "Nurse not found"})
         }
-        const payload = {
+        let payload = {
              name,
             last_name,
             dui,

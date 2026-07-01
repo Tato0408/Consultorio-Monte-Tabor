@@ -4,7 +4,8 @@ import { Calendar as CalendarIcon, User, Gift, CreditCard, Phone, Mail, Clock } 
 import NurseTable from "../components/NurseTable";
 import NurseStatCards from "../components/NurseStatCards";
 import useNurse from "../hooks/useNurse";
-// --- COMPONENTE DEL PANEL LATERAL (PERFIL) ---
+import NurseFormModal from "../components/NurseFormModal"
+
 const NurseProfilePanel = ({ nurse }) => {
   if (!nurse) return null;
 
@@ -90,19 +91,46 @@ const NursesPage = () => {
     loadingDetail,
     error,
     selectNurse,
+    createNurse,
+    updateNurse,
   } = useNurse();
 
-  // Autoseleccionar la primera enfermera al cargar los datos de la API (Igual que en la imagen image_17c1e1.png)
+  // Estados locales para la gestión del Form Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [nurseToEdit, setNurseToEdit] = useState(null);
+
+  // Selección automática por defecto de la primera fila
   useEffect(() => {
     if (nurses && nurses.length > 0 && !selectedNurse) {
       selectNurse(nurses[0]);
     }
   }, [nurses, selectedNurse, selectNurse]);
 
+  // Manejador para abrir el modal en modo creación
+  const handleOpenCreate = () => {
+    setNurseToEdit(null);
+    setIsModalOpen(true);
+  };
+
+  // Manejador para abrir el modal en modo edición con datos cargados
+  const handleOpenEdit = (nurse) => {
+    setNurseToEdit(nurse);
+    setIsModalOpen(true);
+  };
+
+  // Enrutador lógico de guardado (Define si ejecuta POST o PUT en base a la existencia de un ID)
+  const handleSaveNurse = async (formData) => {
+    if (nurseToEdit?._id) {
+      return await updateNurse(nurseToEdit._id, formData);
+    } else {
+      return await createNurse(formData);
+    }
+  };
+
   return (
     <div className="p-6 md:p-8 w-full max-w-[1600px] mx-auto min-h-screen bg-[#F8FAFC] flex flex-col gap-6">
       
-      {/* cabecera principal */}
+      {/* Cabecera Principal */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Enfermeras</h1>
@@ -110,41 +138,36 @@ const NursesPage = () => {
             Gestiona y administra a los las diferentes enfermeras
           </p>
         </div>
-
-        {/* Control de rango de fechas fijo */}
         <button className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2.5 rounded-xl shadow-sm text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors self-start sm:self-auto">
           <CalendarIcon className="w-4 h-4 text-gray-500" />
           Ene 12, 2026 - May 05, 2026
         </button>
       </div>
 
-      {/* Alerta de Error Global */}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl font-medium">
           {error}
         </div>
       )}
 
-      {/* Sección de Tarjetas de Estadísticas Dinámicas */}
-      {/* NOTA: Si tu componente StatsCards ya recibe las props internas, puedes usarlo así: */}
-      {/* <StatsCards stats={stats} /> */}
+      {/* Tarjetas Superiores */}
       <NurseStatCards stats={stats} />
 
-      {/* Grid Principal: Tabla + Panel Detalle */}
+      {/* Contenedor Inferior Centralizado */}
       <div className="flex flex-col xl:flex-row gap-6 items-start">
         
-        {/* Componente Tabla Conectado */}
         <div className="flex-1 w-full min-w-0">
           <NurseTable
             nurses={nurses}
             loading={loading}
             selectedNurse={selectedNurse}
             onSelect={selectNurse}
-            onAdd={() => console.log("Abrir modal de registro")}
+            onAdd={handleOpenCreate}
+            onEdit={handleOpenEdit}
+            onDelete={(nurse) => console.log("Ejecutar eliminación lógica/física para:", nurse._id)}
           />
         </div>
 
-        {/* Sidebar Derecho: Detalle de Perfil */}
         <div className="w-full xl:w-[320px] shrink-0">
           {selectedNurse ? (
             <NurseProfilePanel 
@@ -158,8 +181,16 @@ const NursesPage = () => {
             </div>
           )}
         </div>
-
       </div>
+
+      {/* Renderizado Condicional del Formulario Unificado */}
+      <NurseFormModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSaveNurse}
+        nurse={nurseToEdit}
+      />
+
     </div>
   );
 };

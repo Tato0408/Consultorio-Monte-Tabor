@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Filter, Plus, MoreVertical } from "lucide-react";
+import { Search, Filter, Plus, MoreVertical, Edit2, Trash2 } from "lucide-react";
 
 const StatusBadge = ({ active }) => (
   <span
@@ -27,9 +27,10 @@ const SkeletonRow = () => (
   </tr>
 );
 
-const NurseTable = ({ nurses, loading, selectedNurse, onSelect, onAdd }) => {
+const NurseTable = ({ nurses, loading, selectedNurse, onSelect, onAdd, onEdit, onDelete }) => {
   const [search, setSearch]   = useState("");
   const [filterActive, setFilterActive] = useState(null); // null = todos
+  const [activeMenuId, setActiveMenuId] = useState(null); 
 
   const filtered = nurses.filter((n) => {
     const fullName = `${n.name} ${n.last_name}`.toLowerCase();
@@ -40,12 +41,10 @@ const NurseTable = ({ nurses, loading, selectedNurse, onSelect, onAdd }) => {
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-sm flex flex-col">
-      {/* Header de la tabla */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
         <h3 className="font-bold text-gray-900 text-sm">Administración de enfermeras</h3>
       </div>
 
-      {/* Barra de búsqueda y acciones */}
       <div className="flex items-center gap-3 px-5 py-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -58,7 +57,6 @@ const NurseTable = ({ nurses, loading, selectedNurse, onSelect, onAdd }) => {
           />
         </div>
 
-        {/* Filtro rápido activo/inactivo */}
         <div className="relative group">
           <button
             type="button"
@@ -97,7 +95,6 @@ const NurseTable = ({ nurses, loading, selectedNurse, onSelect, onAdd }) => {
         </button>
       </div>
 
-      {/* Tabla */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -125,14 +122,14 @@ const NurseTable = ({ nurses, loading, selectedNurse, onSelect, onAdd }) => {
               )
               : filtered.map((nurse) => {
                   const isSelected = selectedNurse?._id === nurse._id;
+                  const isMenuOpen = activeMenuId === nurse._id;
+
                   return (
                     <tr
                       key={nurse._id}
                       onClick={() => onSelect(nurse)}
                       className={`border-b border-gray-50 cursor-pointer transition-colors ${
-                        isSelected
-                          ? "bg-blue-50/70"
-                          : "hover:bg-gray-50/60"
+                        isSelected ? "bg-blue-50/70" : "hover:bg-gray-50/60"
                       }`}
                     >
                       <td className="px-4 py-3 font-medium text-gray-800">{nurse.name}</td>
@@ -142,14 +139,60 @@ const NurseTable = ({ nurses, loading, selectedNurse, onSelect, onAdd }) => {
                       <td className="px-4 py-3">
                         <StatusBadge active={nurse.is_active} />
                       </td>
-                      <td className="px-4 py-3">
+                      
+                      <td className="px-4 py-3 relative">
                         <button
                           type="button"
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation(); 
+                            setActiveMenuId(isMenuOpen ? null : nurse._id);
+                          }}
+                          className={`p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors ${
+                            isMenuOpen ? "bg-gray-100 text-gray-700" : ""
+                          }`}
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
+
+                        {isMenuOpen && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-10" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(null);
+                              }}
+                            />
+                            
+                            {/* CORRECCIÓN DEL BUG: Ubicado a la izquierda (right-10) y abriendo hacia arriba (bottom-1) */}
+                            <div className="absolute right-10 bottom-1 bg-white border border-gray-100 rounded-xl shadow-xl z-20 min-w-[120px] py-1 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-100">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(null);
+                                  if (onEdit) onEdit(nurse);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                              >
+                                <Edit2 className="w-3.5 h-3.5 text-gray-400" />
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(null);
+                                  if (onDelete) onDelete(nurse);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                Eliminar
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </td>
                     </tr>
                   );
