@@ -1,30 +1,24 @@
 import React from "react";
 import { useForm, Controller } from "react-hook-form";
-import { Input } from "@/components/ui/input"; // Ajusta la ruta a tu input global
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"; // Ajusta la ruta a tu select global
+import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Filter } from "lucide-react";
 
 const ProceduresFilters = ({ onFilterChange }) => {
   const { register, control, handleSubmit } = useForm({
-    defaultValues: {
-      search: "",
-      requiresNurse: "all",
-      sort: "a-z",
-    },
+    defaultValues: { search: "", requiresNurse: "all", sort: "a-z" },
   });
 
-  // Envía los datos hacia arriba cada vez que se presiona "Filtrar" o cambia un select
   const onSubmit = (data) => {
     if (onFilterChange) onFilterChange(data);
   };
 
   return (
-    <form 
-      onSubmit={handleSubmit(onSubmit)} 
-      className="flex flex-col md:flex-row items-end md:items-center justify-between gap-4 pb-4"
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="flex flex-col md:flex-row items-end md:items-center justify-between gap-3 pb-4"
     >
-      {/* Buscador Izquierdo */}
-      <div className="w-full md:max-w-md relative">
+      <div className="w-full md:max-w-md">
         <Input
           {...register("search")}
           type="text"
@@ -33,18 +27,16 @@ const ProceduresFilters = ({ onFilterChange }) => {
         />
       </div>
 
-      {/* Selects y Botón Derecho */}
-      <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-        
-        {/* Dropdown Requerimiento Enfermera */}
-        <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-end gap-3 w-full md:w-auto">
+
+        <div className="flex flex-col gap-1 flex-1 md:flex-none min-w-[130px]">
           <span className="text-[11px] text-gray-500 font-medium">¿Requiere enfermera?</span>
           <Controller
             name="requiresNurse"
             control={control}
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="h-9 min-w-[120px]">
+                <SelectTrigger className="h-9 w-full md:min-w-[120px]">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent sideOffset={6}>
@@ -57,7 +49,6 @@ const ProceduresFilters = ({ onFilterChange }) => {
           />
         </div>
 
-        {/* Botón de Filtrar */}
         <button
           type="submit"
           className="flex items-center gap-2 h-9 px-3 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors mt-auto"
@@ -66,15 +57,14 @@ const ProceduresFilters = ({ onFilterChange }) => {
           <Filter className="w-4 h-4 text-gray-400" />
         </button>
 
-        {/* Dropdown de Ordenamiento */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 flex-1 md:flex-none min-w-[110px]">
           <span className="text-[11px] text-gray-500 font-medium">Ordenar</span>
           <Controller
             name="sort"
             control={control}
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="h-9 min-w-[100px]">
+                <SelectTrigger className="h-9 w-full md:min-w-[100px]">
                   <SelectValue placeholder="A-Z" />
                 </SelectTrigger>
                 <SelectContent sideOffset={6}>
@@ -87,7 +77,6 @@ const ProceduresFilters = ({ onFilterChange }) => {
             )}
           />
         </div>
-
       </div>
     </form>
   );

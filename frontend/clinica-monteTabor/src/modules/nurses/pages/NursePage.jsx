@@ -13,10 +13,8 @@ const NurseProfilePanel = ({ nurse, nextProcedure, loadingDetail }) => {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
 
-      {/* Cabecera Azul */}
       <div className="bg-blue-600 pt-8 pb-6 px-4 flex flex-col items-center justify-center text-white">
 
-        {/* FIX #1 — Foto real del usuario; si no tiene imagen muestra el ícono */}
         <div className="w-16 h-16 rounded-full border-2 border-white/40 overflow-hidden flex items-center justify-center mb-3 bg-blue-500">
           {nurse.img_url ? (
             <img
@@ -35,7 +33,6 @@ const NurseProfilePanel = ({ nurse, nextProcedure, loadingDetail }) => {
         </h3>
       </div>
 
-      {/* Cuerpo del Perfil */}
       <div className="p-5 flex flex-col gap-4">
         <h4 className="text-[13px] font-bold text-gray-900 mb-1">Acerca</h4>
 
@@ -77,7 +74,6 @@ const NurseProfilePanel = ({ nurse, nextProcedure, loadingDetail }) => {
           </div>
         </div>
 
-        {/* Próximo procedimiento */}
         <div className="mt-2 border border-blue-100 rounded-[20px] p-4 flex flex-col items-center justify-center text-center">
           <div className="flex items-center gap-1.5 mb-2">
             <span className="text-[13px] font-semibold text-blue-600">Próximo procedimiento</span>
