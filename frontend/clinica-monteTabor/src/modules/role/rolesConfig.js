@@ -78,15 +78,7 @@ export const SIDEBAR_MODULES = [
       { key: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
       { key: "reportes_inventario", label: "Reportes de inventario", icon: TrendingUp },
     ],
-  },
-  {
-    section: "Sistema",
-    icon: Settings,
-    modules: [
-      { key: "roles_permisos", label: "Roles y permisos", icon: ShieldCheck },
-      { key: "mi_perfil", label: "Mi perfil", icon: CircleUser },
-    ],
-  },
+  }
 ];
 
 // Lista plana de todas las claves de módulos, útil para construir el set "todo activado"

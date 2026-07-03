@@ -10,7 +10,7 @@ const EditProcedureModal = ({ isOpen, onClose, procedureData, onUpdate, isSubmit
       title="Editar procedimiento"
       subtitle="Modifique la información del procedimiento médico seleccionado en el sistema."
       onClose={onClose}
-      width="w-[600px]"
+      width="w-full md:w-[600px]"
       footer={
         <>
           <button
@@ -20,11 +20,6 @@ const EditProcedureModal = ({ isOpen, onClose, procedureData, onUpdate, isSubmit
           >
             Cancelar
           </button>
-          {/*
-            form="edit-procedure-form" vincula este botón al <form> real.
-            El id tiene que vivir en el elemento <form> del HTML, no en un div
-            contenedor — ese era el bug que impedía que el submit funcionara.
-          */}
           <button
             form="edit-procedure-form"
             type="submit"
@@ -37,11 +32,6 @@ const EditProcedureModal = ({ isOpen, onClose, procedureData, onUpdate, isSubmit
       }
     >
       <div className="pr-1">
-        {/*
-          El id "edit-procedure-form" se pasa como prop a ProcedureForm
-          para que lo coloque directamente en el elemento <form>,
-          que es el único lugar válido para que form="edit-procedure-form" funcione.
-        */}
         <ProcedureForm
           formId="edit-procedure-form"
           initialData={procedureData}

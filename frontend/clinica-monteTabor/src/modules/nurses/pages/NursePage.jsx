@@ -1,43 +1,50 @@
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, User, Gift, CreditCard, Phone, Mail, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, User, Gift, CreditCard, Phone, Mail, Clock, Loader2 } from "lucide-react";
 
 import NurseTable from "../components/NurseTable";
 import NurseStatCards from "../components/NurseStatCards";
 import useNurse from "../hooks/useNurse";
-import NurseFormModal from "../components/NurseFormModal"
+import NurseFormModal from "../components/NurseFormModal";
 
-const NurseProfilePanel = ({ nurse }) => {
+// ─── Panel de detalle de enfermera ───────────────────────────────────────────
+const NurseProfilePanel = ({ nurse, nextProcedure, loadingDetail }) => {
   if (!nurse) return null;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
-      {/* Cabecera Azul */}
-      <div className="bg-blue-600 pt-8 pb-6 px-4 flex flex-col items-center justify-center text-white relative">
-        <div className="w-16 h-16 rounded-full border border-white/40 flex items-center justify-center mb-3">
-          <User className="w-8 h-8 text-white/90" strokeWidth={1.5} />
+
+      <div className="bg-blue-600 pt-8 pb-6 px-4 flex flex-col items-center justify-center text-white">
+
+        <div className="w-16 h-16 rounded-full border-2 border-white/40 overflow-hidden flex items-center justify-center mb-3 bg-blue-500">
+          {nurse.img_url ? (
+            <img
+              src={nurse.img_url}
+              alt={`${nurse.name} ${nurse.last_name}`}
+              className="w-full h-full object-cover"
+              onError={(e) => { e.target.style.display = "none"; }}
+            />
+          ) : (
+            <User className="w-8 h-8 text-white/90" strokeWidth={1.5} />
+          )}
         </div>
+
         <h3 className="text-[15px] font-semibold text-center px-2 leading-tight">
           {nurse.name} {nurse.last_name}
         </h3>
       </div>
 
-      {/* Cuerpo del Perfil */}
       <div className="p-5 flex flex-col gap-4">
         <h4 className="text-[13px] font-bold text-gray-900 mb-1">Acerca</h4>
-
-        <div className="flex items-center gap-3">
-          <User className="w-[18px] h-[18px] text-blue-600" strokeWidth={2} />
-          <div className="flex flex-col">
-            <span className="text-[11px] text-gray-400 font-medium leading-tight">Género</span>
-            <span className="text-[13px] font-medium text-gray-800">{nurse.gender || "Femenino"}</span>
-          </div>
-        </div>
 
         <div className="flex items-center gap-3">
           <Gift className="w-[18px] h-[18px] text-blue-600" strokeWidth={2} />
           <div className="flex flex-col">
             <span className="text-[11px] text-gray-400 font-medium leading-tight">Edad</span>
-            <span className="text-[13px] font-medium text-gray-800">{nurse.age || "18"}</span>
+            <span className="text-[13px] font-medium text-gray-800">
+              {nurse.birth_date
+                ? `${new Date().getFullYear() - new Date(nurse.birth_date).getFullYear()} años`
+                : "—"}
+            </span>
           </div>
         </div>
 
@@ -45,7 +52,7 @@ const NurseProfilePanel = ({ nurse }) => {
           <CreditCard className="w-[18px] h-[18px] text-blue-600" strokeWidth={2} />
           <div className="flex flex-col">
             <span className="text-[11px] text-gray-400 font-medium leading-tight">DUI</span>
-            <span className="text-[13px] font-medium text-gray-800">{nurse.dui || "1238198-7"}</span>
+            <span className="text-[13px] font-medium text-gray-800">{nurse.dui || "—"}</span>
           </div>
         </div>
 
@@ -53,7 +60,7 @@ const NurseProfilePanel = ({ nurse }) => {
           <Phone className="w-[18px] h-[18px] text-blue-600" strokeWidth={2} />
           <div className="flex flex-col">
             <span className="text-[11px] text-gray-400 font-medium leading-tight">Teléfono</span>
-            <span className="text-[13px] font-medium text-gray-800">{nurse.phone || "8594-8174"}</span>
+            <span className="text-[13px] font-medium text-gray-800">{nurse.phone || "—"}</span>
           </div>
         </div>
 
@@ -62,25 +69,40 @@ const NurseProfilePanel = ({ nurse }) => {
           <div className="flex flex-col overflow-hidden">
             <span className="text-[11px] text-gray-400 font-medium leading-tight">Email</span>
             <span className="text-[13px] font-medium text-gray-800 truncate max-w-[200px]">
-              {nurse.email || "ejemplo@gmail.com"}
+              {nurse.email || "—"}
             </span>
           </div>
         </div>
 
-        {/* Tarjeta de Próximo Procedimiento */}
         <div className="mt-2 border border-blue-100 rounded-[20px] p-4 flex flex-col items-center justify-center text-center">
           <div className="flex items-center gap-1.5 mb-2">
-            <span className="text-[13px] font-semibold text-blue-600">Próximo procedimineto</span>
+            <span className="text-[13px] font-semibold text-blue-600">Próximo procedimiento</span>
             <Clock className="w-4 h-4 text-blue-600" />
           </div>
-          <p className="text-xl font-bold text-gray-900 mb-1">17 Mayo, 2026</p>
-          <p className="text-[13px] text-blue-600 font-medium">10:30 AM - Max Jiménez</p>
+
+          {loadingDetail ? (
+            <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+          ) : nextProcedure ? (
+            <>
+              <p className="text-xl font-bold text-gray-900 mb-1">
+                {new Date(nextProcedure.date).toLocaleDateString("es-ES", {
+                  day: "numeric", month: "long", year: "numeric",
+                })}
+              </p>
+              <p className="text-[13px] text-blue-600 font-medium">
+                {nextProcedure.start_time} — {nextProcedure.description || "Sin descripción"}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400 font-medium">No hay procedimientos próximos</p>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
+// ─── Page principal ───────────────────────────────────────────────────────────
 const NursesPage = () => {
   const {
     nurses,
@@ -93,32 +115,30 @@ const NursesPage = () => {
     selectNurse,
     createNurse,
     updateNurse,
+    deleteNurse,   // FIX #2 — viene del hook
   } = useNurse();
 
-  // Estados locales para la gestión del Form Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nurseToEdit, setNurseToEdit] = useState(null);
 
-  // Selección automática por defecto de la primera fila
+  // Selección automática de la primera fila al cargar
   useEffect(() => {
     if (nurses && nurses.length > 0 && !selectedNurse) {
       selectNurse(nurses[0]);
     }
   }, [nurses, selectedNurse, selectNurse]);
 
-  // Manejador para abrir el modal en modo creación
   const handleOpenCreate = () => {
     setNurseToEdit(null);
     setIsModalOpen(true);
   };
 
-  // Manejador para abrir el modal en modo edición con datos cargados
   const handleOpenEdit = (nurse) => {
     setNurseToEdit(nurse);
     setIsModalOpen(true);
   };
 
-  // Enrutador lógico de guardado (Define si ejecuta POST o PUT en base a la existencia de un ID)
+  // FIX #3 — pasa isEditMode al modal para diferenciar el mensaje
   const handleSaveNurse = async (formData) => {
     if (nurseToEdit?._id) {
       return await updateNurse(nurseToEdit._id, formData);
@@ -129,19 +149,15 @@ const NursesPage = () => {
 
   return (
     <div className="p-6 md:p-8 w-full max-w-[1600px] mx-auto min-h-screen bg-[#F8FAFC] flex flex-col gap-6">
-      
-      {/* Cabecera Principal */}
+
+      {/* Cabecera */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Enfermeras</h1>
           <p className="text-sm text-gray-500 font-medium">
-            Gestiona y administra a los las diferentes enfermeras
+            Gestiona y administra a las diferentes enfermeras
           </p>
         </div>
-        <button className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2.5 rounded-xl shadow-sm text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors self-start sm:self-auto">
-          <CalendarIcon className="w-4 h-4 text-gray-500" />
-          Ene 12, 2026 - May 05, 2026
-        </button>
       </div>
 
       {error && (
@@ -150,12 +166,10 @@ const NursesPage = () => {
         </div>
       )}
 
-      {/* Tarjetas Superiores */}
       <NurseStatCards stats={stats} />
 
-      {/* Contenedor Inferior Centralizado */}
       <div className="flex flex-col xl:flex-row gap-6 items-start">
-        
+
         <div className="flex-1 w-full min-w-0">
           <NurseTable
             nurses={nurses}
@@ -164,14 +178,14 @@ const NursesPage = () => {
             onSelect={selectNurse}
             onAdd={handleOpenCreate}
             onEdit={handleOpenEdit}
-            onDelete={(nurse) => console.log("Ejecutar eliminación lógica/física para:", nurse._id)}
+            onDelete={deleteNurse}   // FIX #2 — conectado al hook
           />
         </div>
 
         <div className="w-full xl:w-[320px] shrink-0">
           {selectedNurse ? (
-            <NurseProfilePanel 
-              nurse={selectedNurse} 
+            <NurseProfilePanel
+              nurse={selectedNurse}
               nextProcedure={nextProcedure}
               loadingDetail={loadingDetail}
             />
@@ -183,14 +197,14 @@ const NursesPage = () => {
         </div>
       </div>
 
-      {/* Renderizado Condicional del Formulario Unificado */}
-      <NurseFormModal 
+      <NurseFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveNurse}
         nurse={nurseToEdit}
+        // FIX #3 — el modal sabe si es edición o creación para el mensaje
+        isEditMode={!!nurseToEdit}
       />
-
     </div>
   );
 };
