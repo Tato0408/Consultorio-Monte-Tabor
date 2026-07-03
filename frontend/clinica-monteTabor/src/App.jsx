@@ -26,7 +26,7 @@ import NursesPage from './modules/nurses/pages/NursePage'
 import Appointments from "./modules/schedule/appointments/pages/Appointments"
 import AppointmentsForm from './modules/schedule/appointments/components/AppointmentsForm';
 import AppointmentsFormCalendar from './modules/schedule/appointments/components/AppointmentsFormCalendar';
-
+import RecordsPage from './modules/reports/records/page/RecordsPage'
 function AppRoutes() {
   const { isLoading, hasAdmins } = useAuth();
 
@@ -84,6 +84,7 @@ function AppRoutes() {
         <Route path="/reports/patients" element={<ReportsPatientsPage />} />
         <Route path="/reports/doctors" element={<ReportsDoctorsPage />} />
         <Route path="/users/nurses" element={<NursesPage />} />
+        <Route path="/reports/records" element={<RecordsPage/>}/>
       </Route>
       <Route path="/system/profile" element={<ProfilePage />} />
     </Routes >

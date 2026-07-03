@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+//Este componente muestra la barra superior de la tabla
 const TableBar = ({
   search,
   setSearch,
@@ -24,18 +25,20 @@ const TableBar = ({
 }) => {
   return (
     <>
-      {/* Filtros Superiores */}
+      {/* Barra superior */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
 
+        {/* Opcion que muestra el filtro actual */}
         <div className="flex items-center gap-1 cursor-pointer hover:text-slate-900 transition-colors">
           <span className="text-lg font-semibold text-slate-800">
             Todos
           </span>
+
           <ChevronDown className="w-5 h-5 text-slate-500" />
         </div>
 
+        {/* Boton para agregar un nuevo recepcionista */}
         <div className="flex items-center gap-3">
-
 
           <Button
             onClick={onAdd}
@@ -49,12 +52,15 @@ const TableBar = ({
 
       </div>
 
-      {/* Barra de búsqueda */}
+      {/* Barra de busqueda */}
       <div className="flex items-center gap-3 mb-6">
 
         <div className="relative flex-1 max-w-md">
+
+          {/* Icono de busqueda */}
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
 
+          {/* Input donde el usuario escribe lo que quiere buscar */}
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}

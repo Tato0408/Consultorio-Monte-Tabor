@@ -8,9 +8,7 @@ import { Clock, DollarSign, Save } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import useProcedures from "@/modules/procedures/hooks/useProcedures";
 
-// Valores iniciales del formulario. Los saco afuera del componente para no
-// estar creando el mismo objeto en cada render y para poder reusarlos tanto
-// en useForm como al hacer reset() después de guardar.
+// Valores iniciales del formulario, reutilizados también al hacer reset().
 const defaultValues = {
     name: "",
     description: "",
@@ -20,20 +18,17 @@ const defaultValues = {
     post_operative_instructions: "",
 };
 
-// Modal de "creación rápida" de procedimiento. Se abre desde el botón "+"
-// que está al lado del selector de "Tipo de Procedimiento" en
-// AppointmentsForm, para no tener que salir del formulario de la cita si el
-// procedimiento que se necesita todavía no existe en el catálogo.
+// Modal de creación rápida de un procedimiento, abierto desde el botón "+"
+// junto al selector de tipo de procedimiento en AppointmentsForm.
 export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) {
     const { saveProcedure, submitting } = useProcedures();
 
-    // Uso react-hook-form + Controller para todos los campos (en vez de
-    // register directo) porque los componentes Input/Textarea de la UI no
-    // reenvían el ref con forwardRef, entonces si usara register() los
-    // setValue/reset no actualizarían lo que se ve en pantalla. Controller
-    // evita ese problema porque maneja el value/onChange directo (controlado).
+    // Se usa Controller en todos los campos porque Input/Textarea no
+    // reenvían el ref (sin forwardRef); Controller maneja value/onChange de
+    // forma controlada sin depender de esa referencia.
     const { control, handleSubmit, reset, formState: { errors } } = useForm({ defaultValues });
 
+    // Envía el procedimiento y notifica al formulario padre si se creó bien.
     const onSubmit = async (data) => {
         const result = await saveProcedure(null, {
             ...data,
@@ -42,14 +37,10 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
             materials: [] // Se manda vacío por defecto para el CRUD de tu amiga
         });
 
-        // saveProcedure ya muestra su propio mensaje de éxito/error (con
-        // Swal) adentro del hook useProcedures, así que aquí solo nos toca
-        // reaccionar si salió bien.
+        // saveProcedure ya muestra su propio mensaje de éxito/error.
         if (result) {
             if (onProcedureCreated) {
-                // Si el backend nos devuelve el procedimiento creado, guardamos
-                // su _id real para poder seleccionarlo de una vez en el
-                // formulario de la cita sin que el usuario tenga que buscarlo.
+                // Si el backend retorna el id real, se incluye en el objeto.
                 const backendId = result?.data?._id || result?._id || result?.id;
 
                 const procedimientofinal = {
@@ -75,7 +66,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
-                    {/* NOMBRE (obligatorio, mínimo 3 caracteres) */}
+                    {/* Nombre: obligatorio, mínimo 3 caracteres. */}
                     <div className="space-y-1">
                         <Label className="text-xs font-semibold text-gray-600">Nombre del Procedimiento *</Label>
                         <Controller
@@ -99,7 +90,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                         )}
                     </div>
 
-                    {/* DURACIÓN Y PRECIO (no se aceptan valores en 0/negativos/NaN) */}
+                    {/* Duración y precio: no se aceptan valores en 0, negativos ni NaN. */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <Label className="text-xs font-semibold text-gray-600">Duración (min)</Label>
@@ -160,9 +151,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                         </div>
                     </div>
 
-                    {/* REQUIERE ENFERMERA: es un switch/checkbox custom hecho con
-                        Tailwind (el input real está oculto con sr-only, lo que se
-                        ve es el div de al lado que cambia de posición con peer-*). */}
+                    {/* Switch de "requiere enfermera", hecho con un checkbox oculto (sr-only). */}
                     <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
                         <div>
                             <label htmlFor="requires_nurse" className="text-xs font-semibold text-gray-900 cursor-pointer">
@@ -188,7 +177,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                         </label>
                     </div>
 
-                    {/* DESCRIPCIÓN (opcional) */}
+                    {/* Descripción: opcional. */}
                     <div className="space-y-1">
                         <Label className="text-xs font-semibold text-gray-600">Descripción breve</Label>
                         <Controller
@@ -205,7 +194,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                         />
                     </div>
 
-                    {/* NUEVO: INSTRUCCIONES POST-OPERATORIAS (opcional) */}
+                    {/* Indicaciones post-operatorias: opcional. */}
                     <div className="space-y-1">
                         <Label className="text-xs font-semibold text-gray-600">Indicaciones Post-Operatorias</Label>
                         <Controller
@@ -222,7 +211,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                         />
                     </div>
 
-                    {/* BOTONES */}
+                    {/* Botones de acción. */}
                     <DialogFooter className="pt-2">
                         <Button type="button" variant="outline" onClick={onClose} className="rounded-lg" disabled={submitting}>
                             Cancelar

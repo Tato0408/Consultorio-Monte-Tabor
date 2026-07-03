@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Search, Plus, CheckCircle2, X, Edit2, Save, AlertCircle, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,9 +21,8 @@ import useMedicalData from "../hooks/useMedicalData";
 import { showSuccess, showError } from "@/lib/alerts";
 import ProcedureModal from "./ProcedureModal.jsx";
 
-// Este mismo componente sirve para las 3 pantallas: crear cita nueva, ver el
-// detalle de una cita (solo lectura) y editarla. Cuál de las 3 es depende de
-// si hay "id" en la URL y de si isEditing está prendido o no.
+// Formulario único para crear, ver y editar una cita. El modo depende de si
+// hay "id" en la URL y del estado isEditing.
 export default function AppointmentsForm() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,34 +46,25 @@ export default function AppointmentsForm() {
     fetchMedicalData
   } = useMedicalData();
 
-  // Si hay id en la URL se ve/edita una cita existente; si no,
-  // se esta creando una nueva. Cuando venimos del botón "Editar" de la
-  // tarjeta (AppointmentsGrid), nos mandan editMode: true por location.state
-  // para abrir el formulario ya habilitado en vez de en modo lectura.
+  // Existe id -> se ve/edita una cita existente; si no, se crea una nueva.
+  // editMode llega por location.state cuando se navega desde el botón
+  // "Editar" de la tarjeta, para abrir ya en modo edición.
   const isViewOrEditMode = !!id;
   const [isEditing, setIsEditing] = useState(!isViewOrEditMode || location.state?.editMode || false);
   const [loading, setLoading] = useState(false);
 
-  // Estado de UI que NO es parte de los valores del formulario (no se manda
-  // al backend), por eso vive aparte del useForm de abajo:
-  // - calendarMonth: qué mes muestra el Calendar. Tiene que ir separado de
-  //   la fecha seleccionada porque si no, al cargar una cita vieja el
-  //   calendario se queda mostrando el mes de hoy
-  // - availableTimeSlots / scheduleMessage: la lista de horarios que se
-  //   pintan a la derecha del calendario, depende del doctor+fecha elegidos.
-  // - isProcedureModalOpen: si el modal de "crear procedimiento rápido"
-  //   está abierto o cerrado.
+  // Estado de interfaz que no forma parte de los valores del formulario:
+  // - calendarMonth: mes que muestra el Calendar, aparte de la fecha elegida.
+  // - availableTimeSlots / scheduleMessage: horarios disponibles a mostrar.
+  // - isProcedureModalOpen: visibilidad del modal de creación rápida.
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [scheduleMessage, setScheduleMessage] = useState("");
   const [isProcedureModalOpen, setIsProcedureModalOpen] = useState(false);
+  const originalSlotRef = useRef(null);
 
-  // Uso react-hook-form con Controller en todos los campos (en vez de
-  // register directo) porque los componentes Input/Textarea/Select de la UI
-  // no reenvían el ref (no tienen forwardRef). Si usara register(), cosas
-  // como reset()/setValue() no actualizarían lo que se ve en pantalla.
-  // Controller sí funciona porque pasa value/onChange directo (controlado),
-  // igual que se manejaba todo antes con useState.
+  // Se usa Controller en todos los campos porque los Input/Textarea/Select
+  // de la UI no reenvían el ref; Controller los maneja de forma controlada.
   const { control, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       patient_id: "",
@@ -90,8 +80,7 @@ export default function AppointmentsForm() {
     },
   });
 
-  // watch() se suscribe al valor actual de cada campo y hace que el
-  // componente se vuelva a renderizar cuando cambian
+  // Valores actuales de cada campo, para usarlos en la lógica del componente.
   const patientId = watch("patient_id");
   const doctorId = watch("doctor_id");
   const nurseId = watch("nurse_id");
@@ -100,10 +89,8 @@ export default function AppointmentsForm() {
   const selectedTime = watch("selectedTime");
   const status = watch("status");
 
-  // Carga real de datos desde el service de la API. Solo corre si hay "id"
-  // (o sea, viendo/editando una cita ya existente); si se esta creando una
-  // cita nueva no hay nada que cargar y el formulario se queda con los
-  // defaultValues de arriba.
+  // Carga los datos de la cita cuando hay id (ver/editar). En creación no
+  // corre y el formulario queda con los defaultValues.
   useEffect(() => {
     if (id) {
       const loadAppointmentDetails = async () => {
@@ -112,9 +99,8 @@ export default function AppointmentsForm() {
           const appointment = await getAppointmentById(id);
 
           if (appointment) {
-            // Si la cita es de una "Consulta Médica General" o no trae
-            // procedure_id, la tratamos como "general" (el valor especial
-            // que se usa para diferenciarla de un procedimiento real).
+            // "general" identifica una Consulta Médica General frente a un
+            // procedimiento real con su propio id.
             let procedureValue = "general";
             if (appointment.type !== "Consulta Médica General" && appointment.procedure_id) {
               const procId = typeof appointment.procedure_id === "object"
@@ -125,8 +111,7 @@ export default function AppointmentsForm() {
 
             const loadedDate = appointment.date ? new Date(appointment.date) : new Date();
 
-            // reset() llena todo el formulario de una sola vez con los datos
-            // que vinieron del backend
+            // Llena el formulario completo con los datos del backend.
             reset({
               patient_id: appointment.patient_id?._id || appointment.patient_id || "",
               doctor_id: appointment.doctor_id?._id || appointment.doctor_id || "",
@@ -139,17 +124,19 @@ export default function AppointmentsForm() {
               cancellationReason: appointment.cancellation_reason || "",
               total: appointment.total || 15,
             });
-            // calendarMonth no forma parte del form, así que se actualiza
-            // aparte para que el calendario abra mostrando el mes correcto.
+            // calendarMonth no es parte del form; se actualiza aparte.
             setCalendarMonth(loadedDate);
 
-            // En modo lectura NO se consultan horarios disponibles (ver el
-            // useEffect de loadSlots más abajo, que solo corre si
-            // isEditing es true), así que aquí "sembramos" manualmente el
-            // horario real de la cita para poder mostrarlo en la lista de
-            // la derecha aunque no se haya pedido el resto de horarios.
+            // En modo lectura no se consultan horarios disponibles, así que
+            // se precarga solo el horario real de la cita.
             if (appointment.start_time) {
-              setAvailableTimeSlots([{ start_time: appointment.start_time, end_time: appointment.end_time || "" }]);
+              const slot = { start_time: appointment.start_time, end_time: appointment.end_time || "" };
+              setAvailableTimeSlots([slot]);
+              originalSlotRef.current = {
+                date: loadedDate.toISOString().split("T")[0],
+                doctor_id: appointment.doctor_id?._id || appointment.doctor_id || "",
+                ...slot,
+              };
             }
           }
         } catch (err) {
@@ -164,8 +151,7 @@ export default function AppointmentsForm() {
     }
   }, [id, getAppointmentById, reset]);
 
-  // Traducción de los valores de status (en inglés/snake_case en la BD) al
-  // texto que se le muestra al usuario.
+  // Traducción de los status al texto mostrado al usuario.
   const statusLabels = {
     pending: "Pendiente",
     scheduled: "Programada",
@@ -174,11 +160,10 @@ export default function AppointmentsForm() {
     no_show: "No se presentó",
   };
 
-  // Sin doctor elegido no tiene sentido dejar tocar fecha/horario todavía.
+  // Sin doctor elegido no se habilita fecha ni horario.
   const canSelectSchedule = !!doctorId;
 
-  // Buscar el objeto completo (nombre, apellido, etc.) a partir del id
-  // guardado en el formulario, para poder mostrarlo en el SelectValue.
+  // Objetos completos a partir de los ids guardados en el formulario.
   const selectedPatient = patients.find(p => p._id === patientId);
   const selectedDoctor = doctors.find(p => p._id === doctorId);
   const selectedNurse = nurses.find(p => p._id === nurseId);
@@ -188,43 +173,30 @@ export default function AppointmentsForm() {
     return p._id?.toString() === targetId?.toString();
   });
 
-  // La duración de una "Consulta Médica General" siempre es 30 min fijo;
-  // si es un procedimiento real, se usa la duración que trae configurada
-  // (o 30 min de respaldo si por algún motivo no viene).
+  // Duración fija de 30 min para consulta general; si no, la del procedimiento.
   const duration = procedure === "general"
     ? 30
     : Number(selectedProcedure?.estimated_duration) || 30;
 
-  // El slot completo (con start_time y end_time) que corresponde al horario
-  // elegido. Lo necesitamos aparte del string selectedTime porque al
-  // guardar la cita hay que mandar también la hora de fin.
+  // Slot completo (start_time + end_time) del horario elegido.
   const selectedSlot = availableTimeSlots.find(slot => slot.start_time === selectedTime);
 
-  // Un procedimiento puede venir marcado como que necesita enfermera de
-  // apoyo (requires_nurse o need_nurse, según cómo lo haya guardado quien
-  // creó el procedimiento). Una "Consulta Médica General" nunca la requiere.
-  const isNurseRequired = procedure !== "general" && selectedProcedure && (selectedProcedure.requires_nurse || selectedProcedure.need_nurse);
+  // Indica si el procedimiento elegido exige asignar una enfermera.
+  const isNurseRequired = procedure !== "general" && selectedProcedure && (selectedProcedure.requires_nurse);
 
-  // Si el usuario cambia a un procedimiento que YA NO requiere enfermera,
-  // limpiamos la enfermera que hubiera quedado seleccionada de antes (para
-  // no mandar un nurse_id que ya no aplica).
+  // Limpia la enfermera seleccionada si el procedimiento deja de requerirla.
   useEffect(() => {
     if (!isNurseRequired && nurseId !== "") {
       setValue("nurse_id", "");
     }
   }, [procedure, isNurseRequired, nurseId, setValue]);
 
-  // handleSubmit(onSubmit) solo llama a onSubmit si TODAS las reglas de
-  // validación de los Controller (más abajo, en el JSX) pasaron. Por eso acá
-  // ya no hace falta repetir los checks de "paciente/doctor obligatorio",
-  // "enfermera obligatoria", "costo válido", etc: eso ya lo bloquea
-  // react-hook-form antes de que esta función se ejecute.
+  // Se ejecuta solo si pasan todas las reglas de validación de los
+  // Controller definidos en el JSX.
   const onSubmit = async (data) => {
     if (!isEditing) return;
 
-    // El horario sí lo revisamos aquí además de en su regla de validación,
-    // como último respaldo, porque necesitamos el objeto completo del slot
-    // (start_time + end_time) para armar el payload, no solo la hora.
+    // Verificación adicional: se necesita el slot completo para el payload.
     if (!selectedSlot) {
       showError("Debe seleccionar un horario válido.");
       return;
@@ -257,12 +229,8 @@ export default function AppointmentsForm() {
       } else {
         const success = await createAppointment(appointmentData);
         if (success) {
-          // Ojo: aquí NO se hace "await" del toast antes de navegar (a
-          // diferencia de como se hacía antes). Si se espera el toast, la
-          // navegación queda colgada hasta que el toast se cierre solo (2.5s
-          // o hasta que el usuario lo cierre a mano), y en pestañas en
-          // segundo plano el navegador puede retrasar ese cierre todavía
-          // más. Mostramos el toast y navegamos de inmediato.
+          // No se espera el toast antes de navegar, para no retrasar el
+          // regreso al listado.
           showSuccess("Cita guardada exitosamente");
           navigate("/calendar/appointments");
         }
@@ -273,16 +241,14 @@ export default function AppointmentsForm() {
     }
   };
 
+  // Título del encabezado según el modo actual.
   const getHeaderTitle = () => {
     if (!id) return "Creación de Cita";
     return isEditing ? "Editar Cita" : "Detalles de la Cita";
   };
 
-  // Si el horario que estaba elegido ya no aparece en la lista de
-  // disponibles (por ejemplo, cambiamos de fecha y ese horario ya no existe
-  // para el nuevo día), lo reemplazamos por el primero de la lista nueva.
-  // Solo aplica mientras se está editando: en modo lectura no queremos que
-  // esto pise el horario real que sembramos al cargar la cita.
+  // Si el horario elegido deja de estar disponible, se reemplaza por el
+  // primero de la lista. Solo aplica en modo edición.
   useEffect(() => {
     if (!isEditing) return;
     if (selectedTime && !availableTimeSlots.map(s => s.start_time).includes(selectedTime)) {
@@ -290,9 +256,8 @@ export default function AppointmentsForm() {
     }
   }, [availableTimeSlots, selectedTime, isEditing, setValue]);
 
-  // El costo se autocompleta según el tipo de procedimiento elegido: $15
-  // fijo para consulta general, o el precio configurado del procedimiento.
-  // El usuario igual puede sobrescribirlo a mano después si hace falta.
+  // Autocompleta el costo según el procedimiento elegido; se puede
+  // sobrescribir manualmente después.
   useEffect(() => {
     if (procedure === "general") {
       setValue("total", 15);
@@ -301,8 +266,8 @@ export default function AppointmentsForm() {
     }
   }, [procedure, selectedProcedure, setValue]);
 
-  // Cada vez que cambia el doctor, la fecha o la duración (y estamos en modo
-  // edición), se piden de nuevo los horarios disponibles al backend.
+  // Vuelve a pedir los horarios disponibles cuando cambia doctor, fecha o
+  // duración, mientras se está editando.
   useEffect(() => {
     if (!isEditing) return;
 
@@ -310,9 +275,6 @@ export default function AppointmentsForm() {
       const formattedDate = date.toISOString().split("T")[0];
       let response = await getAvailableSlots(doctorId, formattedDate, duration);
 
-      // Si la fecha elegida es HOY, quitamos de la lista los horarios que
-      // ya pasaron (no tiene sentido ofrecer agendar a las 9am si ya son
-      // las 2pm).
       const today = new Date();
       const isToday = date.getDate() === today.getDate() &&
         date.getMonth() === today.getMonth() &&
@@ -323,12 +285,20 @@ export default function AppointmentsForm() {
         response = response.filter(slot => slot.start_time > currentHourString);
       }
 
+      // Si seguimos en la misma fecha/doctor de la cita original, se agrega
+      // su horario aunque el backend no lo reporte como "disponible"
+      // porque está ocupado por esta misma cita, o porque ya pasó la fecha
+      const original = originalSlotRef.current;
+      if (original && original.date === formattedDate && original.doctor_id === doctorId) {
+        const yaIncluido = response.some(s => s.start_time === original.start_time);
+        if (!yaIncluido) {
+          response = [{ start_time: original.start_time, end_time: original.end_time }, ...response];
+        }
+      }
+
       setAvailableTimeSlots(response);
       setScheduleMessage(response.length === 0 ? "No hay horarios disponibles para el resto del día." : "");
 
-      // Si el horario que estaba elegido sigue existiendo en la nueva
-      // lista, lo dejamos; si no, tomamos el primero disponible (o
-      // limpiamos si ya no queda ninguno).
       if (response.length > 0) {
         if (!response.map(s => s.start_time).includes(selectedTime)) {
           setValue("selectedTime", response[0].start_time);
@@ -341,11 +311,8 @@ export default function AppointmentsForm() {
     loadSlots();
   }, [doctorId, date, duration, getAvailableSlots, isEditing]);
 
-  // Cálculos de límites de tiempo de la semana actual: las citas solo se
-  // pueden agendar desde hoy hasta el domingo de esta misma semana (el
-  // Calendar de abajo usa esto en su prop "disabled" para bloquear el resto
-  // de días). Esto es solo una restricción de creación/edición: una cita ya
-  // guardada de una semana pasada se puede seguir viendo sin problema.
+  // Límite de fechas seleccionables: desde hoy hasta el domingo de la
+  // semana actual. Solo restringe creación/edición, no la visualización.
   const todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
 
@@ -356,10 +323,8 @@ export default function AppointmentsForm() {
   endOfCurrentWeek.setDate(todayMidnight.getDate() + daysUntilSunday);
   endOfCurrentWeek.setHours(23, 59, 59, 999);
 
-  // Se llama cuando ProcedureModal termina de crear un procedimiento nuevo.
-  // En vez de solo agregarlo a la lista local, volvemos a pedir todo el
-  // catálogo (fetchMedicalData) para tener el procedimiento con su _id real
-  // y cualquier otro dato que le haya calculado el backend.
+  // Se llama al crear un procedimiento desde ProcedureModal: refresca el
+  // catálogo completo para tener el procedimiento con su id real.
   const handleProcedureCreated = async (savedSuccess) => {
     if (!savedSuccess) return;
 
@@ -408,7 +373,7 @@ export default function AppointmentsForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Paciente (obligatorio) */}
+            {/* Paciente: obligatorio. */}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Paciente</Label>
               <Controller
@@ -435,8 +400,7 @@ export default function AppointmentsForm() {
               />
             </div>
 
-            {/* Tipo de procedimiento (no es obligatorio validar, siempre
-                tiene un valor por defecto: "general") */}
+            {/* Tipo de procedimiento: siempre tiene valor por defecto ("general"). */}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Tipo de Procedimiento</Label>
               <div className="flex gap-2">
@@ -462,8 +426,7 @@ export default function AppointmentsForm() {
                     </Select>
                   )}
                 />
-                {/* Atajo para crear un procedimiento nuevo sin salir de este
-                    formulario (abre ProcedureModal, ver más abajo). */}
+                {/* Abre ProcedureModal para crear un procedimiento sin salir del formulario. */}
                 <Button
                   type="button"
                   variant="outline"
@@ -479,7 +442,7 @@ export default function AppointmentsForm() {
               </p>
             </div>
 
-            {/* Doctor (obligatorio, y además habilita fecha/horario) */}
+            {/* Doctor: obligatorio; también habilita fecha y horario. */}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Doctor Asignado</Label>
               <Controller
@@ -506,11 +469,7 @@ export default function AppointmentsForm() {
               />
             </div>
 
-            {/* Enfermera: solo obligatoria si el procedimiento elegido la
-                requiere (isNurseRequired). El validate de abajo hace
-                justamente eso: si no se requiere, cualquier valor (incluso
-                vacío) pasa; si se requiere y no hay nurse_id, se bloquea el
-                submit con un mensaje que incluye el nombre del procedimiento. */}
+            {/* Enfermera: obligatoria solo si el procedimiento la requiere. */}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">
                 Enfermera Asignada {isNurseRequired && <span className="text-rose-500 font-bold">*</span>}
@@ -560,7 +519,7 @@ export default function AppointmentsForm() {
             </div>
           </div>
 
-          {/* Calendario y Horas */}
+          {/* Calendario y horarios */}
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-6">
             <div className={`md:col-span-3 flex flex-col items-center border-r border-slate-100 pr-2 ${!isEditing ? "cursor-not-allowed" : ""}`}>
               {!canSelectSchedule && (
@@ -576,20 +535,12 @@ export default function AppointmentsForm() {
                     mode="single"
                     locale={es}
                     selected={field.value}
-                    // month/onMonthChange controlan qué mes se ve, aparte de
-                    // "selected" (qué día está marcado). Si no se controla
-                    // el mes por fuera, el calendario se queda pegado
-                    // mostrando el mes en el que estaba montado la primera
-                    // vez, aunque después carguemos una cita de otro mes.
+                    // Controla qué mes se muestra, aparte del día seleccionado.
                     month={calendarMonth}
                     onMonthChange={setCalendarMonth}
-                    // Importante: onSelect SIEMPRE debe ser una función (no
-                    // undefined) aunque el calendario esté en modo lectura.
-                    // Si se le pasa undefined, react-hook-form-picker deja de
-                    // tratar "selected" como controlado y el calendario se
-                    // queda mostrando para siempre el valor que tenía al
-                    // montarse, ignorando cualquier fecha que carguemos
-                    // después (nos pasó justo este bug con una cita vieja).
+                    // onSelect debe ser siempre una función, incluso en modo
+                    // lectura, para que el calendario trate "selected" como
+                    // controlado y refleje cambios de fecha por fuera.
                     onSelect={(day) => { if (isEditing && canSelectSchedule) field.onChange(day); }}
                     disabled={(date) => date < todayMidnight || date > endOfCurrentWeek}
                     className={`rounded-md border-0 w-full flex justify-center ${!isEditing || !canSelectSchedule ? "pointer-events-none opacity-50" : ""}`}
@@ -607,11 +558,8 @@ export default function AppointmentsForm() {
               <span className="text-xs font-bold text-slate-400 text-right uppercase tracking-wider block mb-1">
                 Personalizar Horario
               </span>
-              {/* Lista de horarios disponibles como botones. El validate
-                  revisa que el horario elegido siga existiendo dentro de
-                  availableTimeSlots (por si cambia la fecha/doctor y ese
-                  horario ya no aplica). En modo lectura no se valida nada
-                  (siempre pasa) porque ahí no se puede editar de todos modos. */}
+              {/* Lista de horarios disponibles; valida que el elegido siga
+                  existiendo en la lista actual. */}
               <Controller
                 name="selectedTime"
                 control={control}
@@ -661,11 +609,10 @@ export default function AppointmentsForm() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA */}
+        {/* Columna derecha */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6 min-h-[520px] flex flex-col justify-between">
           <div className="space-y-5">
-            {/* Estado: obligatorio elegir uno (antes esto no se validaba en
-                el front y el backend lo rechazaba con un error genérico). */}
+            {/* Estado: obligatorio. */}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Estado</Label>
               <Controller
@@ -703,11 +650,8 @@ export default function AppointmentsForm() {
                             <span>Cancelada</span>
                           </div>
                         </SelectItem>
-                        {/* no_show es el estado que el backend pone solo
-                            (automático) cuando una cita "pending" se queda
-                            sin resolver y ya pasó su hora. Lo dejamos
-                            seleccionable acá también por si el personal
-                            quiere marcarlo a mano. */}
+                        {/* Estado asignado automáticamente por el backend a
+                            una cita "pending" ya vencida. También seleccionable a mano. */}
                         <SelectItem value="no_show">
                           <div className="flex items-center gap-2">
                             <AlertCircle className="h-4 w-4 text-slate-400" />
@@ -724,11 +668,7 @@ export default function AppointmentsForm() {
               />
             </div>
 
-            {/* Costo total: obligatorio y debe ser un número mayor a 0.
-                Antes el chequeo era "!total || Number(total) <= 0", que
-                dejaba pasar valores raros como "-" porque Number("-") da
-                NaN y "NaN <= 0" es false. Por eso ahora se revisa
-                Number.isNaN explícitamente. */}
+            {/* Costo total: obligatorio y mayor a 0. */}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Costo Total ($)</Label>
               <Controller
@@ -762,10 +702,7 @@ export default function AppointmentsForm() {
               />
             </div>
 
-            {/* Descripción / Notas: opcional, pero si se escribe algo debe
-                tener entre 3 y 500 caracteres (mismo rango que exige el
-                backend), para no descubrir el error hasta después de
-                intentar guardar. */}
+            {/* Descripción/notas: opcional; si se llena, debe medir entre 3 y 500 caracteres. */}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Descripción / Notas</Label>
               <Controller
@@ -797,9 +734,7 @@ export default function AppointmentsForm() {
               />
             </div>
 
-            {/* Motivo de cancelación: solo se muestra (y solo es
-                obligatorio) cuando el estado elegido es "cancelled". Antes
-                se podía cancelar una cita sin explicar por qué. */}
+            {/* Motivo de cancelación: visible y obligatorio solo si el estado es "cancelled". */}
             {status === "cancelled" && (
               <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
                 <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1">Motivo de Cancelación</Label>
@@ -833,8 +768,7 @@ export default function AppointmentsForm() {
             )}
           </div>
 
-          {/* El botón de guardar solo aparece si estamos en modo edición;
-              en modo lectura no hay nada que enviar. */}
+          {/* Botón de guardar: solo visible en modo edición. */}
           {isEditing && (
             <Button
               type="submit"
@@ -851,8 +785,7 @@ export default function AppointmentsForm() {
         </div>
       </form>
 
-      {/* Modal de creación rápida de procedimientos, disponible desde el
-          botón "+" de arriba. */}
+      {/* Modal de creación rápida de procedimientos. */}
       <ProcedureModal
         isOpen={isProcedureModalOpen}
         onClose={() => setIsProcedureModalOpen(false)}

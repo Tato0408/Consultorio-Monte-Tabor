@@ -51,7 +51,7 @@ export const sideBarMenu = [
         allowedRoles: [roles.admin, roles.doctor],
         subItems: [
             { title: 'Citas', icon: 'CalendarCheck2', path: '/reports/appointments', allowedRoles: [roles.admin, roles.doctor] },
-            { title: 'Historial clínico', icon: 'FileClock', path: '/reports/clinicalHistory', allowedRoles: [roles.admin, roles.doctor] },
+            { title: 'Expediente', icon: 'FileClock', path: '/reports/records', allowedRoles: [roles.admin, roles.doctor] },
             { title: 'Pacientes', icon: 'UserRound', path: '/reports/patients', allowedRoles: [roles.admin, roles.doctor] },
             { title: 'Doctores', icon: 'User', path: '/reports/doctors', allowedRoles: [roles.admin] }
         ]

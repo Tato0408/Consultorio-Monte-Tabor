@@ -5,7 +5,7 @@ import { useReceptionist } from "../hooks/useRecepcionist";
 import { showSuccess, showError } from "../../../lib/alerts";
 
 const ReceptionistsList = () => {
-  // Desestructuramos solo lo necesario (ya no ocupamos la función searchRecepcionist del backend)
+  //Desestructuramos Userecepcionist (las funciones q trae) solo lo que vamos a ocupar del hook
   const {
     receptionists,
     loading,
@@ -14,35 +14,47 @@ const ReceptionistsList = () => {
     deleteReceptionist,
   } = useReceptionist();
 
+  //Estado para controlar si el formulario está abierto
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  //Aquí guardamos el recepcionista que se va a editar
+  //Si es null significa que vamos a crear uno nuevo
   const [receptionistToEdit, setReceptionistToEdit] = useState(null);
 
+  //Cuando carga la vista obtenemos todos los recepcionistas
   useEffect(() => {
     getReceptionists();
   }, []);
 
+  //Abre el formulario para registrar un nuevo recepcionista
   const handleOpenCreate = () => {
     setReceptionistToEdit(null);
     setIsFormOpen(true);
   };
 
+  //Abre el formulario cargando la información del recepcionista seleccionado
   const handleOpenEdit = (receptionist) => {
     setReceptionistToEdit(receptionist);
     setIsFormOpen(true);
   };
 
+  //Esta función se ejecuta cuando se cierra el formulario
   const handleCloseForm = async (wasSaved = false) => {
+    //Cerramos el modal
     setIsFormOpen(false);
 
+    //Si se guardó información volvemos a cargar la tabla
     if (wasSaved) {
       await getReceptionists();
 
+      //Si había un recepcionista seleccionado significa que fue una edición
       if (receptionistToEdit) {
         showSuccess(
           "Recepcionista actualizado",
           "La información fue actualizada correctamente."
         );
       } else {
+        //Si no había ninguno seleccionado entonces fue un registro nuevo
         showSuccess(
           "Recepcionista agregado",
           "El recepcionista fue registrado correctamente."
@@ -50,19 +62,26 @@ const ReceptionistsList = () => {
       }
     }
 
+    //Limpiamos el estado para que no quede información guardada
     setReceptionistToEdit(null);
   };
 
-  // Eliminación directa sin alertas de confirmación
+  //Función para eliminar un recepcionista
   const handleDelete = async (id) => {
     try {
+      //Eliminamos el registro
       await deleteReceptionist(id);
+
+      //Actualizamos la tabla
       await getReceptionists();
+
+      //Mostramos mensaje de éxito
       showSuccess(
         "Recepcionista eliminado",
         "El registro fue eliminado correctamente."
       );
     } catch (error) {
+      //Si ocurre un error mostramos la alerta
       showError(
         "Error",
         error.message || "No fue posible eliminar el recepcionista."
@@ -72,7 +91,7 @@ const ReceptionistsList = () => {
 
   return (
     <div className="w-full min-h-screen bg-white p-8">
-      {/* SECCIÓN DEL ENCABEZADO */}
+      {/* Encabezado de la pantalla */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Recepcionistas</h1>
         <p className="text-gray-400 mt-1">
@@ -80,12 +99,12 @@ const ReceptionistsList = () => {
         </p>
       </div>
 
-      {/* CONTENEDOR EN REJILLA DE 12 COLUMNAS (Mantiene consistencia estructural) */}
+      {/* Contenedor principal donde irá la tabla */}
       <div className="grid grid-cols-12 gap-6 mt-8">
-        {/* Como en recepcionistas no tienes un perfil a la derecha, ocupa las 12 columnas */}
+        {/* La tabla ocupa las 12 columnas */}
         <div className="col-span-12">
           
-          {/* Pasamos el array general de "receptionists" ENTERO, el GenericTable hace todo por dentro */}
+          {/* Aquí enviamos toda la información necesaria a la tabla */}
           <ReceptionistsTable
             receptionists={receptionists}
             loading={loading}
@@ -98,7 +117,7 @@ const ReceptionistsList = () => {
         </div>
       </div>
 
-      {/* MODAL DEL FORMULARIO DE REGISTRO / EDICIÓN */}
+      {/* Modal que sirve tanto para registrar como para editar */}
       <ReceptionistForm
         key={receptionistToEdit?._id || "new"}
         isOpen={isFormOpen}

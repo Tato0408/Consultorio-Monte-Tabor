@@ -4,11 +4,17 @@ import { Menu } from "lucide-react";
 import SideBar from "./SideBar";
 import { useAuth } from "../../context/AuthContext";
 
+
+//Funciona como un contenedor global y guardián de rutas para la sección interna del sistema maneja de forma responsiva la barra lateral (Sidebar) y restringe el acceso a usuarios no autenticados.
 const MainLayout = () => {
+    //Extrae el estado actual de la sesión y la bandera de carga
     const { isLoggedIn, isLoading } = useAuth();
+    //Controla la visibilidad de la barra lateral (Sidebar) únicamente en pantallas móviles
     const [sideOpen, setSideOpen] = useState(false);
 
+    //Mientras verifica el token/cookie de sesión, detiene el renderizado para evitar destellos visuales
     if (isLoading) return null;
+    //Si la validación termina y el usuario no está autenticado, lo redirige al login
     if (!isLoggedIn) return <Navigate to="/login" replace />;
 
     return (

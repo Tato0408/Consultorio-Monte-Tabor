@@ -2,15 +2,18 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { toast } from "react-hot-toast";
 import apiClient from "../lib/apiClient";
 
+//Declaracion del contexto
 const AuthContext = createContext();
 
+//Envuelve todo el sistema para dar el estado global de autenticacion con metodos de inicio y cierre de sesion y los estados al inciar el sistema
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [userType, setUserType] = useState(null);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [hasAdmins, setHasAdmins] = useState(true);
+    const [user, setUser] = useState(null); // datos del usuario actual
+    const [userType, setUserType] = useState(null); // rol (admin, doctor, nurse, receptionist)
+    const [isLoggedIn, setIsLoggedIn] = useState(false); //indica si hay una sesión activa
+    const [isLoading, setIsLoading] = useState(true); // estado de carga inicial de la app
+    const [hasAdmins, setHasAdmins] = useState(true); //verificar si existen administradores en el sistema
 
+    //verifica  si hay administradores registrados en la base de datos
     const checkAdminExistence = useCallback(async () => {
         try {
             const response = await apiClient("/admin/check", { method: "GET" });
@@ -20,6 +23,7 @@ export const AuthProvider = ({ children }) => {
         }
     }, []);
 
+    //* valida el estado de la sesión actual consultando las cookies del navegador si el token es válido, restaura el estado del usuario en memoria global
     const checkSession = useCallback(async () => {
         try {
             const response = await apiClient("/auth/me");
@@ -27,23 +31,29 @@ export const AuthProvider = ({ children }) => {
             setUserType(response.userType);
             setIsLoggedIn(true);
         } catch {
+            //Si el backend rechaza el token limpiamos los estados
             setUser(null);
             setUserType(null);
             setIsLoggedIn(false);
         }
     }, []);
 
+    //Metodo de inicialización  ejecutando los estaods iniciales del sistema
     useEffect(() => {
         const initSystem = async () => {
             try {
+                // 1. Verificar si el sistema ya cuenta con administradores creados
                 await checkAdminExistence();
 
+                //2.si el usuario está en Login o Registro no es necesario validar sesión al cargar las paginas
                 const pathname = window.location.pathname;
                 if (pathname === "/login" || pathname === "/register") {
                     return;
                 }
+                // 3. si está en una ruta interna, valida el estado de la sesión
                 await checkSession();
             } finally {
+                //apaga la pantalla de carga
                 setIsLoading(false);
             }
         };
@@ -51,6 +61,7 @@ export const AuthProvider = ({ children }) => {
         initSystem();
     }, [checkSession, checkAdminExistence]);
 
+    //Método para iniciar sesión en el sistema que envía las credenciales al backend, guarda el estado si es exitoso y muestra notificacion
     const login = async (email, password) => {
         if (!email || !password) {
             toast.error("Por favor, completa todos los campos.");
@@ -63,6 +74,7 @@ export const AuthProvider = ({ children }) => {
                 body: { email, password },
             });
 
+            // Seteo del estado global tras la respuesta exitosa del backend
             setUser(response.user);
             setUserType(response.userType);
             setIsLoggedIn(true);
@@ -75,6 +87,7 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    //método para cerrar sesión  borrando la sesión en el backend limpiando la cookie y resetea todos los estados en el frontend.
     const logout = async () => {
         try {
             await apiClient("/logout", { method: "POST" });
@@ -91,6 +104,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
+        //Envio de estados y metodos para que puedan acceder desde cualquier componente del sistema
         <AuthContext.Provider
             value={{
                 user,

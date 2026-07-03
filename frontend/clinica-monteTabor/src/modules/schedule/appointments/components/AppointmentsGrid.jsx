@@ -1,8 +1,16 @@
-import React from "react";
-import { Edit, Eye, Trash2, Ban, Plus, Loader2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Edit, Eye, Trash2, Ban, Plus, Loader2, Search, ArrowUp, ArrowDown } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useNavigate } from "react-router-dom";
@@ -14,27 +22,41 @@ import {
     showError
 } from "@/lib/alerts";
 
-// Pantalla principal del módulo: muestra todas las citas en tarjetas (grid)
-// con sus acciones (ver, editar, cancelar, eliminar) y paginación. Todo el
-// dato viene del hook useAppointments, este componente solo se encarga de
-// pintar y de disparar las acciones sobre una cita puntual.
+// Pantalla principal del módulo: lista de citas en tarjetas, con búsqueda,
+// filtros, orden, paginación y acciones (ver, editar, cancelar, eliminar).
 export default function AppointmentsGrid() {
     const navigate = useNavigate();
 
     const {
         appointments,
         pagination,
+        filters,
         isLoading,
         error,
         fetchAppointments,
         deleteAppointment,
         updateStatus,
+        updateFilters,
         goToPage
     } = useAppointments();
 
-    // Traducción de los status que vienen del backend a texto legible.
-    // "no_show" es el estado que el backend asigna automáticamente cuando
-    // una cita "pending" se queda sin resolver y ya pasó su fecha/hora.
+    // Texto del buscador, separado del filtro real para no disparar una
+    // consulta en cada tecla.
+    const [searchInput, setSearchInput] = useState("");
+
+    // Aplica la búsqueda 400ms después de que se deja de escribir.
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            updateFilters({ search: searchInput.trim() || undefined });
+        }, 400);
+        return () => clearTimeout(timeout);
+    }, [searchInput, updateFilters]);
+
+    // Indica si hay algún filtro activo, para ajustar el mensaje de "sin datos".
+    const hasActiveFilters = Boolean(filters.search || filters.status || filters.type);
+
+    // Traducción de los status a texto legible. "no_show" lo asigna el
+    // backend automáticamente a una cita "pending" ya vencida.
     const statusTranslations = {
         pending: "Pendiente",
         scheduled: "Programada",
@@ -43,8 +65,7 @@ export default function AppointmentsGrid() {
         no_show: "No se presentó"
     }
 
-    // Borra la cita por completo (irreversible), por eso pide confirmación
-    // antes de mandar el DELETE.
+    // Elimina la cita por completo; pide confirmación por ser irreversible.
     const handleEliminar = async (id) => {
         const confirmed = await confirmDelete();
 
@@ -65,8 +86,7 @@ export default function AppointmentsGrid() {
         }
     };
 
-    // Cancela la cita sin borrarla: solo cambia su status a "cancelled" vía
-    // updateStatus (PATCH), así queda el registro para historial/reportes.
+    // Cambia el status a "cancelled" sin borrar el registro.
     const handleCancelar = async (id) => {
         const confirmed = await confirmCancelAppointment();
 
@@ -136,11 +156,72 @@ export default function AppointmentsGrid() {
                 </Button>
             </div>
 
+            {/* Búsqueda, filtros de estado/tipo y orden por fecha. Todo se
+                resuelve en el backend vía updateFilters (query params). */}
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 mb-6 flex flex-col md:flex-row gap-3 md:items-center">
+                {/* Búsqueda por paciente, doctor o descripción. */}
+                <div className="relative flex-1 min-w-[220px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        placeholder="Buscar por paciente, doctor o descripción..."
+                        className="pl-9 border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl h-10"
+                    />
+                </div>
+
+                {/* Filtro por estado. */}
+                <Select
+                    value={filters.status || "all"}
+                    onValueChange={(value) => updateFilters({ status: value === "all" ? undefined : value })}
+                >
+                    <SelectTrigger className="w-full md:w-44 border-slate-200 rounded-xl h-10">
+                        <SelectValue>{statusTranslations[filters.status] || "Todos los estados"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos los estados</SelectItem>
+                        <SelectItem value="pending">Pendiente</SelectItem>
+                        <SelectItem value="scheduled">Programada</SelectItem>
+                        <SelectItem value="completed">Completada</SelectItem>
+                        <SelectItem value="cancelled">Cancelada</SelectItem>
+                        <SelectItem value="no_show">No se presentó</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                {/* Filtro por tipo de procedimiento. */}
+                <Select
+                    value={filters.type || "all"}
+                    onValueChange={(value) => updateFilters({ type: value === "all" ? undefined : value })}
+                >
+                    <SelectTrigger className="w-full md:w-56 border-slate-200 rounded-xl h-10">
+                        <SelectValue>{filters.type || "Todos los tipos"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos los tipos</SelectItem>
+                        <SelectItem value="Consulta Médica General">Consulta Médica General</SelectItem>
+                        <SelectItem value="Procedimiento">Procedimiento</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                {/* Alterna el orden por fecha entre ascendente y descendente. */}
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => updateFilters({ sortOrder: filters.sortOrder === "desc" ? "asc" : "desc" })}
+                    className="h-10 border-slate-200 rounded-xl text-slate-600 flex items-center gap-2 whitespace-nowrap"
+                >
+                    {filters.sortOrder === "desc" ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+                    Fecha {filters.sortOrder === "desc" ? "(recientes primero)" : "(antiguas primero)"}
+                </Button>
+            </div>
+
             {/* Sin datos */}
             {appointments.length === 0 ? (
                 <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
                     <p className="text-slate-400 font-medium">
-                        No hay citas registradas en este momento.
+                        {hasActiveFilters
+                            ? "No se encontraron citas con los filtros aplicados."
+                            : "No hay citas registradas en este momento."}
                     </p>
                 </div>
             ) : (
@@ -152,11 +233,7 @@ export default function AppointmentsGrid() {
                                 className="bg-white border border-slate-100 shadow-md rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col h-full"
                             >
                                 <CardHeader className="p-5 pb-3 flex flex-row items-center gap-2 space-y-0">
-                                    {/* Badge de estado: el color cambia según el status.
-                                        No usamos statusTranslations para el color, solo
-                                        para el texto, porque cada estado tiene su propia
-                                        paleta (verde completada, rojo cancelada, gris
-                                        no_show, azul programada, ámbar el resto). */}
+                                    {/* Badge de estado; el color depende del status. */}
                                     <Badge
                                         variant="secondary"
                                         className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${cita.status === "completed"
@@ -186,6 +263,7 @@ export default function AppointmentsGrid() {
                                 </CardHeader>
 
                                 <CardContent className="px-5 pt-0 pb-4 text-sm text-slate-600 space-y-2 flex-1">
+                                    {/* Nombre del paciente. */}
                                     <h3 className="text-base font-bold text-slate-900 mb-3">
                                         Paciente:{" "}
                                         {cita.patient_id
@@ -193,6 +271,7 @@ export default function AppointmentsGrid() {
                                             : "Paciente no asignado"}
                                     </h3>
 
+                                    {/* Nombre del procedimiento si aplica; si no, el tipo general. */}
                                     <p>
                                         <span className="text-slate-400">
                                             Tipo de procedimiento:
@@ -225,8 +304,7 @@ export default function AppointmentsGrid() {
                                             : "$15"}
                                     </p>
 
-                                    {/* El motivo de cancelación solo tiene sentido
-                                        mostrarlo si la cita realmente fue cancelada. */}
+                                    {/* Motivo de cancelación, solo si aplica. */}
                                     {cita.status === "cancelled" && (
                                         <p>
                                             <span className="text-slate-400">
@@ -239,7 +317,7 @@ export default function AppointmentsGrid() {
                                 </CardContent>
 
                                 <CardFooter className="mt-auto p-4 bg-slate-50/50 flex items-center justify-between">
-                                    {/* Médico */}
+                                    {/* Doctor asignado */}
                                     <div className="flex items-center gap-2">
                                         <Avatar className="h-7 w-7 border border-slate-200">
                                             <AvatarImage
@@ -266,7 +344,7 @@ export default function AppointmentsGrid() {
                                         </span>
                                     </div>
 
-                                    {/* Acciones: eliminar, editar, cancelar (condicional) y ver */}
+                                    {/* Acciones: eliminar, editar, cancelar (condicional) y ver. */}
                                     <div className="flex items-center gap-1">
                                         <Button
                                             variant="ghost"
@@ -279,10 +357,7 @@ export default function AppointmentsGrid() {
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
 
-                                        {/* Navega al formulario en modo edición pasando
-                                            editMode: true por state, así AppointmentsForm
-                                            sabe que debe abrir ya con los campos habilitados
-                                            en vez del modo solo-lectura por defecto. */}
+                                        {/* Abre el formulario en modo edición (editMode: true). */}
                                         <Button
                                             variant="ghost"
                                             size="icon"
@@ -301,10 +376,7 @@ export default function AppointmentsGrid() {
                                             <Edit className="h-4 w-4" />
                                         </Button>
 
-                                        {/* El botón de cancelar solo aparece si la cita
-                                            todavía se puede cancelar: no tiene sentido
-                                            cancelar algo que ya está cancelado, completado
-                                            o que ya venció (no_show). */}
+                                        {/* Solo visible si la cita todavía se puede cancelar. */}
                                         {cita.status !== "cancelled" && cita.status !== "completed" && cita.status !== "no_show" && (
                                             <Button
                                                 variant="ghost"
@@ -318,8 +390,7 @@ export default function AppointmentsGrid() {
                                             </Button>
                                         )}
 
-                                        {/* Ver detalle en modo solo-lectura (sin pasar
-                                            editMode, AppointmentsForm abre bloqueado). */}
+                                        {/* Abre el formulario en modo solo-lectura. */}
                                         <Button
                                             variant="ghost"
                                             className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center"
@@ -336,8 +407,7 @@ export default function AppointmentsGrid() {
                             </Card>
                         ))}
                     </div>
-                    {/* Paginación: goToPage viene del hook y solo actualiza el
-                        filtro "page", lo que dispara un refetch automático. */}
+                    {/* Paginación: goToPage actualiza el filtro "page" y dispara el refetch. */}
                     <div className="flex justify-center items-center gap-4 mt-8">
                         <Button
                             variant="outline"
