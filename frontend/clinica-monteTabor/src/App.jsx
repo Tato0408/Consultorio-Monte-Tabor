@@ -17,7 +17,7 @@ import ConsultationForm from './modules/schedule/consultations/pages/Consultatio
 import Procedures from './modules//procedures/pages/ProceduresPage';
 import ScheduleConfig       from './modules/schedule/appointments/pages/ScheduleConfig';
 import AppointmentsCalendar from './modules/schedule/appointments/pages/AppointmentsCalendar';
-import CreateAppointmentForm from './modules/schedule/appointments/components/AppointmentsForm'
+import CreateAppointmentForm from './modules/schedule/appointments/components/AppointmentsFormCalendar'
 import ProfilePage from './modules/profile/page/ProfilePage'
 import RecepcionistList from './modules/recepcionist/pages/RecepcionistList'
 import RolesPage from './modules/role/page/RolesPage';
