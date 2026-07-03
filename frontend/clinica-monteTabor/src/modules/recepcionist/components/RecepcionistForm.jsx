@@ -9,11 +9,16 @@ const ReceptionistForm = ({
   receptionist,
   refreshReceptionists,
 }) => {
+  //Desestructuramos las funciones que vamos a ocupar del hook
   const { createReceptionist, updateReceptionist } = useReceptionist();
 
+  //Estado para controlar cuando se esta guardando la informacion
   const [loading, setLoading] = useState(false);
+
+  //Aqui guardamos la imagen seleccionada
   const [imageFile, setImageFile] = useState(null);
 
+  //Estado donde se guardan los datos del formulario
   const [formData, setFormData] = useState({
     name: "",
     last_name: "",
@@ -24,11 +29,11 @@ const ReceptionistForm = ({
     password: "",
   });
 
+  //Estado para mostrar la vista previa de la imagen
   const [profilePreview, setProfilePreview] = useState("");
 
-  // ==========================================
-  // 1. CARGAR DATOS AL EDITAR O LIMPIAR AL CREAR
-  // ==========================================
+  //Si estamos editando cargamos los datos
+  //Si estamos creando limpiamos el formulario
   useEffect(() => {
     if (receptionist && isOpen) {
       setFormData({
@@ -37,9 +42,10 @@ const ReceptionistForm = ({
         phone: receptionist.phone || "",
         email: receptionist.email || "",
         dui: receptionist.dui || "",
-        // Cortamos a YYYY-MM-DD para que el input type="date" lo lea correctamente
+        //Cortamos la fecha para que el input date la pueda leer
         birth_date: receptionist.birth_date ? receptionist.birth_date.split("T")[0] : "",
-        password: "", // Vacío por seguridad al editar
+        //Por seguridad no cargamos la contraseña
+        password: "",
       });
     } else if (!receptionist && isOpen) {
       setFormData({
@@ -52,26 +58,31 @@ const ReceptionistForm = ({
         password: "",
       });
     }
+
+    //Limpiamos la imagen seleccionada
     setImageFile(null);
   }, [receptionist, isOpen]);
 
-  // ==========================================
-  // 2. MANEJO SEGURO DE PREVISUALIZACIÓN DE IMAGEN
-  // ==========================================
+  //Actualizamos la vista previa de la imagen
   useEffect(() => {
+    //Si no hay imagen nueva mostramos la actual
     if (!imageFile) {
       setProfilePreview(receptionist?.img_url || "");
       return;
     }
 
+    //Creamos una url temporal para mostrar la imagen
     const objectUrl = URL.createObjectURL(imageFile);
     setProfilePreview(objectUrl);
 
+    //Liberamos la memoria cuando cambie la imagen
     return () => URL.revokeObjectURL(objectUrl);
   }, [imageFile, receptionist]);
 
+  //Si el modal esta cerrado no mostramos nada
   if (!isOpen) return null;
 
+  //Actualiza los valores de los inputs
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -79,21 +90,27 @@ const ReceptionistForm = ({
     });
   };
 
+  //Guarda la imagen seleccionada
   const handleImage = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     setImageFile(file);
   };
 
+  //Se ejecuta cuando se envia el formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
       setLoading(true);
+
+      //Creamos un FormData para enviar la informacion
       const data = new FormData();
 
+      //Agregamos todos los campos al FormData
       Object.entries(formData).forEach(([key, value]) => {
-        // Evitar enviar contraseña vacía en edición
+        //Si estamos editando y la contraseña esta vacia no la enviamos
         if (key === "password" && receptionist && !value) return;
 
         if (value !== undefined && value !== null) {
@@ -101,26 +118,33 @@ const ReceptionistForm = ({
         }
       });
 
+      //Si hay una imagen la agregamos
       if (imageFile) {
         data.append("receptionistImage", imageFile);
       }
 
+      //Si existe un recepcionista actualizamos
       if (receptionist) {
         await updateReceptionist(receptionist._id, data);
       } else {
+        //Si no existe creamos uno nuevo
         await createReceptionist(data);
       }
 
+      //Actualizamos la tabla
       await refreshReceptionists();
-      // Pasamos true para avisar que SÍ se guardaron los cambios
-      onClose(true); 
+
+      //Cerramos el modal indicando que si se guardo
+      onClose(true);
     } catch (error) {
       console.error(error);
+
       showError(
         "Error",
         error.message || "No se pudo guardar el recepcionista."
       );
     } finally {
+      //Quitamos el loading
       setLoading(false);
     }
   };
@@ -129,11 +153,12 @@ const ReceptionistForm = ({
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-4xl rounded-2xl shadow-xl p-8">
 
-        {/* HEADER */}
+        {/* Encabezado del formulario */}
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl font-bold">
             {receptionist ? "Editar Recepcionista" : "Agregar Recepcionista"}
           </h2>
+
           <button onClick={() => onClose(false)}>
             <X />
           </button>
@@ -141,8 +166,8 @@ const ReceptionistForm = ({
 
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-8">
-            
-            {/* IZQUIERDA */}
+
+            {/* Lado izquierdo con los datos */}
             <div>
               <div className="flex justify-center mb-8">
                 <div className="relative">
@@ -160,6 +185,7 @@ const ReceptionistForm = ({
                     )}
                   </div>
 
+                  {/* Boton para seleccionar una imagen */}
                   <label className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 cursor-pointer shadow-md">
                     <Plus size={18} />
                     <input
@@ -172,6 +198,7 @@ const ReceptionistForm = ({
                 </div>
               </div>
 
+              {/* Inputs del formulario */}
               <div className="grid grid-cols-2 gap-4">
                 <input name="name" value={formData.name} onChange={handleChange} placeholder="Nombres" className="border p-2 rounded" />
                 <input name="last_name" value={formData.last_name} onChange={handleChange} placeholder="Apellidos" className="border p-2 rounded" />
@@ -180,10 +207,20 @@ const ReceptionistForm = ({
                 <input name="dui" value={formData.dui} onChange={handleChange} placeholder="DUI" className="border p-2 rounded" />
 
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">Fecha de nacimiento</label>
-                  <input type="date" name="birth_date" value={formData.birth_date} onChange={handleChange} className="border p-2 rounded w-full" />
+                  <label className="block text-sm text-gray-600 mb-1">
+                    Fecha de nacimiento
+                  </label>
+
+                  <input
+                    type="date"
+                    name="birth_date"
+                    value={formData.birth_date}
+                    onChange={handleChange}
+                    className="border p-2 rounded w-full"
+                  />
                 </div>
 
+                {/* La contraseña solo aparece cuando se crea un recepcionista */}
                 {!receptionist && (
                   <input
                     type="password"
@@ -197,7 +234,7 @@ const ReceptionistForm = ({
               </div>
             </div>
 
-            {/* DERECHA */}
+            {/* Lado derecho con la vista previa */}
             <div className="flex items-center justify-center">
               <div className="w-full h-full rounded-2xl border border-dashed border-slate-300 flex items-center justify-center bg-slate-50 p-4">
                 <div className="text-center">
@@ -219,7 +256,7 @@ const ReceptionistForm = ({
 
           </div>
 
-          {/* BOTONES */}
+          {/* Botones del formulario */}
           <div className="flex justify-end gap-4 mt-8">
             <button
               type="button"

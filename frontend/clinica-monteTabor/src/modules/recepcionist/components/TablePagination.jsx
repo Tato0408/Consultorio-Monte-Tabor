@@ -18,14 +18,14 @@ const TablePagination = ({
   onPrevPage,
   totalItems,
 }) => {
-  // Cálculos para el texto descriptivo opcional de registros activos
+  //Calculos para el texto descriptivo opcional de registros activos
   const fromItem = (currentPage - 1) * itemsPerPage + 1;
   const toItem = Math.min(currentPage * itemsPerPage, totalItems);
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500 mt-4 px-2">
       
-      {/* Selector de filas por página */}
+      {/* Selector de filas por pagina */}
       <div className="flex items-center gap-2">
         <span>Filas por página</span>
         <Select 
