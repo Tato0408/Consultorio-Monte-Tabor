@@ -10,11 +10,12 @@ export const useRecoveryAdmin = () => {
   const [error, setError] =
     useState(null);
 
-  // ENVIAR CORREO
+  //ENVIAR CORREO
   const requestCode = async (
     email
   ) => {
     try {
+      //Activa el loading para congelar botones y limpia errores viejos
       setLoading(true);
       setError(null);
 
@@ -22,7 +23,7 @@ export const useRecoveryAdmin = () => {
         `${API_URL}/requestCode`,
         {
           method: "POST",
-          credentials: "include",
+          credentials: "include", //Obligatorio para que mande las cookies de sesion
           headers: {
             "Content-Type":
               "application/json",
@@ -36,6 +37,7 @@ export const useRecoveryAdmin = () => {
       const data =
         await response.json();
 
+      //Si el backend devuelve un error truena la peticion para que caiga en el catch
       if (!response.ok) {
         throw new Error(
           data.message ||
@@ -53,6 +55,7 @@ export const useRecoveryAdmin = () => {
       setError(error.message);
       throw error;
     } finally {
+      //Apaga el loading pase lo que pase al terminar todo
       setLoading(false);
     }
   };

@@ -42,8 +42,10 @@ const TableBar = ({
 
         <div className="relative flex-1 max-w-md">
 
+          {/* Icono de lupa ke esta de forma absoluta dentro del contenedor */}
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
 
+          {/* Input controlado qu maneja el valor del texto y dispara la funcion setSearch al escribir */}
           <Input
             value={search}
             onChange={(e) =>

@@ -7,7 +7,7 @@ import PrimaryButton from "../../components/PrimaryButton";
 import SecondaryButton from "../../components/SecondaryButton";
 import FooterLogin from "../../components/Footer";
 
-// 1. Importamos TODOS los hooks
+//1. Importamos toditos los hooks
 import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
 import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
 import { useRecoveryAdmin } from "../../hooks/useRecoveryAdmin";
@@ -20,7 +20,7 @@ const VerifyCode = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  // 2. Inicializamos todos los hooks (las reglas de React exigen que los hooks siempre se llamen arriba)
+  //2. Inicializamos todos los hooks (las reglas de React exigen que los hooks siempre se llamen arriba)
   const doctorRecovery = useRecoveryDoctor();
   const receptionistRecovery = useRecoveryReceptionist();
   const adminRecovery = useRecoveryAdmin();
@@ -28,7 +28,7 @@ const VerifyCode = () => {
 
   const codeString = code.join("");
 
-  // 3. Función auxiliar para saber qué hook usar dependiendo de quién está recuperando la contraseña
+  //3. Función auxiliar para saber qué hook usar dependiendo de quién está recuperando la contraseña
   const getActiveRecoveryHook = () => {
     const role = localStorage.getItem("recoveryType");
     switch (role) {
@@ -41,7 +41,7 @@ const VerifyCode = () => {
     }
   };
 
-  // Para saber si está cargando, usamos el hook activo
+  //Para saber si está cargando, usamos el hook activo
   const activeHook = getActiveRecoveryHook();
   const loading = activeHook.loading;
 

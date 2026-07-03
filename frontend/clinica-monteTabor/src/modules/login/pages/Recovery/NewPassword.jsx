@@ -7,7 +7,7 @@ import PrimaryButton from "../../components/PrimaryButton";
 import SecondaryButton from "../../components/SecondaryButton";
 
 import InputField from "../../../../components/ui/InputField";
-import FooterLogin from "../../components/Footer";
+import FooterLogin = "../../components/Footer";
 
 import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
 import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
@@ -22,13 +22,16 @@ const NewPassword = () => {
 
   const navigate = useNavigate();
 
+  //Saca del localStorage el rol que inicio el proceso de recuperacion
   const recoveryType = localStorage.getItem("recoveryType");
 
+  //Inicializa todos los hooks de recuperacion segun los diferentes roles
   const doctorRecovery = useRecoveryDoctor();
   const receptionistRecovery = useRecoveryReceptionist();
   const adminRecovery = useRecoveryAdmin();
   const nurseRecovery = useRecoveryNurse();
 
+  //Evalua cual hook usar de acuerdo al tipo de usuario guardado en el local
   let recovery;
   switch (recoveryType) {
     case "doctor":       recovery = doctorRecovery;       break;
@@ -38,8 +41,10 @@ const NewPassword = () => {
     default:             recovery = doctorRecovery;       break;
   }
 
+  //Extrae el estado de carga del hook correspondiente seleccionado en el switch
   const loading = recovery.loading;
 
+  //Arreglo de objetos para validar la seguridad de la contraseña con regex
   const passwordRules = [
     {
       id: "length",
@@ -68,26 +73,33 @@ const NewPassword = () => {
     },
   ];
 
+  //Devuelve true solo si la contraseña cumple absolutamente todas las reglas del arreglo
   const allRulesPassed = passwordRules.every((r) =>
     r.test(password, confirmPassword)
   );
 
+  //Manejador para procesar el cambio de credenciales al enviar el formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
+    //Doble validacion por si acaso se intenta saltar el disabled del boton
     if (!allRulesPassed) {
       setError("Verifica que tu contraseña cumpla con todos los requisitos");
       return;
     }
 
     try {
+      //Llama al metodo del hook correspondiente pasando los estados de las contraseñas
       const response = await recovery.newPassword(password, confirmPassword);
       console.log("RESPUESTA CAMBIO PASSWORD:", response);
 
+      //Limpia los datos temporales del localStorage para cerrar el flujo de recuperacion
       localStorage.removeItem("recoveryType");
       localStorage.removeItem("recoveryEmail");
+      
       showSuccess("Contraseña actualizada correctamente");
+      //Manda al usuario a la pantalla de confirmacion de exito
       navigate("/password-updated");
     } catch (error) {
       console.log("Error cambiando contraseña:", error);
@@ -139,15 +151,18 @@ const NewPassword = () => {
 
               {/* Validaciones */}
               <div className="flex flex-col gap-2 px-1">
+                {/* Mapea las reglas para pintar los checks de forma dinamica en tiempo real */}
                 {passwordRules.map((rule) => {
                   const passed = rule.test(password, confirmPassword);
                   return (
                     <div key={rule.id} className="flex items-center gap-2">
+                      {/* Si paso la validacion muestra el icono verde, si no el circulo gris */}
                       {passed ? (
                         <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                       ) : (
                         <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
                       )}
+                      {/* Cambia el color del texto dependiendo de si cumple la validacion o no */}
                       <span className={`text-xs transition-colors duration-200 ${passed ? "text-emerald-600" : "text-gray-400"}`}>
                         {rule.label}
                       </span>
@@ -163,6 +178,7 @@ const NewPassword = () => {
               <PrimaryButton
                 loading={loading}
                 type="submit"
+                //Se bloquea si el loading esta activo o si falta alguna regla por cumplir
                 disabled={!allRulesPassed || loading}
               >
                 Reestablecer contraseña

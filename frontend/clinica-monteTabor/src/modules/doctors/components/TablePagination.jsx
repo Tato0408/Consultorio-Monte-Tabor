@@ -19,13 +19,16 @@ const TablePagination = ({
 }) => {
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500 mt-4">
-      {/* Selector de filas por página */}
+      {/* Selector de filas por pgina */}
       <div className="flex items-center gap-2">
         <span>Filas por página</span>
         <Select 
+          //convierte el numero a string para que el componente sleect lo reconozca bien
           value={String(itemsPerPage)} 
           onValueChange={(value) => {
+            //evalua que setItemsPerPage si sea una funcion antes de mandarla a llamar
             if (typeof setItemsPerPage === "function") {
+              //convierte el string del value de regreso a numero para actualizar el estado
               setItemsPerPage(Number(value));
             }
           }}
@@ -41,12 +44,14 @@ const TablePagination = ({
         </Select>
       </div>
 
-      {/* Controles de páginas (Anterior / Siguiente) */}
+      {/* Controles de paginas */}
       <div className="flex items-center gap-6">
         <Button
           variant="ghost"
           size="sm"
+          // onclick la funcion recibidaps para ir a la pagina anterior
           onClick={onPrevPage}
+          //Se deshabilita de forma automatica si el usuario ya esta parado en la pagina 1
           disabled={currentPage === 1}
           className="text-slate-500 hover:text-slate-800 gap-1 font-medium p-0 h-auto hover:bg-transparent disabled:opacity-40"
         >
@@ -63,7 +68,9 @@ const TablePagination = ({
         <Button
           variant="ghost"
           size="sm"
+          //onClick la funcion recibids para avanzar a la siguiente pagina
           onClick={onNextPage}
+          //Se deshabilita si el usuario llega a la ultima pagina o si el total de paginas es 0
           disabled={currentPage === totalPages || totalPages === 0}
           className="text-slate-500 hover:text-slate-800 gap-1 font-medium p-0 h-auto hover:bg-transparent disabled:opacity-40"
         >

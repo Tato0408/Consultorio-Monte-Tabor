@@ -10,11 +10,11 @@ const DoctorsTable = ({
   onEditDoctor,
   onDeleteDoctor,
 }) => {
-  // Estado para saber qué menú de fila (ID) está abierto actualmente
+  //Estado para saber qué menú de fila (ID) está abierto actualmente
   const [activeMenuId, setActiveMenuId] = useState(null);
   const menuRef = useRef(null);
 
-  // Cerrar el menú si el usuario hace clic en cualquier otra parte de la pantalla
+  //Cerra el meni si el usuario hace click en cualquier otra parte de la pantalla
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -30,7 +30,7 @@ const DoctorsTable = ({
     setActiveMenuId(activeMenuId === id ? null : id);
   };
 
-  // Función manejadora que elimina directamente sin confirmaciones
+  //Funcion manejadora que elimina directamente sin confirmaciones
   const handleDeleteClick = (e, doctor) => {
     e.preventDefault();
     e.stopPropagation(); // Evita accionar el click de la fila entera
@@ -75,7 +75,6 @@ const DoctorsTable = ({
             <tbody className="divide-y divide-gray-50 text-sm text-gray-700">
               {doctors.length > 0 ? (
                 doctors.map((doctor, index) => {
-                  // DETECCIÓN DE FILAS INFERIORES: Si son las últimas 2 filas, abre hacia arriba
                   const openUpwards = index >= doctors.length - 2 && doctors.length > 2;
 
                   return (
