@@ -1,5 +1,3 @@
-// ─── CITAS ────────────────────────────────────────────────────────────────────
-
 export const citasTopCards = [
   {
     key: "programadas",
@@ -113,8 +111,6 @@ export const citasSections = [
   },
 ];
 
-// ─── PACIENTES ────────────────────────────────────────────────────────────────
-
 export const pacientesTopCards = [
   {
     key: "atendidos_linea",
@@ -223,8 +219,6 @@ export const pacientesSections = [
   },
 ];
 
-// ─── DOCTORES ────────────────────────────────────────────────────────────────
-
 export const doctoresTopCards = [
   {
     key: "examenes",
@@ -328,8 +322,6 @@ export const doctoresSections = [
     ],
   },
 ];
-
-// ─── INVENTARIO ───────────────────────────────────────────────────────────────
 
 export const inventarioTopCards = [
   {

@@ -65,7 +65,6 @@ const AdminDashboard = () => {
     return (
         <div className="p-4 sm:p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
 
-            {/* ── Header ──────────────────────────────────────── */}
             <div>
                 <h1 className="text-xl font-bold text-slate-800">
                     ¡Bienvenido, {displayName}!
@@ -75,7 +74,6 @@ const AdminDashboard = () => {
                 </p>
             </div>
 
-            {/* ── Resumen general ─────────────────────────────── */}
             <section>
                 <div className="flex items-center justify-between mb-3">
                     <h2 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest">
@@ -127,16 +125,12 @@ const AdminDashboard = () => {
                 </div>
             </section>
 
-            {/* ── Estado de doctores ──────────────────────────── */}
             <DoctorStatusSection data={doctorStatus} />
 
-            {/* ── Gestión de usuarios ─────────────────────────── */}
             <UserManagementSection data={userStats} />
 
-            {/* ── Reportes y estadísticas ─────────────────────── */}
             <ReportStatsSection data={reportStats} />
 
-            {/* ── Control total del sistema ───────────────────── */}
             <SystemControlSection />
         </div>
     );

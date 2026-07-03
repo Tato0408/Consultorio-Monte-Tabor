@@ -6,7 +6,6 @@ import NurseStatCards from "../components/NurseStatCards";
 import useNurse from "../hooks/useNurse";
 import NurseFormModal from "../components/NurseFormModal";
 
-// ─── Panel de detalle de enfermera ───────────────────────────────────────────
 const NurseProfilePanel = ({ nurse, nextProcedure, loadingDetail }) => {
   if (!nurse) return null;
 
@@ -100,7 +99,6 @@ const NurseProfilePanel = ({ nurse, nextProcedure, loadingDetail }) => {
   );
 };
 
-// ─── Page principal ───────────────────────────────────────────────────────────
 const NursesPage = () => {
   const {
     nurses,

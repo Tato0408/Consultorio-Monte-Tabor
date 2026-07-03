@@ -7,11 +7,8 @@ import { Card, SectionCard } from "../global/ui";
 
 const IMC_COLOR = "#eab308";
 
-/* -------------------------------------------------------------------------
- *  PESTAÑA "SIGNOS VITALES"
- *  Espera `patient.signosVitales` (última toma), `patient.imcHistorial`
- *  (para el gráfico) y `patient.signosVitalesHistorial` (para la tabla).
- * ------------------------------------------------------------------------- */
+// Espera `patient.signosVitales` (última toma), `patient.imcHistorial`
+// (para el gráfico) y `patient.signosVitalesHistorial` (para la tabla).
 const HistorialSignosVitales = ({ patient = {}, onAgregar }) => {
   const v = patient.signosVitales ?? {};
   const imcData = patient.imcHistorial ?? [];

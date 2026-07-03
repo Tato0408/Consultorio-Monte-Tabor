@@ -20,16 +20,11 @@ function VitalCard({ label, value, unit, badge }) {
   );
 }
 
-/* -------------------------------------------------------------------------
- *  CONTENIDO DE LA PESTAÑA "RESUMEN"
- *  Toda la info de abajo se renderiza a partir del paciente seleccionado.
- * ------------------------------------------------------------------------- */
 export default function ResumenTab({ patient = {} }) {
   const v = patient.signosVitales ?? {};
 
   return (
     <div className="space-y-6">
-      {/* ---------- Signos vitales ---------- */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <VitalCard label="Presión Arterial" value={v.presionArterial} unit="mmHg" />
         <VitalCard label="Glucosa" value={v.glucosa} unit="mg/dL" />
@@ -44,7 +39,6 @@ export default function ResumenTab({ patient = {} }) {
         </div>
       </div>
 
-      {/* ---------- Procedimientos + Antecedentes ---------- */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <SectionCard title="Procedimientos recientes" action={<VerTodos />}>
           <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-6 gap-y-4 text-sm">
@@ -87,7 +81,6 @@ export default function ResumenTab({ patient = {} }) {
         </SectionCard>
       </div>
 
-      {/* ---------- Recetas + Incapacidades + Referencias ---------- */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <SectionCard title="Recetas" action={<VerTodos>Ver todas</VerTodos>}>
           <div className="space-y-3">
@@ -134,7 +127,6 @@ export default function ResumenTab({ patient = {} }) {
         </SectionCard>
       </div>
 
-      {/* ---------- Resultados de laboratorio ---------- */}
       <SectionCard title="Resultados de Laboratorio y Exámenes" action={<VerTodos />}>
         <div className="space-y-3">
           {(patient.laboratorios ?? []).map((l, i) => {
@@ -156,7 +148,6 @@ export default function ResumenTab({ patient = {} }) {
         </div>
       </SectionCard>
 
-      {/* ---------- Notas de evolución + Impresión diagnóstica ---------- */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <SectionCard title="Notas de Evolución" action={<VerTodos>Ver más</VerTodos>}>
           <div className="rounded-xl border-l-4 border-blue-500 bg-slate-50 p-4">

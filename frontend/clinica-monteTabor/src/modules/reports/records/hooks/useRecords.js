@@ -3,7 +3,7 @@ import apiClient from "../../../../lib/apiClient";
 
 // El modelo de paciente no tiene todavía recetas, incapacidades, referencias,
 // laboratorios, notas de evolución ni impresión diagnóstica, así que esas
-// secciones del expediente se completan con datos de referencia (quemados)
+// secciones del expediente se completan con datos quemados
 // hasta que existan endpoints reales para traerlos.
 const MOCK_DEFAULTS = {
   doctor: { nombre: "Sin asignar" },

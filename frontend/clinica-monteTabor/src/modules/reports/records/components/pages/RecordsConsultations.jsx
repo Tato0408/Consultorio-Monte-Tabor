@@ -9,10 +9,7 @@ const ESTADO_STYLES = {
   en_espera: { label: "En espera", tone: "blue" },
 };
 
-/* -------------------------------------------------------------------------
- *  PESTAÑA "CONSULTAS"
- *  Espera `patient.consultas` = [{ id, hora, paciente, medico, estado }]
- * ------------------------------------------------------------------------- */
+// Espera `patient.consultas` = [{ id, hora, paciente, medico, estado }]
 const ConsultasDelDia = ({
   patient = {},
   totalPaginas = 1,

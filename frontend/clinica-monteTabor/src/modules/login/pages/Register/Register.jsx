@@ -18,7 +18,6 @@ const Register = () => {
 
   const [errors, setErrors] = useState({});
 
-  // ── Reglas de contraseña ────────────────────────────────────────────────
   const passwordRules = [
     { id: "length", label: "La contraseña tiene más de 8 dígitos", test: (p) => p.length > 8 },
     { id: "upper", label: "Las contraseña contiene mayúsculas y minúsculas", test: (p) => /[A-Z]/.test(p) && /[a-z]/.test(p) },
@@ -27,7 +26,6 @@ const Register = () => {
     { id: "match", label: "Las contraseñas coinciden", test: (p, c) => p.length > 0 && p === c },
   ];
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
   /**
    * Actualiza el campo correspondiente del formulario usando el nombre del campo como clave,
    * limpiando automáticamente su error de validación en cuanto el usuario comienza a escribir.
@@ -48,7 +46,6 @@ const Register = () => {
     }));
   };
 
-  // ── Validación ────────────────────────────────────────────────────────────
   const validate = () => {
     const e = {};
     if (!formData.nombre.trim()) e.nombre = "Requerido";

@@ -9,7 +9,6 @@ const LINE_COLOR = "#3b82f6";
 const BAR_COLOR  = "#93c5fd";
 const PIE_COLORS = ["#3b82f6", "#a855f7", "#22c55e", "#f97316", "#94a3b8"];
 
-// ─── Card con gráfico de línea o barra ────────────────────────────────────────
 const ChartCard = ({ card }) => {
   const toggleKeys = Object.keys(card.chartData);
   const [activeToggle, setActiveToggle] = useState(toggleKeys[0]);
@@ -68,7 +67,6 @@ const ChartCard = ({ card }) => {
   );
 };
 
-// ─── Card con gráfico de torta ────────────────────────────────────────────────
 const PieCard = ({ card }) => {
   const total = card.pieData.reduce((s, d) => s + d.value, 0);
 
@@ -120,7 +118,6 @@ const PieCard = ({ card }) => {
   );
 };
 
-// ─── Card de lista ranking ────────────────────────────────────────────────────
 const ListCard = ({ card }) => (
   <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3">
     <div>
@@ -153,7 +150,7 @@ const ListCard = ({ card }) => (
   </div>
 );
 
-// ─── Router: elige qué card renderizar ────────────────────────────────────────
+// Actúa como router: según la forma del `card` recibido, elige qué variante renderizar
 const TopCard = ({ card }) => {
   if (card.listItems) return <ListCard card={card} />;
   if (card.chartType === "pie") return <PieCard card={card} />;

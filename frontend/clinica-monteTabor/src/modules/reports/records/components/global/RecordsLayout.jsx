@@ -4,17 +4,11 @@ import { useState } from "react";
 import { ChevronRight, Pencil } from "lucide-react";
 import { Badge } from "./ui";
 
-/* -------------------------------------------------------------------------
- *  COMPONENTE GLOBAL DEL EXPEDIENTE
- *  Contiene lo que se mantiene fijo al navegar entre pestañas:
- *  breadcrumb, tabs (navegadas por índice) y la barra del paciente.
- *
- *  Props:
- *    - patient: datos del paciente seleccionado
- *    - tabs: [{ label, content }]  -> content es lo que se renderiza debajo
- *    - activeTab / onTabChange: opcionales, para controlar el índice desde afuera
- *    - onBack: opcional, si se pasa el breadcrumb "Expedientes" vuelve al listado
- * ------------------------------------------------------------------------- */
+// Contiene lo que se mantiene fijo al navegar entre pestañas: breadcrumb,
+// tabs (navegadas por índice) y la barra del paciente.
+// Props: tabs = [{ label, content }] -> content es lo que se renderiza debajo;
+// activeTab/onTabChange opcionales para controlar el índice desde afuera;
+// onBack opcional, si se pasa el breadcrumb "Expedientes" vuelve al listado.
 export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, onTabChange, onBack }) {
   const [internalTab, setInternalTab] = useState(0);
   const current = activeTab ?? internalTab;
@@ -69,7 +63,6 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
   );
 }
 
-/* ---------- Barra con la ficha del paciente ---------- */
 function PatientBar({ patient }) {
   const female = (patient.sexo || patient.sexoCorto || "").toLowerCase().startsWith("f");
 

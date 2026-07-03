@@ -11,10 +11,7 @@ const SAMPLE_PROCEDIMIENTOS = [
   { nombre: "Extracción de uña", fecha: "23 Abril, 2026", doctor: "Gabriela Castillo", duracion: "30 minutos" },
 ];
 
-/* -------------------------------------------------------------------------
- *  PROCEDIMIENTOS POR PACIENTE
- *  Espera `patient.procedimientos` = [{ nombre, fecha, doctor, duracion }]
- * ------------------------------------------------------------------------- */
+// Espera `patient.procedimientos` = [{ nombre, fecha, doctor, duracion }]
 export default function ProcedimientosTab({ patient = {} }) {
   const data = patient.procedimientos?.length ? patient.procedimientos : SAMPLE_PROCEDIMIENTOS;
 

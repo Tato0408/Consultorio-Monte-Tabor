@@ -40,7 +40,6 @@ const useNurse = () => {
 
   useEffect(() => { fetchNurses(); }, [fetchNurses]);
 
-  // ── Crear ────────────────────────────────────────────────────────────────
   const createNurse = useCallback(async (formData) => {
     try {
       setError(null);
@@ -56,7 +55,6 @@ const useNurse = () => {
     }
   }, [fetchNurses]);
 
-  // ── Actualizar ───────────────────────────────────────────────────────────
   const updateNurse = useCallback(async (id, formData) => {
     try {
       setError(null);
@@ -72,7 +70,6 @@ const useNurse = () => {
     }
   }, [fetchNurses]);
 
-  // ── FIX #2 — Eliminar con confirmación Swal ───────────────────────────────
   const deleteNurse = useCallback(async (nurse) => {
     const confirm = await Swal.fire({
       icon:               "warning",
@@ -117,7 +114,7 @@ const useNurse = () => {
     }
   }, [fetchNurses, selectedNurse]);
 
-  // ── Seleccionar enfermera y cargar su próximo procedimiento ──────────────
+  // Al seleccionar una enfermera, además carga su próximo procedimiento agendado
   const selectNurse = useCallback(async (nurse) => {
     setSelectedNurse(nurse);
     setNextProcedure(null);

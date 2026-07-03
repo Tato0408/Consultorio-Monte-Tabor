@@ -7,14 +7,9 @@ import ProcedimientosTab from "./pages/RecordsProcedures";
 import SignosVitalesTab from "./pages/RecordsVitalSigns";
 import ConsultasTab from "./pages/RecordsConsultations";
 
-/* -------------------------------------------------------------------------
- *  DETALLE DEL EXPEDIENTE
- *  Se renderiza en el mismo componente de página (RecordsPage) al hacer clic
- *  en un paciente de la tabla: no navega a una ruta nueva, solo intercambia
- *  qué se muestra dentro del SPA. Cada pestaña recibe el mismo `record`
- *  (armado por useRecords -> getRecordById) y se navega entre ellas por
- *  índice, igual que la pestaña "Resumen".
- * ------------------------------------------------------------------------- */
+// Se renderiza dentro de RecordsPage al hacer clic en un paciente de la tabla:
+// no navega a una ruta nueva, solo intercambia qué se muestra dentro del SPA.
+// Cada pestaña recibe el mismo `record` (armado por useRecords -> getRecordById).
 const RecordDetailPage = ({ record, onBack }) => {
   if (!record) {
     return (

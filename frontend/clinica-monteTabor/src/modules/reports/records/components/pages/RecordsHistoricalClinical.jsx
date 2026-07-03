@@ -75,9 +75,6 @@ function VitalMini({ label, value, unit, variant }) {
   );
 }
 
-/* -------------------------------------------------------------------------
- *  PESTAÑA "HISTORIA CLÍNICA"
- * ------------------------------------------------------------------------- */
 export default function HistoriaClinicaTab({ patient = {} }) {
   const h = patient.historiaClinica ?? {};
   const v = patient.signosVitales ?? {};
