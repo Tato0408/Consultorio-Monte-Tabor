@@ -19,8 +19,7 @@ const getTodayString = () => {
 const Consultations =() => {
      const today = getTodayString();
 
-   // Por defecto la tabla muestra el día de hoy, citas confirmadas o completadas
-    // (las "scheduled" -aún sin confirmar por el doctor- no aplican a esta vista operativa)
+   // Por defecto la tabla muestra el día de hoy, citas "pending" (agendadas sin confirmar) y "scheduled" (confirmadas / en espera) - las "completed" se ven en el Historial del Día en vez de en esta tabla operativa.
     const {
         appointments,
         pagination,
@@ -32,19 +31,19 @@ const Consultations =() => {
     } = useAppointments({
         dateFrom: today,
         dateTo: today,
-        status: "scheduled",
+        status: "scheduled, pending",
         limit: 8,
     });
  
     const { stats, isLoading: isLoadingStats } = useAppointmentStats(today);
     const { history, isLoading: isLoadingHistory, error: historyError } = useAppointmentHistory(today, 5);
  
-    const waitingCount = appointments.filter((a) => a.status === "confirmed").length;
+    const waitingCount = appointments.filter((a) => a.status === "scheduled").length;
     const completedCount = appointments.filter((a) => a.status === "completed").length;
  
     const handleFilterChange = (changed) => {
         // Si el usuario cambia el filtro de estado manualmente, respetamos su elección
-        // en vez de forzar siempre "confirmed,completed".
+        // en vez del default "pending, scheduled".
         if ("status" in changed) {
             updateFilters({ status: changed.status || undefined });
             return;

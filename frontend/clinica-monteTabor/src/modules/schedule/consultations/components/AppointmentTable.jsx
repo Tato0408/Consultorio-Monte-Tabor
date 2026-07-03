@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router-dom";
 
+// El ciclo real de una cita es pending -> scheduled -> completed / cancelled
+// (ver AppointmentsForm.jsx); "scheduled" ("Programada") equivale a "en espera".
 const STATUS_BADGE = {
-    confirmed: { label: "En espera", className: "bg-amber-100 text-amber-700" },
-    completed: { label: "Atendido", className: "bg-emerald-100 text-emerald-700" },
-    scheduled: { label: "Agendado", className: "bg-slate-100 text-slate-600" },
-    cancelled: { label: "Cancelado", className: "bg-red-100 text-red-700" },
+    pending: { className: "bg-slate-100 text-slate-600" },
+    scheduled: { className: "bg-amber-100 text-amber-700" },
+    completed: { className: "bg-emerald-100 text-emerald-700" },
+    cancelled: { className: "bg-red-100 text-red-700" },
 };
 
 const formatPersonName = (person) =>
@@ -69,8 +71,8 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                     )}
 
                     {!isLoading && !error && appointments.map((appt) => {
-                        const badge = STATUS_BADGE[appt.status] || STATUS_BADGE.scheduled;
-                        const isWaiting = appt.status === "confirmed";
+                        const badge = STATUS_BADGE[appt.status] || STATUS_BADGE.pending;
+                        const isWaiting = appt.status === "scheduled";
 
                         return (
                             <tr
@@ -82,7 +84,7 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                 <td className="py-3 text-slate-700">{formatPersonName(appt.doctor_id)}</td>
                                 <td className="py-3">
                                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${badge.className}`}>
-                                        {badge.label}
+                                        {appt.status}
                                     </span>
                                 </td>
                                 <td className="py-3">

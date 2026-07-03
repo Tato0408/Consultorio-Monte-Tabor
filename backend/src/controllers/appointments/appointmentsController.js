@@ -3,6 +3,30 @@ import "../../models/patients/patients.js"; // ensures "Patients" is registered 
 
 const appointmentsController = {};
 
+//Metodos de conversion de fechas
+
+//es la funcion base, extrae el año, mes, y dia de cualquier insercion ya sea objeto o un string puro, reseteando el mes de enero a 0 y diciembre a 11
+const toLocalDateParts = (dateInput) => {
+    if (dateInput instanceof Date) {
+        return { y: dateInput.getFullYear(), m: dateInput.getMonth(), d: dateInput.getDate() };
+    }
+    const [datePart] = String(dateInput).split("T");
+    const [y, m, d] = datePart.split("-").map(Number);
+    return { y, m: m - 1, d };
+};
+
+//Toma la fecha y devuelve un objeto de tipo Date, que es seteado al primer milisegundo del dia en hora local
+const startOfLocalDay = (dateInput) => {
+    const { y, m, d } = toLocalDateParts(dateInput);
+    return new Date(y, m, d, 0, 0, 0, 0);
+};
+
+//Hace lo opuesto, toma una fecha y la devuelve en un objeti tipo Date, que es seteado al ultimo milisegundo de este dia en hora locl
+const endOfLocalDay = (dateInput) => {
+    const { y, m, d } = toLocalDateParts(dateInput);
+    return new Date(y, m, d, 23, 59, 59, 999);
+};
+
 //SELECT
 appointmentsController.getAppointments = async (req, res) => {
     try {
@@ -21,25 +45,17 @@ appointmentsController.getAppointments = async (req, res) => {
 
         //Filtro por un dia exacto
         if (date) {
-            const start = new Date(date);
-            start.setHours(0, 0, 0, 0);
-            const end = new Date(date);
-            end.setHours(23, 59, 59, 999);
-            filters.date = { $gte: start, $lte: end };
+            filters.date = { $gte: startOfLocalDay(date), $lte: endOfLocalDay(date) };
         }
 
         //Filtro por rango de fechas, desde / hasta
         if (dateFrom || dateTo) {
             filters.date = filters.date || {};
             if (dateFrom) {
-                const start = new Date(dateFrom);
-                start.setHours(0, 0, 0, 0);
-                filters.date.$gte = start;
+                filters.date.$gte = startOfLocalDay(dateFrom);
             }
             if (dateTo) {
-                const end = new Date(dateTo);
-                end.setHours(23, 59, 59, 999);
-                filters.date.$lte = end;
+                filters.date.$lte = endOfLocalDay(dateTo);
             }
         }
 
@@ -91,24 +107,24 @@ appointmentsController.getAppointments = async (req, res) => {
 appointmentsController.getAppointmentsStats = async (req, res) => {
     try {
         const { date } = req.query;
- 
-        const targetDate = date ? new Date(date) : new Date();
-        const start = new Date(targetDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(targetDate);
-        end.setHours(23, 59, 59, 999);
- 
+
+        const targetDate = date || new Date();
+        const start = startOfLocalDay(targetDate);
+        const end = endOfLocalDay(targetDate);
+
         const dayFilter = { date: { $gte: start, $lte: end } };
- 
+
+        // el ciclo de una cita es pending, scheduled, completed / cancelled.
+        // "scheduled" ("Programada") es el equivalente real a "confirmada / en espera".
         const [scheduled, waiting, completed] = await Promise.all([
-            appointmentsModel.countDocuments({ ...dayFilter, status: { $in: ["scheduled", "confirmed", "completed"] } }),
-            appointmentsModel.countDocuments({ ...dayFilter, status: "confirmed" }),
+            appointmentsModel.countDocuments({ ...dayFilter, status: { $in: ["pending", "scheduled"] } }),
+            appointmentsModel.countDocuments({ ...dayFilter, status: "scheduled" }),
             appointmentsModel.countDocuments({ ...dayFilter, status: "completed" }),
         ]);
- 
-        // 1. Buscar próxima cita confirmada HOY con hora >= ahora
+
+        // 1. Buscar próxima cita confirmada (scheduled) HOY con hora >= ahora
         let nextAppointment = await appointmentsModel
-            .findOne({ ...dayFilter, status: "confirmed", start_time: { $gte: currentTimeString() } })
+            .findOne({ ...dayFilter, status: "scheduled", start_time: { $gte: currentTimeString() } })
             .sort({ start_time: 1 })
             .populate("doctor_id", "name last_name specialty")
             .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
@@ -116,7 +132,7 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         // 2. Si no quedan citas confirmadas hoy, buscar la siguiente en días futuros
         if (!nextAppointment) {
             nextAppointment = await appointmentsModel
-                .findOne({ date: { $gt: end }, status: "confirmed" })
+                .findOne({ date: { $gt: end }, status: "scheduled" })
                 .sort({ date: 1, start_time: 1 })
                 .populate("doctor_id", "name last_name specialty")
                 .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
@@ -373,13 +389,11 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
 appointmentsController.getAppointmentsHistory = async (req, res) => {
     try {
         const { date, limit = 5 } = req.query;
- 
-        const targetDate = date ? new Date(date) : new Date();
-        const start = new Date(targetDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(targetDate);
-        end.setHours(23, 59, 59, 999);
- 
+
+        const targetDate = date || new Date();
+        const start = startOfLocalDay(targetDate);
+        const end = endOfLocalDay(targetDate);
+
         const history = await appointmentsModel
             .find({ date: { $gte: start, $lte: end }, status: "completed" })
             .sort({ updatedAt: -1 })

@@ -269,7 +269,7 @@ function useConsultation(appointmentId) {
 
         const response = consultationId
           ? await apiClient(`/consultations/${consultationId}`, {
-              method: "PATCH",
+              method: "PUT",
               body: payload,
             })
           : await apiClient("/consultations", {

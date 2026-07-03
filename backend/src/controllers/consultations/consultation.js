@@ -191,7 +191,7 @@ consultationController.getConsultationById = async (req, res) => {
     const responseData = {
       //Los ... sirven para copiar toda las propiedades de consultation y pegarlas, para asi poder crear un solo objeto con ambos json
       ...consultation.toObject(),
-      presciption: prescription || null
+      prescription: prescription || null
     }
 
     return res.status(200).json(responseData);
