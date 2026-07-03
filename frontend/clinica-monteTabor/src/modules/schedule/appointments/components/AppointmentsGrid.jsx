@@ -197,7 +197,7 @@ export default function AppointmentsGrid() {
                                         <span className="text-slate-400">
                                             Tipo de procedimiento:
                                         </span>{" "}
-                                        {cita.type}
+                                        {cita.procedure_id?.name || cita.type}
                                     </p>
 
                                     <p>

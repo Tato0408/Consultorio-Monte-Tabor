@@ -1,5 +1,6 @@
 import appointmentsModel from "../../models/appointments/appointments.js";
 import "../../models/patients/patients.js"; // ensures "Patients" is registered for populate
+import "../../models/procedures/procedures.js"; // ensures "procedure" is registered for populate
 
 const appointmentsController = {};
 
@@ -86,6 +87,7 @@ appointmentsController.getAppointments = async (req, res) => {
                 .find(filters)
                 .populate("doctor_id", "name last_name specialty img_url")
                 .populate({ path: "patient_id", model: "Patients", select: "name last_name" })
+                .populate({ path: "procedure_id", model: "procedure", select: "name" })
                 .sort({ date: 1, start_time: 1 })
                 .skip(skip)
                 .limit(limitNumber),
