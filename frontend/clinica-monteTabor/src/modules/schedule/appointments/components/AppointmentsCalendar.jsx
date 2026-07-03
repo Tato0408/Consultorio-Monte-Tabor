@@ -384,13 +384,13 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate }) => {
                 <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Acciones</p>
                     <button
-                        onClick={() => navigate(`/calendar/appointments/${appt._id}`)}
+                        onClick={() => navigate(`/calendar/appointments/calendar/${appt._id}`)}
                         className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                     >
                         Ver expediente
                     </button>
                     <button
-                        onClick={() => navigate(`/calendar/appointments/${appt._id}`, { state: { editMode: true } })}
+                        onClick={() => navigate(`/calendar/appointments/calendar/${appt._id}`, { state: { editMode: true } })}
                         className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium rounded-lg transition-colors"
                     >
                         Reagendar cita
@@ -523,7 +523,7 @@ const AppointmentsCalendar = () => {
                         <p className="text-[10px] sm:text-xs text-slate-400 hidden xs:block">Visualización de citas y horarios de los doctores</p>
                     </div>
                     <button
-                        onClick={() => navigate("/calendar/appointments/new")}
+                        onClick={() => navigate("/calendar/appointments/calendar/new")}
                         className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-lg whitespace-nowrap flex-shrink-0"
                     >
                         <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -745,7 +745,7 @@ const AppointmentsCalendar = () => {
                                                 left:  `calc(48px + ${di} * (100% - 48px) / 7)`,
                                                 width: `calc((100% - 48px) / 7)`,
                                             }}
-                                            onClick={() => { if (isPast) return; navigate(`/calendar/appointments/new?date=${toISO(day)}`); }}
+                                            onClick={() => { if (isPast) return; navigate(`/calendar/appointments/calendar/new?date=${toISO(day)}`); }}
                                         >
                                             {(isDayOff || isPast) && (
                                                 <div className="absolute inset-0 pointer-events-none z-10"

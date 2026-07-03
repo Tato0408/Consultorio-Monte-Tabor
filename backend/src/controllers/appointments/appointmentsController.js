@@ -3,33 +3,33 @@ import "../../models/patients/patients.js"; // ensures "Patients" is registered 
 
 const appointmentsController = {};
 
-//Metodos de conversion de fechas
+// Marca como "no_show" las citas "pending" cuya fecha/hora ya pasó.
+// Solo aplica a "pending": una "scheduled" que ya pasó pudo haberse
+// atendido y debe resolverla el personal (completed/cancelled), no el sistema.
+async function expirePendingAppointments() {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-//es la funcion base, extrae el año, mes, y dia de cualquier insercion ya sea objeto o un string puro, reseteando el mes de enero a 0 y diciembre a 11
-const toLocalDateParts = (dateInput) => {
-    if (dateInput instanceof Date) {
-        return { y: dateInput.getFullYear(), m: dateInput.getMonth(), d: dateInput.getDate() };
-    }
-    const [datePart] = String(dateInput).split("T");
-    const [y, m, d] = datePart.split("-").map(Number);
-    return { y, m: m - 1, d };
-};
-
-//Toma la fecha y devuelve un objeto de tipo Date, que es seteado al primer milisegundo del dia en hora local
-const startOfLocalDay = (dateInput) => {
-    const { y, m, d } = toLocalDateParts(dateInput);
-    return new Date(y, m, d, 0, 0, 0, 0);
-};
-
-//Hace lo opuesto, toma una fecha y la devuelve en un objeti tipo Date, que es seteado al ultimo milisegundo de este dia en hora locl
-const endOfLocalDay = (dateInput) => {
-    const { y, m, d } = toLocalDateParts(dateInput);
-    return new Date(y, m, d, 23, 59, 59, 999);
-};
+    await appointmentsModel.updateMany(
+        {
+            status: "pending",
+            $or: [
+                { date: { $lt: startOfToday } },
+                { date: { $gte: startOfToday, $lte: endOfToday }, start_time: { $lt: currentTime } },
+            ],
+        },
+        { $set: { status: "no_show" } }
+    );
+}
 
 //SELECT
 appointmentsController.getAppointments = async (req, res) => {
     try {
+        await expirePendingAppointments();
 
         const {
             date,
@@ -38,24 +38,32 @@ appointmentsController.getAppointments = async (req, res) => {
             status,
             doctor_id,
             page = 1,
-            limit = 8,
+            limit = 10,
         } = req.query;
 
         const filters = {};
 
         //Filtro por un dia exacto
         if (date) {
-            filters.date = { $gte: startOfLocalDay(date), $lte: endOfLocalDay(date) };
+            const start = new Date(date);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(date);
+            end.setHours(23, 59, 59, 999);
+            filters.date = { $gte: start, $lte: end };
         }
 
         //Filtro por rango de fechas, desde / hasta
         if (dateFrom || dateTo) {
             filters.date = filters.date || {};
             if (dateFrom) {
-                filters.date.$gte = startOfLocalDay(dateFrom);
+                const start = new Date(dateFrom);
+                start.setHours(0, 0, 0, 0);
+                filters.date.$gte = start;
             }
             if (dateTo) {
-                filters.date.$lte = endOfLocalDay(dateTo);
+                const end = new Date(dateTo);
+                end.setHours(23, 59, 59, 999);
+                filters.date.$lte = end;
             }
         }
 
@@ -70,21 +78,19 @@ appointmentsController.getAppointments = async (req, res) => {
         }
 
         const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
-        const limitNumber = Math.max(parseInt(limit, 10) || 8, 1);
+        const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
         const skip = (pageNumber - 1) * limitNumber;
-
 
         const [appointments, total] = await Promise.all([
             appointmentsModel
                 .find(filters)
-                .populate("doctor_id", "name last_name specialty")
+                .populate("doctor_id", "name last_name specialty img_url")
                 .populate({ path: "patient_id", model: "Patients", select: "name last_name" })
                 .sort({ date: 1, start_time: 1 })
                 .skip(skip)
                 .limit(limitNumber),
             appointmentsModel.countDocuments(filters),
         ]);
-
 
         return res.status(200).json({
             data: appointments,
@@ -102,39 +108,38 @@ appointmentsController.getAppointments = async (req, res) => {
     }
 };
 
-
 //Get para resumen del dia
 appointmentsController.getAppointmentsStats = async (req, res) => {
     try {
         const { date } = req.query;
-
-        const targetDate = date || new Date();
-        const start = startOfLocalDay(targetDate);
-        const end = endOfLocalDay(targetDate);
-
+ 
+        const targetDate = date ? new Date(date) : new Date();
+        const start = new Date(targetDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(targetDate);
+        end.setHours(23, 59, 59, 999);
+ 
         const dayFilter = { date: { $gte: start, $lte: end } };
-
-        // el ciclo de una cita es pending, scheduled, completed / cancelled.
-        // "scheduled" ("Programada") es el equivalente real a "confirmada / en espera".
+ 
         const [scheduled, waiting, completed] = await Promise.all([
-            appointmentsModel.countDocuments({ ...dayFilter, status: { $in: ["pending", "scheduled"] } }),
-            appointmentsModel.countDocuments({ ...dayFilter, status: "scheduled" }),
+            appointmentsModel.countDocuments({ ...dayFilter, status: { $in: ["scheduled", "confirmed", "completed"] } }),
+            appointmentsModel.countDocuments({ ...dayFilter, status: "confirmed" }),
             appointmentsModel.countDocuments({ ...dayFilter, status: "completed" }),
         ]);
-
-        // 1. Buscar próxima cita confirmada (scheduled) HOY con hora >= ahora
+ 
+        // 1. Buscar próxima cita confirmada HOY con hora >= ahora
         let nextAppointment = await appointmentsModel
-            .findOne({ ...dayFilter, status: "scheduled", start_time: { $gte: currentTimeString() } })
+            .findOne({ ...dayFilter, status: "confirmed", start_time: { $gte: currentTimeString() } })
             .sort({ start_time: 1 })
-            .populate("doctor_id", "name last_name specialty")
+            .populate("doctor_id", "name last_name specialty img_url")
             .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
-
+ 
         // 2. Si no quedan citas confirmadas hoy, buscar la siguiente en días futuros
         if (!nextAppointment) {
             nextAppointment = await appointmentsModel
-                .findOne({ date: { $gt: end }, status: "scheduled" })
+                .findOne({ date: { $gt: end }, status: "confirmed" })
                 .sort({ date: 1, start_time: 1 })
-                .populate("doctor_id", "name last_name specialty")
+                .populate("doctor_id", "name last_name specialty img_url")
                 .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
         }
  
@@ -158,11 +163,12 @@ function currentTimeString() {
     return `${hours}:${minutes}`;
 }
 
-
 //SELECT BY ID
 appointmentsController.getAppointmentById = async (req, res) => {
     try {
         const { id } = req.params;
+
+        await expirePendingAppointments();
 
         // Buscamos por ID y le aplicamos el populate para tener los datos del paciente completo
         const appointment = await appointmentsModel.findById(id)
@@ -181,6 +187,89 @@ appointmentsController.getAppointmentById = async (req, res) => {
     }
 };
 
+appointmentsController.getAvailableSlots = async (req, res) => {
+    try {
+        const { doctor_id, date, duration = 30 } = req.query;
+
+        if (!doctor_id || !date) {
+            return res.status(400).json({
+                message: "doctor_id y date son obligatorios"
+            });
+        }
+
+        const appointmentDate = new Date(date);
+
+        // Todas las citas del doctor ese día
+        const appointments = await appointmentsModel.find({
+            doctor_id,
+            date: {
+                $gte: new Date(
+                    appointmentDate.getFullYear(),
+                    appointmentDate.getMonth(),
+                    appointmentDate.getDate()
+                ),
+                $lt: new Date(
+                    appointmentDate.getFullYear(),
+                    appointmentDate.getMonth(),
+                    appointmentDate.getDate() + 1
+                )
+            },
+            status: { $ne: "cancelled" }
+        });
+
+        const occupied = appointments.map(a => a.start_time);
+
+        const allSlots = [
+            "9:00 AM",
+            "9:30 AM",
+            "10:00 AM",
+            "10:30 AM",
+            "11:00 AM",
+            "11:30 AM",
+            "1:00 PM",
+            "1:30 PM",
+            "2:00 PM",
+            "2:30 PM",
+            "3:00 PM",
+            "3:30 PM",
+            "4:00 PM",
+            "4:30 PM",
+        ];
+
+        const toMinutes = (time) => {
+            const [clock, period] = time.split(" ");
+            let [h, m] = clock.split(":").map(Number);
+
+            if (period === "PM" && h !== 12) h += 12;
+            if (period === "AM" && h === 12) h = 0;
+
+            return h * 60 + m;
+        };
+
+        const clinicClose = toMinutes("5:00 PM");
+
+        const availableSlots = allSlots.filter(slot => {
+            const start = toMinutes(slot);
+
+            // Que termine antes de cerrar
+            if (start + Number(duration) > clinicClose)
+                return false;
+
+            // Que no esté ocupado
+            return !occupied.includes(slot);
+        });
+
+        res.json({
+            availableSlots
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            message: "Internal Server Error"
+        });
+    }
+};
 
 //INSERT
 appointmentsController.insertAppointment = async (req, res) => {
@@ -224,7 +313,8 @@ appointmentsController.insertAppointment = async (req, res) => {
             "pending",
             "scheduled",
             "completed",
-            "cancelled"
+            "cancelled",
+            "no_show"
         ];
 
         if (!validStatus.includes(status)) {
@@ -297,7 +387,8 @@ appointmentsController.updateAppointment = async (req, res) => {
             "pending",
             "scheduled",
             "completed",
-            "cancelled"
+            "cancelled",
+            "no_show"
         ];
 
         if (!validStatus.includes(status)) {
@@ -389,11 +480,13 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
 appointmentsController.getAppointmentsHistory = async (req, res) => {
     try {
         const { date, limit = 5 } = req.query;
-
-        const targetDate = date || new Date();
-        const start = startOfLocalDay(targetDate);
-        const end = endOfLocalDay(targetDate);
-
+ 
+        const targetDate = date ? new Date(date) : new Date();
+        const start = new Date(targetDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(targetDate);
+        end.setHours(23, 59, 59, 999);
+ 
         const history = await appointmentsModel
             .find({ date: { $gte: start, $lte: end }, status: "completed" })
             .sort({ updatedAt: -1 })

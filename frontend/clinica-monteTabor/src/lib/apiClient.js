@@ -20,6 +20,7 @@ async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     const response = await fetch(url, {
         method,
         credentials: "include", // Cookies de sesión
+        signal,
         headers: body instanceof FormData ? undefined : body ? { "Content-Type": "application/json" } : undefined,
         body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
     });

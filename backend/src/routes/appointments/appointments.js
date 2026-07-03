@@ -9,6 +9,8 @@ router.route("/stats")
 router.route("/history")
     .get(appointmentsController.getAppointmentsHistory);
 
+router
+    .get("/available-slots", appointmentsController.getAvailableSlots);
 
 router.route("/")
     .get(appointmentsController.getAppointments)

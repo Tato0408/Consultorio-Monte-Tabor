@@ -146,6 +146,7 @@ function CalendarDayButton({
   locale,
   ...props
 }) {
+  console.log(day.date.toDateString(), modifiers.selected);
   const defaultClassNames = getDefaultClassNames()
 
   const ref = React.useRef(null)

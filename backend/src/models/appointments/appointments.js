@@ -23,7 +23,7 @@ const appointmentsSchema = new Schema({
     nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "nurses" },
     procedure_id: { type: mongoose.Schema.Types.ObjectId, ref: "Procedure" },
     type: { type: String, required: true },
-    schedule_id: { type: mongoose.Schema.Types.ObjectId, ref: "Schedules", required: true },
+    schedule_id: { type: mongoose.Schema.Types.ObjectId, ref: "Schedules" },
     date: { type: Date, required: true },
     start_time: { type: String, required: true },
     end_time: { type: String, required: true },
