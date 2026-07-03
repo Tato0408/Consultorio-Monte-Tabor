@@ -30,7 +30,6 @@ const InventoryDashboard = () => {
 
   return (
     <div className="p-4 sm:p-8 bg-white min-h-screen w-full font-sans text-slate-700">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6 sm:mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Inventario</h1>
@@ -53,10 +52,8 @@ const InventoryDashboard = () => {
         </div>
       </div>
 
-      {/* Stats */}
       <InventoryStats stats={stats} />
 
-      {/* Table + Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
         <div className="lg:col-span-8">
           <h2 className="text-base font-semibold text-slate-800 mb-3">Productos / Insumos</h2>
@@ -76,22 +73,18 @@ const InventoryDashboard = () => {
         </div>
       </div>
 
-      {/* Treatment usage */}
       <div className="mt-6">
         <TreatmentUsage />
       </div>
 
-      {/* Charts */}
       <div className="mt-6">
         <InventoryCharts refreshTrigger={refresh} />
       </div>
 
-      {/* Recent movements */}
       <div className="mt-6">
         <RecentMovements refreshTrigger={refresh} />
       </div>
 
-      {/* Modals */}
       {modal === "add" && (
         <ModalAgregarProducto
           onClose={() => setModal(null)}

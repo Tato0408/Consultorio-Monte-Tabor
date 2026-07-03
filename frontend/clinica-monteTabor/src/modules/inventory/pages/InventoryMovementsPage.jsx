@@ -35,7 +35,6 @@ const InventoryMovementsPage = () => {
 
   return (
     <div className="p-4 sm:p-8 bg-white min-h-screen w-full font-sans text-slate-700">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6 sm:mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Movimientos de inventario</h1>
@@ -50,7 +49,6 @@ const InventoryMovementsPage = () => {
         </div>
       </div>
 
-      {/* Stats */}
       <MovementsStats movements={movements} loading={loading} />
 
       {/* Tabla + alertas / acciones rápidas (mismo layout y componente que el dashboard de inventario) */}
@@ -68,7 +66,6 @@ const InventoryMovementsPage = () => {
         </div>
       </div>
 
-      {/* Modals */}
       {modal === "stock" && (
         <ModalStockEntry
           onClose={() => setModal(null)}

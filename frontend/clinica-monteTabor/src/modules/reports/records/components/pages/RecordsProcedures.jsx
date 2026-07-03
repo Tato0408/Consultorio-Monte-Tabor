@@ -3,11 +3,20 @@
 import { useState } from "react";
 import { Plus, MoreVertical, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 
+/* Datos de ejemplo: se usan solo si no se pasa `patient.procedimientos` */
+const SAMPLE_PROCEDIMIENTOS = [
+  { nombre: "Aplicación de inyección IM", fecha: "23 Abril, 2026", doctor: "Gabriela Castillo", duracion: "30 minutos" },
+  { nombre: "Lavado de oído", fecha: "23 Abril, 2026", doctor: "Gabriela Castillo", duracion: "30 minutos" },
+  { nombre: "Retiro de puntos", fecha: "23 Abril, 2026", doctor: "Gabriela Castillo", duracion: "30 minutos" },
+  { nombre: "Extracción de uña", fecha: "23 Abril, 2026", doctor: "Gabriela Castillo", duracion: "30 minutos" },
+];
+
 /* -------------------------------------------------------------------------
- *  PESTAÑA "PROCEDIMIENTOS"
+ *  PROCEDIMIENTOS POR PACIENTE
+ *  Espera `patient.procedimientos` = [{ nombre, fecha, doctor, duracion }]
  * ------------------------------------------------------------------------- */
 export default function ProcedimientosTab({ patient = {} }) {
-  const data = patient.procedimientos ?? [];
+  const data = patient.procedimientos?.length ? patient.procedimientos : SAMPLE_PROCEDIMIENTOS;
 
   const [rowsPerPage, setRowsPerPage] = useState(8);
   const [page, setPage] = useState(1);
@@ -17,7 +26,7 @@ export default function ProcedimientosTab({ patient = {} }) {
   const rows = data.slice(start, start + rowsPerPage);
 
   return (
-    <div>
+    <div className="px-2 py-2 text-slate-800">
       {/* Botón agregar */}
       <div className="mb-6 flex justify-end">
         <button

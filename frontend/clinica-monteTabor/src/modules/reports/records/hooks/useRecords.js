@@ -21,6 +21,13 @@ const MOCK_DEFAULTS = {
     { nombre: "Perfil Lipídico", fecha: "05 Feb, 2026", estado: "Completado" },
     { nombre: "Hemograma Completo", fecha: "02 Feb, 2026", estado: "Pendiente" },
   ],
+  // El modelo no relaciona citas/consultas con un paciente puntual todavía
+  // (el endpoint de citas no filtra por patient_id), así que la pestaña de
+  // consultas se completa con datos de referencia hasta que exista ese filtro.
+  consultas: [
+    { estado: "atendido" },
+    { estado: "en_espera" },
+  ],
   notasEvolucion: {
     texto: "El paciente no tiene notas de evolución registradas en el sistema todavía.",
     actualizado: "—",
@@ -83,12 +90,17 @@ const toTableRow = (patient) => {
   };
 };
 
+// Historial de signos vitales ordenado por fecha, más reciente primero
+const getVitalSignsHistory = (vitalSigns = []) =>
+  [...vitalSigns].sort((a, b) => new Date(b.last_date_taken) - new Date(a.last_date_taken));
+
 // Forma completa que consume el detalle del expediente (RecordDetailPage / ResumenTab)
 const toRecordDetail = (patient) => {
   const { sexo, sexoCorto } = getGenderLabels(patient.gender);
   const procedures = patient?.clinical_history?.procedures || [];
   const lastProcedure = getLatestByDate(procedures, "date");
-  const lastVital = getLatestByDate(patient?.clinical_history?.vital_signs, "last_date_taken");
+  const vitalSignsHistory = getVitalSignsHistory(patient?.clinical_history?.vital_signs);
+  const lastVital = vitalSignsHistory[0];
   const age = getAge(patient.birth_date);
 
   const antecedentes = [
@@ -137,6 +149,29 @@ const toRecordDetail = (patient) => {
           ultimoRegistro: formatFecha(lastVital.last_date_taken) || "—",
         }
       : {},
+    // Historial completo de tomas, más reciente primero (para la tabla de la
+    // pestaña "Signos vitales")
+    signosVitalesHistorial: vitalSignsHistory.map((v) => ({
+      fecha: formatFecha(v.last_date_taken) || "—",
+      presion: v.blood_pressure || "—",
+      glucosa: v.glucosa_mgdl ?? "—",
+      peso: v.weight ?? "—",
+      altura: v.height ?? "—",
+      imc: v.imc ?? "—",
+      temp: v.temperature ?? "—",
+      spo2: v.spo2 != null ? `${v.spo2}%` : "—",
+    })),
+    // Mismo historial en orden cronológico ascendente para el gráfico de IMC
+    imcHistorial: [...vitalSignsHistory]
+      .reverse()
+      .map((v, i) => ({ cita: `Cita ${i + 1}`, imc: v.imc ?? null })),
+    consultas: MOCK_DEFAULTS.consultas.map((c, i) => ({
+      id: i + 1,
+      hora: "—",
+      paciente: `${patient.name || ""} ${patient.last_name || ""}`.trim() || "—",
+      medico: lastProcedure?.doctor_name || MOCK_DEFAULTS.doctor.nombre,
+      estado: c.estado,
+    })),
     // El modelo no tiene una duración registrada por procedimiento; se deja
     // como dato predeterminado hasta que exista ese campo.
     procedimientos: procedures.map((p) => ({

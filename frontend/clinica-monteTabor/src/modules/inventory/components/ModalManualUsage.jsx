@@ -213,12 +213,10 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
                   </button>
                 </div>
 
-                {/* Unidad */}
                 <span className="text-xs text-gray-500 w-16 text-center truncate">
                   {row.unit_measure || "—"}
                 </span>
 
-                {/* Eliminar */}
                 {items.length > 1
                   ? <button type="button" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}
                       className="p-2 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 w-8">

@@ -126,7 +126,6 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           </div>
         )}
 
-        {/* ── Información básica ──────────────────────────── */}
         <section>
           <SectionTitle>Información básica</SectionTitle>
           <div className="grid grid-cols-2 gap-4">
@@ -150,7 +149,6 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           </div>
         </section>
 
-        {/* ── Inventario inicial ──────────────────────────── */}
         <section>
           <SectionTitle>Inventario inicial</SectionTitle>
           <div className="grid grid-cols-3 gap-4">
@@ -172,7 +170,6 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           </div>
         </section>
 
-        {/* ── Información adicional ───────────────────────── */}
         <section>
           <SectionTitle>Información adicional</SectionTitle>
           <div className="grid grid-cols-2 gap-4">
@@ -193,7 +190,6 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           </div>
         </section>
 
-        {/* ── Imagen ─────────────────────────────────────── */}
         <section>
           <SectionTitle>Imagen del producto (opcional)</SectionTitle>
           <label className="cursor-pointer block">

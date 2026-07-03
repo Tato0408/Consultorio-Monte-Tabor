@@ -42,7 +42,6 @@ const TreatmentUsage = () => {
 
             return (
               <div key={proc._id} className="border border-slate-100 rounded-xl p-4 flex flex-col">
-                {/* Header */}
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${colorClass}`}>
                     {initial}
@@ -50,7 +49,6 @@ const TreatmentUsage = () => {
                   <h4 className="text-sm font-semibold text-slate-800 leading-tight line-clamp-2">{proc.name}</h4>
                 </div>
 
-                {/* Meta: duración / precio / enfermera */}
                 <div className="flex flex-wrap gap-x-3 gap-y-1 mb-3">
                   {proc.estimated_duration && (
                     <span className="flex items-center gap-1 text-[10px] text-slate-400">
@@ -69,7 +67,6 @@ const TreatmentUsage = () => {
                   )}
                 </div>
 
-                {/* Materials */}
                 <div className="flex flex-col gap-1.5 flex-1">
                   {proc.materials?.length > 0 ? (
                     proc.materials.map((mat, mi) => {
@@ -89,7 +86,6 @@ const TreatmentUsage = () => {
                   )}
                 </div>
 
-                {/* Description */}
                 {proc.description && (
                   <p className="mt-2 pt-2 border-t border-slate-50 text-[10px] text-slate-400 line-clamp-2">
                     {proc.description}

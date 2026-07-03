@@ -4,13 +4,8 @@ import ExpedienteLayout from "./global/RecordsLayout";
 import ResumenTab from "./pages/ResumeTab";
 import HistoriaClinicaTab from "./pages/RecordsHistoricalClinical";
 import ProcedimientosTab from "./pages/RecordsProcedures";
-
-/* Placeholder para las pestañas que aún no tienen contenido */
-const EnConstruccion = ({ label }) => (
-  <div className="py-24 text-center text-sm text-slate-400">
-    Contenido de "{label}" en construcción.
-  </div>
-);
+import SignosVitalesTab from "./pages/RecordsVitalSigns";
+import ConsultasTab from "./pages/RecordsConsultations";
 
 /* -------------------------------------------------------------------------
  *  DETALLE DEL EXPEDIENTE
@@ -40,8 +35,8 @@ const RecordDetailPage = ({ record, onBack }) => {
     { label: "Resumen", content: <ResumenTab patient={record} /> },
     { label: "Historia clínica", content: <HistoriaClinicaTab patient={record} /> },
     { label: "Procedimientos", content: <ProcedimientosTab patient={record} /> },
-    { label: "Signos vitales", content: <EnConstruccion label="Signos vitales" /> },
-    { label: "Consultas", content: <EnConstruccion label="Consultas" /> },
+    { label: "Signos vitales", content: <SignosVitalesTab patient={record} /> },
+    { label: "Consultas", content: <ConsultasTab patient={record} /> },
   ];
 
   return <ExpedienteLayout patient={record} tabs={tabs} onBack={onBack} />;

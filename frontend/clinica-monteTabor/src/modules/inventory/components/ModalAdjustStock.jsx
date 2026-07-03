@@ -91,7 +91,6 @@ const ProductCombobox = ({ value, onSelect, error }) => {
   );
 };
 
-/* InfoField (campo de solo lectura auto-rellenado)  */
 const InfoField = ({ label, value }) => (
   <div className="flex flex-col gap-1">
     <label className="text-xs font-medium text-gray-600">{label}</label>
@@ -101,10 +100,9 @@ const InfoField = ({ label, value }) => (
   </div>
 );
 
-/* Modal principal  */
 const ModalAdjustStock = ({ onClose, onSuccess }) => {
   const { adjustStock } = useInsumos();
-  const [product, setProduct]       = useState(null); // insumo seleccionado
+  const [product, setProduct]       = useState(null);
   const [adjustType, setAdjustType] = useState("aumentar"); // "aumentar" | "disminuir"
   const [quantity, setQuantity]     = useState("");
   const [responsible, setResp]      = useState("");
@@ -176,7 +174,6 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
           </div>
         )}
 
-        {/* Producto */}
         <section>
           <SectionTitle>Producto</SectionTitle>
 
