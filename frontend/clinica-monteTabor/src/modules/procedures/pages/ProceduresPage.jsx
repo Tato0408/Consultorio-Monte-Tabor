@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import useProcedures from "../hooks/useProcedures"; 
 import ProceduresTable from "../components/ProceduresTable";
-import ProceduresFilters from "../components/ProceduresFilter";
 import ProcedureForm from "../components/ProceduresForm";
 import EditProcedureModal from "../components/EditProcedureModal";
 
@@ -31,17 +30,17 @@ const ProceduresPage = () => {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6 p-4 md:p-6 bg-gray-50/50 min-h-screen">
-
-      {/* Encabezado */}
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Procedimientos</h1>
-        <p className="text-sm text-gray-500 mt-1">
+    <div className="p-8 bg-white min-h-screen w-full">
+      {/* SECCIÓN DEL ENCABEZADO (Diseño simétrico unificado) */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900">Procedimientos</h1>
+        <p className="text-sm text-slate-400 mt-1">
           Administra y consulta todos los procedimientos registrados en el sistema.
         </p>
       </div>
 
-      <div className="border-b border-gray-100 flex gap-4 md:gap-6 text-sm font-medium overflow-x-auto">
+      {/* Tabs */}
+      <div className="border-b border-gray-100 flex gap-4 md:gap-6 text-sm font-medium overflow-x-auto mb-6">
         {[
           { key: "list", label: "Lista de procedimientos" },
           { key: "create", label: "Crear procedimiento" },
@@ -60,16 +59,16 @@ const ProceduresPage = () => {
         ))}
       </div>
 
-      {/* Contenido */}
-      <div className="pt-1 md:pt-2">
+      {/* Contenido principal */}
+      <div>
         {activeTab === "list" ? (
-          <div className="space-y-2">
+          <div className="space-y-4">
             {error && (
               <div className="text-sm text-red-500 p-3 bg-red-50 rounded-lg border border-red-100">
                 {error}
               </div>
             )}
-            <ProceduresFilters onFilterChange={() => {}} />
+            
             <ProceduresTable
               data={procedures}
               loading={loading}
@@ -84,6 +83,7 @@ const ProceduresPage = () => {
         )}
       </div>
 
+      {/* Modal de edición */}
       <EditProcedureModal
         isOpen={isEditModalOpen}
         onClose={() => { setIsEditModalOpen(false); setSelectedProcedure(null); }}

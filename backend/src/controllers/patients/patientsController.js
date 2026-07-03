@@ -15,6 +15,78 @@ patientsController.getAllPatients = async (req, res) => {
   }
 };
 
+//Create
+patientsController.createPatient = async (req, res) => {
+  try {
+    let { name, last_name, dui, birth_date, gender, phone, email, password, referred_by } = req.body;
+
+    if (!name || !last_name || !dui || !birth_date || !gender || !phone || !email || !password) {
+      return res.status(400).json({ message: "Empty data" });
+    }
+
+    name = name.trim();
+    last_name = last_name.trim();
+    dui = dui.trim();
+    phone = phone.trim();
+    email = email.trim();
+    password = password.trim();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    if (!/^\d{8}-\d{1}$/.test(dui)) {
+      return res.status(400).json({ message: "Invalid DUI format" });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters long" });
+    }
+    if (!/[A-Z]/.test(password)) {
+      return res.status(400).json({ message: "Password must contain at least one uppercase letter" });
+    }
+    if (!/[a-z]/.test(password)) {
+      return res.status(400).json({ message: "Password must contain at least one lowercase letter" });
+    }
+    if (!/[0-9]/.test(password)) {
+      return res.status(400).json({ message: "Password must contain at least one number" });
+    }
+
+    const existsPatient = await patientsModel.findOne({ $or: [{ email }, { dui }] });
+    if (existsPatient) {
+      return res.status(400).json({ message: "Patient already exists" });
+    }
+
+    const passwordHashed = await bcryptjs.hash(password, 10);
+
+    const newPatient = new patientsModel({
+      name,
+      last_name,
+      dui,
+      birth_date,
+      gender,
+      phone,
+      email,
+      password: passwordHashed,
+      referred_by: referred_by ? referred_by.trim() : undefined,
+      is_active: true,
+      is_verified: true,
+      loginAttemps: 0,
+      timeOut: null,
+    });
+
+    const savedPatient = await newPatient.save();
+    if (!savedPatient) {
+      return res.status(500).json({ message: "Error while adding a patient" });
+    }
+
+    return res.status(200).json({ message: "Patient added successfully" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 //Delete
 patientsController.deletePatient = async (req, res) => {
   try {

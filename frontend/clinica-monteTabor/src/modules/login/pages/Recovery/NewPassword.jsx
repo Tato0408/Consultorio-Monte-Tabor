@@ -7,7 +7,7 @@ import PrimaryButton from "../../components/PrimaryButton";
 import SecondaryButton from "../../components/SecondaryButton";
 
 import InputField from "../../../../components/ui/InputField";
-import FooterLogin = "../../components/Footer";
+import FooterLogin from "../../components/Footer";
 
 import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
 import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";

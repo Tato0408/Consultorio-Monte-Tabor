@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, Filter, Pencil, MoreVertical, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, Package, MoreVertical, Edit2, Trash2, Pencil } from "lucide-react";
 import useInsumos from "../hooks/useInsumos";
-
-const CATEGORIAS = ["Todas", "Curación", "Protección", "Desinfección", "Procedimiento", "EPI", "Limpieza"];
-const ESTADOS    = ["Todos", "Disponible", "Bajo", "Crítico"];
+import GenericTable from "@/components/ui/GenericTable";
 
 const statusStyle = {
-  Disponible: "bg-green-100 text-green-600",
-  Bajo:       "bg-orange-100 text-orange-500",
-  Crítico:    "bg-red-100 text-red-500",
+  Disponible: "bg-green-50 text-green-700",
+  Bajo:       "bg-orange-50 text-orange-600",
+  Crítico:    "bg-red-50 text-red-700",
 };
 
 const getStatus = (item) => {
@@ -19,209 +17,185 @@ const getStatus = (item) => {
 
 const fmtDate = (d) => {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("es-SV", { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return new Date(d).toLocaleDateString("es-SV", { 
+    month: "short", 
+    day: "2-digit", 
+    hour: "2-digit", 
+    minute: "2-digit" 
+  });
 };
 
 const InventoryTable = ({ onEdit, onRefresh, refreshTrigger }) => {
   const { getInsumos, deleteInsumo } = useInsumos();
-  const [items, setItems]       = useState([]);
-  const [total, setTotal]       = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [page, setPage]         = useState(1);
-  const [search, setSearch]     = useState("");
-  const [category, setCategory] = useState("Todas");
-  const [status, setStatus]     = useState("Todos");
-  const [loading, setLoading]   = useState(false);
-  const [openMenu, setOpenMenu] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState(null);
 
+  // CORRECCIÓN AQUÍ: Quitamos getInsumos de las dependencias para evitar el re-trigger del bucle
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { page, limit: 8 };
-      if (search)                params.search   = search;
-      if (category !== "Todas")  params.category = category;
-      if (status   !== "Todos")  params.status   = status;
+      const params = { page: 1, limit: 100 }; 
       const data = await getInsumos(params);
-      setItems(data.insumos);
-      setTotal(data.total);
-      setTotalPages(data.totalPages);
+      setItems(data.insumos || []);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [page, search, category, status, refreshTrigger]);
+  }, [refreshTrigger]); // <-- Solo se dispara de verdad si refreshTrigger cambia
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [search, category, status]);
+  useEffect(() => { 
+    load(); 
+  }, [load]);
 
   const handleDelete = async (id) => {
     if (!confirm("¿Eliminar este producto?")) return;
     await deleteInsumo(id);
     onRefresh?.();
     load();
-    setOpenMenu(null);
+    setActiveMenuId(null);
   };
 
-  return (
-    <div className="bg-white rounded-xl border border-slate-100 shadow-sm">
-      {/* toolbar */}
-      <div className="p-4 flex flex-wrap gap-3 items-center border-b border-slate-100">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Buscar producto..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-slate-400 mr-1">Categoría</span>
-          <select
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            {CATEGORIAS.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-slate-400 mr-1">Estado</span>
-          <select
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            {ESTADOS.map((s) => <option key={s}>{s}</option>)}
-          </select>
-        </div>
-
-        <button className="flex items-center gap-1.5 text-sm border border-slate-200 rounded-lg px-3 py-2 hover:bg-slate-50">
-          <Filter className="w-4 h-4 text-slate-400" />
-          Filtros
-        </button>
-      </div>
-
-      {/* table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-100">
-              <th className="text-left text-xs text-slate-400 font-normal px-4 py-3">Producto</th>
-              <th className="text-left text-xs text-slate-400 font-normal px-4 py-3">Categoría</th>
-              <th className="text-left text-xs text-slate-400 font-normal px-4 py-3">Stock actual</th>
-              <th className="text-left text-xs text-slate-400 font-normal px-4 py-3">Estado</th>
-              <th className="text-left text-xs text-slate-400 font-normal px-4 py-3">Último uso</th>
-              <th className="text-left text-xs text-slate-400 font-normal px-4 py-3">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr><td colSpan={6} className="text-center py-10 text-slate-400">Cargando...</td></tr>
+  // Definición de las columnas unificadas con fotos, stocks y estados
+  const columns = [
+    {
+      header: "Producto",
+      render: (item) => (
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-xs overflow-hidden flex-shrink-0">
+            {item.image ? (
+              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+            ) : (
+              "📦"
             )}
-            {!loading && items.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-10 text-slate-400">Sin resultados</td></tr>
-            )}
-            {!loading && items.map((item) => {
-              const st = getStatus(item);
-              return (
-                <tr key={item._id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-xs overflow-hidden flex-shrink-0">
-                        {item.image
-                          ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                          : "📦"}
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-800 leading-tight">{item.name}</p>
-                        <p className="text-xs text-slate-400">{item.description || item.supplier || ""}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{item.category}</td>
-                  <td className="px-4 py-3">
-                    <span className="font-semibold text-slate-800">{item.stock}</span>
-                    <span className="text-slate-400 ml-1 text-xs">{item.unit_measure}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyle[st]}`}>{st}</span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">{fmtDate(item.last_used)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 relative">
-                      <button
-                        onClick={() => onEdit?.(item)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setOpenMenu(openMenu === item._id ? null : item._id)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
-                      >
-                        <MoreVertical className="w-3.5 h-3.5" />
-                      </button>
-                      {openMenu === item._id && (
-                        <div className="absolute right-0 top-8 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-32">
-                          <button
-                            onClick={() => handleDelete(item._id)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" /> Eliminar
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+          </div>
+          <div>
+            <p className="font-medium text-slate-900 leading-tight">{item.name}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{item.description || item.supplier || "Sin descripción"}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "Categoría",
+      render: (item) => <span className="text-slate-600">{item.category}</span>,
+    },
+    {
+      header: "Stock actual",
+      render: (item) => (
+        <div>
+          <span className="font-semibold text-slate-800">{item.stock}</span>
+          <span className="text-slate-400 ml-1 text-xs">{item.unit_measure || "uds"}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Estado",
+      render: (item) => {
+        const st = getStatus(item);
+        return (
+          <span className={`inline-flex items-center gap-1.5 font-medium px-2.5 py-1 rounded-full text-xs ${statusStyle[st]}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              st === "Disponible" ? "bg-green-500" : st === "Bajo" ? "bg-orange-500" : "bg-red-500"
+            }`} />
+            {st}
+          </span>
+        );
+      },
+    },
+    {
+      header: "Último uso",
+      render: (item) => <span className="text-slate-500 text-xs">{fmtDate(item.last_used)}</span>,
+    },
+    {
+      header: "Acciones",
+      align: "right",
+      render: (item, index, openUpwards) => {
+        const isMenuOpen = activeMenuId === item._id;
 
-      {/* pagination */}
-      <div className="px-4 py-3 flex items-center justify-between border-t border-slate-100">
-        <span className="text-xs text-slate-400">
-          Mostrando {items.length > 0 ? (page - 1) * 8 + 1 : 0} a {Math.min(page * 8, total)} de {total} productos
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+        return (
+          <div className="flex items-center justify-end gap-1 relative">
             <button
-              key={p}
-              onClick={() => setPage(p)}
-              className={`w-8 h-8 rounded-lg text-sm ${p === page ? "bg-blue-600 text-white" : "border border-slate-200 hover:bg-slate-50 text-slate-600"}`}
+              type="button"
+              onClick={() => onEdit?.(item)}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
             >
-              {p}
+              <Pencil className="w-3.5 h-3.5" />
             </button>
-          ))}
-          {totalPages > 5 && <span className="text-slate-400 text-sm">...</span>}
-          {totalPages > 5 && (
-            <button onClick={() => setPage(totalPages)} className="w-8 h-8 rounded-lg text-sm border border-slate-200 hover:bg-slate-50 text-slate-600">
-              {totalPages}
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMenuId(isMenuOpen ? null : item._id);
+              }}
+              className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${
+                isMenuOpen ? "bg-gray-100 text-gray-900" : "text-gray-400"
+              }`}
+            >
+              <MoreVertical className="w-4 h-4" />
             </button>
-          )}
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
+
+            {isMenuOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    setActiveMenuId(null); 
+                  }} 
+                />
+                <div
+                  className={`absolute w-36 bg-white border border-gray-100 rounded-xl shadow-xl py-1.5 z-30 text-left right-2 ${
+                    openUpwards ? "bottom-full mb-1" : "top-full mt-1"
+                  } animate-in fade-in slide-in-from-bottom-1 duration-100`}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenuId(null);
+                      if (onEdit) onEdit(item);
+                    }}
+                    className="w-full px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 text-gray-400" />
+                    Editar Completo
+                  </button>
+
+                  <div className="border-t border-gray-50 my-1" />
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenuId(null);
+                      handleDelete(item._id);
+                    }}
+                    className="w-full px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50/60 flex items-center gap-2 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    Eliminar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
+  return (
+    <GenericTable
+      title="Inventario de insumos clínicos"
+      placeholderSearch="Buscar insumo o producto..."
+      data={items}
+      columns={columns}
+      loading={loading}
+      searchFields={["name", "category", "description"]}
+    />
   );
 };
 

@@ -12,9 +12,7 @@ const NurseProfilePanel = ({ nurse, nextProcedure, loadingDetail }) => {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
-
       <div className="bg-blue-600 pt-8 pb-6 px-4 flex flex-col items-center justify-center text-white">
-
         <div className="w-16 h-16 rounded-full border-2 border-white/40 overflow-hidden flex items-center justify-center mb-3 bg-blue-500">
           {nurse.img_url ? (
             <img
@@ -115,7 +113,7 @@ const NursesPage = () => {
     selectNurse,
     createNurse,
     updateNurse,
-    deleteNurse,   // FIX #2 — viene del hook
+    deleteNurse,
   } = useNurse();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -138,7 +136,6 @@ const NursesPage = () => {
     setIsModalOpen(true);
   };
 
-  // FIX #3 — pasa isEditMode al modal para diferenciar el mensaje
   const handleSaveNurse = async (formData) => {
     if (nurseToEdit?._id) {
       return await updateNurse(nurseToEdit._id, formData);
@@ -148,29 +145,29 @@ const NursesPage = () => {
   };
 
   return (
-    <div className="p-6 md:p-8 w-full max-w-[1600px] mx-auto min-h-screen bg-[#F8FAFC] flex flex-col gap-6">
-
-      {/* Cabecera */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Enfermeras</h1>
-          <p className="text-sm text-gray-500 font-medium">
-            Gestiona y administra a las diferentes enfermeras
-          </p>
-        </div>
+    <div className="p-8 bg-white min-h-screen w-full">
+      {/* SECCIÓN DEL ENCABEZADO */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900">Enfermeras</h1>
+        <p className="text-sm text-slate-400 mt-1">
+          Gestiona y administra a las diferentes enfermeras
+        </p>
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl font-medium">
+        <div className="p-4 mb-6 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl font-medium">
           {error}
         </div>
       )}
 
-      <NurseStatCards stats={stats} />
+      {/* Renderiza las tarjetas de estadísticas */}
+      <NurseStatCards stats={stats} loading={loading} />
 
-      <div className="flex flex-col xl:flex-row gap-6 items-start">
-
-        <div className="flex-1 w-full min-w-0">
+      {/* CONTENEDOR EN REJILLA DE 12 COLUMNAS (SIMETRÍA EXACTA) */}
+      <div className="grid grid-cols-12 gap-6 mt-8">
+        
+        {/* COLUMNA DE LA IZQUIERDA (TABLA DE ENFERMERAS) */}
+        <div className="col-span-9">
           <NurseTable
             nurses={nurses}
             loading={loading}
@@ -178,11 +175,12 @@ const NursesPage = () => {
             onSelect={selectNurse}
             onAdd={handleOpenCreate}
             onEdit={handleOpenEdit}
-            onDelete={deleteNurse}   // FIX #2 — conectado al hook
+            onDelete={deleteNurse}
           />
         </div>
 
-        <div className="w-full xl:w-[320px] shrink-0">
+        {/* COLUMNA DE LA DERECHA (TARJETA DE PERFIL) */}
+        <div className="col-span-3">
           {selectedNurse ? (
             <NurseProfilePanel
               nurse={selectedNurse}
@@ -197,12 +195,12 @@ const NursesPage = () => {
         </div>
       </div>
 
+      {/* MODAL DEL FORMULARIO */}
       <NurseFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveNurse}
         nurse={nurseToEdit}
-        // FIX #3 — el modal sabe si es edición o creación para el mensaje
         isEditMode={!!nurseToEdit}
       />
     </div>
