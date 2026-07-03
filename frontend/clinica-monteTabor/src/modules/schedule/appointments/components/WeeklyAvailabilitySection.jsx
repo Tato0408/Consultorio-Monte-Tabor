@@ -76,7 +76,7 @@ const WeeklyAvailabilitySection = ({ availability, onChange }) => {
 
                         {/* Bloques de tiempo */}
                         {dayConfig.is_available && (
-                            <div className="mt-2 ml-13 pl-1 flex flex-col gap-2">
+                            <div className="mt-2 ml-[52px] flex flex-col gap-2">
                                 {dayConfig.time_blocks.map((block, bi) => (
                                     <div key={bi} className="flex items-center gap-2 flex-wrap">
                                         <TimeInput

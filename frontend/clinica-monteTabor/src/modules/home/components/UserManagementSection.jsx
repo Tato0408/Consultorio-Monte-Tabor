@@ -121,7 +121,7 @@ const UserManagementSection = ({ data }) => {
     const receptionists = data?.receptionists || { total: 0, active: 0, inactive: 0 };
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6">
             <div className="flex items-center justify-between mb-5">
                 <h2 className="text-base font-bold text-slate-800">Gestión de usuarios</h2>
                 <button

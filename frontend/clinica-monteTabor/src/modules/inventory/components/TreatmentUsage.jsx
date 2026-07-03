@@ -1,64 +1,107 @@
-const TREATMENTS = [
-  {
-    name: "Retiro de uñero",
-    icon: "🔵",
-    items: [
-      { name: "Gasas estériles", qty: "2 unidades" },
-      { name: "Antiséptico clorhexidina", qty: "1 unidad" },
-      { name: "Anestesia lidocaína 2%", qty: "1 unidad" },
-      { name: "Guantes de látex", qty: "1 par" },
-    ],
-  },
-  {
-    name: "Curación simple",
-    icon: "✚",
-    items: [
-      { name: "Gasas estériles", qty: "1 unidad" },
-      { name: "Antiséptico clorhexidina", qty: "1 unidad" },
-      { name: "Vendajes elásticos", qty: "1 unidad" },
-      { name: "Guantes de látex", qty: "1 par" },
-    ],
-  },
-  {
-    name: "Suturas básicas",
-    icon: "🔧",
-    items: [
-      { name: "Sutura nylon 3-0", qty: "1 unidad" },
-      { name: "Agujas desechables 21G", qty: "1 unidad" },
-      { name: "Gasas estériles", qty: "2 unidades" },
-      { name: "Antiséptico clorhexidina", qty: "1 unidad" },
-    ],
-  },
+import { useState, useEffect } from "react";
+import { Clock, DollarSign, UserCheck } from "lucide-react";
+import useProcedures from "../hooks/useProcedures";
+
+const CARD_COLORS = [
+  "bg-blue-100 text-blue-600",
+  "bg-emerald-100 text-emerald-600",
+  "bg-purple-100 text-purple-600",
+  "bg-orange-100 text-orange-600",
+  "bg-rose-100 text-rose-600",
+  "bg-teal-100 text-teal-600",
 ];
 
-const TreatmentUsage = () => (
-  <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-    <div className="mb-4">
-      <h3 className="text-base font-semibold text-slate-800">Insumos utilizados por tratamiento</h3>
-      <p className="text-xs text-slate-400 mt-0.5">Cantidad promedio de insumos por procedimiento</p>
-    </div>
-    <div className="grid grid-cols-3 gap-4">
-      {TREATMENTS.map((t) => (
-        <div key={t.name} className="border border-slate-100 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-lg">{t.icon}</span>
-            <h4 className="text-sm font-semibold text-slate-800">{t.name}</h4>
-          </div>
-          <div className="flex flex-col gap-2">
-            {t.items.map((item) => (
-              <div key={item.name} className="flex items-center justify-between">
-                <span className="text-xs text-slate-600">{item.name}</span>
-                <span className="text-xs text-slate-500 font-medium">{item.qty}</span>
+const TreatmentUsage = () => {
+  const { getProcedures } = useProcedures();
+  const [procedures, setProcedures] = useState([]);
+  const [loading, setLoading]       = useState(true);
+
+  useEffect(() => {
+    getProcedures()
+      .then((data) => setProcedures(Array.isArray(data) ? data.filter(p => p.is_active !== false) : []))
+      .catch(() => setProcedures([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+      <div className="mb-4">
+        <h3 className="text-base font-semibold text-slate-800">Insumos utilizados por tratamiento</h3>
+        <p className="text-xs text-slate-400 mt-0.5">Cantidad promedio de insumos por procedimiento</p>
+      </div>
+
+      {loading ? (
+        <div className="py-8 text-center text-sm text-slate-400">Cargando procedimientos...</div>
+      ) : procedures.length === 0 ? (
+        <div className="py-8 text-center text-sm text-slate-400">No hay procedimientos registrados.</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {procedures.map((proc, i) => {
+            const colorClass = CARD_COLORS[i % CARD_COLORS.length];
+            const initial    = proc.name?.[0]?.toUpperCase() || "P";
+
+            return (
+              <div key={proc._id} className="border border-slate-100 rounded-xl p-4 flex flex-col">
+                {/* Header */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${colorClass}`}>
+                    {initial}
+                  </span>
+                  <h4 className="text-sm font-semibold text-slate-800 leading-tight line-clamp-2">{proc.name}</h4>
+                </div>
+
+                {/* Meta: duración / precio / enfermera */}
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mb-3">
+                  {proc.estimated_duration && (
+                    <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                      <Clock className="w-3 h-3" /> {proc.estimated_duration} min
+                    </span>
+                  )}
+                  {proc.price > 0 && (
+                    <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                      <DollarSign className="w-3 h-3" /> ${Number(proc.price).toLocaleString()}
+                    </span>
+                  )}
+                  {proc.requires_nurse && (
+                    <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                      <UserCheck className="w-3 h-3" /> Requiere enfermera
+                    </span>
+                  )}
+                </div>
+
+                {/* Materials */}
+                <div className="flex flex-col gap-1.5 flex-1">
+                  {proc.materials?.length > 0 ? (
+                    proc.materials.map((mat, mi) => {
+                      const matName = mat.insumo?.name || mat.name || "Insumo";
+                      const qty     = mat.quantity ?? 1;
+                      return (
+                        <div key={mi} className="flex items-center justify-between">
+                          <span className="text-xs text-slate-600 truncate pr-2">{matName}</span>
+                          <span className="text-xs text-slate-500 font-medium whitespace-nowrap flex-shrink-0">
+                            {qty} {qty === 1 ? "unidad" : "unidades"}
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">Sin insumos registrados</p>
+                  )}
+                </div>
+
+                {/* Description */}
+                {proc.description && (
+                  <p className="mt-2 pt-2 border-t border-slate-50 text-[10px] text-slate-400 line-clamp-2">
+                    {proc.description}
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
-          <button className="mt-3 text-xs text-blue-600 hover:underline font-medium">
-            Ver detalle
-          </button>
+            );
+          })}
         </div>
-      ))}
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 export default TreatmentUsage;

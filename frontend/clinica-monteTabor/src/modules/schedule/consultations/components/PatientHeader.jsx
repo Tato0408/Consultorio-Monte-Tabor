@@ -50,7 +50,7 @@ const PatientHeader = ({ appointment }) => {
             <div className="border-t border-white/25 my-3" />
 
             {/* Fila inferior: contacto y detalles de la cita */}
-            <div className="flex items-center gap-8 flex-wrap text-sm text-white/90 pl-[3.25rem]">
+            <div className="flex items-center gap-4 sm:gap-8 flex-wrap text-sm text-white/90 sm:pl-[3.25rem]">
                 <span className="flex items-center gap-2 whitespace-nowrap">
                     <Phone className="w-4 h-4" />
                     <span className="text-white/70">Teléfono</span>

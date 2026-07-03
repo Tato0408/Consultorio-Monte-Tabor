@@ -77,14 +77,14 @@ const ConsultationForm = () => {
     };
 
     if (isLoading) {
-        return <div className="p-8 text-slate-400">Cargando registro clínico...</div>;
+        return <div className="p-4 sm:p-8 text-slate-400">Cargando registro clínico...</div>;
     }
 
     return (
         // FormProvider expone "methods" (control, register, etc.) a todos
         // los hijos vía useFormContext(), sin tener que pasarlos por props.
         <FormProvider {...methods}>
-            <form onSubmit={methods.handleSubmit(onSubmit)} className="p-8">
+            <form onSubmit={methods.handleSubmit(onSubmit)} className="p-4 sm:p-8">
                 <PatientHeader appointment={appointment} />
 
                 {error && (

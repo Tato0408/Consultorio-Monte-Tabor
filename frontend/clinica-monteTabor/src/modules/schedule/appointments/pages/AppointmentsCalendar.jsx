@@ -309,7 +309,11 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate }) => {
     const colors = typeColors(appt.type, appt.status);
 
     return (
-        <div className="w-72 border-l border-slate-100 bg-white overflow-y-auto flex-shrink-0">
+        <div className="fixed bottom-0 inset-x-0 z-50 h-[80vh] rounded-t-2xl md:relative md:inset-auto md:h-full md:w-72 md:rounded-none md:z-auto border-t md:border-t-0 md:border-l border-slate-100 bg-white overflow-y-auto flex-shrink-0">
+            {/* Drag handle — visible on mobile only */}
+            <div className="md:hidden flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-slate-200" />
+            </div>
             <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -509,80 +513,82 @@ const AppointmentsCalendar = () => {
     const todayColIdx = weekDays.findIndex(d => toISO(d) === today);
 
     return (
-        <div className="flex flex-col bg-slate-50 overflow-hidden" style={{ height: "calc(100vh - 0px)" }}>
+        <div className="flex flex-col bg-slate-50 overflow-hidden h-full">
 
             {/* ── Top bar ── */}
-            <div className="px-5 pt-4 pb-0 bg-white border-b border-slate-100 flex-shrink-0">
+            <div className="px-3 sm:px-5 pt-3 sm:pt-4 pb-0 bg-white border-b border-slate-100 flex-shrink-0">
                 <div className="flex items-center justify-between mb-3">
                     <div>
-                        <h1 className="text-lg font-bold text-slate-900">Calendario</h1>
-                        <p className="text-xs text-slate-400">Visualización de citas y horarios de los doctores</p>
+                        <h1 className="text-base sm:text-lg font-bold text-slate-900">Calendario</h1>
+                        <p className="text-[10px] sm:text-xs text-slate-400 hidden xs:block">Visualización de citas y horarios de los doctores</p>
                     </div>
                     <button
                         onClick={() => navigate("/calendar/appointments/new")}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg"
+                        className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-lg whitespace-nowrap flex-shrink-0"
                     >
-                        <Plus className="w-4 h-4" /> Nueva cita
+                        <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <span>Nueva cita</span>
                     </button>
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-3">
                     {[
-                        { label: "Citas hoy",        value: stats.scheduled, sub: "Total del día",              color: "text-blue-600",   bg: "bg-blue-50" },
-                        { label: "Confirmadas",       value: stats.waiting,   sub: "Listas para atender",        color: "text-green-600",  bg: "bg-green-50" },
-                        { label: "Completadas",       value: stats.completed, sub: "Finalizadas hoy",            color: "text-slate-700",  bg: "bg-slate-100" },
+                        { label: "Citas hoy",   value: stats.scheduled, sub: "Total del día",       color: "text-blue-600",  bg: "bg-blue-50" },
+                        { label: "Confirmadas", value: stats.waiting,   sub: "Listas para atender", color: "text-green-600", bg: "bg-green-50" },
+                        { label: "Completadas", value: stats.completed, sub: "Finalizadas hoy",     color: "text-slate-700", bg: "bg-slate-100" },
                     ].map(s => (
-                        <div key={s.label} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm flex items-center gap-3">
-                            <span className={`text-xl font-bold ${s.color} ${s.bg} w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0`}>{s.value}</span>
-                            <div>
-                                <p className="text-xs font-semibold text-slate-700">{s.label}</p>
-                                <p className="text-xs text-slate-400">{s.sub}</p>
+                        <div key={s.label} className="bg-white border border-slate-100 rounded-xl p-2 sm:p-3 shadow-sm flex items-center gap-2 sm:gap-3">
+                            <span className={`text-lg sm:text-xl font-bold ${s.color} ${s.bg} w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0`}>{s.value}</span>
+                            <div className="min-w-0">
+                                <p className="text-[10px] sm:text-xs font-semibold text-slate-700 leading-tight">{s.label}</p>
+                                <p className="text-[9px] sm:text-[10px] text-slate-400 leading-tight">{s.sub}</p>
                             </div>
                         </div>
                     ))}
                     {stats.nextAppointment ? (
-                        <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm flex-shrink-0">
+                        <div className="bg-white border border-slate-100 rounded-xl p-2 sm:p-3 shadow-sm flex items-center gap-2 sm:gap-3">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs sm:text-sm flex-shrink-0">
                                 {stats.nextAppointment.doctor_id?.name?.[0]}{stats.nextAppointment.doctor_id?.last_name?.[0]}
                             </div>
                             <div className="min-w-0">
-                                <p className="text-xs font-semibold text-slate-800 truncate">
+                                <p className="text-[10px] sm:text-xs font-semibold text-slate-800 truncate">
                                     Dr. {stats.nextAppointment.doctor_id?.name} {stats.nextAppointment.doctor_id?.last_name}
                                 </p>
-                                <p className="text-[10px] text-green-500 font-medium">Disponible</p>
-                                <p className="text-[10px] text-slate-400">Próx.: {fmt12(stats.nextAppointment.start_time)}</p>
+                                <p className="text-[9px] sm:text-[10px] text-green-500 font-medium">Disponible</p>
+                                <p className="text-[9px] sm:text-[10px] text-slate-400">Próx.: {fmt12(stats.nextAppointment.start_time)}</p>
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm flex items-center justify-center">
-                            <p className="text-xs text-slate-400">Sin próximas citas</p>
+                        <div className="bg-white border border-slate-100 rounded-xl p-2 sm:p-3 shadow-sm flex items-center justify-center">
+                            <p className="text-[10px] sm:text-xs text-slate-400 text-center">Sin próximas citas</p>
                         </div>
                     )}
                 </div>
 
                 {/* Week nav */}
-                <div className="flex items-center justify-between pb-2">
-                    <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-y-1.5 pb-2">
+                    <div className="flex items-center gap-1">
                         <button onClick={prevWeek} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
                             <ChevronLeft className="w-4 h-4" />
                         </button>
                         <button onClick={nextWeek} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
                             <ChevronRight className="w-4 h-4" />
                         </button>
-                        <span className="text-sm font-semibold text-slate-700">
-                            {weekStart.getDate()} – {weekEnd.getDate()} {MONTHS_ES[weekEnd.getMonth()]} {weekEnd.getFullYear()}
+                        <span className="text-xs sm:text-sm font-semibold text-slate-700 whitespace-nowrap">
+                            <span className="hidden sm:inline">{weekStart.getDate()} – {weekEnd.getDate()} {MONTHS_ES[weekEnd.getMonth()]} {weekEnd.getFullYear()}</span>
+                            <span className="sm:hidden">{weekStart.getDate()}–{weekEnd.getDate()} {MONTHS_ES[weekEnd.getMonth()].slice(0, 3)}</span>
                         </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                         <button onClick={triggerRefresh} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
                             <RefreshCw className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={goToday} className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition-colors">
+                        <button onClick={goToday} className="px-2.5 py-1.5 text-xs font-medium border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition-colors">
                             Hoy
                         </button>
                         <div className="flex border border-slate-200 rounded-lg overflow-hidden text-xs">
-                            <button className="px-3 py-1.5 bg-blue-600 text-white font-medium">Semana</button>
+                            <button className="px-2.5 py-1.5 bg-blue-600 text-white font-medium">Semana</button>
                         </div>
                     </div>
                 </div>
@@ -662,7 +668,7 @@ const AppointmentsCalendar = () => {
                     ) : (
                         <div className="min-w-[560px]">
                             {/* Day headers */}
-                            <div className="sticky top-0 z-[100] bg-white border-b border-slate-100 grid"
+                            <div className="sticky top-0 z-10 bg-white border-b border-slate-100 grid"
                                 style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}>
                                 <div className="border-r border-slate-100" />
                                 {weekDays.map((day, i) => {
@@ -782,6 +788,14 @@ const AppointmentsCalendar = () => {
                         </div>
                     )}
                 </div>
+
+                {/* Mobile backdrop for detail panel */}
+                {selected && (
+                    <div
+                        className="fixed inset-0 bg-black/30 z-40 md:hidden"
+                        onClick={() => setSelected(null)}
+                    />
+                )}
 
                 {/* Detail panel */}
                 {selected && (

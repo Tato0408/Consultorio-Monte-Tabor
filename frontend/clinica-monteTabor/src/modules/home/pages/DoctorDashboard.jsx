@@ -54,7 +54,7 @@ const DoctorDashboard = () => {
     const s = stats || {};
 
     return (
-        <div className="p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
+        <div className="p-4 sm:p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
 
             {/* ── Header ── */}
             <div>

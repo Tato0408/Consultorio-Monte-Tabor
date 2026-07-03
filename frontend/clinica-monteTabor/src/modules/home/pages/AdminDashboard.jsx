@@ -63,7 +63,7 @@ const AdminDashboard = () => {
     const s = stats || {};
 
     return (
-        <div className="p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
+        <div className="p-4 sm:p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
 
             {/* ── Header ──────────────────────────────────────── */}
             <div>
@@ -78,10 +78,10 @@ const AdminDashboard = () => {
             {/* ── Resumen general ─────────────────────────────── */}
             <section>
                 <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-bold text-slate-700 uppercase tracking-widest">
+                    <h2 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest">
                         Resumen general
                     </h2>
-                    <span className="text-xs text-slate-400">Hoy, {todayLabel()}</span>
+                    <span className="text-xs text-slate-400 hidden sm:inline">Hoy, {todayLabel()}</span>
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <StatCard

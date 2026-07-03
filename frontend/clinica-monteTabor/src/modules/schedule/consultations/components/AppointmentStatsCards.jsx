@@ -1,7 +1,7 @@
 import { Calendar, Clock, CheckCircle2, Stethoscope } from "lucide-react";
 
 const StatCard = ({ icon: Icon, iconBg, label, value, isLoading }) => (
-    <div className="flex items-center gap-4 bg-white border border-slate-100 rounded-xl px-5 py-4 shadow-sm flex-1">
+    <div className="flex items-center gap-4 bg-white border border-slate-100 rounded-xl px-5 py-4 shadow-sm">
         <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
             <Icon className="text-white" size={20} />
         </div>
@@ -21,7 +21,7 @@ const AppointmentStatsCards = ({ stats, isLoading }) => {
     const next = stats.nextAppointment;
 
     return (
-        <div className="flex gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard
                 icon={Calendar}
                 iconBg="bg-[#6d4ed1]"
@@ -45,7 +45,7 @@ const AppointmentStatsCards = ({ stats, isLoading }) => {
             />
 
             {/* Card destacada de próxima cita */}
-            <div className="bg-[#0b66d6] rounded-xl px-5 py-4 shadow-md shadow-blue-100 flex-1 relative overflow-hidden text-white">
+            <div className="bg-[#0b66d6] rounded-xl px-5 py-4 shadow-md shadow-blue-100 relative overflow-hidden text-white">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-blue-100 mb-1">
                     Próxima cita
                 </div>

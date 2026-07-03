@@ -15,7 +15,7 @@ const PhysicalExamCard = ({ readOnly }) => {
 
     return (
         <SectionCard title="Examen Físico">
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 {FIELDS.map((field) => (
                     <div key={field.key}>
                         <label className="text-xs text-slate-500 block mb-1">{field.label}</label>

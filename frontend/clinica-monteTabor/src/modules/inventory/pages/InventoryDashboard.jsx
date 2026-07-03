@@ -29,24 +29,26 @@ const InventoryDashboard = () => {
   const triggerRefresh = () => setRefresh((r) => r + 1);
 
   return (
-    <div className="p-8 bg-white min-h-screen w-full font-sans text-slate-700">
+    <div className="p-4 sm:p-8 bg-white min-h-screen w-full font-sans text-slate-700">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Inventario</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Inventario</h1>
           <p className="text-sm text-slate-400 mt-1">Gestiona los insumos médicos y el stock de tu clínica</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">
+        <div className="flex items-center gap-3 sm:flex-shrink-0">
+          <button className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">
             <Download className="w-4 h-4" />
-            Exportar reporte
+            <span className="hidden sm:inline">Exportar reporte</span>
+            <span className="sm:hidden">Exportar</span>
           </button>
           <button
             onClick={() => setModal("add")}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            Agregar producto
+            <span className="hidden sm:inline">Agregar producto</span>
+            <span className="sm:hidden">Agregar</span>
           </button>
         </div>
       </div>
@@ -55,8 +57,8 @@ const InventoryDashboard = () => {
       <InventoryStats stats={stats} />
 
       {/* Table + Sidebar */}
-      <div className="grid grid-cols-12 gap-6 mt-6">
-        <div className="col-span-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+        <div className="lg:col-span-8">
           <h2 className="text-base font-semibold text-slate-800 mb-3">Productos / Insumos</h2>
           <InventoryTable
             onEdit={(item) => { setEditItem(item); setModal("edit"); }}
@@ -64,7 +66,7 @@ const InventoryDashboard = () => {
             refreshTrigger={refresh}
           />
         </div>
-        <div className="col-span-4">
+        <div className="lg:col-span-4">
           <InventoryAlerts
             stats={stats}
             onStockEntry={() => setModal("stock")}

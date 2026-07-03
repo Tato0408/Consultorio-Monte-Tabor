@@ -28,7 +28,7 @@ const InventoryCharts = ({ refreshTrigger }) => {
   const totalUnidades  = topItems.reduce((s, i) => s + i.value, 0);
 
   return (
-    <div className="grid grid-cols-3 gap-5">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
       {/* Consumo de insumos – últimos 7 días */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
@@ -63,8 +63,8 @@ const InventoryCharts = ({ refreshTrigger }) => {
           <div className="h-[140px] flex items-center justify-center text-xs text-slate-400">Sin datos</div>
         ) : (
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <ResponsiveContainer width={140} height={140}>
+            <div className="relative w-36 h-36 flex-shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={topItems} cx="50%" cy="50%" innerRadius={45} outerRadius={65} dataKey="value" strokeWidth={2}>
                     {topItems.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}

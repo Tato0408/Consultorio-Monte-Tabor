@@ -17,11 +17,11 @@ const IconComponent = ({ name, className, size = 18 }) => {
     const Icon = Icons[name];
     return Icon ? <Icon className={className} size={size} /> : <Icons.HelpCircle className={className} size={size} />;
 };
- 
-const SideBar = () => {
+
+const SideBar = ({ onClose = () => {} }) => {
     const location = useLocation();
     const { userType, isLoading } = useAuth();
- 
+
     // Mientras se verifica la sesión (GET /auth/me) no sabemos el rol real todavía.
     // Evitamos renderizar el menú con un rol incorrecto/vacío en ese instante.
     if (isLoading) {
@@ -63,11 +63,18 @@ const SideBar = () => {
         <aside className="w-65 h-screen bg-white border-r border-slate-100 flex flex-col p-4 select-none">
  
             <div className="flex items-center gap-3 px-2 py-4 mb-2">
-                <div className="w-10 h-10 bg-[#0b66d6] text-white flex items-center justify-center font-bold text-xl shadow-md shadow-blue-100"
+                <div className="w-10 h-10 bg-[#0b66d6] text-white flex items-center justify-center font-bold text-xl shadow-md shadow-blue-100 flex-shrink-0"
                     style={{ clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)' }}>
                     T
                 </div>
-                <span className="font-bold text-slate-800 text-lg tracking-wide">Monte Tabor</span>
+                <span className="font-bold text-slate-800 text-lg tracking-wide flex-1">Monte Tabor</span>
+                <button
+                    onClick={onClose}
+                    className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors flex-shrink-0"
+                    aria-label="Cerrar menú"
+                >
+                    <Icons.X className="w-4 h-4" />
+                </button>
             </div>
  
             <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
