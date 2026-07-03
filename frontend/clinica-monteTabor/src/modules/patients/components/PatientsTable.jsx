@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MoreVertical, Edit2, Trash2 } from "lucide-react";
 import GenericTable from "@/components/ui/GenericTable";
 
-const PatientsTable = ({ patients, loading, onAdd, onEdit, onDelete }) => {
+const PatientsTable = ({ patients, loading, onAdd, onEdit, onDelete, onSelectPatient }) => {
   const [activeMenuId, setActiveMenuId] = useState(null);
 
   const columns = [
@@ -79,6 +79,7 @@ const PatientsTable = ({ patients, loading, onAdd, onEdit, onDelete }) => {
       searchFields={["name", "last_name", "dui", "email"]}
       onAdd={onAdd}
       addLabel="Agregar Paciente"
+      onRowClick={onSelectPatient}
     />
   );
 };

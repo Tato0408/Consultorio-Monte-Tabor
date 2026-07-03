@@ -71,6 +71,7 @@ const PatientsList = () => {
             onAdd={handleOpenCreate}
             onEdit={handleOpenEdit}
             onDelete={deletePatient}
+            onSelectPatient={selectPatient}
           />
         </div>
 

@@ -135,6 +135,7 @@ const DoctorsTable = ({
       searchFields={["name", "last_name", "email"]} // Filtra interactivamente usando estos campos
       onAdd={onOpenForm}
       addLabel="Agregar Doctor"
+      onRowClick={onSelectDoctor}
     />
   );
 };

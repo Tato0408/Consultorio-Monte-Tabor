@@ -106,6 +106,7 @@ const NurseTable = ({ nurses, loading, selectedNurse, onSelect, onAdd, onEdit, o
       searchFields={["name", "last_name", "dui"]} // Campos para la búsqueda combinada full-name/dui
       onAdd={onAdd}
       addLabel="Añadir Enfermera"
+      onRowClick={onSelect}
     />
   );
 };

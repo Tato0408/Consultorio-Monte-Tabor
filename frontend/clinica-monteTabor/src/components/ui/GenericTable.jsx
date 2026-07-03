@@ -13,7 +13,8 @@ const GenericTable = ({
   searchFields = [],
   onAdd,
   addLabel = "Agregar",
-  showNurseFilter = false, // <-- Nueva Prop condicional
+  showNurseFilter = false,
+  onRowClick,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [nurseFilter, setNurseFilter] = useState("all"); // 'all' | 'yes' | 'no'
@@ -129,7 +130,7 @@ const GenericTable = ({
                   const openUpwards = rowIndex >= currentItems.length - 2 && currentItems.length > 2;
 
                   return (
-                    <tr key={item._id || rowIndex} className="hover:bg-gray-50/50 transition-colors">
+                    <tr key={item._id || rowIndex} onClick={() => onRowClick && onRowClick(item)} className="hover:bg-gray-50/50 transition-colors">
                       {columns.map((col, colIdx) => (
                         <td
                           key={colIdx}
