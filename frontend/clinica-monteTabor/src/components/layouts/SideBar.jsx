@@ -18,11 +18,12 @@ const IconComponent = ({ name, className, size = 18 }) => {
     return Icon ? <Icon className={className} size={size} /> : <Icons.HelpCircle className={className} size={size} />;
 };
 
+//controla el menú de navegación principal del sistema, aplicando un filtrado de opciones según el rol del usuario autenticado  y manejando estados colapsables
 const SideBar = ({ onClose = () => {} }) => {
     const location = useLocation();
     const { userType, isLoading } = useAuth();
 
-    // Mientras se verifica la sesión (GET /auth/me) no sabemos el rol real todavía.
+    // Mientras se verifica la sesión (GET /auth/me) no sabemos el rol real todavía entonces se renderiza un estado de carga
     // Evitamos renderizar el menú con un rol incorrecto/vacío en ese instante.
     if (isLoading) {
         return (
@@ -37,6 +38,8 @@ const SideBar = ({ onClose = () => {} }) => {
  
     const currentUserRole = userType;
  
+    //filtra los modulos principales de la barra lateral basándose en el arreglo allowedRoles, si el módulo contiene subelementos (subItems), también filtra los hijos asegurando que solo se muestren rutas autorizadas
+
     // 1. Filtrar los módulos principales según el rol
     const filteredMenu = sideBarMenu.filter(item =>
         item.allowedRoles.includes(currentUserRole)
@@ -51,6 +54,8 @@ const SideBar = ({ onClose = () => {} }) => {
         return item;
     });
  
+//analiza las subrutas del menú filtrado ysi la URL del navegador ('location.pathname') coincide con el path de algún subItem, extrae su índice para que el acordeón se renderice abierto por defecto
+
     // Acordeones que deben abrirse por defecto: aquellos que contienen la ruta activa
     const defaultOpenValues = filteredMenu.reduce((acc, item, index) => {
         if (item.subItems?.some(sub => sub.path === location.pathname)) {

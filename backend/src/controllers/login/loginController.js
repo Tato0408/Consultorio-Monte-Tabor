@@ -6,6 +6,8 @@ import nurseModel from "../../models/nurses/nurses.js";
 import doctorModel from "../../models/doctors/doctors.js";
 import receptionistModel from "../../models/receptionist/receptionist.js";
 
+//LoginController se ejecuta una vez cuando el usuario escribe sus credenciales en el formulario de login, y da click en iniciar sesion, valida la identidad y aplica el inicio de sesion dependiendo del rol
+
 const loginController = {};
 
 //mapeo del nombre del rol con el su modelo para hacer busquedas dinamicas

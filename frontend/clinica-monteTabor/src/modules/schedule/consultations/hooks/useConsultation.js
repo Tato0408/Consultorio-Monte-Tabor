@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "@/lib/apiClient";
 
+// Estructura base con valores vacíos para inicializar o resetear el formulario de consulta médica
 const emptyConsultation = {
   clinical_data: {
     triage: {
@@ -47,13 +48,14 @@ const emptyConsultation = {
 };
 
 function useConsultation(appointmentId) {
-  const [defaultValues, setDefaultValues] = useState(emptyConsultation);
-  const [consultationId, setConsultationId] = useState(null);
-  const [appointment, setAppointment] = useState(null);
+  const [defaultValues, setDefaultValues] = useState(emptyConsultation); //datos del formulario
+  const [consultationId, setConsultationId] = useState(null); //id de la consulta
+  const [appointment, setAppointment] = useState(null); //id de la cita
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  // limpia el historial clínico y antecedentes del paciente mapeando sus propiedades
   const getPatientAntecedents = (clinicalHistory) => {
     if (!clinicalHistory) {
       return {
@@ -64,7 +66,7 @@ function useConsultation(appointmentId) {
       };
     }
 
-    // Hereditary: mapear relationship -> relative
+    // Mapea los antecedentes hereditarios asegurando compatibilidad de campos entre propiedades
     const hereditary = Array.isArray(clinicalHistory.hereditary)
       ? clinicalHistory.hereditary.map((item) => ({
           relative: item.relationship || item.relative || "",
@@ -73,7 +75,7 @@ function useConsultation(appointmentId) {
         }))
       : [];
 
-    // Pathological: mapear diagnosis -> type
+    // Mapea los antecedentes patológicos normalizando el nombre de la enfermedad y diagnóstico
     const pathological = Array.isArray(clinicalHistory.pathological)
       ? clinicalHistory.pathological.map((item) => ({
           disease: item.disease || "",
@@ -82,7 +84,7 @@ function useConsultation(appointmentId) {
         }))
       : [];
 
-    // non_pathological: puede ser string o array
+    // Normaliza antecedentes no patológicos soportando estructuras de tipo string directo o arrays
     let non_pathological = [];
     if (Array.isArray(clinicalHistory.non_pathological)) {
       non_pathological = clinicalHistory.non_pathological.map((item) => ({
@@ -95,7 +97,7 @@ function useConsultation(appointmentId) {
       non_pathological = [{ description: clinicalHistory.non_pathological }];
     }
 
-    // socio_ecological: puede ser string o array
+    // Normaliza antecedentes socioecológicos soportando estructuras de tipo string directo o arrays
     let socio_ecological = [];
     if (Array.isArray(clinicalHistory.socio_ecological)) {
       socio_ecological = clinicalHistory.socio_ecological.map((item) => ({
@@ -116,6 +118,7 @@ function useConsultation(appointmentId) {
     };
   };
 
+  // Trae los datos del appointment y de la consulta médica relacionada
   const fetchConsultation = useCallback(async () => {
     if (!appointmentId) {
       setIsLoading(false);
@@ -127,17 +130,20 @@ function useConsultation(appointmentId) {
 
     try {
       // 1. Obtener la cita (appointment)
+      // Solicita al backend los datos de la cita médica utilizando el id correspondiente
       const apptRes = await apiClient(`/appointments/${appointmentId}`);
       console.log(" Appointment response:", apptRes);
       setAppointment(apptRes);
 
       // 2. Extraer los antecedentes del paciente (del appointment)
+      // Procesa y extrae de forma segura los antecedentes clínicos adjuntos al paciente de la cita
       const clinicalHistory = apptRes.patient_id?.clinical_history || {};
       const patientAntecedents = getPatientAntecedents(clinicalHistory);
       console.log(" Patient antecedents:", patientAntecedents);
 
       // 3. Obtener la consulta (si existe)
       try {
+        // Intenta obtener una consulta médica previamente guardada para esta cita específica
         const consultRes = await apiClient(
           `/consultations/by-appointment/${appointmentId}`
         );
@@ -148,6 +154,7 @@ function useConsultation(appointmentId) {
           const consultationAntecedents = consultRes.antecedents || {};
 
           // si la consulta tiene antecedentes, usarlos; si no, usar los del paciente
+          // Combina antecedentes usando prioritariamente los de la consulta o del paciente
           const combinedAntecedents = {
             hereditary:
               consultationAntecedents.hereditary?.length > 0
@@ -167,11 +174,12 @@ function useConsultation(appointmentId) {
                 : patientAntecedents.socio_ecological,
           };
 
-          // Asegurar que procedure sea un array
+          // Valida que procedure sea un array
           const procedureData = Array.isArray(consultRes.procedure)
             ? consultRes.procedure
             : [];
 
+            // Agrupa los datos normalizados de la consulta para popular los valores por defecto del formulario
           const consultationData = {
             ...consultRes,
             antecedents: combinedAntecedents,
@@ -181,6 +189,7 @@ function useConsultation(appointmentId) {
           setDefaultValues((prev) => ({ ...prev, ...consultationData }));
           setConsultationId(consultRes._id);
         } else {
+          // Inicializa un procedimiento preventivo por defecto si viene pre-agendado en la cita médica
           let procedureData = [];
           if (apptRes.procedure_id) {
             procedureData = [
@@ -196,6 +205,7 @@ function useConsultation(appointmentId) {
             ];
           }
 
+          // Prepara la estructura base de una nueva consulta inyectando los antecedentes del historial del paciente
           const newConsultation = {
             ...emptyConsultation,
             antecedents: patientAntecedents,
@@ -205,7 +215,8 @@ function useConsultation(appointmentId) {
           setDefaultValues(newConsultation);
         }
       } catch (consultErr) {
-        // Si es 404, no hay consulta - CREAR NUEVA
+        // Si es 404, no hay consulta
+        // Captura excepciones de consulta inexistente (404) e inicializa un registro nuevo en blanco
         if (consultErr.status === 404 || consultErr.response?.status === 404) {
           let procedureData = [];
           if (apptRes.procedure_id) {
@@ -243,11 +254,13 @@ function useConsultation(appointmentId) {
     }
   }, [appointmentId]);
 
+  // Ejecuta la petición de carga de datos automáticamente cada vez que el id de la cita cambia
   useEffect(() => {
     fetchConsultation();
   }, [fetchConsultation]);
 
   // Guardar la consulta
+  // Envía los datos recolectados del formulario para crear o actualizar el registro médico
   const save = useCallback(
     async (formValues, { markCompleted = true } = {}) => {
       if (!appointmentId) {
@@ -261,12 +274,14 @@ function useConsultation(appointmentId) {
         const patientId =
           appointment?.patient_id?._id || appointment?.patient_id;
 
+          // Construye el payload unificado adjuntando las llaves relacionales del paciente y la cita
         const payload = {
           appointment_id: appointmentId,
           patient_id: patientId,
           ...formValues,
         };
 
+        // determina dinamicamente el método HTTP y endpoint basándose en si el registro ya existe en mongo
         const response = consultationId
           ? await apiClient(`/consultations/${consultationId}`, {
               method: "PUT",
@@ -282,6 +297,7 @@ function useConsultation(appointmentId) {
         }
 
         if (markCompleted) {
+          // Si la bandera está activa, actualiza  el estado de la cita médica a completada 
           await apiClient(`/appointments/${appointmentId}/status`, {
             method: "PATCH",
             body: { status: "completed" },
@@ -299,6 +315,7 @@ function useConsultation(appointmentId) {
     [appointmentId, appointment, consultationId]
   );
 
+  // Retorna estados  de carga y métodospara el consumo del componente UI
   return {
     appointment,
     defaultValues,

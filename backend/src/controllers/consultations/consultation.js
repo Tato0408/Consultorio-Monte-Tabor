@@ -202,6 +202,7 @@ consultationController.getConsultationById = async (req, res) => {
   }
 }
 
+//Metodo que me permite mostrar las citas, y poder generar una consulta
 consultationController.getConsultationByAppointmentId = async (req, res) => {
   try {
     const { appointmentId } = req.params;

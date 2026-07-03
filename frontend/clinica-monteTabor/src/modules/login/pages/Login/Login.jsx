@@ -8,19 +8,21 @@ import { useAuth } from "@/context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login } = useAuth(); //Metodo de autenticacion
 
-  const [formData, setFormData] = useState({ email: "", password: "" });
-  const [errors, setErrors] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState("");
+  const [formData, setFormData] = useState({ email: "", password: "" }); // Datos del formulario
+  const [errors, setErrors] = useState({}); // Mensajes de validación de cliente
+  const [isLoading, setIsLoading] = useState(false); // Bloqueo de UI durante peticiones asíncronas
+  const [apiError, setApiError] = useState(""); // Control de errores directos del backend
 
+  //manejador dinámico que actualiza los inputs y limpia los errores en tiempo real
   const handleChange = (field) => (e) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
     if (apiError) setApiError("");
   };
 
+  // validacion la estructura del correo y la longitud mínima de la contraseña
   const validate = () => {
     const newErrors = {};
     if (!formData.email.trim()) {
@@ -36,6 +38,7 @@ const Login = () => {
     return newErrors;
   };
 
+  // Gestiona el envío del formulario, la llamada al contexto y las notificaciones
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
@@ -62,8 +65,10 @@ const Login = () => {
     try {
       console.log("Login admin:", formData);
 
+      // llama al método global de login y evalúa si fue exitoso
       const succes = await login(formData.email, formData.password);
 
+      // mensaje de bienvenida y redirección al panel principal del sistema
       if (succes) {
         Toast.fire({
         icon: "success",
@@ -71,6 +76,7 @@ const Login = () => {
       });
         navigate("/home");
       } else {
+        // mensaje de error en caso de credenciales inválidas detectadas por la petición
        Toast.fire({
         icon: "error",
         title: "No se pudo iniciar sesión",
