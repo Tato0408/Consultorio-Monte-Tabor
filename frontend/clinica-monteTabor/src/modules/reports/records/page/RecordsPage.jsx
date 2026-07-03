@@ -1,0 +1,43 @@
+import { useState } from "react";
+import useRecords from "../hooks/useRecords";
+import RecordsTable from "../components/RecordsTable";
+import RecordDetailPage from "../components/RecordDetailPage";
+
+const RecordsPage = () => {
+  const { records, loading, error, getRecordById } = useRecords();
+  const [selectedId, setSelectedId] = useState(null);
+
+  // Renderizado tipo SPA: en lugar de navegar a una ruta nueva, esta misma
+  // página intercambia entre el listado y el expediente del paciente
+  // seleccionado, tomando siempre la info de ese paciente puntual.
+  if (selectedId) {
+    return (
+      <RecordDetailPage
+        record={getRecordById(selectedId)}
+        onBack={() => setSelectedId(null)}
+      />
+    );
+  }
+
+  return (
+    <div className="px-10 py-8 text-slate-800">
+      <h1 className="mb-8 text-3xl font-normal text-slate-400">
+        Expedientes de pacientes
+      </h1>
+
+      {error && (
+        <div className="p-4 mb-6 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl font-medium">
+          {error}
+        </div>
+      )}
+
+      <RecordsTable
+        records={records}
+        loading={loading}
+        onRowClick={(row) => setSelectedId(row.id)}
+      />
+    </div>
+  );
+};
+
+export default RecordsPage;
