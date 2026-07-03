@@ -1,12 +1,12 @@
 import appointmentsModel from "../../models/appointments/appointments.js";
-import "../../models/patients/patients.js"; // ensures "Patients" is registered for populate
+import patientsModel from "../../models/patients/patients.js";
+import doctorsModel from "../../models/doctors/doctors.js";
 import "../../models/procedures/procedures.js"; // ensures "procedure" is registered for populate
 
 const appointmentsController = {};
 
-// Marca como "no_show" las citas "pending" cuya fecha/hora ya pasó.
-// Solo aplica a "pending": una "scheduled" que ya pasó pudo haberse
-// atendido y debe resolverla el personal (completed/cancelled), no el sistema.
+// Marca como "no_show" las citas "pending" cuya fecha/hora ya pasó. No
+// aplica a "scheduled", ya que esas las debe resolver el personal manualmente.
 async function expirePendingAppointments() {
     const now = new Date();
     const startOfToday = new Date(now);
@@ -27,7 +27,7 @@ async function expirePendingAppointments() {
     );
 }
 
-//SELECT
+// Lista citas con paginación, filtros y búsqueda.
 appointmentsController.getAppointments = async (req, res) => {
     try {
         await expirePendingAppointments();
@@ -38,13 +38,16 @@ appointmentsController.getAppointments = async (req, res) => {
             dateTo,
             status,
             doctor_id,
+            type,
+            search,
+            sortOrder,
             page = 1,
             limit = 10,
         } = req.query;
 
         const filters = {};
 
-        //Filtro por un dia exacto
+        // Filtro por un día exacto.
         if (date) {
             const start = new Date(date);
             start.setHours(0, 0, 0, 0);
@@ -53,7 +56,7 @@ appointmentsController.getAppointments = async (req, res) => {
             filters.date = { $gte: start, $lte: end };
         }
 
-        //Filtro por rango de fechas, desde / hasta
+        // Filtro por rango de fechas.
         if (dateFrom || dateTo) {
             filters.date = filters.date || {};
             if (dateFrom) {
@@ -68,7 +71,7 @@ appointmentsController.getAppointments = async (req, res) => {
             }
         }
 
-        //Filtro por estado
+        // Filtro por estado; admite una lista separada por comas.
         if (status) {
             const statusList = status.split(",").map(s => s.trim());
             filters.status = statusList.length > 1 ? { $in: statusList } : statusList[0];
@@ -78,9 +81,35 @@ appointmentsController.getAppointments = async (req, res) => {
             filters.doctor_id = doctor_id;
         }
 
+        // Filtro por tipo (Consulta Médica General / Procedimiento).
+        if (type) {
+            filters.type = type;
+        }
+
+        // Búsqueda libre por paciente, doctor, tipo o descripción. Como
+        // patient_id/doctor_id son referencias, primero se buscan los ids que
+        // calzan con el texto y luego se filtran las citas por esos ids.
+        if (search) {
+            const regex = new RegExp(search, "i");
+            const [matchingPatients, matchingDoctors] = await Promise.all([
+                patientsModel.find({ $or: [{ name: regex }, { last_name: regex }] }).select("_id"),
+                doctorsModel.find({ $or: [{ name: regex }, { last_name: regex }] }).select("_id"),
+            ]);
+
+            filters.$or = [
+                { type: regex },
+                { description: regex },
+                { patient_id: { $in: matchingPatients.map(p => p._id) } },
+                { doctor_id: { $in: matchingDoctors.map(d => d._id) } },
+            ];
+        }
+
         const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
         const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
         const skip = (pageNumber - 1) * limitNumber;
+
+        // Orden por fecha: ascendente por defecto, descendente si se pide.
+        const dateDirection = sortOrder === "desc" ? -1 : 1;
 
         const [appointments, total] = await Promise.all([
             appointmentsModel
@@ -88,7 +117,7 @@ appointmentsController.getAppointments = async (req, res) => {
                 .populate("doctor_id", "name last_name specialty img_url")
                 .populate({ path: "patient_id", model: "Patients", select: "name last_name" })
                 .populate({ path: "procedure_id", model: "procedure", select: "name" })
-                .sort({ date: 1, start_time: 1 })
+                .sort({ date: dateDirection, start_time: dateDirection })
                 .skip(skip)
                 .limit(limitNumber),
             appointmentsModel.countDocuments(filters),
@@ -110,33 +139,33 @@ appointmentsController.getAppointments = async (req, res) => {
     }
 };
 
-//Get para resumen del dia
+// Resumen de citas del día: contadores y la próxima cita confirmada.
 appointmentsController.getAppointmentsStats = async (req, res) => {
     try {
         const { date } = req.query;
- 
+
         const targetDate = date ? new Date(date) : new Date();
         const start = new Date(targetDate);
         start.setHours(0, 0, 0, 0);
         const end = new Date(targetDate);
         end.setHours(23, 59, 59, 999);
- 
+
         const dayFilter = { date: { $gte: start, $lte: end } };
- 
+
         const [scheduled, waiting, completed] = await Promise.all([
             appointmentsModel.countDocuments({ ...dayFilter, status: { $in: ["scheduled", "confirmed", "completed"] } }),
             appointmentsModel.countDocuments({ ...dayFilter, status: "confirmed" }),
             appointmentsModel.countDocuments({ ...dayFilter, status: "completed" }),
         ]);
- 
-        // 1. Buscar próxima cita confirmada HOY con hora >= ahora
+
+        // Busca la próxima cita confirmada de hoy con hora igual o mayor a la actual.
         let nextAppointment = await appointmentsModel
             .findOne({ ...dayFilter, status: "confirmed", start_time: { $gte: currentTimeString() } })
             .sort({ start_time: 1 })
             .populate("doctor_id", "name last_name specialty img_url")
             .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
- 
-        // 2. Si no quedan citas confirmadas hoy, buscar la siguiente en días futuros
+
+        // Si no hay ninguna hoy, busca la siguiente en días futuros.
         if (!nextAppointment) {
             nextAppointment = await appointmentsModel
                 .findOne({ date: { $gt: end }, status: "confirmed" })
@@ -144,7 +173,7 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
                 .populate("doctor_id", "name last_name specialty img_url")
                 .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
         }
- 
+
         return res.status(200).json({
             scheduled,
             waiting,
@@ -156,8 +185,8 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
- 
-// Helper: hora actual en formato "HH:mm" para comparar contra start_time (string)
+
+// Retorna la hora actual en formato "HH:mm" para comparar contra start_time.
 function currentTimeString() {
     const now = new Date();
     const hours = String(now.getHours()).padStart(2, "0");
@@ -165,14 +194,13 @@ function currentTimeString() {
     return `${hours}:${minutes}`;
 }
 
-//SELECT BY ID
+// Trae una cita puntual con los datos del paciente, doctor y enfermera.
 appointmentsController.getAppointmentById = async (req, res) => {
     try {
         const { id } = req.params;
 
         await expirePendingAppointments();
 
-        // Buscamos por ID y le aplicamos el populate para tener los datos del paciente completo
         const appointment = await appointmentsModel.findById(id)
             .populate({ path: "patient_id", model: "Patients", select: "name last_name phone gender birth_date dui clinical_history.blood_type email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social" })
             .populate("doctor_id", "name last_name")
@@ -189,6 +217,7 @@ appointmentsController.getAppointmentById = async (req, res) => {
     }
 };
 
+// Calcula los horarios libres de un doctor para una fecha y duración dadas.
 appointmentsController.getAvailableSlots = async (req, res) => {
     try {
         const { doctor_id, date, duration = 30 } = req.query;
@@ -201,7 +230,7 @@ appointmentsController.getAvailableSlots = async (req, res) => {
 
         const appointmentDate = new Date(date);
 
-        // Todas las citas del doctor ese día
+        // Citas del doctor ese día (las canceladas no ocupan horario).
         const appointments = await appointmentsModel.find({
             doctor_id,
             date: {
@@ -238,6 +267,7 @@ appointmentsController.getAvailableSlots = async (req, res) => {
             "4:30 PM",
         ];
 
+        // Convierte "hh:mm AM/PM" a minutos desde medianoche.
         const toMinutes = (time) => {
             const [clock, period] = time.split(" ");
             let [h, m] = clock.split(":").map(Number);
@@ -250,14 +280,13 @@ appointmentsController.getAvailableSlots = async (req, res) => {
 
         const clinicClose = toMinutes("5:00 PM");
 
+        // Descarta los slots que terminarían después del cierre o que ya están ocupados.
         const availableSlots = allSlots.filter(slot => {
             const start = toMinutes(slot);
 
-            // Que termine antes de cerrar
             if (start + Number(duration) > clinicClose)
                 return false;
 
-            // Que no esté ocupado
             return !occupied.includes(slot);
         });
 
@@ -273,7 +302,7 @@ appointmentsController.getAvailableSlots = async (req, res) => {
     }
 };
 
-//INSERT
+// Crea una cita nueva.
 appointmentsController.insertAppointment = async (req, res) => {
     try {
         let {
@@ -293,18 +322,17 @@ appointmentsController.insertAppointment = async (req, res) => {
             cancellation_reason,
         } = req.body;
 
-        //VALIDACIONES
-        //Sanitizar
+        // Sanitiza los campos de texto.
         type = type?.trim();
         description = description?.trim();
         cancellation_reason = cancellation_reason?.trim();
 
-        //campos requeridos
+        // Valida que estén los campos obligatorios.
         if (!doctor_id || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
             return res.status(400).json({ message: "Please fill all the required fields." });
         }
 
-        //Longitud de caracteres
+        // Valida la longitud de la descripción si se envió.
         if (description && (description.length < 3 || description.length > 500)) {
             return res
                 .status(400)
@@ -319,6 +347,7 @@ appointmentsController.insertAppointment = async (req, res) => {
             "no_show"
         ];
 
+        // Valida que el status sea uno de los permitidos.
         if (!validStatus.includes(status)) {
             return res.status(400).json({ message: "Invalid appointment status" });
         }
@@ -348,7 +377,7 @@ appointmentsController.insertAppointment = async (req, res) => {
     }
 };
 
-//UPDATE
+// Actualiza una cita existente.
 appointmentsController.updateAppointment = async (req, res) => {
     try {
         let {
@@ -367,18 +396,17 @@ appointmentsController.updateAppointment = async (req, res) => {
             cancellation_reason,
         } = req.body;
 
-        //VALIDACIONES
-        //Sanitizar
+        // Sanitiza los campos de texto.
         type = type?.trim();
         description = description?.trim();
         cancellation_reason = cancellation_reason?.trim();
 
-        //campos requeridos
+        // Valida que estén los campos obligatorios.
         if (!doctor_id || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
             return res.status(400).json({ message: "Please fill all the required fields." });
         }
 
-        //Longitud de caracteres
+        // Valida la longitud de la descripción si se envió.
         if (description && (description.length < 3 || description.length > 500)) {
             return res
                 .status(400)
@@ -393,6 +421,7 @@ appointmentsController.updateAppointment = async (req, res) => {
             "no_show"
         ];
 
+        // Valida que el status sea uno de los permitidos.
         if (!validStatus.includes(status)) {
             return res.status(400).json({ message: "Invalid appointment status" });
         }
@@ -433,7 +462,7 @@ appointmentsController.updateAppointment = async (req, res) => {
     }
 };
 
-//DELETE
+// Elimina una cita.
 appointmentsController.deleteAppointment = async (req, res) => {
     try {
         const appointment = await appointmentsModel.findByIdAndDelete(req.params.id);
@@ -447,30 +476,30 @@ appointmentsController.deleteAppointment = async (req, res) => {
     }
 };
 
-//PATCH de status
+// Cambia únicamente el status de una cita (y el motivo si se cancela).
 appointmentsController.updateAppointmentStatus = async (req, res) => {
     try {
         const { status, cancellation_reason } = req.body;
- 
+
         if (!status) {
             return res.status(400).json({ message: "Status is required." });
         }
- 
+
         const update = { status };
         if (status === "cancelled" && cancellation_reason) {
             update.cancellation_reason = cancellation_reason.trim();
         }
- 
+
         const appointmentUpdated = await appointmentsModel.findByIdAndUpdate(
             req.params.id,
             update,
             { new: true }
         );
- 
+
         if (!appointmentUpdated) {
             return res.status(404).json({ message: "Appointment not found" });
         }
- 
+
         return res.status(200).json({ message: "Status updated successfully", data: appointmentUpdated });
     } catch (error) {
         console.log("error" + error);
@@ -478,23 +507,23 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
     }
 };
 
-//Get de historial
+// Trae las citas completadas del día, para el historial.
 appointmentsController.getAppointmentsHistory = async (req, res) => {
     try {
         const { date, limit = 5 } = req.query;
- 
+
         const targetDate = date ? new Date(date) : new Date();
         const start = new Date(targetDate);
         start.setHours(0, 0, 0, 0);
         const end = new Date(targetDate);
         end.setHours(23, 59, 59, 999);
- 
+
         const history = await appointmentsModel
             .find({ date: { $gte: start, $lte: end }, status: "completed" })
             .sort({ updatedAt: -1 })
             .limit(Math.max(parseInt(limit, 10) || 5, 1))
             .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
- 
+
         return res.status(200).json(history);
     } catch (error) {
         console.log("error" + error);
