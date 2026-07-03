@@ -1,0 +1,153 @@
+// src/features/consultations/components/ProcedureRow.jsx
+import { useFieldArray, useFormContext } from "react-hook-form";
+import { Plus, Trash2 } from "lucide-react";
+import useInventory from "@/modules/inventory/hooks/useInventory";
+import useProcedures from "@/modules/procedures/hooks/useProcedures";
+import { useDoctors } from "@/modules/doctors/hooks/useDoctors";
+import { useEffect } from "react";
+
+const ProcedureRow = ({ index, onRemove, readOnly }) => {
+    const { control, register, setValue, watch } = useFormContext();
+    const { inventory, isLoading: isLoadingInventory } = useInventory();
+    const { procedures, loading: isLoadingProcedures, getProcedureById } = useProcedures();
+    const { doctors, isLoading: isLoadingDoctors } = useDoctors();
+
+    const {
+        fields: materials,
+        append: appendMaterial,
+        remove: removeMaterial,
+    } = useFieldArray({
+        control,
+        name: `procedure.${index}.material_used`,
+    });
+
+    const selectedProcedureId = watch(`procedure.${index}.procedure_id`);
+    const selectedProcedure = getProcedureById(selectedProcedureId);
+
+    const handleProcedureChange = (procedureId) => {
+        setValue(`procedure.${index}.procedure_id`, procedureId);
+        const procedure = getProcedureById(procedureId);
+        if (procedure) {
+            setValue(`procedure.${index}._procedure_name`, procedure.name);
+        }
+    };
+
+    // Comentario para debugear que traigo en cada procedimiento
+    useEffect(() => {
+        console.log(`📋 Procedure row ${index} - selected ID:`, selectedProcedureId);
+        console.log(`📋 Procedure row ${index} - selected procedure:`, selectedProcedure);
+    }, [selectedProcedureId, selectedProcedure, index]);
+
+    return (
+        <div className="border border-slate-100 rounded-lg p-3">
+            <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                    <label className="text-xs text-slate-500 block mb-1">Procedimiento</label>
+                    <select
+                        disabled={readOnly || isLoadingProcedures}
+                        value={selectedProcedureId ?? ""}
+                        onChange={(e) => handleProcedureChange(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                    >
+                        <option value="">
+                            {isLoadingProcedures ? "Cargando procedimientos..." : "Selecciona un procedimiento"}
+                        </option>
+                        {procedures.map((proc) => (
+                            <option key={proc._id} value={proc._id}>
+                                {proc.name}
+                            </option>
+                        ))}
+                    </select>
+                    {selectedProcedure?.price != null && (
+                        <p className="text-[11px] text-slate-400 mt-1">
+                            Precio referencia: ${selectedProcedure.price}
+                        </p>
+                    )}
+                </div>
+
+                <div>
+                    <label className="text-xs text-slate-500 block mb-1">Médico ejecutante</label>
+                    <select
+                        disabled={readOnly || isLoadingDoctors}
+                        {...register(`procedure.${index}.doctor_id`)}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                    >
+                        <option value="">
+                            {isLoadingDoctors ? "Cargando médicos..." : "Selecciona un médico"}
+                        </option>
+                        {doctors.map((doc) => (
+                            <option key={doc._id} value={doc._id}>
+                                {doc.name} {doc.last_name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            <label className="text-xs text-slate-500 block mb-1">Notas del procedimiento</label>
+            <textarea
+                rows={2}
+                disabled={readOnly}
+                {...register(`procedure.${index}.notes`)}
+                className="w-full border border-slate-200 rounded-lg p-2 text-sm mb-3 disabled:bg-slate-50"
+            />
+
+            <label className="text-xs text-slate-500 block mb-1">Material utilizado</label>
+            <div className="space-y-2 mb-2">
+                {materials.map((material, materialIndex) => (
+                    <div key={material.id} className="grid grid-cols-[1fr_90px_auto] gap-2 items-center">
+                        <select
+                            disabled={readOnly || isLoadingInventory}
+                            {...register(`procedure.${index}.material_used.${materialIndex}.inventory_id`)}
+                            className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                        >
+                            <option value="">
+                                {isLoadingInventory ? "Cargando insumos..." : "Selecciona un insumo"}
+                            </option>
+                            {inventory.map((item) => (
+                                <option key={item._id} value={item._id}>
+                                    {item.name} (stock: {item.stock} {item.unit})
+                                </option>
+                            ))}
+                        </select>
+
+                        <input
+                            type="number"
+                            min={1}
+                            placeholder="Cant."
+                            disabled={readOnly}
+                            {...register(`procedure.${index}.material_used.${materialIndex}.quantity`, {
+                                valueAsNumber: true,
+                            })}
+                            className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                        />
+
+                        {!readOnly && (
+                            <button type="button" onClick={() => removeMaterial(materialIndex)} className="text-slate-400 hover:text-red-500">
+                                <Trash2 size={16} />
+                            </button>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            {!readOnly && (
+                <button
+                    type="button"
+                    onClick={() => appendMaterial({ inventory_id: "", quantity: 1 })}
+                    className="flex items-center gap-1 text-xs text-[#0b66d6] font-medium"
+                >
+                    <Plus size={14} /> Agregar material
+                </button>
+            )}
+
+            {!readOnly && (
+                <button type="button" onClick={onRemove} className="flex items-center gap-1 text-xs text-red-500 mt-3">
+                    <Trash2 size={14} /> Quitar procedimiento
+                </button>
+            )}
+        </div>
+    );
+};
+
+export default ProcedureRow;

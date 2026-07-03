@@ -16,4 +16,5 @@ router.route("/").post(
 router.route("/verifyCodeEmail")
 .post(registerDoctorController.verifyCode);
 
+
 export default router;

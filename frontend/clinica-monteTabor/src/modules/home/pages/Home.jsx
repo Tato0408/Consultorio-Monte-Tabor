@@ -1,24 +1,18 @@
-import React from "react";
 import AdminDashboard from "./AdminDashboard";
 import DoctorDashboard from "./DoctorDashboard";
 import RecepcionistDashboard from "./RecepcionistDashboard";
 import NurseDashboard from "./NurseDashboard";
+import { useAuth } from "@/context/AuthContext";
 
-const Home = () =>{
-    const userRole = "admin"
+const Home = () => {
+    const { userType } = useAuth();
 
-    if(userRole === "admin") return <AdminDashboard/>
+    if (userType === "admin")        return <AdminDashboard />;
+    if (userType === "doctor")       return <DoctorDashboard />;
+    if (userType === "receptionist") return <RecepcionistDashboard />;
+    if (userType === "nurse")        return <NurseDashboard />;
 
-    if(userRole === "doctor") return <DoctorDashboard/>
+    return <div className="p-8 text-slate-400 text-sm">Cargando Dashboard...</div>;
+};
 
-    if(userRole === "receptionist") return <RecepcionistDashboard/>
-
-    if(userRole === "nurse") return <NurseDashboard/>
-
-    return (
-        <>
-        <div>Cargando Dashboard...</div>;
-        </>
-    )
-}
-export default Home
+export default Home;

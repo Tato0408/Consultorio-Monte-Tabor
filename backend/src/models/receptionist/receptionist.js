@@ -1,0 +1,68 @@
+import { Schema, model } from "mongoose";
+
+const receptionistSchema = new Schema(
+  {
+    img_url: {
+      type: String,
+      required: true,
+    },
+
+    name: {
+      type: String,
+      required: true,
+    },
+
+    last_name: {
+      type: String,
+      required: true,
+    },
+
+    dui: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+
+    phone: {
+      type: String,
+      required: true,
+    },
+
+  birth_date: {
+  type: Date,
+  required: true,
+},
+
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+
+    password: {
+      type: String,
+      required: true,
+    },
+
+    is_active: {
+      type: Boolean,
+      default: true,
+    },
+
+    is_verified: {
+      type: Boolean,
+      default: false,
+    },
+
+    loginAttempts: {
+      type: Number,
+      default: 0,
+    },
+  },
+  {
+    timestamps: true,
+    strict: false,
+  }
+);
+
+export default model("Recepcionists", receptionistSchema);

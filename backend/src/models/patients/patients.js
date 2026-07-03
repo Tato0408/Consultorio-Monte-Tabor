@@ -90,6 +90,9 @@ const patientSchema = new Schema({
         non_pathological: {
             type: String
         },
+        ecologycal_social:{
+            type: String
+        },
         blood_type: {
             type: String
         },
@@ -100,10 +103,10 @@ const patientSchema = new Schema({
             glucosa_mgdl: {
                 type: Number
             },
-            weigth: {
+            weight: {
                 type: Number
             },
-            heigth: {
+            height: {
                 type: Number
             },
             imc: {
@@ -171,4 +174,4 @@ const patientSchema = new Schema({
     timestamps: true,
     strict: false
 });
-export default model("patients", patientSchema)
+export default model("Patients", patientSchema)
