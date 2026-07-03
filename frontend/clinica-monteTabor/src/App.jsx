@@ -6,6 +6,8 @@ import Home from './modules/home/pages/Home';
 import PatientsList from './modules/patients/pages/PatientsList';
 import DoctorsList from './modules/doctors/pages/DoctorsList';
 import InventoryDashboard from './modules/inventory/pages/InventoryDashboard';
+import InventoryMovementsPage from './modules/inventory/pages/InventoryMovementsPage'
+import TreatmentsPage from './modules/treatments/pages/TreatmentsPage';
 import Login from './modules/login/pages/Login/Login';
 import Register from './modules/login/pages/Register/Register';
 import Recovery from './modules/login/pages/Recovery/Recovery';
@@ -22,6 +24,7 @@ import RolesPage from './modules/role/page/RolesPage';
 import ReportsPatientsPage from './modules/reports/patients/pages/PatientsPage'
 import ReportsDoctorsPage from './modules/reports/doctors/pages/DoctorPage'
 import ReportAppointmentPage from './modules/reports/appointments/pages/AppointmentsPage'
+import InventoryReportsPage from './modules/reports/inventory/pages/InventoryReportsPage'
 import NursesPage from './modules/nurses/pages/NursePage'
 import Appointments from "./modules/schedule/appointments/pages/Appointments"
 import AppointmentsForm from './modules/schedule/appointments/components/AppointmentsForm';
@@ -77,6 +80,8 @@ function AppRoutes() {
         <Route path="/calendar/consultations/:appointmentId" element={<ConsultationForm />} />
         <Route path="/calendar/schedule-config" element={<ScheduleConfig />} />
         <Route path="/inventory/products" element={<InventoryDashboard />} />
+        <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
+        <Route path="/inventory/treatments" element={<TreatmentsPage />} />
         <Route path="/procedures" element={<Procedures />} />
         <Route path="/system/profile" element={<ProfilePage />} />
         <Route path="/system/privileges" element={<RolesPage />} />
@@ -85,6 +90,7 @@ function AppRoutes() {
         <Route path="/reports/doctors" element={<ReportsDoctorsPage />} />
         <Route path="/users/nurses" element={<NursesPage />} />
         <Route path="/reports/records" element={<RecordsPage/>}/>
+        <Route path="/inventory/reports" element={<InventoryReportsPage />} />
       </Route>
       <Route path="/system/profile" element={<ProfilePage />} />
     </Routes >

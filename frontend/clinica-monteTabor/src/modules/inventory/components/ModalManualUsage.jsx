@@ -18,14 +18,14 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
   const [errors, setErrors]     = useState({});
   const [loading, setLoading]   = useState(false);
 
-  /* ── búsqueda por fila ──────────────────────────────────── */
+ 
   const searchInsumo = async (val, idx) => {
     updateRow(idx, { search: val, name: "", insumoId: "", suggestions: [], open: false });
     if (val.length < 2) return;
     try {
       const data = await getInsumos({ search: val, limit: 6 });
       updateRow(idx, { suggestions: data.insumos || [], open: true });
-    } catch { /* silencioso */ }
+    } catch { }
   };
 
   const selectInsumo = (insumo, idx) =>
@@ -47,7 +47,7 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
       i === idx ? { ...r, quantity: Math.max(1, Number(r.quantity) + delta) } : r
     ));
 
-  /* ── submit ─────────────────────────────────────────────── */
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const ve = {};
@@ -101,7 +101,7 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
           </div>
         )}
 
-        {/* ── Información general ───────────────────────────── */}
+
         <section>
           <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
             Información general
@@ -137,7 +137,7 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
           </div>
         </section>
 
-        {/* ── Insumos ───────────────────────────────────────── */}
+
         <section>
           <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
             Seleccionar insumos utilizados
@@ -145,7 +145,6 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
 
           {errors.items && <p className="text-xs text-red-500 mb-2">{errors.items}</p>}
 
-          {/* cabecera */}
           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-1 mb-2">
             <span className="text-xs text-gray-400 font-medium">Producto</span>
             <span className="text-xs text-gray-400 font-medium text-center w-28">Cantidad</span>
@@ -156,7 +155,7 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
           <div className="flex flex-col gap-3">
             {items.map((row, idx) => (
               <div key={idx} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center">
-                {/* Producto */}
+
                 <div className="relative">
                   {row.insumoId ? (
                     <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-3 py-2.5 bg-white">
@@ -198,7 +197,7 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
                   )}
                 </div>
 
-                {/* Stepper */}
+
                 <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden w-28">
                   <button type="button" onClick={() => changeQty(idx, -1)}
                     className="px-2.5 py-2 hover:bg-gray-100 text-gray-600 transition-colors">

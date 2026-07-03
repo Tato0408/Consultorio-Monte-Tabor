@@ -8,7 +8,7 @@ const SectionTitle = ({ children }) => (
   <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">{children}</h3>
 );
 
-/* ── Combobox de producto existente ─────────────────────── */
+
 const ProductCombobox = ({ value, onSelect, error }) => {
   const { getInsumos } = useInsumos();
   const [query, setQuery]           = useState(value?.name || "");
@@ -91,7 +91,7 @@ const ProductCombobox = ({ value, onSelect, error }) => {
   );
 };
 
-/* ── InfoField (campo de solo lectura auto-rellenado) ───── */
+/* InfoField (campo de solo lectura auto-rellenado)  */
 const InfoField = ({ label, value }) => (
   <div className="flex flex-col gap-1">
     <label className="text-xs font-medium text-gray-600">{label}</label>
@@ -101,7 +101,7 @@ const InfoField = ({ label, value }) => (
   </div>
 );
 
-/* ── Modal principal ────────────────────────────────────── */
+/* Modal principal  */
 const ModalAdjustStock = ({ onClose, onSuccess }) => {
   const { adjustStock } = useInsumos();
   const [product, setProduct]       = useState(null); // insumo seleccionado
@@ -176,7 +176,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
           </div>
         )}
 
-        {/* ── Producto ────────────────────────────────────── */}
+        {/* Producto */}
         <section>
           <SectionTitle>Producto</SectionTitle>
 
@@ -189,7 +189,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
             error={errors.product}
           />
 
-          {/* Info auto-rellenada al seleccionar */}
+         
           {product && (
             <div className="grid grid-cols-3 gap-3 mt-3">
               <InfoField label="Categoría"      value={product.category} />
@@ -199,7 +199,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
           )}
         </section>
 
-        {/* ── Tipo de ajuste ───────────────────────────────── */}
+       
         <section>
           <SectionTitle>Tipo de ajuste</SectionTitle>
 
@@ -230,7 +230,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
           </div>
         </section>
 
-        {/* ── Cantidad ─────────────────────────────────────── */}
+        
         <section>
           <SectionTitle>Cantidad</SectionTitle>
 
@@ -245,7 +245,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
               />
             </div>
 
-            {/* Stock resultante */}
+       
             {product && (
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">Stock resultante</label>
@@ -258,7 +258,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
           </div>
         </section>
 
-        {/* ── Responsable y motivo ─────────────────────────── */}
+     
         <section>
           <SectionTitle>Información del ajuste</SectionTitle>
 

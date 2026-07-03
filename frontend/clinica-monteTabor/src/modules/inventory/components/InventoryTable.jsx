@@ -31,7 +31,7 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger }) => {
   const [loading, setLoading] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
 
-  // CORRECCIÓN AQUÍ: Quitamos getInsumos de las dependencias para evitar el re-trigger del bucle
+ 
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -43,7 +43,7 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger }) => {
     } finally {
       setLoading(false);
     }
-  }, [refreshTrigger]); // <-- Solo se dispara de verdad si refreshTrigger cambia
+  }, [refreshTrigger]); 
 
   useEffect(() => { 
     load(); 
@@ -57,7 +57,6 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger }) => {
     setActiveMenuId(null);
   };
 
-  // Definición de las columnas unificadas con fotos, stocks y estados
   const columns = [
     {
       header: "Producto",

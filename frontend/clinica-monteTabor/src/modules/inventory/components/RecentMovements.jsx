@@ -1,27 +1,10 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import useInsumos from "../hooks/useInsumos";
-
-const TYPE_LABEL = {
-  "Treatment use":       "Uso en tratamiento",
-  "Stock entry":         "Entrada de stock",
-  "Inventory adjustment":"Ajuste de inventario",
-  "Manual use":          "Uso manual",
-};
-
-const TYPE_STYLE = {
-  "Treatment use":        "bg-blue-100 text-blue-600",
-  "Stock entry":          "bg-green-100 text-green-600",
-  "Inventory adjustment": "bg-orange-100 text-orange-500",
-  "Manual use":           "bg-purple-100 text-purple-600",
-};
-
-const fmtDate = (d) =>
-  new Date(d).toLocaleDateString("es-SV", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+import { TYPE_LABEL, TYPE_STYLE, fmtMovementDate as fmtDate } from "../utils/movementTypes";
 
 const RecentMovements = ({ refreshTrigger }) => {
+  const navigate = useNavigate();
   const { getMovements } = useInsumos();
   const [movements, setMovements] = useState([]);
   const [loading, setLoading]     = useState(false);
@@ -72,7 +55,11 @@ const RecentMovements = ({ refreshTrigger }) => {
           </tbody>
         </table>
       </div>
-      <button className="w-full mt-4 py-2.5 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 font-medium">
+      <button
+        type="button"
+        onClick={() => navigate("/inventory/movements")}
+        className="w-full mt-4 py-2.5 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 font-medium"
+      >
         Ver todos los movimientos
       </button>
     </div>

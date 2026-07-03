@@ -6,8 +6,8 @@ import useAppointmentsApi from "../hooks/useAppointmentsApi";
 import useSchedule from "../hooks/useSchedule";
 import { confirmDelete, showError } from "@/lib/alerts";
 
-// ── Constants ────────────────────────────────────────────────────────────────
-const HOUR_HEIGHT = 64; // px per hour
+
+const HOUR_HEIGHT = 64; 
 const START_HOUR  = 7;
 const END_HOUR    = 20;
 const HOURS       = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
@@ -37,7 +37,7 @@ const STATUS_LABELS = {
     pending:   "Pendiente",
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+
 const toISO = (d) => d.toISOString().split("T")[0];
 
 const timeToMins = (t) => {
@@ -91,7 +91,7 @@ const typeColors = (type, status) => {
     return TYPE_COLORS[type] ?? { dot: "bg-slate-400", card: "bg-slate-50 border-l-[3px] border-slate-300 text-slate-700" };
 };
 
-// ── Overlap column layout ────────────────────────────────────────────────────
+
 const computeColumns = (appts) => {
     if (!appts.length) return [];
     const sorted = [...appts].sort((a, b) => timeToMins(a.start_time) - timeToMins(b.start_time));
@@ -130,7 +130,7 @@ const computeColumns = (appts) => {
     return layout;
 };
 
-// ── Appointment dot with hover popup ─────────────────────────────────────────
+
 const ApptDot = ({ appt, col = 0, colIdx = 0, isSelected, onSelect }) => {
     const [hovered, setHovered] = useState(false);
     const startMins = timeToMins(appt.start_time);
@@ -188,7 +188,7 @@ const ApptDot = ({ appt, col = 0, colIdx = 0, isSelected, onSelect }) => {
     );
 };
 
-// ── Appointment card (isolated, no conflict) ─────────────────────────────────
+
 const ApptCard = ({ appt, col = 0, totalCols = 1, colIdx = 0, isSelected, onSelect }) => {
     const [hovered, setHovered] = useState(false);
     const startMins = timeToMins(appt.start_time);
@@ -258,7 +258,7 @@ const ApptCard = ({ appt, col = 0, totalCols = 1, colIdx = 0, isSelected, onSele
     );
 };
 
-// ── Break block on grid ──────────────────────────────────────────────────────
+
 const BreakCard = ({ brk }) => {
     const startMins = timeToMins(brk.start_time);
     const endMins   = timeToMins(brk.end_time);
@@ -286,7 +286,7 @@ const BreakCard = ({ brk }) => {
     );
 };
 
-// ── Detail panel ─────────────────────────────────────────────────────────────
+
 const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate }) => {
     const { updateAppointmentStatus } = useAppointmentsApi();
     const [cancelling, setCancelling] = useState(false);
@@ -410,7 +410,7 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate }) => {
     );
 };
 
-// ── Main page ────────────────────────────────────────────────────────────────
+
 const AppointmentsCalendar = () => {
     const navigate  = useNavigate();
     const { user, userType } = useAuth();
@@ -436,7 +436,7 @@ const AppointmentsCalendar = () => {
     }, [weekStart]);
     const today = toISO(new Date());
 
-    // Load doctors list for admin filter
+ 
     useEffect(() => {
         if (isDoctor) return;
         fetch("http://localhost:4000/api/doctors", { credentials: "include" })
@@ -445,7 +445,7 @@ const AppointmentsCalendar = () => {
             .catch(() => {});
     }, [isDoctor]);
 
-    // Load appointments
+
     useEffect(() => {
         setLoading(true);
         const params = { dateFrom: toISO(weekStart), dateTo: toISO(weekEnd), limit: 500 };
@@ -459,18 +459,18 @@ const AppointmentsCalendar = () => {
             .finally(() => setLoading(false));
     }, [weekStart, weekEnd, isDoctor, user?.id, filterStatus, filterDoctor, refresh]);
 
-    // Load stats
+    
     useEffect(() => {
         getAppointmentsStats(today).then(setStats).catch(() => {});
     }, [today, refresh]);
 
-    // Load schedule to render break blocks (only for logged-in doctor)
+
     useEffect(() => {
         if (!isDoctor || !user?.id) return;
         getSchedule(user.id).then(setScheduleData).catch(() => {});
     }, [isDoctor, user?.id]);
 
-    // Build break blocks indexed by ISO date, solo para días que están activos en weekly_availability
+    
     const breakBlocks = useMemo(() => {
         if (!scheduleData?.breaks?.length) return {};
         const map = {};
@@ -485,7 +485,7 @@ const AppointmentsCalendar = () => {
         return map;
     }, [scheduleData, weekDays]);
 
-    // Group by date, applying type filter client-side
+ 
     const byDay = useMemo(() => {
         const map = {};
         for (const a of appointments) {
@@ -502,7 +502,7 @@ const AppointmentsCalendar = () => {
     const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); };
     const triggerRefresh = () => setRefresh(r => r + 1);
 
-    // Current time offset (px) + label — updates every minute
+
     const [nowOffset, setNowOffset] = useState(calcNowOffset);
     const [nowLabel,  setNowLabel]  = useState(getNowLabel);
     useEffect(() => {

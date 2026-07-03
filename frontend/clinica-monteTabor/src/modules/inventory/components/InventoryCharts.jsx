@@ -29,7 +29,7 @@ const InventoryCharts = ({ refreshTrigger }) => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-      {/* Consumo de insumos – últimos 7 días */}
+      
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-slate-800">Consumo de insumos</h3>
@@ -51,7 +51,6 @@ const InventoryCharts = ({ refreshTrigger }) => {
         )}
       </div>
 
-      {/* Insumos más utilizados */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-slate-800">Insumos más utilizados</h3>
@@ -92,7 +91,7 @@ const InventoryCharts = ({ refreshTrigger }) => {
         </button>
       </div>
 
-      {/* Estado del inventario por categoría */}
+
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-slate-800">Estado del inventario</h3>

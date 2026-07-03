@@ -328,3 +328,108 @@ export const doctoresSections = [
     ],
   },
 ];
+
+// ─── INVENTARIO ───────────────────────────────────────────────────────────────
+
+export const inventarioTopCards = [
+  {
+    key: "medicamentos_recetados",
+    title: "Cantidad de medicamentos recetados",
+    toggles: ["Semanal", "Por día"],
+    chartData: {
+      Semanal: [
+        { label: "Ene", total: 28 },
+        { label: "Feb", total: 35 },
+        { label: "Mar", total: 30 },
+        { label: "Abr", total: 42 },
+        { label: "May", total: 38 },
+        { label: "Jun", total: 45 },
+        { label: "Jul", total: 40 },
+        { label: "Ago", total: 36 },
+        { label: "Sep", total: 48 },
+        { label: "Oct", total: 44 },
+      ],
+      "Por día": [
+        { label: "Lun", total: 12 },
+        { label: "Mar", total: 18 },
+        { label: "Mié", total: 15 },
+        { label: "Jue", total: 20 },
+        { label: "Vie", total: 16 },
+        { label: "Sáb", total: 9 },
+        { label: "Dom", total: 4 },
+      ],
+    },
+  },
+  {
+    key: "medicamentos_usados",
+    title: "Cantidad de medicamentos usados",
+    chartType: "bar",
+    chartData: {
+      "1 Abr 2026 – 1 May 2026": [
+        { label: "Ene", total: 22 },
+        { label: "Feb", total: 30 },
+        { label: "Mar", total: 26 },
+        { label: "Abr", total: 38 },
+        { label: "May", total: 34 },
+        { label: "Jun", total: 41 },
+        { label: "Jul", total: 36 },
+        { label: "Ago", total: 33 },
+        { label: "Sep", total: 45 },
+        { label: "Oct", total: 40 },
+      ],
+    },
+  },
+  {
+    key: "medicamentos_mas_usados",
+    title: "Medicamentos más usados",
+    subtitle: "Basado en el número de medicamentos recetados a los pacientes",
+    listItems: ["Paracetamol", "Azitromicina", "Ibuprofeno 400mg", "Dipirona Sódica", "Antibióticos (Varios)"],
+    linkLabel: "Ver el inventario",
+  },
+];
+
+export const inventarioSections = [
+  {
+    key: "estado_general",
+    title: "Estado general del inventario",
+    icon: "package",
+    rows: [
+      { proceso: "Total de productos registrados", actual: "148", anterior: "141", variacion: "+5.0%" },
+      { proceso: "Productos con stock disponible", actual: "121", anterior: "118", variacion: "+2.5%" },
+      { proceso: "Productos con stock bajo", badge: { label: "Stock bajo", color: "orange" }, actual: "19", anterior: "14", variacion: "+35.7%" },
+      { proceso: "Productos agotados", badge: { label: "Agotado", color: "red" }, actual: "8", anterior: "9", variacion: "-11.1%" },
+    ],
+  },
+  {
+    key: "categorias",
+    title: "Categorías de productos",
+    icon: "clipboardCheck",
+    rows: [
+      { proceso: "Medicamentos registrados", actual: "64", anterior: "60", variacion: "+6.7%" },
+      { proceso: "Materiales de curación y procedimientos", actual: "42", anterior: "40", variacion: "+5.0%" },
+      { proceso: "Insumos de enfermería", actual: "28", anterior: "27", variacion: "+3.7%" },
+      { proceso: "Equipos e instrumentos médicos", actual: "14", anterior: "14", variacion: "0.0%" },
+    ],
+  },
+  {
+    key: "movimientos",
+    title: "Movimientos de inventario",
+    icon: "plusCircle",
+    rows: [
+      { proceso: "Productos utilizados en consultas generales", actual: "312", anterior: "274", variacion: "+13.9%" },
+      { proceso: "Productos más utilizados en procedimientos", actual: "186", anterior: "148", variacion: "+25.7%" },
+      { proceso: "Productos utilizados en curaciones de enfermería", actual: "97", anterior: "83", variacion: "+16.9%" },
+      { proceso: "Total de unidades consumidas en el período", actual: "595", anterior: "505", variacion: "+17.8%" },
+    ],
+  },
+  {
+    key: "mas_utilizados",
+    title: "Productos más utilizados",
+    icon: "user",
+    rows: [
+      { proceso: "Productos más utilizados en consultas", actual: "Gasas estériles", anterior: "Gasas estériles", variacion: "—" },
+      { proceso: "Productos más utilizados en procedimientos", actual: "Guantes quirúrgicos", anterior: "Guantes quirúrgicos", variacion: "—" },
+      { proceso: "Medicamento más recetado", actual: "Ibuprofeno 400mg", anterior: "Ibuprofeno 400mg", variacion: "—" },
+    ],
+  },
+];

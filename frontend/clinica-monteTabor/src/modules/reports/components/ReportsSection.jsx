@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   ChevronDown,
   Calendar, Clipboard, Stethoscope, Users, Activity,
-  BarChart2, UserRound, ShieldCheck,
+  BarChart2, UserRound, ShieldCheck, Package, ClipboardCheck, PlusCircle,
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 
@@ -15,6 +15,9 @@ const SECTION_ICONS = {
   chart:       BarChart2,
   user:        UserRound,
   shield:      ShieldCheck,
+  package:         Package,
+  clipboardCheck:  ClipboardCheck,
+  plusCircle:      PlusCircle,
 };
 
 const VariacionCell = ({ value }) => {

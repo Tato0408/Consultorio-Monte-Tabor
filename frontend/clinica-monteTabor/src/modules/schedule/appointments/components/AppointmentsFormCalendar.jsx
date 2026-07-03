@@ -10,7 +10,7 @@ import { showSuccess, showError } from "@/lib/alerts";
 import useSchedule from "../hooks/useSchedule";
 import { useAuth } from "@/context/AuthContext";
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+
 const fmt12 = (t) => {
   if (!t) return t;
   const [h, m] = t.split(":").map(Number);
@@ -25,7 +25,7 @@ const STATUS_CONFIG = {
   cancelled: { label: "Cancelada",   color: "bg-red-100 text-red-700 border-red-200" },
 };
 
-// ── Subcomponents ─────────────────────────────────────────────────────────────
+
 const SectionCard = ({ title, icon: Icon, children }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
     <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-50 bg-slate-50/60">
@@ -53,7 +53,7 @@ const SelectField = ({ label, value, onChange, options, placeholder, disabled })
   </div>
 );
 
-// ── Main form ─────────────────────────────────────────────────────────────────
+
 export default function AppointmentsForm() {
   const navigate  = useNavigate();
   const location  = useLocation();
@@ -70,7 +70,7 @@ export default function AppointmentsForm() {
   const [isEditing, setIsEditing] = useState(!isViewOrEditMode || location.state?.editMode || false);
   const [loading, setLoading]     = useState(false);
 
-  // Form state
+
   const [formData, setFormData] = useState({ patient_id: "", doctor_id: "", nurse_id: "" });
   const [procedure, setProcedure]             = useState("Consulta");
   const [date, setDate]                       = useState(() => {
@@ -100,7 +100,7 @@ export default function AppointmentsForm() {
     if (myId) setFormData(p => ({ ...p, doctor_id: myId }));
   }, [isDoctor, user, doctors, id]);
 
-  // Load existing appointment for edit/view
+
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -125,7 +125,7 @@ export default function AppointmentsForm() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Load schedule when doctor changes (to get _id + weekly_availability for calendar)
+ 
   useEffect(() => {
     if (!formData.doctor_id) { setScheduleData(null); return; }
     getSchedule(formData.doctor_id)
@@ -133,7 +133,7 @@ export default function AppointmentsForm() {
       .catch(() => setScheduleData(null));
   }, [formData.doctor_id]);
 
-  // Load available slots when doctor or date changes
+  
   useEffect(() => {
     if (!formData.doctor_id || !date) { setAvailableSlots([]); setSelectedSlot(null); return; }
     setSlotsLoading(true);
@@ -192,7 +192,7 @@ export default function AppointmentsForm() {
     }
   };
 
-  // Derived info
+
   const selectedPatient = patients.find(p => p._id === formData.patient_id);
   const selectedDoctor  = doctors.find(d => d._id === formData.doctor_id);
   const selectedNurse   = nurses.find(n => n._id === formData.nurse_id);
@@ -251,7 +251,7 @@ export default function AppointmentsForm() {
 
   return (
     <div className="w-full bg-slate-50 min-h-screen">
-      {/* Header */}
+
       <div className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div>
           <h1 className="text-lg font-bold text-slate-900">
@@ -277,10 +277,10 @@ export default function AppointmentsForm() {
 
       <form onSubmit={handleSubmit} className="max-w-5xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        {/* ── Col izquierda + centro ── */}
+
         <div className="lg:col-span-2 flex flex-col gap-5">
 
-          {/* Participantes */}
+
           <SectionCard title="Participantes" icon={User}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <SelectField
@@ -321,7 +321,7 @@ export default function AppointmentsForm() {
               />
             </div>
 
-            {/* Chips de selección */}
+
             {(selectedDoctor || selectedPatient) && (
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-50">
                 {selectedDoctor && (
@@ -349,10 +349,9 @@ export default function AppointmentsForm() {
             )}
           </SectionCard>
 
-          {/* Fecha y horario */}
           <SectionCard title="Fecha y horario" icon={CalendarDays}>
             <div className="flex flex-col lg:flex-row gap-5">
-              {/* Calendario */}
+
               <div className={`flex-shrink-0 ${!isEditing ? "pointer-events-none opacity-70" : ""}`}>
                 <Calendar
                   mode="single"
@@ -493,10 +492,9 @@ export default function AppointmentsForm() {
           </SectionCard>
         </div>
 
-        {/* ── Col derecha ── */}
+
         <div className="flex flex-col gap-5">
 
-          {/* Estado */}
           <SectionCard title="Estado" icon={CheckCircle2}>
             <div className="flex flex-wrap gap-2">
               {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
@@ -522,7 +520,6 @@ export default function AppointmentsForm() {
             )}
           </SectionCard>
 
-          {/* Costo */}
           <SectionCard title="Costo total" icon={DollarSign}>
             <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-blue-200 focus-within:border-blue-400 transition-all bg-white">
               <span className="text-slate-400 text-sm font-medium">$</span>
@@ -533,7 +530,7 @@ export default function AppointmentsForm() {
             </div>
           </SectionCard>
 
-          {/* Notas */}
+
           <SectionCard title="Notas / Descripción" icon={AlertCircle}>
             <Textarea disabled={!isEditing} value={notes}
               onChange={e => setNotes(e.target.value)}
@@ -541,7 +538,7 @@ export default function AppointmentsForm() {
               className="min-h-[120px] border-slate-200 focus-visible:ring-blue-200 rounded-xl text-sm resize-none disabled:bg-slate-50" />
           </SectionCard>
 
-          {/* Botones */}
+
           {isEditing && (
             <button type="submit" disabled={submitting}
               className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 shadow-sm shadow-blue-200 text-sm">

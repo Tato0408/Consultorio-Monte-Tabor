@@ -16,7 +16,6 @@ const InventoryAlerts = ({ stats, onManualUsage, onStockEntry, onAdjust }) => {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Alertas de inventario */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
         <h3 className="text-sm font-semibold text-slate-800 mb-4">Alertas de inventario</h3>
         <div className="flex flex-col gap-2">
@@ -48,7 +47,7 @@ const InventoryAlerts = ({ stats, onManualUsage, onStockEntry, onAdjust }) => {
         </button>
       </div>
 
-      {/* Próximos a vencer */}
+
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
         <h3 className="text-sm font-semibold text-slate-800 mb-4">Próximos a vencer</h3>
         <div className="flex flex-col gap-3">
@@ -75,7 +74,6 @@ const InventoryAlerts = ({ stats, onManualUsage, onStockEntry, onAdjust }) => {
         </button>
       </div>
 
-      {/* Acciones rápidas */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
         <h3 className="text-sm font-semibold text-slate-800 mb-4">Acciones rápidas</h3>
         <div className="flex flex-col gap-1">

@@ -28,7 +28,7 @@ const SectionTitle = ({ children }) => (
   <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">{children}</h3>
 );
 
-/* ── Combobox de producto ──────────────────────────────── */
+
 const ProductCombobox = ({ value, onChange, onSelect, error }) => {
   const { getInsumos } = useInsumos();
   const [suggestions, setSuggestions] = useState([]);
@@ -113,7 +113,7 @@ const ProductCombobox = ({ value, onChange, onSelect, error }) => {
   );
 };
 
-/* ── Modal principal ───────────────────────────────────── */
+
 const ModalStockEntry = ({ onClose, onSuccess }) => {
   const { stockEntry } = useInsumos();
   const [form, setForm] = useState({
@@ -206,7 +206,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
           </div>
         )}
 
-        {/* ── Producto ────────────────────────────────────── */}
+ 
         <section>
           <SectionTitle>Información del producto</SectionTitle>
           <div className="grid grid-cols-2 gap-4">
@@ -233,7 +233,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
           </div>
         </section>
 
-        {/* ── Cantidad y costo ─────────────────────────────── */}
+      
         <section>
           <SectionTitle>Cantidad y costo</SectionTitle>
           <div className="grid grid-cols-2 gap-4">

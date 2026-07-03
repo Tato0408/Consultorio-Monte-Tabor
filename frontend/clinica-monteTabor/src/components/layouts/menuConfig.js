@@ -62,7 +62,7 @@ export const sideBarMenu = [
         allowedRoles: [roles.admin],
         subItems: [
             { title: 'Productos', icon: 'Briefcase', path: '/inventory/products', allowedRoles: [roles.admin] },
-            { title: 'Tratamientos', icon: 'FileBox', path: '/iventory/treatments', allowedRoles: [roles.admin] },
+            { title: 'Tratamientos', icon: 'FileBox', path: '/inventory/treatments', allowedRoles: [roles.admin] },
             { title: 'Movimientos', icon: 'FileSignature', path: '/inventory/movements', allowedRoles: [roles.admin] },
             { title: 'Reportes de inventario', icon: 'ClipboardCheck', path: '/inventory/reports', allowedRoles: [roles.admin] }
         ]
