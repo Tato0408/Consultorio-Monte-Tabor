@@ -8,16 +8,17 @@ const loginController = {}
 loginController.login = async (req, res) => {
     try {
         const {
-            email,
-            password
+            email: rawEmail,
+            password: rawPassword
         } = req.body
 
-        if (!email || !password) {
+        if (!rawEmail || !rawPassword) {
             return res.status(400).json({ message: "Email and password are required." });
         }
 
-        email = email?.trim()
-        password = password?.trim()
+        // Se limpian los espacios y se asignan a nuevas constantes de forma segura
+        const email = rawEmail.trim();
+        const password = rawPassword.trim();
 
         const response = await patientModel.findOne({ email })
         if (!response) {
@@ -27,7 +28,7 @@ loginController.login = async (req, res) => {
         if (!isMatch) {
             response.loginAttemps = (response.loginAttemps || 0) + 1;
 
-            //Si el contador llega a 5 se bloquea por 15 minutos
+            // Si el contador llega a 5 se bloquea por 15 minutos
             if (response.loginAttemps >= 5) {
                 response.timeOut = Date.now() + 1000 * 60 * 15; // 15 minutos
                 response.loginAttemps = 0;
@@ -35,7 +36,7 @@ loginController.login = async (req, res) => {
                 return res.status(400).json({ message: "User is locked" });
             }
 
-            //Si fallo pero el contador aun no es 5, solo se guarda el contador de intentos
+            // Si falló pero el contador aún no es 5, solo se guarda el contador de intentos
             await response.save();
             return res.status(400).json({ message: "Wrong password" });
         }

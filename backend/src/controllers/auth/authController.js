@@ -2,12 +2,14 @@ import nurseModel from "../../models/nurses/nurses.js";
 import doctorModel from "../../models/doctors/doctors.js";
 import adminModel from "../../models/admin/admins.js";
 import recepcionistModel from "../../models/receptionist/receptionist.js";
+import patientsModel from "../../models/patients/patients.js";
 
 const role_models = {
     admin: adminModel,
     doctor: doctorModel,
     nurse: nurseModel,
     receptionist: recepcionistModel,
+    patient: patientsModel,
 };
 
 const authController = {};
