@@ -1,25 +1,28 @@
 import express from 'express'
 import nurseController from "../../controllers/nurses/nursesController.js"
 import upload from '../../utils/CloudinaryConfig.js'
+import { authorize } from '../../middlewares/authorizeMiddleware.js'
 import { validateAuthCookie } from '../../middlewares/authMiddleware.js'
 const router = express.Router()
 
 router.route("/")
-.get(validateAuthCookie(["admin"]), nurseController.getAllNurses)
-.post(validateAuthCookie(["admin"]), upload.single("img_url"), nurseController.insertNurses)
+.get(authorize("users.nurses", "view"), nurseController.getAllNurses)
+.post(authorize("users.nurses", "create"), upload.single("img_url"), nurseController.insertNurses)
 
 router.route("/countNurses")
-.get(validateAuthCookie(["admin"]), nurseController.countNurses)
+.get(authorize("users.nurses", "view"), nurseController.countNurses)
 
 router.route("/countNotes")
-.get(validateAuthCookie(["admin"]), nurseController.countNotes)
+.get(authorize("users.nurses", "view"), nurseController.countNotes)
 
 router.route("/countAppointments")
-.get(validateAuthCookie(["admin"]), nurseController.countAppointments)
+.get(authorize("users.nurses", "view"), nurseController.countAppointments)
 
 router.route("/countProcedures")
-.get(validateAuthCookie(["admin"]), nurseController.countProcedures)
+.get(authorize("users.nurses", "view"), nurseController.countProcedures)
 
+// Hardcodeado al rol nurse: editar el propio perfil debe funcionar siempre,
+// para todos los roles, sin depender de la matriz de permisos dinamica.
 router
 .route("/profile/update")
 .put(
@@ -30,7 +33,7 @@ router
 
 
 router.route("/:id")
-.put(validateAuthCookie(["admin"]), upload.single("img_url"), nurseController.updateNurse)
-.delete(validateAuthCookie(["admin"]), nurseController.deleteNurse)
+.put(authorize("users.nurses", "update"), upload.single("img_url"), nurseController.updateNurse)
+.delete(authorize("users.nurses", "delete"), nurseController.deleteNurse)
 
 export default router;

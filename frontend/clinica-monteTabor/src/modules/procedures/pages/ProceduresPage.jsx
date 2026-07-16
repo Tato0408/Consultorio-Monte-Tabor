@@ -1,10 +1,16 @@
 import React, { useState } from "react";
-import useProcedures from "../hooks/useProcedures"; 
+import useProcedures from "../hooks/useProcedures";
 import ProceduresTable from "../components/ProceduresTable";
 import ProcedureForm from "../components/ProceduresForm";
 import EditProcedureModal from "../components/EditProcedureModal";
+import { useAuth } from "@/context/AuthContext";
 
 const ProceduresPage = () => {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("procedures", "create");
+  const canUpdate = hasPermission("procedures", "update");
+  const canDelete = hasPermission("procedures", "delete");
+
   const [activeTab, setActiveTab] = useState("list");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedProcedure, setSelectedProcedure] = useState(null);
@@ -43,7 +49,7 @@ const ProceduresPage = () => {
       <div className="border-b border-gray-100 flex gap-4 md:gap-6 text-sm font-medium overflow-x-auto mb-6">
         {[
           { key: "list", label: "Lista de procedimientos" },
-          { key: "create", label: "Crear procedimiento" },
+          ...(canCreate ? [{ key: "create", label: "Crear procedimiento" }] : []),
         ].map((tab) => (
           <button
             key={tab.key}
@@ -74,6 +80,8 @@ const ProceduresPage = () => {
               loading={loading}
               onEdit={handleOpenEdit}
               onDelete={handleDelete}
+              canUpdate={canUpdate}
+              canDelete={canDelete}
             />
           </div>
         ) : (

@@ -287,7 +287,7 @@ const BreakCard = ({ brk }) => {
 };
 
 
-const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate }) => {
+const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAppt }) => {
     const { updateAppointmentStatus } = useAppointmentsApi();
     const [cancelling, setCancelling] = useState(false);
 
@@ -389,13 +389,15 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate }) => {
                     >
                         Ver expediente
                     </button>
-                    <button
-                        onClick={() => navigate(`/calendar/appointments/calendar/${appt._id}`, { state: { editMode: true } })}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium rounded-lg transition-colors"
-                    >
-                        Reagendar cita
-                    </button>
-                    {appt.status !== "cancelled" && appt.status !== "completed" && (
+                    {canUpdateAppt && (
+                        <button
+                            onClick={() => navigate(`/calendar/appointments/calendar/${appt._id}`, { state: { editMode: true } })}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium rounded-lg transition-colors"
+                        >
+                            Reagendar cita
+                        </button>
+                    )}
+                    {canUpdateAppt && appt.status !== "cancelled" && appt.status !== "completed" && (
                         <button
                             onClick={handleCancel}
                             disabled={cancelling}
@@ -413,8 +415,10 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate }) => {
 
 const AppointmentsCalendar = () => {
     const navigate  = useNavigate();
-    const { user, userType } = useAuth();
+    const { user, userType, hasPermission } = useAuth();
     const isDoctor  = userType === "doctor";
+    const canCreateAppt = hasPermission("calendar.appointments", "create");
+    const canUpdateAppt = hasPermission("calendar.appointments", "update");
     const { getAppointments, getAppointmentsStats } = useAppointmentsApi();
     const { getSchedule } = useSchedule();
 
@@ -522,13 +526,15 @@ const AppointmentsCalendar = () => {
                         <h1 className="text-base sm:text-lg font-bold text-slate-900">Calendario</h1>
                         <p className="text-[10px] sm:text-xs text-slate-400 hidden xs:block">Visualización de citas y horarios de los doctores</p>
                     </div>
-                    <button
-                        onClick={() => navigate("/calendar/appointments/calendar/new")}
-                        className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-lg whitespace-nowrap flex-shrink-0"
-                    >
-                        <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        <span>Nueva cita</span>
-                    </button>
+                    {canCreateAppt && (
+                        <button
+                            onClick={() => navigate("/calendar/appointments/calendar/new")}
+                            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-lg whitespace-nowrap flex-shrink-0"
+                        >
+                            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Nueva cita</span>
+                        </button>
+                    )}
                 </div>
 
                 {/* Stats */}
@@ -739,13 +745,14 @@ const AppointmentsCalendar = () => {
                                     const avail  = scheduleData?.weekly_availability?.find(d => d.day === dow);
                                     const isDayOff = scheduleData && avail && !avail.is_available;
                                     const isPast = key < today;
+                                    const isCellDisabled = isPast || !canCreateAppt;
                                     return (
-                                        <div key={di} className={`absolute top-0 bottom-0 ${isPast ? "cursor-not-allowed" : "cursor-pointer"}`}
+                                        <div key={di} className={`absolute top-0 bottom-0 ${isCellDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
                                             style={{
                                                 left:  `calc(48px + ${di} * (100% - 48px) / 7)`,
                                                 width: `calc((100% - 48px) / 7)`,
                                             }}
-                                            onClick={() => { if (isPast) return; navigate(`/calendar/appointments/calendar/new?date=${toISO(day)}`); }}
+                                            onClick={() => { if (isCellDisabled) return; navigate(`/calendar/appointments/calendar/new?date=${toISO(day)}`); }}
                                         >
                                             {(isDayOff || isPast) && (
                                                 <div className="absolute inset-0 pointer-events-none z-10"
@@ -805,6 +812,7 @@ const AppointmentsCalendar = () => {
                         onClose={() => setSelected(null)}
                         onRefresh={triggerRefresh}
                         navigate={navigate}
+                        canUpdateAppt={canUpdateAppt}
                     />
                 )}
             </div>

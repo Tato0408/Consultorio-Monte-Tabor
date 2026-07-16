@@ -22,11 +22,15 @@ import adminRoutes from "./src/routes/admin/admin.js"
 import registerAdminRoute from "./src/routes/admin/registerAdmin.js"
 import recoveryAdminPassword from "./src/routes/admin/recoveryPasswordAdmin.js"
 import { validateAuthCookie } from './src/middlewares/authMiddleware.js';
+import { authenticate } from './src/middlewares/authenticateMiddleware.js';
+import { authorize } from './src/middlewares/authorizeMiddleware.js';
 import registerPatientRoutes from "./src/routes/patients/registerPatients.js"
 import scheduleRoutes from './src/routes/schedule/schedule.js'
 import dashboardRoutes from './src/routes/dashboard/dashboard.js'
 import doctorDashboardRoutes from './src/routes/dashboard/doctorDashboard.js'
 import nurse_noteRoute from './src/routes/nurse_notes/nurse_notes.js'
+import rolesRoutes from './src/routes/roles/roles.js'
+import permissionsRoutes from './src/routes/permissions/permissions.js'
 const app = express();
 
 app.use(cookieParser());
@@ -50,29 +54,31 @@ app.use("/api/recoveryAdminPassword" ,recoveryAdminPassword);
 app.use("/api/recoveryReceptionist", receptionistRecoveryRoutes);
 
 //Endpoints privados
-app.use("/api/registerDoctors", validateAuthCookie(["admin"]),registerDoctorRoutes);
+app.use("/api/registerDoctors", authenticate, authorize("users.doctors", "create"), registerDoctorRoutes);
 app.use("/api/doctors", doctorsRoutes);
 app.use("/api/loginDoctors", loginDoctorRoutes);
 
 app.use("/api/admin" ,adminRoutes);
 
-app.use("/api/registerRecepcionist",validateAuthCookie(["admin"]), registerReceptionistRoutes);
+app.use("/api/registerRecepcionist", authenticate, authorize("users.receptionist", "create"), registerReceptionistRoutes);
 app.use("/api/recepcionist", receptionistRoutes);
 
-app.use("/api/patients", validateAuthCookie(["admin", "doctor", "receptionist"]), patientsRoute);
+app.use("/api/patients", authenticate, patientsRoute);
 app.use("/api/registerPatient", registerPatientRoutes);
 
-app.use("/api/nurses", validateAuthCookie(["admin", "doctor", "receptionist"]), nurseRoutes);
+app.use("/api/nurses", authenticate, nurseRoutes);
 
-app.use("/api/consultations", validateAuthCookie(["admin", "doctor"]), consultationsRoutes);
-app.use("/api/appointments" , validateAuthCookie(["admin", "doctor", "receptionist"]) , appointmentsRoutes);
-app.use("/api/inventory",validateAuthCookie(["admin"]), inventoryRoutes);
-app.use("/api/procedures", validateAuthCookie(["admin", "doctor"]),  proceduresRoutes);
-app.use("/api/schedule", validateAuthCookie(["admin", "doctor"]), scheduleRoutes);
+app.use("/api/consultations", authenticate, consultationsRoutes);
+app.use("/api/appointments" , authenticate , appointmentsRoutes);
+app.use("/api/inventory", authenticate, inventoryRoutes);
+app.use("/api/procedures", authenticate, proceduresRoutes);
+app.use("/api/schedule", authenticate, scheduleRoutes);
 app.use("/api/dashboard", validateAuthCookie(["admin"]), dashboardRoutes);
 app.use("/api/doctor-dashboard", validateAuthCookie(["doctor"]), doctorDashboardRoutes);
 
 app.use("/api/logout", validateAuthCookie(), logoutRoute);
 app.use("/api/nurse_notes",  nurse_noteRoute);
+app.use("/api/roles", rolesRoutes);
+app.use("/api/permissions", permissionsRoutes);
 
 export default app;

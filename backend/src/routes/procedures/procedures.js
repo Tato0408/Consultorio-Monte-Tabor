@@ -1,13 +1,14 @@
 import express from 'express'
 import proceduresController from '../../controllers/procedures/procedureController.js'
+import { authorize } from '../../middlewares/authorizeMiddleware.js'
 
 const router = express.Router()
 router.route("/")
-.get(proceduresController.getProcedures)
-.post(proceduresController.insertProcedure)
+.get(authorize("procedures", "view"), proceduresController.getProcedures)
+.post(authorize("procedures", "create"), proceduresController.insertProcedure)
 
 router.route("/:id")
-.put(proceduresController.updateProcedure)
-.delete(proceduresController.deleteProcedure)
+.put(authorize("procedures", "update"), proceduresController.updateProcedure)
+.delete(authorize("procedures", "delete"), proceduresController.deleteProcedure)
 
 export default router

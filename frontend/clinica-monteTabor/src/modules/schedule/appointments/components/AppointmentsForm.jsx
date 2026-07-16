@@ -20,6 +20,7 @@ import useAppointments from "../hooks/useAppointment.js";
 import useMedicalData from "../hooks/useMedicalData";
 import { showSuccess, showError } from "@/lib/alerts";
 import ProcedureModal from "./ProcedureModal.jsx";
+import { useAuth } from "@/context/AuthContext";
 
 // Formulario único para crear, ver y editar una cita. El modo depende de si
 // hay "id" en la URL y del estado isEditing.
@@ -27,6 +28,9 @@ export default function AppointmentsForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
+  const { hasPermission } = useAuth();
+  const canCreateAppt = hasPermission("calendar.appointments", "create");
+  const canUpdateAppt = hasPermission("calendar.appointments", "update");
 
   const {
     getAppointmentById,
@@ -49,8 +53,13 @@ export default function AppointmentsForm() {
   // Existe id -> se ve/edita una cita existente; si no, se crea una nueva.
   // editMode llega por location.state cuando se navega desde el botón
   // "Editar" de la tarjeta, para abrir ya en modo edición.
+  // El modo edición inicial también respeta el permiso: sin create no se puede
+  // arrancar en modo creación habilitado, y sin update no se puede arrancar
+  // en modo edición habilitado (aunque hayan llegado con editMode: true).
   const isViewOrEditMode = !!id;
-  const [isEditing, setIsEditing] = useState(!isViewOrEditMode || location.state?.editMode || false);
+  const [isEditing, setIsEditing] = useState(
+    (!isViewOrEditMode && canCreateAppt) || (!!location.state?.editMode && canUpdateAppt) || false
+  );
   const [loading, setLoading] = useState(false);
 
   // Estado de interfaz que no forma parte de los valores del formulario:
@@ -350,7 +359,7 @@ export default function AppointmentsForm() {
           )}
         </div>
         <div className="flex items-center gap-4">
-          {id && !isEditing && (
+          {id && !isEditing && canUpdateAppt && (
             <Button
               type="button"
               onClick={() => setIsEditing(true)}

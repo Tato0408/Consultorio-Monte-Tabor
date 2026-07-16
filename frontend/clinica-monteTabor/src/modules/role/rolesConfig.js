@@ -16,9 +16,7 @@ import {
   FlaskConical,
   ArrowLeftRight,
   TrendingUp,
-  Settings,
   ShieldCheck,
-  CircleUser,
 } from "lucide-react";
 
 // Los 4 permisos atómicos que existen para cada módulo del sistema.
@@ -32,53 +30,58 @@ export const PERMISSION_TYPES = [
 ];
 
 // Estructura agrupada por sección del sidebar -> módulos (sub-links) -> permisos
+// Los "key" son los moduleKey reales de la colección roles / menuConfig.js (no inventar otros).
+// "dashboard" y "system.roles" quedan fuera de esta pantalla a propósito: su acceso real en el
+// backend sigue hardcodeado (no depende de authorize()), así que togglearlos aquí no cambiaría nada.
 export const SIDEBAR_MODULES = [
   {
     section: "Calendario",
     icon: Calendar,
     modules: [
-      { key: "horarios", label: "Horarios", icon: Clock },
-      { key: "citas_calendario", label: "Citas", icon: CalendarCheck },
-      { key: "consultas", label: "Consultas", icon: Stethoscope },
+      { key: "calendar.schedule", label: "Horarios", icon: Clock },
+      { key: "calendar.appointments", label: "Citas", icon: CalendarCheck },
+      { key: "calendar.consultations", label: "Consultas", icon: Stethoscope },
     ],
   },
   {
     section: "Usuarios",
     icon: Users,
     modules: [
-      { key: "doctores", label: "Doctores", icon: UserRound },
-      { key: "pacientes", label: "Pacientes", icon: Contact },
-      { key: "recepcionistas", label: "Recepcionistas", icon: HeartPulse },
-      { key: "enfermeras", label: "Enfermeras", icon: Activity },
+      { key: "users.doctors", label: "Doctores", icon: UserRound },
+      { key: "users.patients", label: "Pacientes", icon: Contact },
+      { key: "users.receptionist", label: "Recepcionista", icon: HeartPulse },
+      { key: "users.nurses", label: "Enfermeras", icon: Activity },
     ],
   },
   {
     section: "Procedimientos",
     icon: ClipboardList,
     modules: [
-      { key: "procedimientos", label: "Procedimientos", icon: ClipboardList },
+      { key: "procedures", label: "Procedimientos", icon: ClipboardList },
     ],
   },
   {
     section: "Reportes",
     icon: FileBarChart,
     modules: [
-      { key: "reportes_citas", label: "Citas", icon: CalendarCheck },
-      { key: "expedientes", label: "Expedientes", icon: FolderClock },
-      { key: "reportes_pacientes", label: "Pacientes", icon: Contact },
-      { key: "reportes_doctores", label: "Doctores", icon: UserRound },
+      { key: "reports.appointments", label: "Citas", icon: CalendarCheck },
+      { key: "reports.records", label: "Expediente", icon: FolderClock },
+      { key: "reports.patients", label: "Pacientes", icon: Contact },
+      { key: "reports.doctors", label: "Doctores", icon: UserRound },
     ],
   },
   {
     section: "Inventario",
     icon: Package,
     modules: [
-      { key: "productos", label: "Productos", icon: Boxes },
-      { key: "tratamientos", label: "Tratamientos", icon: FlaskConical },
-      { key: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
-      { key: "reportes_inventario", label: "Reportes de inventario", icon: TrendingUp },
+      { key: "inventory.products", label: "Productos", icon: Boxes },
+      { key: "inventory.treatments", label: "Tratamientos", icon: FlaskConical },
+      { key: "inventory.movements", label: "Movimientos", icon: ArrowLeftRight },
+      { key: "inventory.reports", label: "Reportes de inventario", icon: TrendingUp },
     ],
-  }
+  },
+  // "Sistema" (Mi perfil) no aparece aqui a proposito: editar el propio perfil
+  // debe funcionar siempre, para todos los roles, sin ser una opcion gestionable.
 ];
 
 // Lista plana de todas las claves de módulos, útil para construir el set "todo activado"
@@ -86,79 +89,77 @@ export const ALL_MODULE_KEYS = SIDEBAR_MODULES.flatMap((section) =>
   section.modules.map((m) => m.key)
 );
 
-// Construye un objeto de permisos con todos los módulos en false (o true si fullAccess)
-const buildPermissionSet = (fullAccess = false) => {
-  const set = {};
-  ALL_MODULE_KEYS.forEach((key) => {
-    set[key] = {
-      view: fullAccess,
-      create: fullAccess,
-      update: fullAccess,
-      delete: fullAccess,
-    };
-  });
-  return set;
+const FULL_CRUD = { view: true, create: true, update: true, delete: true };
+const NO_ACCESS = { view: false, create: false, update: false, delete: false };
+
+// Valores predeterminados por rol, usados por el botón "Volver a los valores
+// predeterminados" de cada card. Solo cubre los moduleKey gestionables desde
+// esta pantalla (ALL_MODULE_KEYS) — "dashboard", "system.roles" y
+// "system.profile" nunca se tocan aquí, igual que en el resto de la pantalla.
+export const DEFAULT_ROLE_PERMISSIONS = {
+  doctor: {
+    "calendar.schedule": FULL_CRUD,
+    "calendar.appointments": FULL_CRUD,
+    "calendar.consultations": FULL_CRUD,
+    "users.doctors": NO_ACCESS,
+    "users.patients": FULL_CRUD,
+    "users.receptionist": NO_ACCESS,
+    "users.nurses": NO_ACCESS,
+    "procedures": FULL_CRUD,
+    "reports.appointments": NO_ACCESS,
+    "reports.records": FULL_CRUD,
+    "reports.patients": NO_ACCESS,
+    "reports.doctors": NO_ACCESS,
+    "inventory.products": NO_ACCESS,
+    "inventory.treatments": NO_ACCESS,
+    "inventory.movements": NO_ACCESS,
+    "inventory.reports": NO_ACCESS,
+  },
+  nurse: {
+    "calendar.schedule": NO_ACCESS,
+    "calendar.appointments": FULL_CRUD,
+    "calendar.consultations": NO_ACCESS,
+    "users.doctors": NO_ACCESS,
+    "users.patients": NO_ACCESS,
+    "users.receptionist": NO_ACCESS,
+    "users.nurses": NO_ACCESS,
+    "procedures": NO_ACCESS,
+    "reports.appointments": NO_ACCESS,
+    "reports.records": NO_ACCESS,
+    "reports.patients": NO_ACCESS,
+    "reports.doctors": NO_ACCESS,
+    "inventory.products": NO_ACCESS,
+    "inventory.treatments": NO_ACCESS,
+    "inventory.movements": NO_ACCESS,
+    "inventory.reports": NO_ACCESS,
+  },
+  receptionist: {
+    "calendar.schedule": NO_ACCESS,
+    "calendar.appointments": FULL_CRUD,
+    "calendar.consultations": NO_ACCESS,
+    "users.doctors": NO_ACCESS,
+    "users.patients": NO_ACCESS,
+    "users.receptionist": NO_ACCESS,
+    "users.nurses": NO_ACCESS,
+    "procedures": NO_ACCESS,
+    "reports.appointments": NO_ACCESS,
+    "reports.records": NO_ACCESS,
+    "reports.patients": NO_ACCESS,
+    "reports.doctors": NO_ACCESS,
+    "inventory.products": NO_ACCESS,
+    "inventory.treatments": NO_ACCESS,
+    "inventory.movements": NO_ACCESS,
+    "inventory.reports": NO_ACCESS,
+  },
 };
 
-// Definición de roles base. El admin siempre tiene acceso total y no es editable.
-export const ROLES = [
-  {
-    key: "admin",
-    label: "Administrador",
-    description: "Acceso total al sistema",
-    color: "blue",
-    locked: true, // no se puede modificar
-    permissions: buildPermissionSet(true),
-  },
-  {
-    key: "doctor",
-    label: "Doctor",
-    description: "Gestión de pacientes e historial clínico.",
-    color: "violet",
-    locked: false,
-    permissions: {
-      ...buildPermissionSet(false),
-      horarios: { view: true, create: false, update: false, delete: false },
-      citas_calendario: { view: true, create: true, update: true, delete: false },
-      consultas: { view: true, create: true, update: true, delete: false },
-      pacientes: { view: true, create: false, update: true, delete: false },
-      procedimientos: { view: true, create: false, update: false, delete: false },
-      expedientes: { view: true, create: true, update: true, delete: false },
-      mi_perfil: { view: true, create: false, update: true, delete: false },
-    },
-  },
-  {
-    key: "nurse",
-    label: "Enfermera",
-    description: "Consulta y actualización de historial clínico",
-    color: "emerald",
-    locked: false,
-    permissions: {
-      ...buildPermissionSet(false),
-      citas_calendario: { view: true, create: false, update: false, delete: false },
-      consultas: { view: true, create: false, update: true, delete: false },
-      pacientes: { view: true, create: false, update: true, delete: false },
-      expedientes: { view: true, create: false, update: true, delete: false },
-      mi_perfil: { view: true, create: false, update: true, delete: false },
-    },
-  },
-  {
-    key: "receptionist",
-    label: "Recepcionista",
-    description: "Gestión de citas e inventario",
-    color: "rose",
-    locked: false,
-    permissions: {
-      ...buildPermissionSet(false),
-      horarios: { view: true, create: false, update: false, delete: false },
-      citas_calendario: { view: true, create: true, update: true, delete: true },
-      pacientes: { view: true, create: true, update: true, delete: false },
-      productos: { view: true, create: false, update: false, delete: false },
-      movimientos: { view: true, create: true, update: false, delete: false },
-      mi_perfil: { view: true, create: false, update: true, delete: false },
-    },
-  },
-];
+// Color por rol (solo estético, no se persiste en la base de datos)
+export const ROLE_COLOR_BY_KEY = {
+  admin: "blue",
+  doctor: "violet",
+  nurse: "emerald",
+  receptionist: "rose",
+};
 
 // Tokens de color por rol, usados en avatar de la card y acentos de la UI
 export const ROLE_COLOR_TOKENS = {

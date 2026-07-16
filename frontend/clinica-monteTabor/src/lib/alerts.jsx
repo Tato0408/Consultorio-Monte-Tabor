@@ -96,6 +96,28 @@ export const confirmDelete = async () => {
   return result.isConfirmed;
 };
 
+export const confirmResetPermissions = async (roleName) => {
+  const result = await Swal.fire({
+    title: `¿Restablecer permisos de ${roleName}?`,
+    text: "Se sobrescribirán todos los permisos actuales de este rol con los valores predeterminados.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Sí, restablecer",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#3B6FCA",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return result.isConfirmed;
+};
+
 export const confirmCancelAppointment = async () => {
   const result = await Swal.fire({
     title: "¿Cancelar esta cita?",

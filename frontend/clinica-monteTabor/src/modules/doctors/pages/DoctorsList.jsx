@@ -10,8 +10,14 @@ import DoctorForm from "../components/DoctorsForm";
 import { useDoctors } from "../hooks/useDoctors";
 // Importa las funciones personalizadas para mostrar las alertas de éxito o error en pantalla
 import { showSuccess, showError } from "../../../lib/alerts";
+import { useAuth } from "@/context/AuthContext";
 
 const DoctorsList = () => {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("users.doctors", "create");
+  const canUpdate = hasPermission("users.doctors", "update");
+  const canDelete = hasPermission("users.doctors", "delete");
+
   // Desestructura las propiedades y funciones necesarias desde el custom hook
   const {
     doctors,
@@ -140,9 +146,11 @@ const DoctorsList = () => {
             loading={loading}
             error={error}
             onSelectDoctor={setSelectedDoctor}
-            onOpenForm={handleOpenCreate}
+            onOpenForm={canCreate ? handleOpenCreate : undefined}
             onEditDoctor={handleOpenEdit}
             onDeleteDoctor={handleDeleteDoctor}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
           />
         </div>
 

@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 // El ciclo real de una cita es pending -> scheduled -> completed / cancelled
 // (ver AppointmentsForm.jsx); "scheduled" ("Programada") equivale a "en espera".
@@ -14,6 +15,8 @@ const formatPersonName = (person) =>
 
 const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, completedCount }) => {
     const navigate = useNavigate();
+    const { hasPermission } = useAuth();
+    const canAttend = hasPermission("calendar.consultations", "create");
 
     const handleContinue = (appointmentId) => {
         // Navega al formulario de consulta; el cambio de estado a "completed"
@@ -95,14 +98,14 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                         >
                                             Ver registro
                                         </button>
-                                    ) : (
+                                    ) : canAttend ? (
                                         <button
                                             onClick={() => handleContinue(appt._id)}
                                             className="bg-[#0b66d6] text-white rounded-lg px-4 py-1.5 text-xs font-medium hover:bg-[#0a59ba]"
                                         >
                                             Continuar
                                         </button>
-                                    )}
+                                    ) : null}
                                 </td>
                             </tr>
                         );

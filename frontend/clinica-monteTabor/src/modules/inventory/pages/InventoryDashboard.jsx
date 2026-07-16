@@ -12,8 +12,14 @@ import ModalAgregarProducto from "../components/ProductAddMode";
 import ModalStockEntry   from "../components/ModalStockEntry";
 import ModalManualUsage  from "../components/ModalManualUsage";
 import ModalAdjustStock  from "../components/ModalAdjustStock";
+import { useAuth } from "@/context/AuthContext";
 
 const InventoryDashboard = () => {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("inventory.products", "create");
+  const canUpdate = hasPermission("inventory.products", "update");
+  const canDelete = hasPermission("inventory.products", "delete");
+
   const { getStats } = useInsumos();
   const [stats, setStats]           = useState(null);
   const [refresh, setRefresh]       = useState(0);
@@ -41,14 +47,16 @@ const InventoryDashboard = () => {
             <span className="hidden sm:inline">Exportar reporte</span>
             <span className="sm:hidden">Exportar</span>
           </button>
-          <button
-            onClick={() => setModal("add")}
-            className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Agregar producto</span>
-            <span className="sm:hidden">Agregar</span>
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => setModal("add")}
+              className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Agregar producto</span>
+              <span className="sm:hidden">Agregar</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -61,6 +69,8 @@ const InventoryDashboard = () => {
             onEdit={(item) => { setEditItem(item); setModal("edit"); }}
             onRefresh={triggerRefresh}
             refreshTrigger={refresh}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
           />
         </div>
         <div className="lg:col-span-4">

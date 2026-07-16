@@ -5,6 +5,7 @@ import NurseTable from "../components/NurseTable";
 import NurseStatCards from "../components/NurseStatCards";
 import useNurse from "../hooks/useNurse";
 import NurseFormModal from "../components/NurseFormModal";
+import { useAuth } from "@/context/AuthContext";
 
 const NurseProfilePanel = ({ nurse, nextProcedure, loadingDetail }) => {
   if (!nurse) return null;
@@ -100,6 +101,11 @@ const NurseProfilePanel = ({ nurse, nextProcedure, loadingDetail }) => {
 };
 
 const NursesPage = () => {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("users.nurses", "create");
+  const canUpdate = hasPermission("users.nurses", "update");
+  const canDelete = hasPermission("users.nurses", "delete");
+
   const {
     nurses,
     selectedNurse,
@@ -171,9 +177,11 @@ const NursesPage = () => {
             loading={loading}
             selectedNurse={selectedNurse}
             onSelect={selectNurse}
-            onAdd={handleOpenCreate}
+            onAdd={canCreate ? handleOpenCreate : undefined}
             onEdit={handleOpenEdit}
             onDelete={deleteNurse}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
           />
         </div>
 

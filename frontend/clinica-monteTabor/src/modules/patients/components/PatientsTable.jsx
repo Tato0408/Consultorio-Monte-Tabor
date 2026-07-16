@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MoreVertical, Edit2, Trash2 } from "lucide-react";
 import GenericTable from "@/components/ui/GenericTable";
 
-const PatientsTable = ({ patients, loading, onAdd, onEdit, onDelete, onSelectPatient }) => {
+const PatientsTable = ({ patients, loading, onAdd, onEdit, onDelete, onSelectPatient, canUpdate = true, canDelete = true }) => {
   const [activeMenuId, setActiveMenuId] = useState(null);
 
   const columns = [
@@ -20,53 +20,61 @@ const PatientsTable = ({ patients, loading, onAdd, onEdit, onDelete, onSelectPat
         </span>
       ),
     },
-    {
-      header: "Acciones",
-      align: "right",
-      render: (patient, index, openUpwards) => {
-        const isMenuOpen = activeMenuId === patient._id;
-        return (
-          <>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setActiveMenuId(isMenuOpen ? null : patient._id); }}
-              className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${isMenuOpen ? "bg-gray-100 text-gray-900" : "text-gray-400"}`}
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
+    ...(canUpdate || canDelete
+      ? [
+          {
+            header: "Acciones",
+            align: "right",
+            render: (patient, index, openUpwards) => {
+              const isMenuOpen = activeMenuId === patient._id;
+              return (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(isMenuOpen ? null : patient._id); }}
+                    className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${isMenuOpen ? "bg-gray-100 text-gray-900" : "text-gray-400"}`}
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
 
-            {isMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
-                <div
-                  className={`absolute w-36 bg-white border border-gray-100 rounded-xl shadow-xl py-1.5 z-30 text-left right-12 ${
-                    openUpwards ? "bottom-full mb-1" : "top-full mt-1"
-                  } animate-in fade-in slide-in-from-bottom-1 duration-100`}
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); if (onEdit) onEdit(patient); }}
-                    className="w-full px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 text-gray-400" />
-                    Editar
-                  </button>
-                  <div className="border-t border-gray-50 my-1" />
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); if (onDelete) onDelete(patient); }}
-                    className="w-full px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50/60 flex items-center gap-2 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                    Eliminar
-                  </button>
-                </div>
-              </>
-            )}
-          </>
-        );
-      },
-    },
+                  {isMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
+                      <div
+                        className={`absolute w-36 bg-white border border-gray-100 rounded-xl shadow-xl py-1.5 z-30 text-left right-12 ${
+                          openUpwards ? "bottom-full mb-1" : "top-full mt-1"
+                        } animate-in fade-in slide-in-from-bottom-1 duration-100`}
+                      >
+                        {canUpdate && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); if (onEdit) onEdit(patient); }}
+                            className="w-full px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-gray-400" />
+                            Editar
+                          </button>
+                        )}
+                        {canUpdate && canDelete && <div className="border-t border-gray-50 my-1" />}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); if (onDelete) onDelete(patient); }}
+                            className="w-full px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50/60 flex items-center gap-2 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </>
+              );
+            },
+          },
+        ]
+      : []),
   ];
 
   return (

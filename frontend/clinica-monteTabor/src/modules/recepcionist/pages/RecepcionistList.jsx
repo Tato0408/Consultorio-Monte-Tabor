@@ -3,8 +3,14 @@ import ReceptionistsTable from "../components/RecepcionistTable";
 import ReceptionistForm from "../components/RecepcionistForm";
 import { useReceptionist } from "../hooks/useRecepcionist";
 import { showSuccess, showError } from "../../../lib/alerts";
+import { useAuth } from "@/context/AuthContext";
 
 const ReceptionistsList = () => {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("users.receptionist", "create");
+  const canUpdate = hasPermission("users.receptionist", "update");
+  const canDelete = hasPermission("users.receptionist", "delete");
+
   //Desestructuramos Userecepcionist (las funciones q trae) solo lo que vamos a ocupar del hook
   const {
     receptionists,
@@ -109,9 +115,11 @@ const ReceptionistsList = () => {
             receptionists={receptionists}
             loading={loading}
             error={error}
-            onOpenForm={handleOpenCreate}
+            onOpenForm={canCreate ? handleOpenCreate : undefined}
             onEdit={handleOpenEdit}
             onDelete={handleDelete}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
           />
 
         </div>
