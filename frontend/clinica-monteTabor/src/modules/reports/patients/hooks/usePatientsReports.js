@@ -1,21 +1,5 @@
-import { useState, useEffect } from "react";
-import { pacientesTopCards, pacientesSections } from "../../reportsData";
+import useReportData from "../../useReportData";
 
-const usePacientesReport = () => {
-  const [loading, setLoading] = useState(true);
-  const [topCards, setTopCards] = useState([]);
-  const [sections, setSections] = useState([]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setTopCards(pacientesTopCards);
-      setSections(pacientesSections);
-      setLoading(false);
-    }, 600);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return { loading, topCards, sections };
-};
+const usePacientesReport = () => useReportData("/reports/patients");
 
 export default usePacientesReport;

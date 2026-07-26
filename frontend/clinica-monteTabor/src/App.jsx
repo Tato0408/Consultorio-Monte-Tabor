@@ -30,6 +30,7 @@ import Appointments from "./modules/schedule/appointments/pages/Appointments"
 import AppointmentsForm from './modules/schedule/appointments/components/AppointmentsForm';
 import AppointmentsFormCalendar from './modules/schedule/appointments/components/AppointmentsFormCalendar';
 import RecordsPage from './modules/reports/records/page/RecordsPage'
+import NotFound from './modules/notFound/pages/NotFound';
 function AppRoutes() {
   const { isLoading, hasAdmins } = useAuth();
 
@@ -93,6 +94,11 @@ function AppRoutes() {
         <Route path="/inventory/reports" element={<InventoryReportsPage />} />
       </Route>
       <Route path="/system/profile" element={<ProfilePage />} />
+
+      {/* Cualquier ruta que no coincida con ninguna de las anteriores cae aquí.
+          Las rutas que SÍ existen siguen su comportamiento normal (incluyendo
+          redirecciones por falta de autenticación); esto solo cubre URLs inexistentes. */}
+      <Route path="*" element={<NotFound />} />
     </Routes >
   );
 }

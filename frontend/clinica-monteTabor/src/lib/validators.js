@@ -27,13 +27,14 @@ const parseDateOnly = (value) => {
   return isNaN(date.getTime()) ? null : date;
 };
 
-// Validador para usar directamente en react-hook-form (register("birth_date", { validate: ... })).
-// Devuelve true si la persona ya es mayor de edad, o el mensaje de error si no.
-export const validateAdultBirthDate = (value) => {
-  if (!value) return true;
+// Edad exacta (en años cumplidos) a partir de una fecha de nacimiento "YYYY-MM-DD", o null si
+// el valor está vacío o no es una fecha válida. Usa el mismo parseo seguro que el resto del
+// archivo para no reintroducir el corrimiento de zona horaria de un día.
+export const calculateAge = (value) => {
+  if (!value) return null;
 
   const birthDate = parseDateOnly(value);
-  if (!birthDate) return true;
+  if (!birthDate) return null;
 
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
@@ -42,6 +43,17 @@ export const validateAdultBirthDate = (value) => {
   if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
     age--;
   }
+
+  return age;
+};
+
+// Validador para usar directamente en react-hook-form (register("birth_date", { validate: ... })).
+// Devuelve true si la persona ya es mayor de edad, o el mensaje de error si no.
+export const validateAdultBirthDate = (value) => {
+  if (!value) return true;
+
+  const age = calculateAge(value);
+  if (age === null) return true;
 
   return age >= MIN_STAFF_AGE || `Debe ser mayor de edad (al menos ${MIN_STAFF_AGE} años)`;
 };

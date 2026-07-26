@@ -4,17 +4,21 @@ import { User, Mail, Lock, CreditCard, Calendar, Venus, CheckCircle2, Circle, Ca
 import InputField from "../../../../components/ui/InputField";
 import FooterLogin from "../../components/Footer";
 import useRegisterAdmin from "../../hooks/useRegisterAdmin";
+import { getMaxAdultBirthDate, validateAdultBirthDate, calculateAge } from "../../../../lib/validators";
 
 const Register = () => {
   const { loading, error: apiError, register } = useRegisterAdmin();
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
-    nombre: "", apellido: "", dui: "", edad: "",
+    nombre: "", apellido: "", dui: "", birth_date: "",
     genero: "", correo: "", contrasena: "", confirmContrasena: "",
     imagen: null,       // archivo File
     imagenPreview: null // URL para previsualizar
   });
+
+  // Edad calculada en vivo a partir de la fecha de nacimiento seleccionada
+  const computedAge = calculateAge(formData.birth_date);
 
   const [errors, setErrors] = useState({});
 
@@ -54,9 +58,11 @@ const Register = () => {
     if (!formData.dui.trim()) e.dui = "Requerido";
     else if (!/^\d{8}-\d$/.test(formData.dui)) e.dui = "Formato: 00000000-0";
 
-    if (!formData.edad.trim()) e.edad = "Requerido";
-    else if (isNaN(formData.edad) || +formData.edad < 18 || +formData.edad > 100)
-      e.edad = "18–100";
+    if (!formData.birth_date) e.birth_date = "Requerido";
+    else {
+      const adultCheck = validateAdultBirthDate(formData.birth_date);
+      if (adultCheck !== true) e.birth_date = adultCheck;
+    }
 
     if (!formData.genero.trim()) e.genero = "Requerido";
 
@@ -209,7 +215,7 @@ const Register = () => {
                   icon={<User className="w-4 h-4" />} error={errors.apellido} disabled={loading} />
               </div>
 
-              {/* DUI + Edad */}
+              {/* DUI + Fecha de nacimiento */}
               <div className="grid grid-cols-2 gap-4">
                 <InputField
                   label="DUI"
@@ -223,10 +229,18 @@ const Register = () => {
                   disabled={loading}
                   maxLength={10}
                 />
-                <InputField label="Edad" id="edad" type="text" placeholder="Ingresa tu edad"
-                  value={formData.edad} onChange={handleChange("edad")}
-                  icon={<Calendar className="w-4 h-4" />} error={errors.edad} disabled={loading} />
+                <InputField label="Fecha de nacimiento" id="birth_date" type="date"
+                  max={getMaxAdultBirthDate()}
+                  value={formData.birth_date} onChange={handleChange("birth_date")}
+                  icon={<Calendar className="w-4 h-4" />} error={errors.birth_date} disabled={loading} />
               </div>
+
+              {/* Edad calculada en vivo a partir de la fecha elegida */}
+              {formData.birth_date && computedAge !== null && (
+                <p className="text-xs text-gray-500 -mt-2 px-1">
+                  Edad: <span className="font-semibold text-gray-700">{computedAge} años</span>
+                </p>
+              )}
 
               {/* Género */}
               <InputField label="Género" id="genero" type="text" placeholder="Ingresa tu género"

@@ -99,7 +99,8 @@ export const AuthProvider = ({ children }) => {
             setUserType(response.userType);
             setIsLoggedIn(true);
             await fetchPermissions();
-            toast.success("Inicio de sesión exitoso.");
+            // El toast de bienvenida ya lo muestra Login.jsx (personalizado);
+            // mostrarlo también aquí duplicaba la notificación de éxito.
             return true;
         } catch (error) {
             toast.error(error.message || "Credenciales incorrectas. Por favor, intenta de nuevo.");
