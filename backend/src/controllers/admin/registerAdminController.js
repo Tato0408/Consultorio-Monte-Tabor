@@ -5,14 +5,14 @@ import bcryptjs from "bcryptjs";
 import adminModel from "../../models/admin/admins.js";
 import { config } from "../../../config.js";
 import { v2 as cloudinary } from "cloudinary";
-import { findStaffDuplicate } from "../../utils/validators.js";
+import { findStaffDuplicate, getMissingRequiredField, validateUserFieldFormats } from "../../utils/validators.js";
 
 const registerAdminController = {};
 
 registerAdminController.register = async (req, res) => {
     try {
         const {
-            name, last_name, dui, age,
+            name, last_name, dui, birth_date,
             gender, email, password,
         } = req.body;
 
@@ -20,6 +20,21 @@ registerAdminController.register = async (req, res) => {
         const adminCount = await adminModel.countDocuments();
         if (adminCount > 0) {
             return res.status(400).json({ message: "An admin already exists in the system" });
+        }
+
+        //Valida que ningun campo obligatorio venga vacio
+        const requiredError = getMissingRequiredField(
+            { name, last_name, dui, birth_date, gender, email, password },
+            ["name", "last_name", "dui", "birth_date", "gender", "email", "password"]
+        );
+        if (requiredError) {
+            return res.status(400).json({ message: requiredError });
+        }
+
+        //Valida el formato de los campos y que la fecha de nacimiento corresponda a un mayor de edad
+        const formatError = validateUserFieldFormats({ name, last_name, email, dui, birth_date }, { requireAdult: true });
+        if (formatError) {
+            return res.status(400).json({ message: formatError });
         }
 
         // Validar que llegó la imagen
@@ -40,7 +55,7 @@ registerAdminController.register = async (req, res) => {
             name,
             last_name,
             dui,
-            age,
+            birth_date,
             gender,
             email,
             password: passwordHashed,
@@ -79,7 +94,7 @@ registerAdminController.verifyCode =
                 name,
                 last_name,
                 dui,
-                age,
+                birth_date,
                 gender,
                 email,
                 password,
@@ -127,7 +142,7 @@ registerAdminController.verifyCode =
                     name,
                     last_name,
                     dui,
-                    age,
+                    birth_date,
                     gender,
                     email,
                     password,

@@ -32,6 +32,7 @@ import doctorDashboardRoutes from './src/routes/dashboard/doctorDashboard.js'
 import nurse_noteRoute from './src/routes/nurse_notes/nurse_notes.js'
 import rolesRoutes from './src/routes/roles/roles.js'
 import permissionsRoutes from './src/routes/permissions/permissions.js'
+import reportsRoutes from './src/routes/reports/reports.js'
 const app = express();
 
 app.use(cookieParser());
@@ -82,5 +83,6 @@ app.use("/api/logout", validateAuthCookie(), logoutRoute);
 app.use("/api/nurse_notes",  nurse_noteRoute);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permissions", permissionsRoutes);
+app.use("/api/reports", authenticate, reportsRoutes);
 
 export default app;

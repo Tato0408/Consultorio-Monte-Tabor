@@ -5,6 +5,7 @@ import nodemailer from "nodemailer";
 import jsonwebtoken from "jsonwebtoken";
 import { config } from "../../../config.js";
 import bcrypt from "bcryptjs";
+import { validateUserFieldFormats } from "../../utils/validators.js";
 
 //Array de funciones
 const adminController = {};
@@ -32,7 +33,7 @@ adminController.updateAdmin = async (req, res) => {
             name,
             last_name,
             dui,
-            age,
+            birth_date,
             gender,
             email,
             password,
@@ -46,12 +47,19 @@ adminController.updateAdmin = async (req, res) => {
             return res.status(404).json({ message: "Admin not found" });
         }
 
+        //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
+        //romper actualizaciones parciales), incluyendo que la fecha de nacimiento sea de un mayor de edad
+        const formatError = validateUserFieldFormats({ name, last_name, email, dui, birth_date }, { requireAdult: true });
+        if (formatError) {
+            return res.status(400).json({ message: formatError });
+        }
+
         const passwordHashed = await bcrypt.hash(password, 10);
         const updatedData = {
             name,
             last_name,
             dui,
-            age,
+            birth_date,
             gender,
             password: passwordHashed,
             is_active,

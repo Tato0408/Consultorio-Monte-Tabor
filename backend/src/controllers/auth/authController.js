@@ -44,7 +44,7 @@ authController.getCurrentUser = async (req, res) => {
                 last_name: userFound.last_name,
                 email: userFound.email,
                 dui: userFound.dui,
-                age: userFound.age,
+                birth_date: userFound.birth_date,
                 gender: userFound.gender,
                 // imagen — cada modelo usa un nombre diferente, devolvemos el que existe
                 image: userFound.image || userFound.img_url || userFound.doctorImage || null,
