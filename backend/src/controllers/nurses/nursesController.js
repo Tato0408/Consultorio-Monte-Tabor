@@ -6,6 +6,7 @@ import { v2 as cloudinary } from "cloudinary"
 import * as nodemailer from 'nodemailer'
 import bcrypt from 'bcryptjs'
 import { config } from "../../../config.js"
+import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js"
 const nursesController = {}
 
 nursesController.getAllNurses = async (req, res) => {
@@ -69,13 +70,14 @@ nursesController.insertNurses = async (req, res) => {
             password
         } = req.body;
 
-        const existNurse = await nursesModel.findOne({ email });
-        if (existNurse) {
-            return res.status(400).json({ message: "Nurse alredy exist" });
-        }
-
-        if(!name || !last_name || !dui || !phone || !birth_date || !email || !password ){
-            return res.status(400).json({message: "Empty data"})
+        //Valida que ningun campo obligatorio venga vacio (se hace antes de tocar la base de
+        //datos, para no gastar una consulta si la peticion ya viene incompleta)
+        const requiredError = getMissingRequiredField(
+            { name, last_name, dui, phone, birth_date, email, password },
+            ["name", "last_name", "dui", "phone", "birth_date", "email", "password"]
+        );
+        if (requiredError) {
+            return res.status(400).json({ message: requiredError });
         }
 
         //Sanitización de campos
@@ -86,53 +88,31 @@ nursesController.insertNurses = async (req, res) => {
         birth_date = birth_date?.trim()
         email = email?.trim()
         password = password?.trim()
-        
-        //Validación donde el email sea de un formato correcto (Incluya @ y dominio)
-        /*
-        +: Concatenar la expresión regular
-        ^: Indica el inicio de un string
-        [^\s@]+: Uno o más caracteres que no sean espacios ni @ (parte del nombre del correo electrónico)
-        @: El carácter @
-        [^\s@]+: Uno o más caracteres que no sean espacios ni @ (parte del dominio)
-        \.: El carácter punto literal
-        [^\s@]+: Uno o más caracteres que no sean espacios ni @ (parte de la extensión del dominio ".com", ".org", etc.)
-        $: Indica el final de un string
-        */
-        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-            return res.status(400).json({message: "Invalid email format"})
+
+        //Valida el formato de telefono/correo/DUI (misma regla que las mascaras del frontend)
+        const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+        if (formatError) {
+            return res.status(400).json({ message: formatError });
         }
 
-        //Validación del DUI
-        /*
-        \d{8}: Exactamente 8 dígitos
-        -: El carácter guión literal
-        \d{1}: Exactamente 1 dígito
-        */
-        if(!/^\d{8}-\d{1}$/.test(dui)){
-            return res.status(400).json({message: "Invalid DUI format"})
+        //Valida que la contraseña cumpla los requisitos de seguridad (incluye el caracter
+        //especial real, a diferencia de la validación anterior que comparaba contra alfanumérico)
+        const passwordError = getPasswordError(password);
+        if (passwordError) {
+            return res.status(400).json({ message: passwordError });
         }
-        
-        //Validacion de contraseña. 
-        //Validación de almenos 8 carcteres
-        if(password.length < 8){
-            return res.status(400).json({message: "Password must be at least 8 characters long"})
+
+        //La foto de perfil es obligatoria al crear una enfermera, igual que en el resto del
+        //staff — se valida aquí explícitamente para devolver un mensaje claro
+        if (!req.file) {
+            return res.status(400).json({ message: "La foto de perfil es requerida" });
         }
-        //.test() verifica si la contraseña cumple con el patron de la expresion regular
-        //Validación de almenos 1 letra mayuscula
-        if(!/[A-Z]/.test(password)){
-            return res.status(400).json({message: "Password must contain at least one uppercase letter"})
-        }
-        //Validación de almenos 1 letra minuscula
-        if(!/[a-z]/.test(password)){
-            return res.status(400).json({message: "Password must contain at least one lowercase letter"})
-        }
-        //Validación de almenos 1 numero
-        if(!/[0-9]/.test(password)){
-            return res.status(400).json({message: "Password must contain at least one number"})
-        }
-        //Validación de almenos 1 caracter especial
-        if(!/[A-Za-z0-9]/.test(password)){
-            return res.status(400).json({message: "Password must contain at least one special character"})
+
+        //Busca si el correo o el DUI ya están en uso por CUALQUIER rol de staff (admin, doctor,
+        //enfermera o recepcionista) — no solo dentro de la colección de enfermeras
+        const staffDuplicate = await findStaffDuplicate(email, dui);
+        if (staffDuplicate) {
+            return res.status(400).json(staffDuplicate);
         }
 
         const passwordHashed = await bcrypt.hash(password, 10)
@@ -147,8 +127,9 @@ nursesController.insertNurses = async (req, res) => {
             password: passwordHashed,
             is_active: true,
             is_verified: false,
-            img_url: req.file.path,
-            public_id: req.file.filename,
+            // La presencia del archivo ya se validó arriba antes de llegar aquí
+            img_url: req.file?.path,
+            public_id: req.file?.filename,
             time_out: null
         })
         const savedNurse = await payload.save()
@@ -228,6 +209,14 @@ nursesController.updateNurse = async(req,res) => {
         if(!response){
             return res.status(404).json({message: "Nurse not found"})
         }
+
+        //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
+        //romper actualizaciones parciales)
+        const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+        if (formatError) {
+            return res.status(400).json({ message: formatError });
+        }
+
         let payload = {
              name,
             last_name,

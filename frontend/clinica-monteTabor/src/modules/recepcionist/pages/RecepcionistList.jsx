@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import ReceptionistsTable from "../components/RecepcionistTable";
 import ReceptionistForm from "../components/RecepcionistForm";
 import { useReceptionist } from "../hooks/useRecepcionist";
-import { showSuccess, showError } from "../../../lib/alerts";
+import { showSuccess, showError, confirmDelete } from "../../../lib/alerts";
 import { useAuth } from "@/context/AuthContext";
 
 const ReceptionistsList = () => {
@@ -55,16 +55,10 @@ const ReceptionistsList = () => {
 
       //Si había un recepcionista seleccionado significa que fue una edición
       if (receptionistToEdit) {
-        showSuccess(
-          "Recepcionista actualizado",
-          "La información fue actualizada correctamente."
-        );
+        showSuccess("La información fue actualizada correctamente.");
       } else {
         //Si no había ninguno seleccionado entonces fue un registro nuevo
-        showSuccess(
-          "Recepcionista agregado",
-          "El recepcionista fue registrado correctamente."
-        );
+        showSuccess("El recepcionista fue registrado correctamente.");
       }
     }
 
@@ -72,8 +66,14 @@ const ReceptionistsList = () => {
     setReceptionistToEdit(null);
   };
 
-  //Función para eliminar un recepcionista
+  //Función para eliminar un recepcionista (con confirmación previa)
   const handleDelete = async (id) => {
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar este recepcionista?",
+      text: "Esta acción no se puede deshacer.",
+    });
+    if (!confirmed) return;
+
     try {
       //Eliminamos el registro
       await deleteReceptionist(id);
@@ -82,16 +82,10 @@ const ReceptionistsList = () => {
       await getReceptionists();
 
       //Mostramos mensaje de éxito
-      showSuccess(
-        "Recepcionista eliminado",
-        "El registro fue eliminado correctamente."
-      );
+      showSuccess("El recepcionista fue eliminado correctamente.");
     } catch (error) {
       //Si ocurre un error mostramos la alerta
-      showError(
-        "Error",
-        error.message || "No fue posible eliminar el recepcionista."
-      );
+      showError(error.message || "No fue posible eliminar el recepcionista.");
     }
   };
 

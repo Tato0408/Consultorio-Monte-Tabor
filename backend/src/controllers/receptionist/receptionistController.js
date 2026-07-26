@@ -1,6 +1,7 @@
 import receptionistsModel from "../../models/receptionist/receptionist.js";
 import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
+import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js";
 
 //Array de funciones, aqui agregamos las funciones y 
 //al final del archivo este objeto lo exportaremos
@@ -37,18 +38,39 @@ receptionistController.createReceptionist = async (req, res) => {
     //los datos vienen dentro del body de la peticion
     const { name, last_name, dui, birth_date, phone, email, password } = req.body;
 
-    //Busca si ya existe un recepcionista con el mismo correo o dui
-    const receptionistExists = await receptionistsModel.findOne({
-      //El $or singifica que basta con q una condicion se cumpla
-      //para considerar que el recepcionista ya existe
-      $or: [{ email }, { dui }],
-    });
+    //Valida que ningun campo obligatorio venga vacio
+    const requiredError = getMissingRequiredField(
+      { name, last_name, dui, birth_date, phone, email, password },
+      ["name", "last_name", "dui", "birth_date", "phone", "email", "password"]
+    );
+    if (requiredError) {
+      return res.status(400).json({ message: requiredError });
+    }
 
-    //Si ya se encuentra un registro se cancela el proceso de creacion
-    if (receptionistExists) {
-      return res.status(400).json({
-        message: "Ya existe un recepcionista con ese correo o DUI",
-      });
+    //Valida el formato de telefono/correo/DUI (misma regla que las mascaras del frontend)
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+    if (formatError) {
+      return res.status(400).json({ message: formatError });
+    }
+
+    //Valida que la contraseña cumpla los requisitos de seguridad
+    const passwordError = getPasswordError(password);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
+    }
+
+    //La foto de perfil es obligatoria en el esquema (required: true); se valida aquí
+    //explícitamente para devolver un mensaje claro en vez de que Mongoose truene con un
+    //ValidationError que terminaría como un 500 genérico
+    if (!req.files?.receptionistImage?.[0]) {
+      return res.status(400).json({ message: "La foto de perfil es requerida" });
+    }
+
+    //Busca si el correo o el DUI ya están en uso por CUALQUIER rol de staff (admin, doctor,
+    //enfermera o recepcionista) — no solo dentro de la colección de recepcionistas
+    const staffDuplicate = await findStaffDuplicate(email, dui);
+    if (staffDuplicate) {
+      return res.status(400).json(staffDuplicate);
     }
 
     //Encripta la contraseña usando bcrypt
@@ -57,8 +79,9 @@ receptionistController.createReceptionist = async (req, res) => {
 
     //Crea un nuevo documento utilizando el modelo receptionistsModel
     const newReceptionist = new receptionistsModel({
-      img_url: req.files["receptionistImage"][0].path,
-      img_public_id: req.files["receptionistImage"][0].filename,
+      // La presencia del archivo ya se validó arriba antes de llegar aquí
+      img_url: req.files?.receptionistImage?.[0]?.path,
+      img_public_id: req.files?.receptionistImage?.[0]?.filename,
       name,
       last_name,
       dui,
@@ -116,6 +139,13 @@ receptionistController.updateReceptionist = async (req, res) => {
       });
     }
 
+    //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
+    //romper actualizaciones parciales)
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+    if (formatError) {
+      return res.status(400).json({ message: formatError });
+    }
+
     //Crea una constante con el objeto de los datos que vamos a actualizar en el modelo
     const updatedData = {
       name,
@@ -131,6 +161,11 @@ receptionistController.updateReceptionist = async (req, res) => {
     // Si viene una nueva contraseña, la encriptamos antes de guardar
     //Comprueba si escribieron algo en el campo de contraseña para cambiarla
     if (password && password.trim() !== "") {
+      //Valida que la nueva contraseña cumpla los requisitos de seguridad
+      const passwordError = getPasswordError(password);
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
+      }
       //Genera el nuevo hash encriptado de la contraseña con 10 rondas
       updatedData.password = await bcryptjs.hash(password, 10);
     }

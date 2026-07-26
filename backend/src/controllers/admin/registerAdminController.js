@@ -5,6 +5,7 @@ import bcryptjs from "bcryptjs";
 import adminModel from "../../models/admin/admins.js";
 import { config } from "../../../config.js";
 import { v2 as cloudinary } from "cloudinary";
+import { findStaffDuplicate } from "../../utils/validators.js";
 
 const registerAdminController = {};
 
@@ -24,6 +25,13 @@ registerAdminController.register = async (req, res) => {
         // Validar que llegó la imagen
         if (!req.file) {
             return res.status(400).json({ message: "Image is required" });
+        }
+
+        //Busca si el correo o el DUI ya están en uso por CUALQUIER rol de staff (admin, doctor,
+        //enfermera o recepcionista)
+        const staffDuplicate = await findStaffDuplicate(email, dui);
+        if (staffDuplicate) {
+            return res.status(400).json(staffDuplicate);
         }
 
         const passwordHashed = await bcryptjs.hash(password, 10);
@@ -99,6 +107,16 @@ registerAdminController.verifyCode =
                 await cloudinary.uploader.destroy(public_id);
 
                 return res.status(400).json({ message: "An admin already exists in the system" });
+            }
+
+            //Busca si el correo o el DUI ya están en uso por CUALQUIER rol de staff (admin, doctor,
+            //enfermera o recepcionista)
+            const staffDuplicate = await findStaffDuplicate(email, dui);
+            if (staffDuplicate) {
+                //Se borra la imagen ya que no se completará el registro
+                await cloudinary.uploader.destroy(public_id);
+
+                return res.status(400).json(staffDuplicate);
             }
 
             // CREAR ADMIN

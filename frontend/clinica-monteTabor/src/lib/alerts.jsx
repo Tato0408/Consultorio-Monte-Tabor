@@ -74,11 +74,18 @@ export const showWarning = (message) =>
     { duration: 3500 }
   );
 
-export const confirmDelete = async () => {
+// Mismos colores que WarnIcon/AlertIcon del toast (amber-400 / red-500), para que la ventana
+// de confirmación se sienta parte del mismo sistema visual aunque sea un modal de SweetAlert2
+// y no un toast — SweetAlert2 no permite clonar el diseño de tarjeta del toast tal cual.
+export const confirmDelete = async ({
+  title = "¿Eliminar este registro?",
+  text = "Esta acción no se puede deshacer.",
+} = {}) => {
   const result = await Swal.fire({
-    title: "¿Eliminar este registro?",
-    text: "Esta acción no se puede deshacer.",
+    title,
+    text,
     icon: "warning",
+    iconColor: "#fbbf24",
     showCancelButton: true,
     confirmButtonText: "Sí, eliminar",
     cancelButtonText: "Cancelar",

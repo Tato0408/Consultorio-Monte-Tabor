@@ -43,7 +43,7 @@ const RecoveryPassword = () => {
       if (doctorRes.message === "email sent") {
         localStorage.setItem("recoveryType", "doctor");
         localStorage.setItem("recoveryEmail", email);
-        showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo.");
+        showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
         navigate("/verify-code");
         return; //Como fue exitoso, se deitene la función aquí
       }
@@ -57,7 +57,7 @@ const RecoveryPassword = () => {
       if (recRes.message === "email sent") {
         localStorage.setItem("recoveryType", "receptionist");
         localStorage.setItem("recoveryEmail", email);
-        showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo.");
+        showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
         navigate("/verify-code");
         return; 
       }
@@ -71,7 +71,7 @@ const RecoveryPassword = () => {
       if (adminRes.message === "email sent") {
         localStorage.setItem("recoveryType", "admin");
         localStorage.setItem("recoveryEmail", email);
-        showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo.");
+        showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
         navigate("/verify-code");
         return; 
       }
@@ -121,10 +121,10 @@ const RecoveryPassword = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <InputField
-                label="Correo"
+                label="Correo electrónico"
                 id="email"
                 type="email"
-                placeholder="Ingresa tu correo"
+                placeholder="Ingresa tu correo electrónico"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 icon={<Mail className="w-4 h-4" />}
