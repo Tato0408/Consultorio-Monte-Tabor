@@ -57,7 +57,9 @@ const ROLE_PERMISSIONS = {
         "users.doctors": [false, false, false, false],
         "users.patients": [true, false, true, true],
         "users.receptionist": [false, false, false, false],
-        "users.nurses": [false, false, false, false],
+        // El doctor necesita ver el listado de enfermeras para poder
+        // asignar una al agendar una cita (users.nurses.view).
+        "users.nurses": [true, false, false, false],
         "procedures": [true, true, true, true],
         "reports.appointments": [true, false, false, false],
         "reports.records": [true, false, false, false],

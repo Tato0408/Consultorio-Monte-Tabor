@@ -9,7 +9,7 @@ import { Badge } from "./ui";
 // Props: tabs = [{ label, content }] -> content es lo que se renderiza debajo;
 // activeTab/onTabChange opcionales para controlar el índice desde afuera;
 // onBack opcional, si se pasa el breadcrumb "Expedientes" vuelve al listado.
-export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, onTabChange, onBack }) {
+export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, onTabChange, onBack, children }) {
   const [internalTab, setInternalTab] = useState(0);
   const current = activeTab ?? internalTab;
   const setTab = onTabChange ?? setInternalTab;
@@ -56,6 +56,9 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
 
       {/* Barra del paciente */}
       <PatientBar patient={patient} />
+
+      {/* Banner opcional (error/loading) para lo que se trae aparte, ej. usePatientRecordDetail */}
+      {children && <div className="mt-6">{children}</div>}
 
       {/* Contenido de la pestaña activa */}
       <div className="mt-8">{tabs[current]?.content}</div>

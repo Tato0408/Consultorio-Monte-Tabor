@@ -91,6 +91,7 @@ export const ALL_MODULE_KEYS = SIDEBAR_MODULES.flatMap((section) =>
 
 const FULL_CRUD = { view: true, create: true, update: true, delete: true };
 const NO_ACCESS = { view: false, create: false, update: false, delete: false };
+const VIEW_ONLY = { view: true, create: false, update: false, delete: false };
 
 // Valores predeterminados por rol, usados por el botón "Volver a los valores
 // predeterminados" de cada card. Solo cubre los moduleKey gestionables desde
@@ -104,7 +105,9 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     "users.doctors": NO_ACCESS,
     "users.patients": FULL_CRUD,
     "users.receptionist": NO_ACCESS,
-    "users.nurses": NO_ACCESS,
+    // El doctor necesita ver el listado de enfermeras para poder asignar
+    // una al agendar una cita.
+    "users.nurses": VIEW_ONLY,
     "procedures": FULL_CRUD,
     "reports.appointments": NO_ACCESS,
     "reports.records": FULL_CRUD,
