@@ -2,10 +2,13 @@ import React from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+
 import ProfileCard from "../../components/profile/ProfileCard";
 import ShortcutCard from "../../components/profile/ShortcutCard";
 import InfoCard from "../../components/profile/InfoCard";
 import styles, { colors } from "../../styles/profile/profileStyle";
+
+const EMPTY = "Sin registrar";
 
 const shortcuts = [
   { icon: "person-outline", title: "Mis datos" },
@@ -15,18 +18,18 @@ const shortcuts = [
 ];
 
 const personalInfo = [
-  { icon: "calendar-outline", label: "Fecha de nacimiento", value: "12 Mar 1996", chevron: true },
-  { icon: "call-outline", label: "Teléfono", value: "+503 7777 7777", chevron: true },
-  { icon: "mail-outline", label: "Correo electrónico", value: "carlos.rodriguez@email.com", chevron: true },
-  { icon: "location-outline", label: "Dirección", value: "Calle 123 #45-67, San Salvador", chevron: true },
-  { icon: "people-outline", label: "Contacto de emergencia", value: "María Rodríguez (Madre) · +503 4444 4444", chevron: true },
+  { icon: "calendar-outline", label: "Fecha de nacimiento", value: EMPTY, chevron: true },
+  { icon: "call-outline", label: "Teléfono", value: EMPTY, chevron: true },
+  { icon: "mail-outline", label: "Correo electrónico", value: EMPTY, chevron: true },
+  { icon: "location-outline", label: "Dirección", value: EMPTY, chevron: true },
+  { icon: "people-outline", label: "Contacto de emergencia", value: EMPTY, chevron: true },
 ];
 
 const healthInfo = [
-  { label: "Tipo de sangre", value: "O+" },
-  { label: "Alergias", value: "Polen, Penicilina" },
-  { label: "Enfermedades crónicas", value: "Ninguna" },
-  { label: "Medicamentos actuales", value: "2 medicamentos" },
+  { label: "Tipo de sangre", value: EMPTY },
+  { label: "Alergias", value: EMPTY },
+  { label: "Enfermedades crónicas", value: EMPTY },
+  { label: "Medicamentos actuales", value: EMPTY },
 ];
 
 const accountInfo = [
@@ -37,7 +40,7 @@ const accountInfo = [
 ];
 
 const ProfileScreen = ({ navigation }) => {
-  const handlePress = (item) => console.log("Pressed:", item);
+  const noop = (label) => console.log("Pressed:", label);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -62,14 +65,17 @@ const ProfileScreen = ({ navigation }) => {
               key={s.title}
               icon={s.icon}
               title={s.title}
-              onPress={() => handlePress(s.title)}
+              onPress={() => noop(s.title)}
             />
           ))}
         </View>
 
         <InfoCard
           title="Información personal"
-          items={personalInfo.map((i) => ({ ...i, onPress: () => handlePress(i.label) }))}
+          items={personalInfo.map((i) => ({
+            ...i,
+            onPress: () => navigation.navigate("EditProfile"),
+          }))}
         />
 
         <InfoCard
@@ -84,7 +90,7 @@ const ProfileScreen = ({ navigation }) => {
 
         <InfoCard
           title="Cuenta y seguridad"
-          items={accountInfo.map((i) => ({ ...i, onPress: () => handlePress(i.label) }))}
+          items={accountInfo.map((i) => ({ ...i, onPress: () => noop(i.label) }))}
         />
       </ScrollView>
     </SafeAreaView>

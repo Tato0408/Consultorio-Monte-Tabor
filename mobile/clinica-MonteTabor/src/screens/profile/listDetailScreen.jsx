@@ -1,17 +1,20 @@
 import React from "react";
-import { View, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import DetailHeader from "../../components/profile/DetailHeader";
 import SummaryCard from "../../components/profile/SummaryCard";
-import RecordItem from "../../components/profile/RecordItem";
 import EmptyState from "../../components/profile/EmptyState";
 import BottomAction from "../../components/profile/BottomAction";
+import { sectionsConfig } from "../../config/healthSections";
 import styles from "../../styles/profile/detailStyle";
 
 const ListDetailScreen = ({ navigation, route }) => {
-  const config = detailConfig[route.params?.key] || {};
-  const items = config.items || [];
+  const key = route.params?.key;
+  const config = sectionsConfig[key] || {};
+
+  // Sin datos todavía
+  const records = [];
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -22,23 +25,17 @@ const ListDetailScreen = ({ navigation, route }) => {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {config.summary ? <SummaryCard {...config.summary} /> : null}
+        <SummaryCard
+          icon={config.icon}
+          label={config.countLabel}
+          value={String(records.length)}
+        />
 
-        {items.length === 0 ? (
-          <EmptyState
-            icon={config.emptyIcon || config.summary?.icon}
-            title={config.emptyTitle}
-            text={config.emptyText}
-          />
-        ) : (
-          items.map((item) => (
-            <RecordItem
-              key={item.title}
-              record={item}
-              onMenu={config.showMenu ? () => console.log("menu", item.title) : undefined}
-            />
-          ))
-        )}
+        <EmptyState
+          icon={config.icon}
+          title={config.emptyTitle}
+          text={config.emptyText}
+        />
       </ScrollView>
 
       <BottomAction

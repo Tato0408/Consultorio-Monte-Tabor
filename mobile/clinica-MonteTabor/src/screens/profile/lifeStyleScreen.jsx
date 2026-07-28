@@ -1,9 +1,8 @@
 import React from "react";
-import { ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import DetailHeader from "../../components/profile/DetailHeader";
-import KeyValuePanel from "../../components/profile/KeyValuePanel";
+import EmptyState from "../../components/profile/EmptyState";
 import BottomAction from "../../components/profile/BottomAction";
 import styles from "../../styles/profile/detailStyle";
 
@@ -11,18 +10,16 @@ const LifestyleScreen = ({ navigation }) => (
   <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
     <DetailHeader title="Estilo de vida" onBack={() => navigation.goBack()} />
 
-    <ScrollView
-      style={styles.flex}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      <KeyValuePanel rows={lifestyleData} />
-    </ScrollView>
+    <EmptyState
+      icon="walk-outline"
+      title="No has registrado tu estilo de vida"
+      text="Estos datos ayudan a tu médico a darte mejores recomendaciones."
+    />
 
     <BottomAction
-      label="Actualizar información"
+      label="Registrar información"
       icon="create-outline"
-      onPress={() => console.log("Editar estilo de vida")}
+      onPress={() => console.log("Registrar estilo de vida")}
     />
   </SafeAreaView>
 );
