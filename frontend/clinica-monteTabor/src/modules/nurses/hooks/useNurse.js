@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import Swal from "sweetalert2";
 import apiClient from "../../../lib/apiClient";
+import { confirmDelete, showSuccess, showError } from "../../../lib/alerts";
 
 const useNurse = () => {
   const [nurses, setNurses]               = useState([]);
@@ -71,18 +71,12 @@ const useNurse = () => {
   }, [fetchNurses]);
 
   const deleteNurse = useCallback(async (nurse) => {
-    const confirm = await Swal.fire({
-      icon:               "warning",
-      title:              "¿Eliminar enfermera?",
-      text:               `Se eliminará a ${nurse.name} ${nurse.last_name}. Esta acción no se puede deshacer.`,
-      showCancelButton:   true,
-      confirmButtonText:  "Sí, eliminar",
-      cancelButtonText:   "Cancelar",
-      confirmButtonColor: "#dc2626",
-      cancelButtonColor:  "#6b7280",
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar enfermera?",
+      text: `Se eliminará a ${nurse.name} ${nurse.last_name}. Esta acción no se puede deshacer.`,
     });
 
-    if (!confirm.isConfirmed) return;
+    if (!confirmed) return;
 
     try {
       setError(null);
@@ -96,21 +90,9 @@ const useNurse = () => {
 
       await fetchNurses();
 
-      await Swal.fire({
-        icon:             "success",
-        title:            "¡Eliminada!",
-        text:             "La enfermera fue eliminada correctamente.",
-        confirmButtonColor: "#2563eb",
-        timer:            2000,
-        timerProgressBar: true,
-      });
+      showSuccess("La enfermera fue eliminada correctamente.");
     } catch (err) {
-      Swal.fire({
-        icon:               "error",
-        title:              "Error",
-        text:               err.message || "No se pudo eliminar la enfermera.",
-        confirmButtonColor: "#2563eb",
-      });
+      showError(err.message || "No se pudo eliminar la enfermera.");
     }
   }, [fetchNurses, selectedNurse]);
 

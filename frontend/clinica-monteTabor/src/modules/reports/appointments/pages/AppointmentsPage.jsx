@@ -1,7 +1,10 @@
+import { useState } from "react";
 import ReportHeader from "../../components/ReportHeader";
 import TopCard from "../../components/TopCard";
 import ReportSection from "../../components/ReportsSection";
 import useCitasReport from "../hooks/useAppointmentsReports";
+import { exportReportPdf } from "../../exportReportPdf";
+import { showError } from "../../../../lib/alerts";
 
 const SkeletonCard = () => (
   <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 h-[220px] animate-pulse">
@@ -22,7 +25,26 @@ const SkeletonSection = () => (
 );
 
 const CitasPage = () => {
-  const { loading, topCards, sections } = useCitasReport();
+  const {
+    loading, topCards, sections, pdfData,
+    dateFrom, dateTo, isGeneral,
+    setDateFrom, setDateTo, toggleGeneral,
+  } = useCitasReport();
+
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!pdfData) return;
+    setExporting(true);
+    try {
+      await exportReportPdf(pdfData);
+    } catch (error) {
+      console.error(error);
+      showError("No se pudo generar el PDF del reporte.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-6 p-6 bg-gray-50/50 min-h-screen">
@@ -30,6 +52,14 @@ const CitasPage = () => {
         title="Reportes"
         subtitle="Consulta y analiza el rendimiento de la clínica"
         breadcrumb="Citas"
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        isGeneral={isGeneral}
+        onChangeFrom={setDateFrom}
+        onChangeTo={setDateTo}
+        onToggleGeneral={toggleGeneral}
+        onExport={handleExport}
+        exporting={exporting}
       />
 
       {/* Top cards */}

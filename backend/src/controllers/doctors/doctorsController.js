@@ -1,6 +1,7 @@
 import doctorsModel from "../../models/doctors/doctors.js";
 import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
+import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js";
 
 //array de funciones, aqui agregamos las funciones y 
 //al final del archivo este objeto lo exportaremos
@@ -47,23 +48,49 @@ doctorController.createDoctor = async (req, res) => {
       password,
     } = req.body;
 
-    //Busca si ya existe un dcotor con el mismo correo, dui o licencia
-    const doctorExists =
-      await doctorsModel.findOne({
-        //El $or singifica que basta con q una condicion se cumpla
-        //para considerar que el doctor ya existe
-        $or: [
-          { email },
-          { dui },
-          { license_number },
-        ],
-      });
+    //Valida que ningun campo obligatorio venga vacio
+    const requiredError = getMissingRequiredField(
+      { name, last_name, dui, birth_date, gender, phone, license_number, email, password },
+      ["name", "last_name", "dui", "birth_date", "gender", "phone", "license_number", "email", "password"]
+    );
+    if (requiredError) {
+      return res.status(400).json({ message: requiredError });
+    }
 
-      //Si ya se encuentra un registro se cancela el proceso de creacion
-    if (doctorExists) {
+    //Valida el formato de telefono/correo/DUI (misma regla que las mascaras del frontend)
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+    if (formatError) {
+      return res.status(400).json({ message: formatError });
+    }
+
+    //Valida que la contraseña cumpla los requisitos de seguridad
+    const passwordError = getPasswordError(password);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
+    }
+
+    //La foto de perfil y el documento de licencia son obligatorios en el esquema (required: true);
+    //se validan aquí explícitamente para devolver un mensaje claro en vez de que Mongoose truene
+    //con un ValidationError que terminaría como un 500 genérico
+    if (!req.files?.doctorImage?.[0]) {
+      return res.status(400).json({ message: "La foto de perfil es requerida" });
+    }
+    if (!req.files?.licenseImage?.[0]) {
+      return res.status(400).json({ message: "El documento de licencia es requerido" });
+    }
+
+    //Busca si el correo o el DUI ya están en uso por CUALQUIER rol de staff (admin, doctor,
+    //enfermera o recepcionista) — no solo dentro de la colección de doctores
+    const staffDuplicate = await findStaffDuplicate(email, dui);
+    if (staffDuplicate) {
+      return res.status(400).json(staffDuplicate);
+    }
+
+    //La licencia es exclusiva de doctores, se valida aparte del resto del staff
+    const licenseExists = await doctorsModel.findOne({ license_number });
+    if (licenseExists) {
       return res.status(400).json({
-        message:
-          "Ya existe un doctor con ese correo, DUI o licencia",
+        message: "Ya existe un doctor con ese número de licencia",
       });
     }
     //Encripta la contraseña usando bcrypt
@@ -74,11 +101,12 @@ doctorController.createDoctor = async (req, res) => {
        //Crea un nuevo documento utilizando el modelo doctorsModel
     const newDoctor =
       new doctorsModel({
+        // La presencia de ambos archivos ya se validó arriba antes de llegar aquí
         img_url:
-          req.files["doctorImage"][0].path,
+          req.files?.doctorImage?.[0]?.path,
 
         img_public_id:
-          req.files["doctorImage"][0].filename,
+          req.files?.doctorImage?.[0]?.filename,
 
         name,
         last_name,
@@ -89,10 +117,10 @@ doctorController.createDoctor = async (req, res) => {
         license_number,
 
         license_url:
-          req.files["licenseImage"][0].path,
+          req.files?.licenseImage?.[0]?.path,
 
         license_public_id:
-          req.files["licenseImage"][0].filename,
+          req.files?.licenseImage?.[0]?.filename,
 
         email,
         password:
@@ -154,6 +182,13 @@ doctorController.updateDoctors = async (req, res) => {
         message:
           "Doctor not found",
       });
+    }
+
+    //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
+    //romper actualizaciones parciales)
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+    if (formatError) {
+      return res.status(400).json({ message: formatError });
     }
 
     //Crea un objeto nuevo con todos los datos limpios y listos para ser actualizados en la base de datos

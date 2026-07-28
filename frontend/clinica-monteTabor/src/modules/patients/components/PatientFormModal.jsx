@@ -1,7 +1,20 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { User, Loader2, Lock, Eye, EyeOff, CheckCircle2, Circle } from "lucide-react";
+import { User, Loader2, Lock, Eye, EyeOff, CheckCircle2, Circle, X } from "lucide-react";
 import { showSuccess, showError } from "@/lib/alerts";
+
+// Nombres legibles de cada campo, para el aviso que identifica qué campo falló al enviar
+const FIELD_LABELS = {
+  name: "Nombres",
+  last_name: "Apellidos",
+  phone: "Teléfono",
+  email: "Correo electrónico",
+  dui: "DUI",
+  birth_date: "Fecha de nacimiento",
+  gender: "Género",
+  referred_by: "Referido por",
+  password: "Contraseña",
+};
 
 const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
   const isEditMode = !!patient;
@@ -116,6 +129,14 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
     }
   };
 
+  // Se dispara cuando el envío falla la validación (campos vacíos o con formato inválido);
+  // además del contorno rojo y el mensaje debajo de cada input, avisa arriba a la derecha
+  // qué campo(s) específicos hay que corregir.
+  const onInvalid = (formErrors) => {
+    const invalidFields = Object.keys(formErrors).map((key) => FIELD_LABELS[key] || key);
+    showError(`Revisa este/estos campo(s): ${invalidFields.join(", ")}`);
+  };
+
   const ValidationRow = ({ checked, label }) => (
     <div className={`flex items-center gap-2 text-xs font-medium transition-colors ${checked ? "text-green-600" : "text-gray-400"}`}>
       {checked
@@ -136,7 +157,16 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-[28px] w-full max-w-[560px] p-8 flex flex-col items-center shadow-2xl relative my-8 animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-[28px] w-full max-w-2xl p-8 flex flex-col items-center shadow-2xl relative my-8 animate-in fade-in zoom-in-95 duration-150">
+
+        {/* Cierre */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
 
         <div className="w-24 h-24 rounded-full bg-[#F3F4F6] border border-gray-100 flex items-center justify-center mb-6">
           <User className="w-10 h-10 text-blue-600" strokeWidth={1.5} />
@@ -146,7 +176,7 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
           {isEditMode ? "Editar paciente" : "Agregar paciente"}
         </h2>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="w-full flex flex-col gap-4">
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="w-full flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             <div className="flex flex-col gap-1.5">
@@ -326,19 +356,11 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
             </div>
           )}
 
-          <div className="flex items-center justify-center gap-4 mt-4 w-full">
-            <button
-              type="button"
-              disabled={loading}
-              onClick={onClose}
-              className="w-32 border border-blue-600 text-blue-600 font-bold py-2.5 rounded-xl hover:bg-blue-50 transition-colors text-xs text-center disabled:opacity-50"
-            >
-              Cancelar
-            </button>
+          <div className="flex items-center justify-center mt-4 w-full">
             <button
               type="submit"
               disabled={loading}
-              className="w-32 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition-colors shadow-sm text-xs flex items-center justify-center gap-1 disabled:opacity-70"
+              className="w-48 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition-colors shadow-sm text-xs flex items-center justify-center gap-1 disabled:opacity-70"
             >
               {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Guardar

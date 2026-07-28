@@ -21,11 +21,16 @@ import {
     showSuccess,
     showError
 } from "@/lib/alerts";
+import { useAuth } from "@/context/AuthContext";
 
 // Pantalla principal del módulo: lista de citas en tarjetas, con búsqueda,
 // filtros, orden, paginación y acciones (ver, editar, cancelar, eliminar).
 export default function AppointmentsGrid() {
     const navigate = useNavigate();
+    const { hasPermission } = useAuth();
+    const canCreate = hasPermission("calendar.appointments", "create");
+    const canUpdate = hasPermission("calendar.appointments", "update");
+    const canDelete = hasPermission("calendar.appointments", "delete");
 
     const {
         appointments,
@@ -147,13 +152,15 @@ export default function AppointmentsGrid() {
                     </p>
                 </div>
 
-                <Button
-                    onClick={() => navigate("/calendar/appointments/new")}
-                    className="bg-[#0b66d6] hover:bg-blue-700 text-white px-5 py-5 rounded-xl flex items-center gap-2 font-semibold shadow-md shadow-blue-100"
-                >
-                    <Plus className="h-5 w-5" />
-                    Nueva Cita
-                </Button>
+                {canCreate && (
+                    <Button
+                        onClick={() => navigate("/calendar/appointments/new")}
+                        className="bg-[#0b66d6] hover:bg-blue-700 text-white px-5 py-5 rounded-xl flex items-center gap-2 font-semibold shadow-md shadow-blue-100"
+                    >
+                        <Plus className="h-5 w-5" />
+                        Nueva Cita
+                    </Button>
+                )}
             </div>
 
             {/* Búsqueda, filtros de estado/tipo y orden por fecha. Todo se
@@ -346,38 +353,42 @@ export default function AppointmentsGrid() {
 
                                     {/* Acciones: eliminar, editar, cancelar (condicional) y ver. */}
                                     <div className="flex items-center gap-1">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                            onClick={() =>
-                                                handleEliminar(cita._id)
-                                            }
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        {canDelete && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                                onClick={() =>
+                                                    handleEliminar(cita._id)
+                                                }
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
 
                                         {/* Abre el formulario en modo edición (editMode: true). */}
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-slate-400 hover:text-amber-600 hover:bg-amber-50"
-                                            onClick={() =>
-                                                navigate(
-                                                    `/calendar/appointments/${cita._id}`,
-                                                    {
-                                                        state: {
-                                                            editMode: true
+                                        {canUpdate && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-slate-400 hover:text-amber-600 hover:bg-amber-50"
+                                                onClick={() =>
+                                                    navigate(
+                                                        `/calendar/appointments/${cita._id}`,
+                                                        {
+                                                            state: {
+                                                                editMode: true
+                                                            }
                                                         }
-                                                    }
-                                                )
-                                            }
-                                        >
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
+                                                    )
+                                                }
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                        )}
 
                                         {/* Solo visible si la cita todavía se puede cancelar. */}
-                                        {cita.status !== "cancelled" && cita.status !== "completed" && cita.status !== "no_show" && (
+                                        {canUpdate && cita.status !== "cancelled" && cita.status !== "completed" && cita.status !== "no_show" && (
                                             <Button
                                                 variant="ghost"
                                                 size="icon"

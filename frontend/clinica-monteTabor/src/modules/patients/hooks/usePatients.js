@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import Swal from "sweetalert2";
 import apiClient from "../../../lib/apiClient";
+import { confirmDelete, showSuccess, showError } from "../../../lib/alerts";
 
 const usePatients = () => {
   const [patients, setPatients] = useState([]);
@@ -46,18 +46,12 @@ const usePatients = () => {
   }, [fetchPatients]);
 
   const deletePatient = useCallback(async (patient) => {
-    const confirm = await Swal.fire({
-      icon: "warning",
+    const confirmed = await confirmDelete({
       title: "¿Eliminar paciente?",
       text: `Se eliminará a ${patient.name} ${patient.last_name}. Esta acción no se puede deshacer.`,
-      showCancelButton: true,
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#dc2626",
-      cancelButtonColor: "#6b7280",
     });
 
-    if (!confirm.isConfirmed) return;
+    if (!confirmed) return;
 
     try {
       setError(null);
@@ -67,21 +61,9 @@ const usePatients = () => {
 
       await fetchPatients();
 
-      await Swal.fire({
-        icon: "success",
-        title: "¡Eliminado!",
-        text: "El paciente fue eliminado correctamente.",
-        confirmButtonColor: "#2563eb",
-        timer: 2000,
-        timerProgressBar: true,
-      });
+      showSuccess("El paciente fue eliminado correctamente.");
     } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: err.message || "No se pudo eliminar el paciente.",
-        confirmButtonColor: "#2563eb",
-      });
+      showError(err.message || "No se pudo eliminar el paciente.");
     }
   }, [fetchPatients]);
 

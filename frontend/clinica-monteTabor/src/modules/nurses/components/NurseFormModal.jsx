@@ -1,7 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
-import { User, Plus, Loader2, Lock, Eye, EyeOff, CheckCircle2, Circle } from "lucide-react";
+import { User, Plus, Loader2, Lock, Eye, EyeOff, CheckCircle2, Circle, X } from "lucide-react";
 import { showSuccess, showError } from "@/lib/alerts";
+import { getMaxAdultBirthDate, validateAdultBirthDate } from "@/lib/validators";
+
+// Nombres legibles de cada campo, para el aviso que identifica qué campo falló al enviar
+const FIELD_LABELS = {
+  name: "Nombres",
+  last_name: "Apellidos",
+  phone: "Teléfono",
+  email: "Correo electrónico",
+  dui: "DUI",
+  birth_date: "Fecha de nacimiento",
+  password: "Contraseña",
+};
 
 const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
   const isEditMode = !!nurse;
@@ -11,6 +23,8 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  //Estado para mostrar el aviso de "imagen requerida" cuando se envía el formulario sin foto
+  const [imageError, setImageError] = useState("");
 
   const {
     register,
@@ -67,6 +81,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
     }
 
     setImageFile(null);
+    setImageError("");
     setShowPassword(false);
   }, [nurse, isOpen, reset]);
 
@@ -75,6 +90,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
     if (file) {
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
+      setImageError("");
     }
   };
 
@@ -94,6 +110,14 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
 
   const onSubmit = async (data) => {
     if (!isEditMode && !isPasswordValid) return;
+
+    // Al crear, la foto de perfil es obligatoria (el backend también lo exige); se avisa
+    // aquí antes de mandar la petición
+    if (!isEditMode && !imageFile) {
+      setImageError("La foto de perfil es requerida");
+      showError("Revisa este/estos campo(s): Foto de perfil");
+      return;
+    }
 
     setLoading(true);
 
@@ -126,6 +150,14 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
     }
   };
 
+  // Se dispara cuando el envío falla la validación (campos vacíos o con formato inválido);
+  // además del contorno rojo y el mensaje debajo de cada input, avisa arriba a la derecha
+  // qué campo(s) específicos hay que corregir.
+  const onInvalid = (formErrors) => {
+    const invalidFields = Object.keys(formErrors).map((key) => FIELD_LABELS[key] || key);
+    showError(`Revisa este/estos campo(s): ${invalidFields.join(", ")}`);
+  };
+
   const ValidationRow = ({ checked, label }) => (
     <div className={`flex items-center gap-2 text-xs font-medium transition-colors ${checked ? "text-green-600" : "text-gray-400"}`}>
       {checked
@@ -146,15 +178,24 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-[28px] w-full max-w-[560px] p-8 flex flex-col items-center shadow-2xl relative my-8 animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-[28px] w-full max-w-2xl p-8 flex flex-col items-center shadow-2xl relative my-8 animate-in fade-in zoom-in-95 duration-150">
+
+        {/* Cierre */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
 
         <input type="file" ref={fileInputRef} onChange={handleImageChange} accept="image/*" className="hidden" />
 
         <div
-          className="relative mb-6 group cursor-pointer"
+          className="relative mb-1.5 group cursor-pointer"
           onClick={() => fileInputRef.current?.click()}
         >
-          <div className="w-24 h-24 rounded-full bg-[#F3F4F6] border border-gray-100 flex items-center justify-center overflow-hidden">
+          <div className={`w-24 h-24 rounded-full bg-[#F3F4F6] border flex items-center justify-center overflow-hidden ${imageError ? "border-red-400" : "border-gray-100"}`}>
             {imagePreview
               ? <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
               : <User className="w-10 h-10 text-blue-600" strokeWidth={1.5} />}
@@ -163,8 +204,13 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
             <Plus className="w-4 h-4" />
           </div>
         </div>
+        {imageError && <span className="text-[10px] text-red-500 font-medium mb-2">{imageError}</span>}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="w-full flex flex-col gap-4">
+        <h2 className="text-lg font-bold text-gray-900 mb-6 mt-1.5">
+          {isEditMode ? "Editar enfermera" : "Agregar enfermera"}
+        </h2>
+
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="w-full flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             <div className="flex flex-col gap-1.5">
@@ -195,6 +241,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
                 type="text"
                 placeholder="0000-0000"
                 {...register("phone", {
+                  required: "El teléfono es requerido",
                   pattern: {
                     value: /^\d{4}-\d{4}$/,
                     message: "Formato de número de teléfono: XXXX-XXXX",
@@ -229,6 +276,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
                 type="text"
                 placeholder="00000000-0"
                 {...register("dui", {
+                  required: "El DUI es requerido",
                   pattern: {
                     value: /^\d{8}-\d{1}$/,
                     message: "Formato de DUI: XXXXXXXX-X",
@@ -244,7 +292,11 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <label className="text-xs font-semibold text-gray-400">Fecha de nacimiento</label>
               <input
                 type="date"
-                {...register("birth_date", { required: "La fecha de nacimiento es requerida" })}
+                max={getMaxAdultBirthDate()}
+                {...register("birth_date", {
+                  required: "La fecha de nacimiento es requerida",
+                  validate: validateAdultBirthDate,
+                })}
                 className={inputClass(errors.birth_date)}
               />
               {errors.birth_date && <span className="text-[10px] text-red-500 font-medium px-1">{errors.birth_date.message}</span>}
@@ -324,19 +376,11 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
             </div>
           )}
 
-          <div className="flex items-center justify-center gap-4 mt-4 w-full">
-            <button
-              type="button"
-              disabled={loading}
-              onClick={onClose}
-              className="w-32 border border-blue-600 text-blue-600 font-bold py-2.5 rounded-xl hover:bg-blue-50 transition-colors text-xs text-center disabled:opacity-50"
-            >
-              Cancelar
-            </button>
+          <div className="flex items-center justify-center mt-4 w-full">
             <button
               type="submit"
               disabled={loading}
-              className="w-32 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition-colors shadow-sm text-xs flex items-center justify-center gap-1 disabled:opacity-70"
+              className="w-48 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition-colors shadow-sm text-xs flex items-center justify-center gap-1 disabled:opacity-70"
             >
               {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Guardar

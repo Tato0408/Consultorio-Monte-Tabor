@@ -74,15 +74,44 @@ export const showWarning = (message) =>
     { duration: 3500 }
   );
 
-export const confirmDelete = async () => {
+// Mismos colores que WarnIcon/AlertIcon del toast (amber-400 / red-500), para que la ventana
+// de confirmación se sienta parte del mismo sistema visual aunque sea un modal de SweetAlert2
+// y no un toast — SweetAlert2 no permite clonar el diseño de tarjeta del toast tal cual.
+export const confirmDelete = async ({
+  title = "¿Eliminar este registro?",
+  text = "Esta acción no se puede deshacer.",
+} = {}) => {
   const result = await Swal.fire({
-    title: "¿Eliminar este registro?",
-    text: "Esta acción no se puede deshacer.",
+    title,
+    text,
     icon: "warning",
+    iconColor: "#fbbf24",
     showCancelButton: true,
     confirmButtonText: "Sí, eliminar",
     cancelButtonText: "Cancelar",
     confirmButtonColor: "#ef4444",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return result.isConfirmed;
+};
+
+export const confirmResetPermissions = async (roleName) => {
+  const result = await Swal.fire({
+    title: `¿Restablecer permisos de ${roleName}?`,
+    text: "Se sobrescribirán todos los permisos actuales de este rol con los valores predeterminados.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Sí, restablecer",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#3B6FCA",
     cancelButtonColor: "#94a3b8",
     customClass: {
       popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",

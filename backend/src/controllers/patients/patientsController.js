@@ -1,5 +1,6 @@
 import patientsModel from "../../models/patients/patients.js";
 import bcryptjs from "bcryptjs";
+import { validateUserFieldFormats, getMissingRequiredField, getPasswordError } from "../../utils/validators.js";
 
 //Array de funciones
 const patientsController = {};
@@ -20,8 +21,12 @@ patientsController.createPatient = async (req, res) => {
   try {
     let { name, last_name, dui, birth_date, gender, phone, email, password, referred_by } = req.body;
 
-    if (!name || !last_name || !dui || !birth_date || !gender || !phone || !email || !password) {
-      return res.status(400).json({ message: "Empty data" });
+    const requiredError = getMissingRequiredField(
+      { name, last_name, dui, birth_date, gender, phone, email, password },
+      ["name", "last_name", "dui", "birth_date", "gender", "phone", "email", "password"]
+    );
+    if (requiredError) {
+      return res.status(400).json({ message: requiredError });
     }
 
     name = name.trim();
@@ -31,25 +36,14 @@ patientsController.createPatient = async (req, res) => {
     email = email.trim();
     password = password.trim();
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ message: "Invalid email format" });
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date });
+    if (formatError) {
+      return res.status(400).json({ message: formatError });
     }
 
-    if (!/^\d{8}-\d{1}$/.test(dui)) {
-      return res.status(400).json({ message: "Invalid DUI format" });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({ message: "Password must be at least 8 characters long" });
-    }
-    if (!/[A-Z]/.test(password)) {
-      return res.status(400).json({ message: "Password must contain at least one uppercase letter" });
-    }
-    if (!/[a-z]/.test(password)) {
-      return res.status(400).json({ message: "Password must contain at least one lowercase letter" });
-    }
-    if (!/[0-9]/.test(password)) {
-      return res.status(400).json({ message: "Password must contain at least one number" });
+    const passwordError = getPasswordError(password);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     const existsPatient = await patientsModel.findOne({ $or: [{ email }, { dui }] });
@@ -137,6 +131,13 @@ patientsController.updatePatient = async (req, res) => {
       return res.status(400).json({ message: "Patient not found" });
     }
 
+    //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
+    //romper actualizaciones parciales como agregar solo un signo vital o un procedimiento)
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date });
+    if (formatError) {
+      return res.status(400).json({ message: formatError });
+    }
+
     //Campos singulares a actualizar
     const fieldsToSet = {};
 
@@ -185,6 +186,10 @@ patientsController.updatePatient = async (req, res) => {
 
     //si mando la contraseña le quita los espacios vacios, si no lo manda lo ignora por completo
     if (password && password.trim() !== "") {
+      const passwordError = getPasswordError(password.trim());
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
+      }
       fieldsToSet.password = await bcryptjs.hash(password, 10);
     }
 

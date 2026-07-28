@@ -1,45 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import apiClient from "../../../../lib/apiClient";
 
-// El modelo de paciente no tiene todavía recetas, incapacidades, referencias,
-// laboratorios, notas de evolución ni impresión diagnóstica, así que esas
-// secciones del expediente se completan con datos quemados
-// hasta que existan endpoints reales para traerlos.
-const MOCK_DEFAULTS = {
-  doctor: { nombre: "Sin asignar" },
-  recetas: [
-    { nombre: "Amoxicilina 500mg", fecha: "12 Mar, 2026", doctor: "Dra. Gabriela Castillo" },
-  ],
-  incapacidades: [
-    { nombre: "Gripe Estacional (3 días)", fecha: "10 Feb, 2026", estado: "Finalizada" },
-  ],
-  referencias: [
-    { nombre: "Referencia a Cardiología", fecha: "15 Ene, 2026", estado: "Pendiente" },
-  ],
-  laboratorios: [
-    { nombre: "Radiografía de Tórax", fecha: "10 Feb, 2026", estado: "Completado" },
-    { nombre: "Perfil Lipídico", fecha: "05 Feb, 2026", estado: "Completado" },
-    { nombre: "Hemograma Completo", fecha: "02 Feb, 2026", estado: "Pendiente" },
-  ],
-  // El modelo no relaciona citas/consultas con un paciente puntual todavía
-  // (el endpoint de citas no filtra por patient_id), así que la pestaña de
-  // consultas se completa con datos de referencia hasta que exista ese filtro.
-  consultas: [
-    { estado: "atendido" },
-    { estado: "en_espera" },
-  ],
-  notasEvolucion: {
-    texto: "El paciente no tiene notas de evolución registradas en el sistema todavía.",
-    actualizado: "—",
-  },
-  impresionDiagnostica: {
-    codigo: "CIE",
-    descripcion: "Sin diagnóstico registrado",
-    tipo: "Diagnóstico principal",
-  },
-};
+// Recetas, incapacidades, referencias, laboratorios, consultas, notas de
+// evolución e impresión diagnóstica se completan aparte por
+// `usePatientRecordDetail`, que las trae desde /consultations, /appointments
+// y /sick-leaves filtradas por paciente (esta función solo arma lo que ya
+// vive directamente en el documento del paciente).
+const DEFAULT_DOCTOR = { nombre: "Sin asignar" };
 
-const formatFecha = (date) =>
+export const formatFecha = (date) =>
   date
     ? new Date(date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
     : null;
@@ -131,8 +100,9 @@ const toRecordDetail = (patient) => {
     ultimaVisita: {
       fecha: formatFecha(lastProcedure?.date) || "—",
       hora: "—",
+      _fecha: lastProcedure?.date || null,
     },
-    doctor: lastProcedure?.doctor_name ? { nombre: lastProcedure.doctor_name } : MOCK_DEFAULTS.doctor,
+    doctor: lastProcedure?.doctor_name ? { nombre: lastProcedure.doctor_name } : DEFAULT_DOCTOR,
     estado: patient.is_active ? "Activo" : "Inactivo",
     tipoSangre: patient?.clinical_history?.blood_type || "—",
     signosVitales: lastVital
@@ -161,17 +131,6 @@ const toRecordDetail = (patient) => {
       temp: v.temperature ?? "—",
       spo2: v.spo2 != null ? `${v.spo2}%` : "—",
     })),
-    // Mismo historial en orden cronológico ascendente para el gráfico de IMC
-    imcHistorial: [...vitalSignsHistory]
-      .reverse()
-      .map((v, i) => ({ cita: `Cita ${i + 1}`, imc: v.imc ?? null })),
-    consultas: MOCK_DEFAULTS.consultas.map((c, i) => ({
-      id: i + 1,
-      hora: "—",
-      paciente: `${patient.name || ""} ${patient.last_name || ""}`.trim() || "—",
-      medico: lastProcedure?.doctor_name || MOCK_DEFAULTS.doctor.nombre,
-      estado: c.estado,
-    })),
     // El modelo no tiene una duración registrada por procedimiento; se deja
     // como dato predeterminado hasta que exista ese campo.
     procedimientos: procedures.map((p) => ({
@@ -198,12 +157,6 @@ const toRecordDetail = (patient) => {
         patient?.clinical_history?.non_pathological ||
         "Sin antecedentes no patológicos registrados.",
     },
-    recetas: MOCK_DEFAULTS.recetas,
-    incapacidades: MOCK_DEFAULTS.incapacidades,
-    referencias: MOCK_DEFAULTS.referencias,
-    laboratorios: MOCK_DEFAULTS.laboratorios,
-    notasEvolucion: MOCK_DEFAULTS.notasEvolucion,
-    impresionDiagnostica: MOCK_DEFAULTS.impresionDiagnostica,
   };
 };
 

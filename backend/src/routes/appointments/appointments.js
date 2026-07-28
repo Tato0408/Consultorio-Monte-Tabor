@@ -1,27 +1,28 @@
 import express, { Router } from "express";
 import appointmentsController from "../../controllers/appointments/appointmentsController.js";
+import { authorize } from "../../middlewares/authorizeMiddleware.js";
 
 const router = express.Router();
 
 router.route("/stats")
-    .get(appointmentsController.getAppointmentsStats);
+    .get(authorize("calendar.appointments", "view"), appointmentsController.getAppointmentsStats);
 
 router.route("/history")
-    .get(appointmentsController.getAppointmentsHistory);
+    .get(authorize("calendar.appointments", "view"), appointmentsController.getAppointmentsHistory);
 
 router
-    .get("/available-slots", appointmentsController.getAvailableSlots);
+    .get("/available-slots", authorize("calendar.appointments", "view"), appointmentsController.getAvailableSlots);
 
 router.route("/")
-    .get(appointmentsController.getAppointments)
-    .post(appointmentsController.insertAppointment);
+    .get(authorize("calendar.appointments", "view"), appointmentsController.getAppointments)
+    .post(authorize("calendar.appointments", "create"), appointmentsController.insertAppointment);
 
 router.route("/:id")
-    .get(appointmentsController.getAppointmentById)
-    .put(appointmentsController.updateAppointment)
-    .delete(appointmentsController.deleteAppointment);
+    .get(authorize("calendar.appointments", "view"), appointmentsController.getAppointmentById)
+    .put(authorize("calendar.appointments", "update"), appointmentsController.updateAppointment)
+    .delete(authorize("calendar.appointments", "delete"), appointmentsController.deleteAppointment);
 
 router.route("/:id/status")
-    .patch(appointmentsController.updateAppointmentStatus);
+    .patch(authorize("calendar.appointments", "update"), appointmentsController.updateAppointmentStatus);
 
 export default router;

@@ -11,32 +11,32 @@ const useMedicalData = () => {
   const [procedures, setProcedures] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Trae los 4 catálogos en paralelo con Promise.all.
+  // Trae los 4 catálogos en paralelo con Promise.allSettled: un catálogo al
+  // que el rol actual no tenga acceso (ej. un doctor sin permiso para ver
+  // enfermeras) no debe tumbar a los demás que sí están permitidos.
   const fetchMedicalData = useCallback(async () => {
-    try {
-      setLoadingData(true);
+    setLoadingData(true);
 
-      const [
-        patientsData,
-        doctorsData,
-        nursesData,
-        proceduresData,
-      ] = await Promise.all([
-        apiClient("/patients"),
-        apiClient("/doctors"),
-        apiClient("/nurses"),
-        apiClient("/procedures"),
-      ]);
+    const [patientsRes, doctorsRes, nursesRes, proceduresRes] = await Promise.allSettled([
+      apiClient("/patients"),
+      apiClient("/doctors"),
+      apiClient("/nurses"),
+      apiClient("/procedures"),
+    ]);
 
-      setPatients(patientsData);
-      setDoctors(doctorsData);
-      setNurses(nursesData);
-      setProcedures(proceduresData);
-    } catch (error) {
-      console.error("Error loading medical data:", error);
-    } finally {
-      setLoadingData(false);
-    }
+    if (patientsRes.status === "fulfilled") setPatients(patientsRes.value);
+    else console.error("Error loading patients:", patientsRes.reason);
+
+    if (doctorsRes.status === "fulfilled") setDoctors(doctorsRes.value);
+    else console.error("Error loading doctors:", doctorsRes.reason);
+
+    if (nursesRes.status === "fulfilled") setNurses(nursesRes.value);
+    else console.error("Error loading nurses:", nursesRes.reason);
+
+    if (proceduresRes.status === "fulfilled") setProcedures(proceduresRes.value);
+    else console.error("Error loading procedures:", proceduresRes.reason);
+
+    setLoadingData(false);
   }, []);
 
   // Carga inicial al montar el hook.

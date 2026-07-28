@@ -8,6 +8,10 @@ const PrescriptionCard = ({ readOnly }) => {
         control,
         name: "prescription.medications",
     });
+    const { fields: labRows, append: appendLabOrder, remove: removeLabOrder } = useFieldArray({
+        control,
+        name: "prescription.lab_orders",
+    });
 
     return (
         <SectionCard title="Receta y Seguimiento">
@@ -73,6 +77,51 @@ const PrescriptionCard = ({ readOnly }) => {
                     className="flex items-center gap-1 text-xs text-[#0b66d6] font-medium mb-4"
                 >
                     <Plus size={14} /> Agregar medicamento
+                </button>
+            )}
+
+            <div className="space-y-3 mb-3">
+                {labRows.map((row, index) => (
+                    <div key={row.id} className="border border-slate-100 rounded-lg p-3">
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                            <input
+                                type="text"
+                                placeholder="Examen / estudio"
+                                disabled={readOnly}
+                                {...register(`prescription.lab_orders.${index}.test_name`)}
+                                className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                            />
+                            <input
+                                type="text"
+                                placeholder="Notas"
+                                disabled={readOnly}
+                                {...register(`prescription.lab_orders.${index}.notes`)}
+                                className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                            />
+                        </div>
+
+                        {!readOnly && (
+                            <div className="flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => removeLabOrder(index)}
+                                    className="text-slate-400 hover:text-red-500"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            {!readOnly && (
+                <button
+                    type="button"
+                    onClick={() => appendLabOrder({ test_name: "", notes: "" })}
+                    className="flex items-center gap-1 text-xs text-[#0b66d6] font-medium mb-4"
+                >
+                    <Plus size={14} /> Agregar orden de laboratorio
                 </button>
             )}
 

@@ -1,8 +1,26 @@
 "use client";
 
-import { Fragment } from "react";
-import { Clock, Eye, Info, FlaskConical } from "lucide-react";
+import { Fragment, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Clock, Eye, Info, FlaskConical, Plus } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { showWarning } from "@/lib/alerts";
 import { Badge, SectionCard, VerTodos, initials } from "../global/ui";
+import IncapacidadFormModal from "../global/IncapacidadFormModal";
+
+/* Botón azul "+ Agregar", mismo estilo que el resto del expediente */
+function AddButton({ children = "Agregar", ...props }) {
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+      {...props}
+    >
+      <Plus className="h-3.5 w-3.5" />
+      {children}
+    </button>
+  );
+}
 
 /* Tarjeta de un signo vital individual */
 function VitalCard({ label, value, unit, badge }) {
@@ -20,8 +38,24 @@ function VitalCard({ label, value, unit, badge }) {
   );
 }
 
-export default function ResumenTab({ patient = {} }) {
+export default function ResumenTab({ patient = {}, onSaved }) {
   const v = patient.signosVitales ?? {};
+  const navigate = useNavigate();
+  const { hasPermission, user } = useAuth();
+  const canAttend = hasPermission("calendar.consultations", "create");
+  const canCreateSickLeave = hasPermission("reports.records", "create");
+  const [incapacidadModalOpen, setIncapacidadModalOpen] = useState(false);
+
+  // Recetas, referencias y laboratorios solo existen ligados a una consulta;
+  // "Agregar" lleva al formulario real de consulta de la próxima cita del
+  // paciente, en vez de duplicar ese concepto como un recurso suelto.
+  const handleAgregarClinico = () => {
+    if (!patient.nextPendingAppointmentId) {
+      showWarning("Agenda una cita para este paciente para registrar recetas, laboratorios o referencias.");
+      return;
+    }
+    navigate(`/calendar/consultations/${patient.nextPendingAppointmentId}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -82,7 +116,15 @@ export default function ResumenTab({ patient = {} }) {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <SectionCard title="Recetas" action={<VerTodos>Ver todas</VerTodos>}>
+        <SectionCard
+          title="Recetas"
+          action={
+            <div className="flex items-center gap-2">
+              {canAttend && <AddButton onClick={handleAgregarClinico} />}
+              <VerTodos>Ver todas</VerTodos>
+            </div>
+          }
+        >
           <div className="space-y-3">
             {(patient.recetas ?? []).map((r, i) => (
               <div key={i} className="flex items-start justify-between gap-3 rounded-xl bg-slate-50 p-4">
@@ -98,7 +140,15 @@ export default function ResumenTab({ patient = {} }) {
           </div>
         </SectionCard>
 
-        <SectionCard title="Incapacidades" action={<VerTodos>Ver todas</VerTodos>}>
+        <SectionCard
+          title="Incapacidades"
+          action={
+            <div className="flex items-center gap-2">
+              {canCreateSickLeave && <AddButton onClick={() => setIncapacidadModalOpen(true)} />}
+              <VerTodos>Ver todas</VerTodos>
+            </div>
+          }
+        >
           <div className="space-y-3">
             {(patient.incapacidades ?? []).map((it, i) => (
               <div key={i} className="flex items-start justify-between gap-2 rounded-xl bg-slate-50 p-4">
@@ -112,7 +162,15 @@ export default function ResumenTab({ patient = {} }) {
           </div>
         </SectionCard>
 
-        <SectionCard title="Referencias" action={<VerTodos>Ver todas</VerTodos>}>
+        <SectionCard
+          title="Referencias"
+          action={
+            <div className="flex items-center gap-2">
+              {canAttend && <AddButton onClick={handleAgregarClinico} />}
+              <VerTodos>Ver todas</VerTodos>
+            </div>
+          }
+        >
           <div className="space-y-3">
             {(patient.referencias ?? []).map((rf, i) => (
               <div key={i} className="flex items-start justify-between gap-2 rounded-xl bg-slate-50 p-4">
@@ -127,7 +185,15 @@ export default function ResumenTab({ patient = {} }) {
         </SectionCard>
       </div>
 
-      <SectionCard title="Resultados de Laboratorio y Exámenes" action={<VerTodos />}>
+      <SectionCard
+        title="Resultados de Laboratorio y Exámenes"
+        action={
+          <div className="flex items-center gap-2">
+            {canAttend && <AddButton onClick={handleAgregarClinico} />}
+            <VerTodos />
+          </div>
+        }
+      >
         <div className="space-y-3">
           {(patient.laboratorios ?? []).map((l, i) => {
             const completado = (l.estado || "").toLowerCase() === "completado";
@@ -178,6 +244,14 @@ export default function ResumenTab({ patient = {} }) {
           </div>
         </SectionCard>
       </div>
+
+      <IncapacidadFormModal
+        isOpen={incapacidadModalOpen}
+        onClose={() => setIncapacidadModalOpen(false)}
+        patientId={patient.id}
+        doctorId={user?.id}
+        onSaved={onSaved}
+      />
     </div>
   );
 }

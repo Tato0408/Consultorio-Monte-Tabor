@@ -4,6 +4,7 @@ import { useAuth } from "../../../context/AuthContext"; // Ajusta la ruta según
 import useProfile from '../hooks/useProfile'
 import ChangePasswordModal from "../components/ChangePasswordModal";
 import {useState} from 'react'
+import { calculateAge } from "../../../lib/validators";
 
 
 const ProfilePage = () => {
@@ -179,7 +180,11 @@ const ProfilePage = () => {
 
               <div>
                 <label className="block text-[11px] font-medium text-gray-400 mb-1">Edad</label>
-                <p className="text-sm font-bold text-gray-800">{user.age ? `${user.age} años` : "—"}</p>
+                <p className="text-sm font-bold text-gray-800">
+                  {user.birth_date && calculateAge(user.birth_date) !== null
+                    ? `${calculateAge(user.birth_date)} años`
+                    : "—"}
+                </p>
               </div>
 
               <div>

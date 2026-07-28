@@ -33,7 +33,8 @@ const EMPTY_SCHEDULE = {
 };
 
 const ScheduleConfig = () => {
-    const { user, isLoading: authLoading } = useAuth();
+    const { user, isLoading: authLoading, hasPermission } = useAuth();
+    const canUpdate = hasPermission("calendar.schedule", "update");
     const { getSchedule, saveSchedule } = useSchedule();
 
     // El user.id del JWT puede diferir del _id en la colección doctors.
@@ -124,14 +125,16 @@ const ScheduleConfig = () => {
                     <p className="text-sm text-slate-400 mt-1">Define tus horarios de atención, tipos de citas y descansos.</p>
                 </div>
                 <div className="flex gap-3 flex-shrink-0">
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-60"
-                    >
-                        <Save className="w-4 h-4" />
-                        {saving ? "Guardando..." : saved ? "¡Guardado!" : "Guardar cambios"}
-                    </button>
+                    {canUpdate && (
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-60"
+                        >
+                            <Save className="w-4 h-4" />
+                            {saving ? "Guardando..." : saved ? "¡Guardado!" : "Guardar cambios"}
+                        </button>
+                    )}
                 </div>
             </div>
 

@@ -19,7 +19,7 @@ const useRegisterAdmin = () => {
       data.append("name", formData.nombre);
       data.append("last_name", formData.apellido);
       data.append("dui", formData.dui);
-      data.append("age", formData.edad);
+      data.append("birth_date", formData.birth_date);
       data.append("gender", formData.genero);
       data.append("email", formData.correo);
       data.append("password", formData.contrasena);

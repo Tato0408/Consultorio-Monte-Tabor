@@ -4,9 +4,9 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { ExternalLink } from "lucide-react";
+import { chartColor } from "../chartColors";
 
 const LINE_COLOR = "#3b82f6";
-const BAR_COLOR  = "#93c5fd";
 const PIE_COLORS = ["#3b82f6", "#a855f7", "#22c55e", "#f97316", "#94a3b8"];
 
 const ChartCard = ({ card }) => {
@@ -52,7 +52,11 @@ const ChartCard = ({ card }) => {
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
             <YAxis hide />
             <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }} />
-            <Bar dataKey="total" fill={BAR_COLOR} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+              {data.map((_, i) => (
+                <Cell key={i} fill={chartColor(i)} />
+              ))}
+            </Bar>
           </BarChart>
         ) : (
           <LineChart data={data}>

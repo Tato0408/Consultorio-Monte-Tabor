@@ -21,7 +21,7 @@ const IconComponent = ({ name, className, size = 18 }) => {
 //controla el menú de navegación principal del sistema, aplicando un filtrado de opciones según el rol del usuario autenticado  y manejando estados colapsables
 const SideBar = ({ onClose = () => {} }) => {
     const location = useLocation();
-    const { userType, isLoading } = useAuth();
+    const { hasPermission, isLoading } = useAuth();
 
     // Mientras se verifica la sesión (GET /auth/me) no sabemos el rol real todavía entonces se renderiza un estado de carga
     // Evitamos renderizar el menú con un rol incorrecto/vacío en ese instante.
@@ -36,23 +36,21 @@ const SideBar = ({ onClose = () => {} }) => {
         );
     }
  
-    const currentUserRole = userType;
- 
-    //filtra los modulos principales de la barra lateral basándose en el arreglo allowedRoles, si el módulo contiene subelementos (subItems), también filtra los hijos asegurando que solo se muestren rutas autorizadas
+    //filtra los modulos principales de la barra lateral segun la matriz de permisos (moduleKey -> view), un grupo se muestra si al menos uno de sus subItems tiene view=true
 
-    // 1. Filtrar los módulos principales según el rol
-    const filteredMenu = sideBarMenu.filter(item =>
-        item.allowedRoles.includes(currentUserRole)
-    ).map(item => {
-        // 2. Si el módulo tiene hijos, filtrar también los hijos por rol
+    // 1. Filtrar los módulos principales según permisos por moduleKey
+    const filteredMenu = sideBarMenu.reduce((acc, item) => {
+        // 2. Si el módulo tiene hijos (grupo sin moduleKey propio), filtrar los hijos y mostrar el grupo solo si queda al menos uno visible
         if (item.subItems) {
-            return {
-                ...item,
-                subItems: item.subItems.filter(sub => sub.allowedRoles.includes(currentUserRole))
-            };
+            const visibleSubItems = item.subItems.filter(sub => hasPermission(sub.moduleKey, "view"));
+            if (visibleSubItems.length > 0) {
+                acc.push({ ...item, subItems: visibleSubItems });
+            }
+        } else if (hasPermission(item.moduleKey, "view")) {
+            acc.push(item);
         }
-        return item;
-    });
+        return acc;
+    }, []);
  
 //analiza las subrutas del menú filtrado ysi la URL del navegador ('location.pathname') coincide con el path de algún subItem, extrae su índice para que el acordeón se renderice abierto por defecto
 

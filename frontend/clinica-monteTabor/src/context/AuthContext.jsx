@@ -12,6 +12,24 @@ export const AuthProvider = ({ children }) => {
     const [isLoggedIn, setIsLoggedIn] = useState(false); //indica si hay una sesión activa
     const [isLoading, setIsLoading] = useState(true); // estado de carga inicial de la app
     const [hasAdmins, setHasAdmins] = useState(true); //verificar si existen administradores en el sistema
+    const [permissions, setPermissions] = useState([]); // matriz de permisos del rol actual
+
+    //obtiene la matriz de permisos del rol autenticado (una sola vez por sesión)
+    const fetchPermissions = useCallback(async () => {
+        try {
+            const response = await apiClient("/permissions/me");
+            setPermissions(response.permissions || []);
+        } catch {
+            setPermissions([]);
+        }
+    }, []);
+
+    //consulta si el rol actual tiene una acción (view/create/update/delete) habilitada para un moduleKey
+    const hasPermission = useCallback((moduleKey, action = "view") => {
+        if (!moduleKey) return false;
+        const permission = permissions.find((p) => p.moduleKey === moduleKey);
+        return permission ? !!permission[action] : false;
+    }, [permissions]);
 
     //verifica  si hay administradores registrados en la base de datos
     const checkAdminExistence = useCallback(async () => {
@@ -30,13 +48,15 @@ export const AuthProvider = ({ children }) => {
             setUser(response.user);
             setUserType(response.userType);
             setIsLoggedIn(true);
+            await fetchPermissions();
         } catch {
             //Si el backend rechaza el token limpiamos los estados
             setUser(null);
             setUserType(null);
             setIsLoggedIn(false);
+            setPermissions([]);
         }
-    }, []);
+    }, [fetchPermissions]);
 
     //Metodo de inicialización  ejecutando los estaods iniciales del sistema
     useEffect(() => {
@@ -78,7 +98,9 @@ export const AuthProvider = ({ children }) => {
             setUser(response.user);
             setUserType(response.userType);
             setIsLoggedIn(true);
-            toast.success("Inicio de sesión exitoso.");
+            await fetchPermissions();
+            // El toast de bienvenida ya lo muestra Login.jsx (personalizado);
+            // mostrarlo también aquí duplicaba la notificación de éxito.
             return true;
         } catch (error) {
             toast.error(error.message || "Credenciales incorrectas. Por favor, intenta de nuevo.");
@@ -94,6 +116,7 @@ export const AuthProvider = ({ children }) => {
             setUser(null);
             setUserType(null);
             setIsLoggedIn(false);
+            setPermissions([]);
             toast.success("Sesión cerrada.");
             return true;
         } catch (error) {
@@ -113,6 +136,8 @@ export const AuthProvider = ({ children }) => {
                 isLoggedIn,
                 isLoading,
                 hasAdmins,
+                permissions,
+                hasPermission,
                 login,
                 logout,
                 refetchUser: checkSession,

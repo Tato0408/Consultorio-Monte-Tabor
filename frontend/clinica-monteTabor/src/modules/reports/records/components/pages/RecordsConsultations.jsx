@@ -9,22 +9,36 @@ const ESTADO_STYLES = {
   en_espera: { label: "En espera", tone: "blue" },
 };
 
-// Espera `patient.consultas` = [{ id, hora, paciente, medico, estado }]
+// Espera `patient.consultas` = [{ id, hora, paciente, medico, estado, _fecha }]
 const ConsultasDelDia = ({
   patient = {},
-  totalPaginas = 1,
   onContinuar,
   onVerRegistro,
+  canAttend = false,
 }) => {
   const consultas = patient.consultas ?? [];
   const enEspera = consultas.filter((c) => c.estado === "en_espera").length;
   const atendidas = consultas.filter((c) => c.estado === "atendido").length;
 
-  const [desde, setDesde]     = useState("2025-04-24");
-  const [hasta, setHasta]     = useState("2025-04-24");
+  const [desde, setDesde]     = useState("");
+  const [hasta, setHasta]     = useState("");
   const [estado, setEstado]   = useState("todos");
   const [filas, setFilas]     = useState(8);
   const [pagina, setPagina]   = useState(1);
+
+  // Filtrado en memoria sobre lo ya cargado (no dispara requests nuevas).
+  const filtradas = consultas.filter((c) => {
+    if (estado !== "todos" && c.estado !== estado) return false;
+    if (!c._fecha) return !desde && !hasta;
+    const fecha = new Date(c._fecha);
+    if (desde && fecha < new Date(`${desde}T00:00:00`)) return false;
+    if (hasta && fecha > new Date(`${hasta}T23:59:59`)) return false;
+    return true;
+  });
+
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / filas));
+  const inicio = (pagina - 1) * filas;
+  const filasPagina = filtradas.slice(inicio, inicio + filas);
 
   const inputCls =
     "border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 " +
@@ -50,11 +64,21 @@ const ConsultasDelDia = ({
         <div className="flex items-end gap-4">
           <label className="flex flex-col gap-1">
             <span className="text-xs text-slate-500">Desde</span>
-            <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className={inputCls} />
+            <input
+              type="date"
+              value={desde}
+              onChange={(e) => { setDesde(e.target.value); setPagina(1); }}
+              className={inputCls}
+            />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-xs text-slate-500">Hasta</span>
-            <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className={inputCls} />
+            <input
+              type="date"
+              value={hasta}
+              onChange={(e) => { setHasta(e.target.value); setPagina(1); }}
+              className={inputCls}
+            />
           </label>
         </div>
 
@@ -63,7 +87,7 @@ const ConsultasDelDia = ({
           <div className="relative">
             <select
               value={estado}
-              onChange={(e) => setEstado(e.target.value)}
+              onChange={(e) => { setEstado(e.target.value); setPagina(1); }}
               className={inputCls + " appearance-none pr-9 min-w-44"}
             >
               <option value="todos">Todos los estados</option>
@@ -99,7 +123,14 @@ const ConsultasDelDia = ({
             </tr>
           </thead>
           <tbody>
-            {consultas.map((c) => {
+            {filasPagina.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-8 text-center text-sm text-slate-400">
+                  No hay consultas para mostrar.
+                </td>
+              </tr>
+            )}
+            {filasPagina.map((c) => {
               const est = ESTADO_STYLES[c.estado];
               const atendido = c.estado === "atendido";
               return (
@@ -118,14 +149,14 @@ const ConsultasDelDia = ({
                       >
                         Ver registro
                       </button>
-                    ) : (
+                    ) : canAttend ? (
                       <button
                         onClick={() => onContinuar?.(c)}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-1.5 rounded-lg"
                       >
                         Continuar
                       </button>
-                    )}
+                    ) : null}
                   </td>
                 </tr>
               );
@@ -141,7 +172,7 @@ const ConsultasDelDia = ({
           <div className="relative">
             <select
               value={filas}
-              onChange={(e) => setFilas(Number(e.target.value))}
+              onChange={(e) => { setFilas(Number(e.target.value)); setPagina(1); }}
               className="appearance-none border border-slate-200 rounded-lg pl-3 pr-8 py-1.5 text-slate-700 focus:outline-none"
             >
               {[8, 16, 24, 32].map((n) => <option key={n} value={n}>{n}</option>)}

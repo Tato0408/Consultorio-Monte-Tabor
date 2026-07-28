@@ -160,6 +160,11 @@ const consultationSchema = new Schema({
     referred_date: {
       type: Date,
     },
+    status: {
+      type: String,
+      enum: ["Pendiente", "Completada"],
+      default: "Pendiente",
+    },
   },
   date:{
     type: Date

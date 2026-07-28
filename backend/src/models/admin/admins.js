@@ -3,7 +3,7 @@ img_url,
 name,
 last_name,
 dui,
-age,
+birth_date,
 gender,
 email,
 password,
@@ -24,8 +24,8 @@ const adminSchema = new Schema({
     dui: {
         type: String
     },
-    age: {
-        type: String
+    birth_date: {
+        type: Date
     },
     email: {
         type: String

@@ -4,8 +4,14 @@ import PatientStatCards from "../components/PatientStatCards";
 import PatientProfileCard from "../components/PatientProfileCard";
 import PatientFormModal from "../components/PatientFormModal";
 import usePatients from "../hooks/usePatients";
+import { useAuth } from "@/context/AuthContext";
 
 const PatientsList = () => {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("users.patients", "create");
+  const canUpdate = hasPermission("users.patients", "update");
+  const canDelete = hasPermission("users.patients", "delete");
+
   const {
     patients,
     selectedPatient,
@@ -68,10 +74,12 @@ const PatientsList = () => {
           <PatientsTable
             patients={patients}
             loading={loading}
-            onAdd={handleOpenCreate}
+            onAdd={canCreate ? handleOpenCreate : undefined}
             onEdit={handleOpenEdit}
             onDelete={deletePatient}
             onSelectPatient={selectPatient}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
           />
         </div>
 

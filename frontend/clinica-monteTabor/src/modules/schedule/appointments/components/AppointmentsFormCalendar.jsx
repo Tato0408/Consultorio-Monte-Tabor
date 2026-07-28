@@ -59,15 +59,22 @@ export default function AppointmentsForm() {
   const location  = useLocation();
   const { id }    = useParams();
 
-  const { user, userType } = useAuth();
+  const { user, userType, hasPermission } = useAuth();
   const isDoctor = userType === "doctor";
+  const canCreateAppt = hasPermission("calendar.appointments", "create");
+  const canUpdateAppt = hasPermission("calendar.appointments", "update");
 
   const { getAppointmentById, createAppointment, updateAppointment, submitting } = useAppointments();
   const { patients, doctors, nurses } = useMedicalData();
   const { getAvailableSlots, getSchedule } = useSchedule();
 
+  // El modo edición inicial respeta el permiso: sin create no arranca en modo
+  // creación habilitado, y sin update no arranca en modo edición habilitado
+  // (aunque hayan llegado con editMode: true).
   const isViewOrEditMode = !!id;
-  const [isEditing, setIsEditing] = useState(!isViewOrEditMode || location.state?.editMode || false);
+  const [isEditing, setIsEditing] = useState(
+    (!isViewOrEditMode && canCreateAppt) || (!!location.state?.editMode && canUpdateAppt) || false
+  );
   const [loading, setLoading]     = useState(false);
 
 
@@ -262,7 +269,7 @@ export default function AppointmentsForm() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {id && !isEditing && (
+          {id && !isEditing && canUpdateAppt && (
             <button onClick={() => setIsEditing(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors">
               <Edit2 className="w-3.5 h-3.5" /> Editar

@@ -9,9 +9,15 @@ import DoctorForm from "../components/DoctorsForm";
 // Importa el custom hook que maneja todo el estado global y peticiones de los doctores
 import { useDoctors } from "../hooks/useDoctors";
 // Importa las funciones personalizadas para mostrar las alertas de éxito o error en pantalla
-import { showSuccess, showError } from "../../../lib/alerts";
+import { showSuccess, showError, confirmDelete } from "../../../lib/alerts";
+import { useAuth } from "@/context/AuthContext";
 
 const DoctorsList = () => {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("users.doctors", "create");
+  const canUpdate = hasPermission("users.doctors", "update");
+  const canDelete = hasPermission("users.doctors", "delete");
+
   // Desestructura las propiedades y funciones necesarias desde el custom hook
   const {
     doctors,
@@ -67,44 +73,43 @@ const DoctorsList = () => {
   };
 
   // CERRAR FORMULARIO Y REFRESCAR TABLA
-  const handleCloseForm = async () => {
+  // Solo muestra el mensaje de éxito y refresca la tabla si el formulario realmente guardó algo
+  // (wasSaved=true). Si el usuario cierra con la X sin guardar, wasSaved llega en false.
+  const handleCloseForm = async (wasSaved = false) => {
     setIsFormOpen(false);
-    await getDoctors();
 
-    if (doctorToEdit) {
-      showSuccess(
-        "Doctor actualizado",
-        "La información del doctor fue actualizada correctamente."
-      );
-    } else {
-      showSuccess(
-        "Doctor agregado",
-        "El doctor fue registrado correctamente."
-      );
+    if (wasSaved) {
+      await getDoctors();
+
+      if (doctorToEdit) {
+        showSuccess("La información del doctor fue actualizada correctamente.");
+      } else {
+        showSuccess("El doctor fue registrado correctamente.");
+      }
     }
     setDoctorToEdit(null);
   };
 
-  // ELIMINAR DIRECTO
+  // ELIMINAR (con confirmación previa)
   const handleDeleteDoctor = async (id) => {
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar este doctor?",
+      text: "Esta acción no se puede deshacer.",
+    });
+    if (!confirmed) return;
+
     try {
       await deleteDoctor(id);
       await getDoctors();
 
-      showSuccess(
-        "Doctor eliminado",
-        "El doctor fue eliminado correctamente."
-      );
+      showSuccess("El doctor fue eliminado correctamente.");
 
       if (selectedDoctor?._id === id) {
         setSelectedDoctor(null);
       }
     } catch (error) {
       console.error(error);
-      showError(
-        "Error",
-        error.message || "No se pudo eliminar el doctor."
-      );
+      showError(error.message || "No se pudo eliminar el doctor.");
     }
   };
 
@@ -140,9 +145,11 @@ const DoctorsList = () => {
             loading={loading}
             error={error}
             onSelectDoctor={setSelectedDoctor}
-            onOpenForm={handleOpenCreate}
+            onOpenForm={canCreate ? handleOpenCreate : undefined}
             onEditDoctor={handleOpenEdit}
             onDeleteDoctor={handleDeleteDoctor}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
           />
         </div>
 

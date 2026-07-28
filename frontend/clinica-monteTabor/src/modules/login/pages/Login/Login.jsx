@@ -182,10 +182,10 @@ const Login = () => {
               )}
 
               <InputField
-                label="Correo"
+                label="Correo electrónico"
                 id="email"
                 type="email"
-                placeholder="Ingresa tu email"
+                placeholder="Ingresa tu correo electrónico"
                 value={formData.email}
                 onChange={handleChange("email")}
                 icon={<Mail className="w-4 h-4" />}
