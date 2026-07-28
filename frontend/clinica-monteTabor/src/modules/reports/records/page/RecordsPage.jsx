@@ -2,6 +2,15 @@ import { useState } from "react";
 import useRecords from "../hooks/useRecords";
 import RecordsTable from "../components/RecordsTable";
 import RecordDetailPage from "../components/RecordDetailPage";
+import TablePagination from "@/components/ui/TablePagination";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const RecordsPage = () => {
   const { records, loading, error, getRecordById } = useRecords();

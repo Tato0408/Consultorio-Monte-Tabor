@@ -7,11 +7,36 @@ const consultationController = {};
 //Select
 consultationController.getConsultations = async (req, res) => {
   try {
+    const { patient_id } = req.query;
+    const filters = {};
+    if (patient_id) {
+      filters.patient_id = patient_id;
+    }
+
     const consultations = await consultationsModel
-      .find()
+      .find(filters)
       .populate("patient_id")
-      .populate("appointment_id");
-    return res.status(200).json(consultations);
+      .populate({
+        path: "appointment_id",
+        populate: { path: "doctor_id", select: "name last_name" },
+      });
+
+    // Adjuntamos la prescripción de cada consulta (misma relación que ya usa
+    // getConsultationById), para no obligar al frontend a pedirlas aparte.
+    const consultationIds = consultations.map((c) => c._id);
+    const prescriptions = await prescriptionsModel.find({
+      consultation_id: { $in: consultationIds },
+    });
+    const prescriptionByConsultationId = new Map(
+      prescriptions.map((p) => [String(p.consultation_id), p])
+    );
+
+    const responseData = consultations.map((c) => ({
+      ...c.toObject(),
+      prescription: prescriptionByConsultationId.get(String(c._id)) || null,
+    }));
+
+    return res.status(200).json(responseData);
   } catch (error) {
     console.log("error" + error);
     return res.status(500).json({ message: "Internal server error" });
@@ -35,9 +60,7 @@ consultationController.insertConsultation = async (req, res) => {
       follow_up_date,
       referral,
       clinical_history,
-      medications,
-      lab_orders,
-      post_operative_instructions
+      prescription,
     } = req.body;
 
     const newConsultation = new consultationsModel({
@@ -54,12 +77,16 @@ consultationController.insertConsultation = async (req, res) => {
     const savedConsultation = await newConsultation.save({ session });
 
     //Si viene datos de medicamentos, ordenes de laboratorio o instrucciones de operacion
-    if (medications || lab_orders || post_operative_instructions) {
+    if (
+      prescription?.medications?.length ||
+      prescription?.lab_orders?.length ||
+      prescription?.post_operative_instructions
+    ) {
       const newPrescription = new prescriptionsModel({
         consultation_id: savedConsultation._id, // Enlazamos con el id que acabamos de crear
-        medications: medications || [],
-        lab_orders: lab_orders || [],
-        post_operative_instructions
+        medications: prescription.medications || [],
+        lab_orders: prescription.lab_orders || [],
+        post_operative_instructions: prescription.post_operative_instructions,
       });
       //Guardamos de manera temporal la presciption en la session
       await newPrescription.save({ session });
@@ -125,7 +152,8 @@ consultationController.updateConsultation = async (req, res) => {
       procedure,
       follow_up_date,
       referral,
-      clinical_history
+      clinical_history,
+      prescription,
     } = req.body;
 
     const consultationUpdated = await consultationsModel.findByIdAndUpdate(
@@ -149,6 +177,18 @@ consultationController.updateConsultation = async (req, res) => {
       await session.abortTransaction();
       session.endSession();
       return res.status(404).json({ message: "Consultation not found" });
+    }
+    if (prescription) {
+      await prescriptionsModel.findOneAndUpdate(
+        { consultation_id: req.params.id },
+        {
+          consultation_id: req.params.id,
+          medications: prescription.medications || [],
+          lab_orders: prescription.lab_orders || [],
+          post_operative_instructions: prescription.post_operative_instructions,
+        },
+        { session, upsert: true, new: true, runValidators: true }
+      );
     }
     if (clinical_history) {
       await patientsModel.findByIdAndUpdate(

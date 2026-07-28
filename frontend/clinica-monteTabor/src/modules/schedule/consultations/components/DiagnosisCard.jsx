@@ -13,7 +13,7 @@ const DiagnosisCard = ({ readOnly }) => {
                         type="text"
                         placeholder="Ej. J00"
                         disabled={readOnly}
-                        {...register("clinical_data.ICD_10_diagnosis")}
+                        {...register("clinical_data.icd_diagnosis")}
                         className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
                     />
                 </div>

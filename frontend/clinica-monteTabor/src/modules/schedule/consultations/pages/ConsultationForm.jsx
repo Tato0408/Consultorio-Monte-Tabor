@@ -23,7 +23,7 @@ const ConsultationForm = () => {
     //si hay datos, se coloca en modo view solo para consultar la inforamcion
     const readOnly = searchParams.get("mode") === "view";
 
-    const { appointment, defaultValues, save, isLoading, isSaving, error } =
+    const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord } =
         useConsultation(appointmentId);
 
 
@@ -64,7 +64,7 @@ const ConsultationForm = () => {
             await showSuccess("¡Guardado!", successMsg);
 
             navigate("/calendar/consultations"); // vuelve al listado del día
-        } catch {
+        } catch (err) {
             showError(
                 "Error al guardar",
                 err?.message || "No se pudo conectar con el servidor. Inténtalo de nuevo."
