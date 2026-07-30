@@ -26,6 +26,7 @@ import { validateAuthCookie } from './src/middlewares/authMiddleware.js';
 import { authenticate } from './src/middlewares/authenticateMiddleware.js';
 import { authorize } from './src/middlewares/authorizeMiddleware.js';
 import registerPatientRoutes from "./src/routes/patients/registerPatients.js"
+import patientSelfRoutes from "./src/routes/patients/patientSelf.js"
 import scheduleRoutes from './src/routes/schedule/schedule.js'
 import dashboardRoutes from './src/routes/dashboard/dashboard.js'
 import doctorDashboardRoutes from './src/routes/dashboard/doctorDashboard.js'
@@ -69,6 +70,9 @@ app.use("/api/recepcionist", receptionistRoutes);
 
 app.use("/api/patients", authenticate, patientsRoute);
 app.use("/api/registerPatient", registerPatientRoutes);
+// Autoservicio para pacientes (usado por la app móvil): /register es público, /me requiere
+// sesión y se aplica a nivel de ruta dentro de patientSelf.js (por eso no hay authenticate aquí)
+app.use("/api/patientAccount", patientSelfRoutes);
 
 app.use("/api/nurses", authenticate, nurseRoutes);
 

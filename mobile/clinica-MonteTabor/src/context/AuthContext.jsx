@@ -4,6 +4,10 @@ import apiClient, { tokenStorage, setOnUnauthorized } from "../lib/apiClient";
 
 // Ajustar según cómo esté montado el router en el backend
 const LOGIN_PATH = "/loginPatient/login";
+// Autoservicio de pacientes (backend/src/routes/patients/patientSelf.js) — /register es
+// público y funciona como un "login escondido": al registrarse, la respuesta ya trae token +
+// user, igual que el login, así que no hace falta pasar por la pantalla de login después
+const REGISTER_PATH = "/patientAccount/register";
 // Único logout del backend (app.js: app.use("/api/logout", validateAuthCookie(), ...)) —
 // el mismo que usa la web, vale para cualquier rol
 const LOGOUT_PATH = "/logout";
@@ -17,6 +21,8 @@ const ERROR_MESSAGES = {
     "Wrong password": "Correo o contraseña incorrectos.",
     "User is locked": "Cuenta bloqueada por múltiples intentos fallidos. Espera 15 minutos.",
     "Internal server error": "Error en el servidor. Intenta más tarde.",
+    "Ya existe un paciente registrado con ese correo": "Ese correo ya tiene una cuenta registrada.",
+    "Ya existe un paciente registrado con ese DUI": "Ese DUI ya tiene una cuenta registrada.",
 };
 
 // atob no está disponible de forma confiable en React Native
@@ -105,6 +111,16 @@ export const AuthProvider = ({ children }) => {
         initSystem();
     }, [checkSession]);
 
+    // Guarda token + usuario (dispositivo y memoria) — lo comparten login() y register(),
+    // ya que registrarse deja al paciente autenticado exactamente igual que iniciar sesión
+    const applySession = async (response) => {
+        if (!response.token) throw new Error("El servidor no devolvió el token de sesión.");
+        await tokenStorage.set(response.token);
+        await SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.user));
+        setUser(response.user);
+        setIsLoggedIn(true);
+    };
+
     // Retorna { ok, message, user }. No muestra notificaciones: eso queda del lado
     // de la pantalla para no duplicar el toast
     const login = async (email, password) => {
@@ -117,18 +133,29 @@ export const AuthProvider = ({ children }) => {
                 // Sin toLowerCase: el backend busca el email con coincidencia exacta
                 body: { email: email.trim(), password: password.trim() },
             });
-
-            if (!response.token) throw new Error("El servidor no devolvió el token de sesión.");
-
-            await tokenStorage.set(response.token);
-            await SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.user));
-
-            setUser(response.user);
-            setIsLoggedIn(true);
+            await applySession(response);
             return { ok: true, user: response.user };
         } catch (error) {
             await clearSession();
             const message = ERROR_MESSAGES[error.message] || error.message || "No se pudo iniciar sesión.";
+            return { ok: false, message };
+        }
+    };
+
+    // Registro de un paciente nuevo. patientData: { name, last_name, dui?, birth_date, gender,
+    // phone, email, password } — la pantalla ya validó formato/campos requeridos antes de
+    // llamar esto. Igual que login(), no muestra notificaciones (eso lo hace la pantalla).
+    const register = async (patientData) => {
+        try {
+            const response = await apiClient(REGISTER_PATH, {
+                method: "POST",
+                body: patientData,
+            });
+            await applySession(response);
+            return { ok: true, user: response.user };
+        } catch (error) {
+            await clearSession();
+            const message = ERROR_MESSAGES[error.message] || error.message || "No se pudo completar el registro.";
             return { ok: false, message };
         }
     };
@@ -152,7 +179,7 @@ export const AuthProvider = ({ children }) => {
 
     return (
         <AuthContext.Provider
-            value={{ user, setUser, isLoggedIn, isLoading, login, logout, refetchUser: checkSession }}
+            value={{ user, setUser, isLoggedIn, isLoading, login, register, logout, refetchUser: checkSession }}
         >
             {children}
         </AuthContext.Provider>

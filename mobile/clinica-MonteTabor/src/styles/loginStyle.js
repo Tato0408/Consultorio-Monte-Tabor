@@ -13,7 +13,7 @@ const shadow = Platform.select({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
-  content: { flexGrow: 1, paddingBottom: 32 },
+  content: { flexGrow: 1, paddingBottom: 40 },
 
   /* ---------- Decoración superior: manchas azules, igual identidad visual que la web ---------- */
   heroLogin: { height: 150, overflow: "hidden" },

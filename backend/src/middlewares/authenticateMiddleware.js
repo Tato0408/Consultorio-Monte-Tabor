@@ -5,14 +5,23 @@ import { config } from "../../config.js";
 // La autorizacion por rol/moduleKey se resuelve aparte en authorize().
 export const authenticate = (req, res, next) => {
     try {
-        const { authCookie } = req.cookies;
-        if (!authCookie) {
+        // La web manda el token por cookie; la app móvil no tiene cookie jar y lo manda como
+        // "Authorization: Bearer <token>" — se acepta cualquiera de las dos
+        let token = req.cookies?.authCookie;
+        if (!token) {
+            const authHeader = req.headers.authorization;
+            if (authHeader?.startsWith("Bearer ")) {
+                token = authHeader.slice(7);
+            }
+        }
+
+        if (!token) {
             return res
                 .status(403)
                 .json({ message: "No cookie found, Authorization required" });
         }
 
-        const decoded = jsonwebToken.verify(authCookie, config.JWT.secret);
+        const decoded = jsonwebToken.verify(token, config.JWT.secret);
 
         req.user = { id: decoded.id, role: decoded.userType };
 
