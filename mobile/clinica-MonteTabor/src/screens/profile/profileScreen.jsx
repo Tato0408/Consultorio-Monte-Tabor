@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
+import BottomNav from "../../components/BottomNav";
 import ProfileCard from "../../components/profile/ProfileCard";
 import ShortcutCard from "../../components/profile/ShortcutCard";
 import InfoCard from "../../components/profile/InfoCard";
@@ -117,6 +118,8 @@ const ProfileScreen = ({ navigation }) => {
           }))}
         />
       </ScrollView>
+
+      <BottomNav navigation={navigation} active="Profile" />
     </SafeAreaView>
   );
 };

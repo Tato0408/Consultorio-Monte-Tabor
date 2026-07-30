@@ -11,6 +11,9 @@ import { toastConfig } from './src/lib/toast';
 
 import LoginScreen from './src/screens/login/LoginScreen';
 import RegisterScreen from './src/screens/login/RegisterScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
+import AppointmentsScreen from './src/screens/AppointmentsScreen';
+import MedicationsScreen from './src/screens/MedicationsScreen';
 import ProfileScreen from './src/screens/profile/profileScreen';
 import HealthInfoScreen from './src/screens/profile/healthInfoScreen';
 import EditProfileScreen from './src/screens/profile/editProfileScreen';
@@ -45,6 +48,9 @@ function RootNavigator() {
     >
       {isLoggedIn ? (
         <>
+          <Stack.Screen name="Dashboard" component={DashboardScreen} />
+          <Stack.Screen name="Appointments" component={AppointmentsScreen} />
+          <Stack.Screen name="Medications" component={MedicationsScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           <Stack.Screen name="HealthInfo" component={HealthInfoScreen} />
