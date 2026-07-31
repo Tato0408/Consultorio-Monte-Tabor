@@ -5,7 +5,7 @@ import nodemailer from "nodemailer";
 import jsonwebtoken from "jsonwebtoken";
 import { config } from "../../../config.js";
 import bcrypt from "bcryptjs";
-import { validateUserFieldFormats } from "../../utils/validators.js";
+import { validateUserFieldFormats, getPasswordError } from "../../utils/validators.js";
 
 //Array de funciones
 const adminController = {};
@@ -54,17 +54,31 @@ adminController.updateAdmin = async (req, res) => {
             return res.status(400).json({ message: formatError });
         }
 
-        const passwordHashed = await bcrypt.hash(password, 10);
         const updatedData = {
             name,
             last_name,
             dui,
             birth_date,
             gender,
-            password: passwordHashed,
             is_active,
             is_verified,
         };
+
+        // Si viene una nueva contraseña, la validamos y encriptamos antes de guardar. Antes esto
+        // se hacía sin condición, así que CUALQUIER edición sin contraseña (ej. solo cambiar el
+        // nombre) terminaba hasheando "undefined" y dejaba al admin sin poder volver a iniciar sesión.
+        if (password && password.trim() !== "") {
+            const passwordError = getPasswordError(password);
+            if (passwordError) {
+                return res.status(400).json({ message: passwordError });
+            }
+            // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+            const samePassword = await bcrypt.compare(password, adminFound.password);
+            if (samePassword) {
+                return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+            }
+            updatedData.password = await bcrypt.hash(password, 10);
+        }
 
         //Nueva imagen
         if (req.file) {

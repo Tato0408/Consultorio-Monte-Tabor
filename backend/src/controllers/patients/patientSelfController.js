@@ -125,7 +125,8 @@ patientSelfController.getMe = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PUT /api/patientAccount/me — requiere sesión; actualiza SOLO el perfil de quien la pide.
-// La contraseña queda fuera de este endpoint a propósito (lógica pendiente, se agrega aparte).
+// La contraseña queda fuera de este endpoint a propósito: tiene su propio endpoint dedicado
+// (changePassword, más abajo) porque requiere confirmar la contraseña actual primero.
 // ─────────────────────────────────────────────────────────────────────────────
 patientSelfController.updateMe = async (req, res) => {
     try {
@@ -179,6 +180,56 @@ patientSelfController.updateMe = async (req, res) => {
         }
 
         return res.status(200).json({ message: "Perfil actualizado", user: updatedPatient });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/patientAccount/changePassword — requiere sesión. A diferencia del cambio de
+// contraseña por recuperación (que verifica un código enviado al correo), aquí el paciente ya
+// está autenticado y debe confirmar su contraseña actual para poder establecer una nueva.
+// ─────────────────────────────────────────────────────────────────────────────
+patientSelfController.changePassword = async (req, res) => {
+    try {
+        if (req.user?.role !== "patient") {
+            return res.status(403).json({ message: "Acceso denegado" });
+        }
+
+        const { oldPassword, newPassword, confirmNewPassword } = req.body;
+
+        if (!oldPassword?.trim() || !newPassword?.trim() || !confirmNewPassword?.trim()) {
+            return res.status(400).json({ message: "Todos los campos son requeridos" });
+        }
+
+        const patient = await patientsModel.findById(req.user.id);
+        if (!patient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        const oldPasswordMatches = await bcryptjs.compare(oldPassword, patient.password);
+        if (!oldPasswordMatches) {
+            return res.status(400).json({ message: "La contraseña actual es incorrecta" });
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            return res.status(400).json({ message: "Las contraseñas no coinciden" });
+        }
+
+        if (newPassword === oldPassword) {
+            return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+        }
+
+        const passwordError = getPasswordError(newPassword);
+        if (passwordError) {
+            return res.status(400).json({ message: passwordError });
+        }
+
+        const passwordHashed = await bcryptjs.hash(newPassword, 10);
+        await patientsModel.findByIdAndUpdate(req.user.id, { password: passwordHashed });
+
+        return res.status(200).json({ message: "Contraseña actualizada correctamente" });
     } catch (error) {
         console.log("error " + error);
         return res.status(500).json({ message: "Internal server error" });

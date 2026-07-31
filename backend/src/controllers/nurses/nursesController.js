@@ -229,6 +229,22 @@ nursesController.updateNurse = async(req,res) => {
             is_verified: response.is_verified,
             time_out: response.time_out
         }
+
+        // Si viene una nueva contraseña, la validamos y encriptamos antes de guardar.
+        // Por defecto se mantiene la actual (arriba), así que esto solo pisa el campo
+        // cuando realmente se pidió cambiarla.
+        if (password && password.trim() !== "") {
+            const passwordError = getPasswordError(password);
+            if (passwordError) {
+                return res.status(400).json({ message: passwordError });
+            }
+            // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+            const samePassword = await bcrypt.compare(password, response.password);
+            if (samePassword) {
+                return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+            }
+            payload.password = await bcrypt.hash(password, 10);
+        }
         if(req.file){
             const updateImage = await cloudinary.uploader.destroy(response.public_id)
             if(!updateImage){

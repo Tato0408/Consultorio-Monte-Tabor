@@ -166,6 +166,11 @@ receptionistController.updateReceptionist = async (req, res) => {
       if (passwordError) {
         return res.status(400).json({ message: passwordError });
       }
+      // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+      const samePassword = await bcryptjs.compare(password, receptionistFound.password);
+      if (samePassword) {
+        return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+      }
       //Genera el nuevo hash encriptado de la contraseña con 10 rondas
       updatedData.password = await bcryptjs.hash(password, 10);
     }

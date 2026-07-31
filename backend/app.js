@@ -22,6 +22,7 @@ import adminRoutes from "./src/routes/admin/admin.js"
 import registerAdminRoute from "./src/routes/admin/registerAdmin.js"
 import recoveryAdminPassword from "./src/routes/admin/recoveryPasswordAdmin.js"
 import recoveryNursePassword from "./src/routes/nurse/recoveryPasswordNurse.js"
+import recoveryPatientPassword from "./src/routes/patients/recoveryPasswordPatient.js"
 import { validateAuthCookie } from './src/middlewares/authMiddleware.js';
 import { authenticate } from './src/middlewares/authenticateMiddleware.js';
 import { authorize } from './src/middlewares/authorizeMiddleware.js';
@@ -57,6 +58,7 @@ app.use("/api/recoveryDoctor", doctorRecoveryRoutes);
 app.use("/api/recoveryAdminPassword" ,recoveryAdminPassword);
 app.use("/api/recoveryReceptionist", receptionistRecoveryRoutes);
 app.use("/api/recoveryNursePassword", recoveryNursePassword);
+app.use("/api/recoveryPatientPassword", recoveryPatientPassword);
 
 //Endpoints privados
 app.use("/api/registerDoctors", authenticate, authorize("users.doctors", "create"), registerDoctorRoutes);

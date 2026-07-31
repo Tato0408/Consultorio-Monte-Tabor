@@ -164,6 +164,7 @@ doctorController.updateDoctors = async (req, res) => {
       phone,
       license_number,
       email,
+      password,
       is_active,
       is_verified,
     } = req.body;
@@ -204,6 +205,22 @@ doctorController.updateDoctors = async (req, res) => {
       is_active,
       is_verified,
     };
+
+    // Si viene una nueva contraseña, la validamos y encriptamos antes de guardar.
+    // Sin este chequeo, cualquier actualización que NO incluya contraseña dejaría el
+    // campo fuera de updatedData, así que no hay riesgo de sobreescribirla por accidente.
+    if (password && password.trim() !== "") {
+      const passwordError = getPasswordError(password);
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
+      }
+      // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+      const samePassword = await bcryptjs.compare(password, doctorFound.password);
+      if (samePassword) {
+        return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+      }
+      updatedData.password = await bcryptjs.hash(password, 10);
+    }
 
     // FOTO PERFIL
     //Comprueba si el cliente envio un archivo nuevo bajo la clave 'doctorImage' dentro de req.files
