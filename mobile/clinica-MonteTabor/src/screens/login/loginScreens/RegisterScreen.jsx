@@ -4,15 +4,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 
-import FormInput from "../../components/profile/FormInput";
-import FormSelect from "../../components/profile/FormSelect";
-import FormDateInput from "../../components/profile/FormDateInput";
-import styles from "../../styles/loginStyle";
-import formStyles from "../../styles/profile/editProfileStyle";
-import { colors } from "../../styles/profile/profileStyle";
-import { useAuth } from "../../context/AuthContext";
-import { showSuccess, showError } from "../../lib/toast";
-import { EMAIL_REGEX, PHONE_REGEX, DUI_REGEX, maskDui, maskPhone, toISODate, getPasswordError } from "../../utils/validation";
+import HexLogo from "../../../components/HexLogo";
+import FormInput from "../../../components/profile/FormInput";
+import FormSelect from "../../../components/profile/FormSelect";
+import FormDateInput from "../../../components/profile/FormDateInput";
+import styles from "../../../styles/loginStyle";
+import formStyles from "../../../styles/profile/editProfileStyle";
+import { colors } from "../../../styles/profile/profileStyle";
+import { useAuth } from "../../../context/AuthContext";
+import { showSuccess, showError } from "../../../lib/toast";
+import { EMAIL_REGEX, PHONE_REGEX, DUI_REGEX, maskDui, maskPhone, toISODate, getPasswordError } from "../../../utils/validation";
 
 const GENDER_OPTIONS = ["Masculino", "Femenino"];
 
@@ -138,8 +139,8 @@ const RegisterScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <View style={styles.logoBlock}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoLetter}>T</Text>
+            <View style={{ marginBottom: 12 }}>
+              <HexLogo size={46} />
             </View>
             <Text style={styles.title}>Regístrate</Text>
           </View>

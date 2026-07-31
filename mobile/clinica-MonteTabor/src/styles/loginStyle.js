@@ -56,20 +56,51 @@ const styles = StyleSheet.create({
     left: -40,
   },
 
+  // Hero de las pantallas de recuperación: dos manchas ancladas en esquinas opuestas, que
+  // entre ambas dejan un "valle" ondulado al centro (igual que en los diseños de referencia)
+  heroRecovery: { height: 165, overflow: "hidden" },
+  blobRecoveryLeft: {
+    position: "absolute",
+    width: 230,
+    height: 230,
+    borderRadius: 115,
+    backgroundColor: "#2D5BB5",
+    top: -145,
+    left: -60,
+  },
+  blobRecoveryRight: {
+    position: "absolute",
+    width: 230,
+    height: 230,
+    borderRadius: 115,
+    backgroundColor: "#4C82FF",
+    top: -145,
+    right: -60,
+  },
+
+  // Mancha decorativa inferior — anclada a la esquina inferior izquierda de la PANTALLA
+  // (no del contenido), igual que en los diseños de referencia
+  blobBottomWrap: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    width: "100%",
+    height: 140,
+    overflow: "hidden",
+  },
+  blobBottom: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "#4C82FF",
+    bottom: -95,
+    left: -55,
+  },
+
   /* ---------- Contenido central ---------- */
   body: { paddingHorizontal: 24 },
   logoBlock: { alignItems: "center", marginBottom: 22 },
-  logoBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 13,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-    ...shadow,
-  },
-  logoLetter: { color: "#fff", fontSize: 19, fontWeight: "800" },
   title: { fontSize: 21, fontWeight: "800", color: colors.text },
 
   /* ---------- Formulario ---------- */
@@ -90,6 +121,49 @@ const styles = StyleSheet.create({
   },
   primaryButtonDisabled: { opacity: 0.6 },
   primaryButtonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+
+  /* ---------- Pantallas de recuperación de contraseña ---------- */
+  backRow: { flexDirection: "row", alignItems: "center", marginBottom: 18 },
+  backText: { fontSize: 14, fontWeight: "600", color: colors.primary, marginLeft: 2 },
+
+  recoveryTitle: { fontSize: 21, fontWeight: "800", color: colors.text, textAlign: "center" },
+  recoverySubtitle: {
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: "center",
+    marginTop: 10,
+    marginBottom: 24,
+  },
+
+  // Casillas del código de verificación (6 dígitos)
+  codeRow: { flexDirection: "row", justifyContent: "space-between", gap: 8, marginBottom: 22 },
+  codeBox: {
+    flex: 1,
+    height: 52,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.text,
+  },
+
+  // Pantalla "Listo" (contraseña actualizada)
+  successIconWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 22,
+  },
+  successIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#E6F6EF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   /* ---------- Pie: divisor + link cruzado entre Login/Registro ---------- */
   footerDivider: {

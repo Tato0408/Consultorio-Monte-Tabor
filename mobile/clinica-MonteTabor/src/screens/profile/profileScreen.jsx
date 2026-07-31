@@ -114,7 +114,12 @@ const ProfileScreen = ({ navigation }) => {
           title="Cuenta y seguridad"
           items={accountInfo.map((i) => ({
             ...i,
-            onPress: i.label === "Cerrar sesión" ? handleLogout : () => noop(i.label),
+            onPress:
+              i.label === "Cerrar sesión"
+                ? handleLogout
+                : i.label === "Cambiar contraseña"
+                ? () => navigation.navigate("ChangePassword")
+                : () => noop(i.label),
           }))}
         />
       </ScrollView>

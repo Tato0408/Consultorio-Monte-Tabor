@@ -11,6 +11,10 @@ const REGISTER_PATH = "/patientAccount/register";
 // Único logout del backend (app.js: app.use("/api/logout", validateAuthCookie(), ...)) —
 // el mismo que usa la web, vale para cualquier rol
 const LOGOUT_PATH = "/logout";
+// A diferencia de la recuperación (sin sesión, verifica un código por correo), aquí el paciente
+// ya está logueado y confirma su contraseña actual — por eso vive en patientAccount, no en
+// recoveryPatientPassword
+const CHANGE_PASSWORD_PATH = "/patientAccount/changePassword";
 
 const USER_KEY = "patient_user";
 
@@ -177,9 +181,26 @@ export const AuthProvider = ({ children }) => {
         return { ok: true, backendOk };
     };
 
+    // Cambio de contraseña desde Perfil (paciente ya autenticado, confirma su contraseña
+    // actual). A diferencia de login/register/logout, la sesión sigue activa después: el token
+    // no depende de la contraseña, así que no hace falta cerrar sesión ni reautenticar.
+    // El backend ya devuelve mensajes en español listos para mostrar, así que no pasa por
+    // ERROR_MESSAGES.
+    const changePassword = async (oldPassword, newPassword, confirmNewPassword) => {
+        try {
+            const response = await apiClient(CHANGE_PASSWORD_PATH, {
+                method: "PUT",
+                body: { oldPassword, newPassword, confirmNewPassword },
+            });
+            return { ok: true, message: response.message };
+        } catch (error) {
+            return { ok: false, message: error.message || "No se pudo cambiar la contraseña." };
+        }
+    };
+
     return (
         <AuthContext.Provider
-            value={{ user, setUser, isLoggedIn, isLoading, login, register, logout, refetchUser: checkSession }}
+            value={{ user, setUser, isLoggedIn, isLoading, login, register, logout, changePassword, refetchUser: checkSession }}
         >
             {children}
         </AuthContext.Provider>

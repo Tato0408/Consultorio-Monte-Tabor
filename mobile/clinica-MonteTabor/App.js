@@ -9,14 +9,19 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/lib/toast';
 
-import LoginScreen from './src/screens/login/LoginScreen';
-import RegisterScreen from './src/screens/login/RegisterScreen';
+import LoginScreen from './src/screens/login/loginScreens/LoginScreen';
+import RegisterScreen from './src/screens/login/loginScreens/RegisterScreen';
+import RecoveryScreen from './src/screens/login/RecoveryScreens/RecoveryScreen';
+import VerifyCodeScreen from './src/screens/login/RecoveryScreens/VerifyCodeScreen';
+import NewPasswordScreen from './src/screens/login/RecoveryScreens/NewPasswordScreen';
+import PasswordUpdatedScreen from './src/screens/login/RecoveryScreens/PasswordUpdatedScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import AppointmentsScreen from './src/screens/AppointmentsScreen';
 import MedicationsScreen from './src/screens/MedicationsScreen';
 import ProfileScreen from './src/screens/profile/profileScreen';
 import HealthInfoScreen from './src/screens/profile/healthInfoScreen';
 import EditProfileScreen from './src/screens/profile/editProfileScreen';
+import ChangePasswordScreen from './src/screens/profile/changePasswordScreen';
 import ListDetailScreen from './src/screens/profile/listDetailScreen';
 import BloodTypeScreen from './src/screens/profile/bloodTypeScreen';
 import OrganDonationScreen from './src/screens/profile/organDonationScreen';
@@ -53,6 +58,7 @@ function RootNavigator() {
           <Stack.Screen name="Medications" component={MedicationsScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+          <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
           <Stack.Screen name="HealthInfo" component={HealthInfoScreen} />
           <Stack.Screen name="ListDetail" component={ListDetailScreen} />
           <Stack.Screen name="BloodType" component={BloodTypeScreen} />
@@ -63,6 +69,10 @@ function RootNavigator() {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="Recovery" component={RecoveryScreen} />
+          <Stack.Screen name="VerifyCode" component={VerifyCodeScreen} />
+          <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
+          <Stack.Screen name="PasswordUpdated" component={PasswordUpdatedScreen} />
         </>
       )}
     </Stack.Navigator>

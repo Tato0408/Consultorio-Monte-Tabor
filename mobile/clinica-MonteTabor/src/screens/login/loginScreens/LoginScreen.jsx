@@ -4,12 +4,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 
-import FormInput from "../../components/profile/FormInput";
-import styles from "../../styles/loginStyle";
-import formStyles from "../../styles/profile/editProfileStyle";
-import { colors } from "../../styles/profile/profileStyle";
-import { useAuth } from "../../context/AuthContext";
-import { showSuccess, showError } from "../../lib/toast";
+import HexLogo from "../../../components/HexLogo";
+import FormInput from "../../../components/profile/FormInput";
+import styles from "../../../styles/loginStyle";
+import formStyles from "../../../styles/profile/editProfileStyle";
+import { colors } from "../../../styles/profile/profileStyle";
+import { useAuth } from "../../../context/AuthContext";
+import { showSuccess, showError } from "../../../lib/toast";
 
 // Pantalla de inicio de sesión, ahora conectada al backend real (login de pacientes).
 // No navegamos manualmente al éxito: RootNavigator (App.js) cambia de stack solo en cuanto
@@ -58,8 +59,8 @@ const LoginScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <View style={styles.logoBlock}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoLetter}>T</Text>
+            <View style={{ marginBottom: 12 }}>
+              <HexLogo size={46} />
             </View>
             <Text style={styles.title}>Iniciar sesión</Text>
           </View>
@@ -100,7 +101,7 @@ const LoginScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.forgotWrap}>
-              <TouchableOpacity activeOpacity={0.7}>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate("Recovery")}>
                 <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
               </TouchableOpacity>
             </View>
