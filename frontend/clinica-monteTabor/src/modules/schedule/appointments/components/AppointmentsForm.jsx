@@ -203,7 +203,7 @@ export default function AppointmentsForm() {
   // Se ejecuta solo si pasan todas las reglas de validación de los
   // Controller definidos en el JSX.
   const onSubmit = async (data) => {
-    if (!isEditing) return;
+    if (!isEditing || submitting) return;
 
     // Verificación adicional: se necesita el slot completo para el payload.
     if (!selectedSlot) {
@@ -363,6 +363,7 @@ export default function AppointmentsForm() {
             <Button
               type="button"
               onClick={() => setIsEditing(true)}
+              disabled={submitting}
               className="bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl flex items-center gap-2 px-4 h-10 shadow-sm"
             >
               <Edit2 className="h-4 w-4" />
@@ -372,7 +373,8 @@ export default function AppointmentsForm() {
           <button
             type="button"
             onClick={() => navigate("/calendar/appointments")}
-            className="p-2 rounded-full hover:bg-slate-200/60 transition-colors text-slate-500"
+            disabled={submitting}
+            className="p-2 rounded-full hover:bg-slate-200/60 transition-colors text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
             <X className="h-6 w-6" />
           </button>
@@ -380,6 +382,9 @@ export default function AppointmentsForm() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* fieldset con display:contents — además del gating existente por !isEditing, esto
+            desactiva TODO durante el envío (submitting), sin alterar el layout de grid */}
+        <fieldset disabled={submitting} className="contents">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Paciente: obligatorio. */}
@@ -530,7 +535,7 @@ export default function AppointmentsForm() {
 
           {/* Calendario y horarios */}
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-6">
-            <div className={`md:col-span-3 flex flex-col items-center border-r border-slate-100 pr-2 ${!isEditing ? "cursor-not-allowed" : ""}`}>
+            <div className={`md:col-span-3 flex flex-col items-center border-r border-slate-100 pr-2 ${!isEditing || submitting ? "cursor-not-allowed" : ""}`}>
               {!canSelectSchedule && (
                 <p className="text-xs text-amber-600 font-medium mb-3">
                   Seleccione un doctor para habilitar la fecha y el horario.
@@ -550,9 +555,9 @@ export default function AppointmentsForm() {
                     // onSelect debe ser siempre una función, incluso en modo
                     // lectura, para que el calendario trate "selected" como
                     // controlado y refleje cambios de fecha por fuera.
-                    onSelect={(day) => { if (isEditing && canSelectSchedule) field.onChange(day); }}
+                    onSelect={(day) => { if (isEditing && canSelectSchedule && !submitting) field.onChange(day); }}
                     disabled={(date) => date < todayMidnight || date > endOfCurrentWeek}
-                    className={`rounded-md border-0 w-full flex justify-center ${!isEditing || !canSelectSchedule ? "pointer-events-none opacity-50" : ""}`}
+                    className={`rounded-md border-0 w-full flex justify-center ${!isEditing || !canSelectSchedule || submitting ? "pointer-events-none opacity-50" : ""}`}
                     classNames={{
                       day_selected: "bg-[#0b66d6] text-white rounded-full font-bold",
                       day_today: "bg-slate-100 text-slate-900 font-bold rounded-full",
@@ -792,6 +797,7 @@ export default function AppointmentsForm() {
             </Button>
           )}
         </div>
+        </fieldset>
       </form>
 
       {/* Modal de creación rápida de procedimientos. */}

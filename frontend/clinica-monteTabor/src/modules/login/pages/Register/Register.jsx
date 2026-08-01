@@ -105,6 +105,8 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Guarda extra por si dos clics llegan antes de que el botón refleje loading=true en el DOM
+    if (loading) return;
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -180,7 +182,8 @@ const Register = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current.click()}
-                  className="relative w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 hover:border-[#3B6FCA] transition-colors flex items-center justify-center overflow-hidden group"
+                  disabled={loading}
+                  className="relative w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 hover:border-[#3B6FCA] transition-colors flex items-center justify-center overflow-hidden group disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {formData.imagenPreview ? (
                     <img

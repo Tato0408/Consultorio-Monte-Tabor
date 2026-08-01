@@ -159,6 +159,7 @@ const DoctorForm = ({
 
   //Funcion asincrona que procesa y envia el formulario al dar click en guardar/editar
   const onSubmit = async (formValues) => {
+    if (loading) return;
     // Al crear, no se permite enviar si la contraseña no cumple los requisitos de seguridad
     if (!doctor && !isPasswordValid) return;
 
@@ -263,7 +264,8 @@ const DoctorForm = ({
         <button
           type="button"
           onClick={() => onClose(false)}
-          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          disabled={loading}
+          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           <X className="w-5 h-5" />
         </button>
@@ -281,8 +283,8 @@ const DoctorForm = ({
             className="hidden"
           />
           <div
-            className="relative mb-1.5 group cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
+            className={`relative mb-1.5 group ${loading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
+            onClick={() => !loading && fileInputRef.current?.click()}
           >
             <div className={`w-20 h-20 rounded-full bg-[#F3F4F6] border flex items-center justify-center overflow-hidden ${imageError ? "border-red-400" : "border-gray-100"}`}>
               {profilePreview ? (
@@ -303,6 +305,9 @@ const DoctorForm = ({
         </div>
 
         <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="w-full">
+          {/* fieldset con display:contents — desactiva todos los inputs/selects/botones que
+              contiene de un solo golpe durante el envío, sin alterar el layout de grid */}
+          <fieldset disabled={loading} className="contents">
           {/* Cuerpo horizontal: datos a la izquierda, licencia/contraseña a la derecha */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
@@ -507,6 +512,7 @@ const DoctorForm = ({
               {doctor ? "Guardar cambios" : "Guardar"}
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
     </div>

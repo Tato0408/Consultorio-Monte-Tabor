@@ -26,6 +26,7 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
   };
 
   const onSubmit = async (data) => {
+    if (loading) return;
     setLoading(true);
     try {
       await apiClient("/sick-leaves", {
@@ -59,7 +60,8 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
         <button
           type="button"
           onClick={close}
-          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+          disabled={loading}
+          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           <X className="w-4 h-4" />
         </button>
@@ -72,6 +74,9 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+          {/* fieldset con display:contents — desactiva todos los inputs/botones que contiene
+              de un solo golpe durante el envío, sin alterar el layout */}
+          <fieldset disabled={loading} className="contents">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-500">Diagnóstico</label>
             <input
@@ -118,6 +123,7 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Guardar
           </button>
+          </fieldset>
         </form>
       </div>
     </div>

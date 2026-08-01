@@ -26,6 +26,9 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
       
       className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 items-start"
     >
+      {/* fieldset con display:contents — desactiva todos los inputs/selects/botones que
+          contiene de un solo golpe durante el envío, sin alterar el layout de grid */}
+      <fieldset disabled={isSubmitting} className="contents">
       <div className="lg:col-span-2 space-y-4 md:space-y-6">
 
         <div className="bg-white border border-gray-100 rounded-xl p-4 md:p-6 shadow-sm space-y-4">
@@ -275,7 +278,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
 
         {!initialData && (
           <div className="flex items-center justify-end gap-3 pt-2">
-            <button type="button" className="px-4 md:px-5 py-2 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <button type="button" disabled={isSubmitting} className="px-4 md:px-5 py-2 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               Cancelar
             </button>
             <button type="submit" disabled={isSubmitting} className="px-4 md:px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
@@ -284,6 +287,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
           </div>
         )}
       </div>
+      </fieldset>
     </form>
   );
 };

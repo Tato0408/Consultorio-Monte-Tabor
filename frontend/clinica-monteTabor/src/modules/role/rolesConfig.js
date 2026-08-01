@@ -89,6 +89,14 @@ export const ALL_MODULE_KEYS = SIDEBAR_MODULES.flatMap((section) =>
   section.modules.map((m) => m.key)
 );
 
+// Módulos que en el backend solo tienen una ruta GET (backend/src/routes/reports/reports.js
+// solo define .get() para estos tres, sin POST/PUT/DELETE) — activar Crear/Editar/Eliminar
+// ahí no tendría ningún efecto real, así que ModulePermissionCard oculta esos tres checkboxes
+// y deja únicamente "Ver". "reports.records" (Expediente) queda fuera a propósito: sí tiene
+// una acción real de creación (registrar incapacidades, ver ResumeTab.jsx), así que conserva
+// sus 4 checkboxes normales.
+export const VIEW_ONLY_MODULE_KEYS = ["reports.appointments", "reports.patients", "reports.doctors"];
+
 const FULL_CRUD = { view: true, create: true, update: true, delete: true };
 const NO_ACCESS = { view: false, create: false, update: false, delete: false };
 const VIEW_ONLY = { view: true, create: false, update: false, delete: false };
@@ -109,9 +117,13 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     // una al agendar una cita.
     "users.nurses": VIEW_ONLY,
     "procedures": FULL_CRUD,
-    "reports.appointments": NO_ACCESS,
+    // El doctor sí puede ver estos dos reportes hoy (seedRoles.js: view=true) — antes este
+    // archivo decía NO_ACCESS, así que el botón "Restablecer a valores predeterminados" le
+    // habría quitado ese acceso real. reports.records no se toca (fuera del alcance de este
+    // cambio, y su desajuste con el seed es un tema aparte).
+    "reports.appointments": VIEW_ONLY,
     "reports.records": FULL_CRUD,
-    "reports.patients": NO_ACCESS,
+    "reports.patients": VIEW_ONLY,
     "reports.doctors": NO_ACCESS,
     "inventory.products": NO_ACCESS,
     "inventory.treatments": NO_ACCESS,

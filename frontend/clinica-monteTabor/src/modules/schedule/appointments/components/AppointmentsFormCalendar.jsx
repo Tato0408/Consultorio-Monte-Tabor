@@ -155,6 +155,7 @@ export default function AppointmentsForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     if (!formData.patient_id || !formData.doctor_id) {
       showError("Debe seleccionar un paciente y un doctor."); return;
     }
@@ -270,13 +271,13 @@ export default function AppointmentsForm() {
         </div>
         <div className="flex items-center gap-2">
           {id && !isEditing && canUpdateAppt && (
-            <button onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors">
+            <button onClick={() => setIsEditing(true)} disabled={submitting}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
               <Edit2 className="w-3.5 h-3.5" /> Editar
             </button>
           )}
-          <button onClick={() => navigate("/calendar/appointments")}
-            className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+          <button onClick={() => navigate("/calendar/appointments")} disabled={submitting}
+            className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -284,6 +285,9 @@ export default function AppointmentsForm() {
 
       <form onSubmit={handleSubmit} className="max-w-5xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-5">
 
+        {/* fieldset con display:contents — además del gating existente por !isEditing, esto
+            desactiva TODO durante el envío (submitting), sin alterar el layout de grid */}
+        <fieldset disabled={submitting} className="contents">
 
         <div className="lg:col-span-2 flex flex-col gap-5">
 
@@ -359,13 +363,13 @@ export default function AppointmentsForm() {
           <SectionCard title="Fecha y horario" icon={CalendarDays}>
             <div className="flex flex-col lg:flex-row gap-5">
 
-              <div className={`flex-shrink-0 ${!isEditing ? "pointer-events-none opacity-70" : ""}`}>
+              <div className={`flex-shrink-0 ${!isEditing || submitting ? "pointer-events-none opacity-70" : ""}`}>
                 <Calendar
                   mode="single"
                   locale={es}
                   selected={date}
                   defaultMonth={date}
-                  onSelect={isEditing ? setDate : undefined}
+                  onSelect={isEditing && !submitting ? setDate : undefined}
                   fromDate={today}
                   disabled={isDateDisabled}
                   modifiers={{
@@ -554,6 +558,7 @@ export default function AppointmentsForm() {
             </button>
           )}
         </div>
+        </fieldset>
       </form>
     </div>
   );

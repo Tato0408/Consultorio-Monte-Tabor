@@ -33,6 +33,10 @@ const ModulePermissionCard = ({
   onChange,
   accentSolidClass,
   readOnly,
+  // true para módulos cuyo backend solo expone una ruta GET (ver VIEW_ONLY_MODULE_KEYS en
+  // rolesConfig.js) — Crear/Editar/Eliminar no tienen ningún endpoint real detrás, así que
+  // ni siquiera se muestran esos checkboxes en vez de dejarlos togglear sin efecto.
+  viewOnly = false,
 }) => {
   const handleToggle = (permKey) => {
     if (readOnly) return;
@@ -44,6 +48,10 @@ const ModulePermissionCard = ({
     if (permKey !== "view" && nextValue) updated.view = true;
     onChange(updated);
   };
+
+  const visiblePermissionTypes = viewOnly
+    ? PERMISSION_TYPES.filter((p) => p.key === "view")
+    : PERMISSION_TYPES;
 
   const anyActive = PERMISSION_TYPES.some((p) => permissions[p.key]);
 
@@ -58,7 +66,7 @@ const ModulePermissionCard = ({
 
       {/* En móvil los 4 checks caben en 2 columnas; en pantallas muy pequeñas en 1 columna */}
       <div className="grid grid-cols-1 xs:grid-cols-2 gap-y-2.5 md:gap-y-3 gap-x-3 md:gap-x-4 pl-1">
-        {PERMISSION_TYPES.map((perm) => (
+        {visiblePermissionTypes.map((perm) => (
           <PermissionCheckbox
             key={perm.key}
             label={perm.label}

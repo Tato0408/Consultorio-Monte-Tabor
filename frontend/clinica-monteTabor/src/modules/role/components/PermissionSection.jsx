@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import ModulePermissionCard from "./ModulePermissionCard";
+import { VIEW_ONLY_MODULE_KEYS } from "../rolesConfig.js";
 
 const PermissionSection = ({
   section,
@@ -62,6 +63,7 @@ const PermissionSection = ({
                 onChange={(updated) => onModuleChange(module.key, updated)}
                 accentSolidClass={accentSolidClass}
                 readOnly={readOnly}
+                viewOnly={VIEW_ONLY_MODULE_KEYS.includes(module.key)}
               />
             ))}
           </div>

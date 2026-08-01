@@ -30,6 +30,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
 
     // Envía el procedimiento y notifica al formulario padre si se creó bien.
     const onSubmit = async (data) => {
+        if (submitting) return;
         const result = await saveProcedure(null, {
             ...data,
             estimated_duration: Number(data.estimated_duration),
@@ -57,8 +58,10 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[480px] rounded-2xl bg-white p-6 shadow-xl border-0">
+        // Sin este guard, hacer clic en el backdrop o presionar Escape mientras se envía
+        // cerraría el diálogo (y perdería el estado) a medio envío.
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open && submitting) return; onClose(); }}>
+            <DialogContent closeDisabled={submitting} className="sm:max-w-[480px] rounded-2xl bg-white p-6 shadow-xl border-0">
                 <DialogHeader>
                     <DialogTitle className="text-lg font-bold text-gray-900">
                         Creación Rápida de Procedimiento
@@ -66,6 +69,9 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
+                {/* fieldset con display:contents — desactiva todos los inputs/botones que
+                    contiene de un solo golpe durante el envío, sin alterar el layout */}
+                <fieldset disabled={submitting} className="contents">
                     {/* Nombre: obligatorio, mínimo 3 caracteres. */}
                     <div className="space-y-1">
                         <Label className="text-xs font-semibold text-gray-600">Nombre del Procedimiento *</Label>
@@ -221,6 +227,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                             {submitting ? "Guardando..." : "Registrar"}
                         </Button>
                     </DialogFooter>
+                </fieldset>
                 </form>
             </DialogContent>
         </Dialog>

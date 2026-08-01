@@ -109,6 +109,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
   };
 
   const onSubmit = async (data) => {
+    if (loading) return;
     if (!isEditMode && !isPasswordValid) return;
 
     // Al crear, la foto de perfil es obligatoria (el backend también lo exige); se avisa
@@ -184,7 +185,8 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          disabled={loading}
+          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           <X className="w-5 h-5" />
         </button>
@@ -192,8 +194,8 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
         <input type="file" ref={fileInputRef} onChange={handleImageChange} accept="image/*" className="hidden" />
 
         <div
-          className="relative mb-1.5 group cursor-pointer"
-          onClick={() => fileInputRef.current?.click()}
+          className={`relative mb-1.5 group ${loading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
+          onClick={() => !loading && fileInputRef.current?.click()}
         >
           <div className={`w-24 h-24 rounded-full bg-[#F3F4F6] border flex items-center justify-center overflow-hidden ${imageError ? "border-red-400" : "border-gray-100"}`}>
             {imagePreview
@@ -211,6 +213,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
         </h2>
 
         <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="w-full flex flex-col gap-4">
+          {/* fieldset con display:contents — desactiva todos los inputs/botones que contiene
+              de un solo golpe durante el envío, sin alterar el layout */}
+          <fieldset disabled={loading} className="contents">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             <div className="flex flex-col gap-1.5">
@@ -386,6 +391,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               Guardar
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
     </div>

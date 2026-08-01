@@ -89,6 +89,7 @@ const ScheduleConfig = () => {
     const patch = (key, value) => setConfig(prev => ({ ...prev, [key]: value }));
 
     const handleSave = async () => {
+        if (saving) return;
         if (!doctorId) {
             setError("No se pudo obtener el ID del doctor. Recarga la página.");
             return;
@@ -145,6 +146,10 @@ const ScheduleConfig = () => {
             )}
 
             {/* Grid de secciones */}
+            {/* fieldset con display:contents — desactiva todos los inputs/botones que
+                contienen las secciones de un solo golpe mientras se guarda, sin alterar el
+                layout de grid. No hace falta estar dentro de un <form> para que funcione. */}
+            <fieldset disabled={saving} className="contents">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 <AppointmentTypesSection
                     types={config.appointment_types}
@@ -176,6 +181,7 @@ const ScheduleConfig = () => {
                     bufferTime={config.buffer_time}
                 />
             </div>
+            </fieldset>
         </div>
     );
 };

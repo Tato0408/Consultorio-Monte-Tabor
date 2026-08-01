@@ -41,6 +41,8 @@ const Login = () => {
   // Gestiona el envío del formulario, la llamada al contexto y las notificaciones
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Guarda extra por si dos clics llegan antes de que el botón refleje isLoading=true en el DOM
+    if (isLoading) return;
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -208,7 +210,12 @@ const Login = () => {
                 <div className="flex justify-end mt-1">
                   <Link
                     to="/recovery"
-                    className="text-xs text-[#3B6FCA] hover:text-[#2d5ab5] hover:underline transition-colors"
+                    onClick={(e) => { if (isLoading) e.preventDefault(); }}
+                    aria-disabled={isLoading}
+                    tabIndex={isLoading ? -1 : undefined}
+                    className={`text-xs text-[#3B6FCA] hover:text-[#2d5ab5] hover:underline transition-colors ${
+                      isLoading ? "opacity-50 pointer-events-none" : ""
+                    }`}
                   >
                     ¿Olvidaste tu contraseña?
                   </Link>

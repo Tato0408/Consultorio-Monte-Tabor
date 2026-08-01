@@ -80,6 +80,7 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     const ve = validate();
     if (Object.keys(ve).length) { setErrors(ve); return; }
     setLoading(true);
@@ -99,8 +100,8 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
 
   const footer = (
     <>
-      <button type="button" onClick={onClose}
-        className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">
+      <button type="button" onClick={onClose} disabled={loading}
+        className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
         Cancelar
       </button>
       <button type="submit" form="form-producto" disabled={loading}
@@ -118,8 +119,12 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
         : "Completa la información del producto para agregarlo al inventario."}
       onClose={onClose}
       footer={footer}
+      closeDisabled={loading}
     >
+      {/* El botón submit vive fuera de este <form> (footer del Modal, asociado por
+          form="form-producto"), por eso además se desactiva a mano arriba en el footer. */}
       <form id="form-producto" onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <fieldset disabled={loading} className="contents">
         {errors.general && (
           <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
             {errors.general}
@@ -214,6 +219,7 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
             )}
           </label>
         </section>
+      </fieldset>
       </form>
     </Modal>
   );

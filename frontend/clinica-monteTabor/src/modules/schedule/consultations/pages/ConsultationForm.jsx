@@ -56,6 +56,7 @@ const ConsultationForm = () => {
 
     // Se ejecuta solo si handleSubmit valida que el form está bien formado.
     const onSubmit = async (formValues) => {
+        if (isSaving) return;
         try {
             await save(formValues, { markCompleted: true });
             const successMsg = hasExistingRecord
@@ -93,6 +94,11 @@ const ConsultationForm = () => {
                     </div>
                 )}
 
+                {/* fieldset con display:contents — las tarjetas hijas solo reciben "readOnly"
+                    (nunca isSaving), así que sin esto todo el expediente quedaría editable
+                    mientras se envía. Desactiva todos los inputs/botones de un solo golpe,
+                    sin alterar el layout de grid. */}
+                <fieldset disabled={isSaving} className="contents">
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
                     {/* Columna izquierda: flujo clínico principal */}
                     <div className="space-y-6">
@@ -150,6 +156,7 @@ const ConsultationForm = () => {
                         />
                     </div>
                 </div>
+                </fieldset>
             </form>
         </FormProvider>
     );

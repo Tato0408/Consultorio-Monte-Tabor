@@ -62,6 +62,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
 
     if (!allRulesPassed) {
       Swal.fire({
@@ -112,7 +113,8 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
 
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+          disabled={submitting}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           <X className="w-4 h-4" />
         </button>
