@@ -90,12 +90,13 @@ export const ALL_MODULE_KEYS = SIDEBAR_MODULES.flatMap((section) =>
 );
 
 // Módulos que en el backend solo tienen una ruta GET (backend/src/routes/reports/reports.js
-// solo define .get() para estos tres, sin POST/PUT/DELETE) — activar Crear/Editar/Eliminar
+// solo define .get() para estos cuatro, sin POST/PUT/DELETE) — activar Crear/Editar/Eliminar
 // ahí no tendría ningún efecto real, así que ModulePermissionCard oculta esos tres checkboxes
 // y deja únicamente "Ver". "reports.records" (Expediente) queda fuera a propósito: sí tiene
 // una acción real de creación (registrar incapacidades, ver ResumeTab.jsx), así que conserva
-// sus 4 checkboxes normales.
-export const VIEW_ONLY_MODULE_KEYS = ["reports.appointments", "reports.patients", "reports.doctors"];
+// sus 4 checkboxes normales. "inventory.reports" entra por la misma razón que los otros tres:
+// GET /api/reports/inventory es su única ruta.
+export const VIEW_ONLY_MODULE_KEYS = ["reports.appointments", "reports.patients", "reports.doctors", "inventory.reports"];
 
 const FULL_CRUD = { view: true, create: true, update: true, delete: true };
 const NO_ACCESS = { view: false, create: false, update: false, delete: false };
