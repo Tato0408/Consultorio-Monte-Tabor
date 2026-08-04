@@ -103,7 +103,10 @@ export const AuthProvider = ({ children }) => {
             // mostrarlo también aquí duplicaba la notificación de éxito.
             return true;
         } catch (error) {
-            toast.error(error.message || "Credenciales incorrectas. Por favor, intenta de nuevo.");
+            // Antes se mostraba error.message tal cual (ej. "User not found", "Wrong password"
+            // sin traducir) — ahora siempre el mismo texto amigable, sin importar cuál de los
+            // dos falló, para no filtrar el mensaje crudo del backend al usuario.
+            toast.error("Credenciales incorrectas, verifica tu correo o contraseña.");
             setIsLoggedIn(false);
             return false;
         }

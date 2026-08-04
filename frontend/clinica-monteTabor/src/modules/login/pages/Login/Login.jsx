@@ -22,18 +22,18 @@ const Login = () => {
     if (apiError) setApiError("");
   };
 
-  // validacion la estructura del correo y la longitud mínima de la contraseña
+  // validacion la estructura del correo; la contraseña solo se exige que no venga vacía —
+  // no tiene sentido decirle al usuario qué le falta a su contraseña en la pantalla de login
+  // (eso es útil al crearla, no al iniciar sesión con una que ya existe)
   const validate = () => {
     const newErrors = {};
     if (!formData.email.trim()) {
-      newErrors.email = "El email es requerido";
+      newErrors.email = "El correo electrónico es requerido";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Ingresa un email válido";
     }
     if (!formData.password) {
       newErrors.password = "La contraseña es requerida";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Mínimo 6 caracteres";
     }
     return newErrors;
   };
@@ -77,14 +77,9 @@ const Login = () => {
         title: "¡Bienvenido de nuevo!"
       });
         navigate("/home");
-      } else {
-        // mensaje de error en caso de credenciales inválidas detectadas por la petición
-       Toast.fire({
-        icon: "error",
-        title: "No se pudo iniciar sesión",
-        text: "Verifica tu correo o contraseña."
-      });
       }
+      // Si succes es false, login() (AuthContext) ya mostró su propia notificación de error —
+      // mostrar otra aquí duplicaba el aviso con un segundo mensaje distinto
 
     } catch (error) {
       Toast.fire({
