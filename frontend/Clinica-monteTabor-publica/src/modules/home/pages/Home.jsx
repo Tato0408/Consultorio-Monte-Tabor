@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { CalendarCheck, ShieldCheck, Stethoscope, HeartPulse, Clock, MapPin } from "lucide-react";
+import { CalendarCheck, ShieldCheck, Stethoscope, HeartPulse, Clock, MapPin, ListChecks, UserRound, Ticket, User } from "lucide-react";
+import apiClient from "@/lib/apiClient";
 
 const Logo = ({ size = 36 }) => (
   <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: size * 0.875, height: size }}>
@@ -19,16 +21,57 @@ const services = [
   {
     icon: HeartPulse,
     title: "Seguimiento clínico",
-    description: "Historial médico digital para llevar el control de tus signos vitales y tratamientos.",
+    description: "Acompañamiento cercano de nuestro equipo médico en cada etapa de tu tratamiento.",
   },
   {
     icon: CalendarCheck,
     title: "Citas en línea",
-    description: "Agenda, reprograma y consulta tus citas médicas desde cualquier lugar, en cualquier momento.",
+    description: "Elige tu doctor y horario, y agenda tu cita en minutos desde cualquier lugar.",
+  },
+];
+
+const pasosAgendar = [
+  {
+    icon: ListChecks,
+    title: "Elige tu atención",
+    description: "Selecciona si necesitas una consulta general o un procedimiento específico.",
+  },
+  {
+    icon: UserRound,
+    title: "Elige doctor y horario",
+    description: "Consulta la disponibilidad real de nuestros doctores y elige el horario que prefieras.",
+  },
+  {
+    icon: Ticket,
+    title: "Confirma tu cita",
+    description: "Revisa el resumen con el precio y las indicaciones, y confirma. Así de simple.",
+  },
+];
+
+const preguntasFrecuentes = [
+  {
+    pregunta: "¿Cómo agendo una cita?",
+    respuesta: "Crea tu cuenta de paciente, inicia sesión y sigue el asistente de 'Agendar cita': primero eliges el tipo de atención, luego el doctor, después el horario disponible y por último confirmas con el resumen de tu cita.",
+  },
+  {
+    pregunta: "¿Puedo cancelar una cita ya agendada?",
+    respuesta: "Sí. Desde la sección 'Mis citas' de tu portal puedes cancelar cualquier cita que todavía no haya sido atendida.",
+  },
+  {
+    pregunta: "¿Qué pasa después de confirmar mi cita?",
+    respuesta: "Verás un ticket con el doctor, el tipo de atención, el día, la hora, el monto a pagar y las indicaciones a seguir antes de tu consulta.",
   },
 ];
 
 const Home = () => {
+  const [doctores, setDoctores] = useState([]);
+
+  useEffect(() => {
+    apiClient("/doctors")
+      .then((data) => setDoctores(Array.isArray(data) ? data.slice(0, 4) : []))
+      .catch(() => setDoctores([]));
+  }, []);
+
   return (
     <div className="min-h-screen bg-white text-gray-800">
       {/* ── Header ── */}
@@ -131,6 +174,71 @@ const Home = () => {
         </div>
       </section>
 
+      {/* ── Cómo agendar tu cita ── */}
+      <section className="bg-gray-50 border-y border-gray-100">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 py-16 sm:py-24">
+          <div className="text-center max-w-xl mx-auto mb-14">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+              Agendar tu cita toma menos de 2 minutos
+            </h2>
+            <p className="mt-4 text-gray-500 text-base leading-relaxed">
+              Un proceso simple, en 3 pasos, para que reserves tu atención sin llamadas ni filas.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-8">
+            {pasosAgendar.map(({ icon: Icon, title, description }, i) => (
+              <div key={title} className="relative text-center px-4">
+                <div className="w-14 h-14 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center mx-auto mb-5">
+                  <Icon className="w-6 h-6 text-[#3B6FCA]" />
+                </div>
+                <span className="text-xs font-bold text-[#3B6FCA]/60 tracking-widest">PASO {i + 1}</span>
+                <h3 className="font-semibold text-lg text-gray-800 mt-1">{title}</h3>
+                <p className="mt-2 text-sm text-gray-500 leading-relaxed">{description}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-12">
+            <Link
+              to="/register"
+              className="inline-block py-3.5 px-8 rounded-lg bg-[#3B6FCA] hover:bg-[#2d5ab5] active:scale-[0.98] text-white font-semibold text-sm tracking-wide transition-all duration-200 shadow-md shadow-[#3B6FCA]/25"
+            >
+              Crear cuenta y agendar
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Equipo médico ── */}
+      {doctores.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 sm:px-8 py-16 sm:py-24">
+          <div className="text-center max-w-xl mx-auto mb-14">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+              Nuestro equipo médico
+            </h2>
+            <p className="mt-4 text-gray-500 text-base leading-relaxed">
+              Profesionales certificados, listos para atenderte.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+            {doctores.map((d) => (
+              <div key={d._id} className="text-center">
+                <div className="w-20 h-20 mx-auto rounded-full bg-[#3B6FCA]/10 flex items-center justify-center overflow-hidden mb-3">
+                  {d.img_url ? (
+                    <img src={d.img_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-8 h-8 text-[#3B6FCA]" />
+                  )}
+                </div>
+                <p className="font-semibold text-sm text-gray-800">Dr. {d.name} {d.last_name}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Nosotros / CTA ── */}
       <section id="nosotros" className="bg-gray-50 border-y border-gray-100">
         <div className="max-w-6xl mx-auto px-6 sm:px-8 py-16 sm:py-24 grid md:grid-cols-2 gap-12 items-center">
@@ -167,6 +275,24 @@ const Home = () => {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Preguntas frecuentes ── */}
+      <section className="max-w-3xl mx-auto px-6 sm:px-8 py-16 sm:py-24">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+            Preguntas frecuentes
+          </h2>
+        </div>
+
+        <div className="space-y-4">
+          {preguntasFrecuentes.map(({ pregunta, respuesta }) => (
+            <div key={pregunta} className="p-6 rounded-2xl border border-gray-100">
+              <p className="font-semibold text-gray-800">{pregunta}</p>
+              <p className="mt-2 text-sm text-gray-500 leading-relaxed">{respuesta}</p>
+            </div>
+          ))}
         </div>
       </section>
 

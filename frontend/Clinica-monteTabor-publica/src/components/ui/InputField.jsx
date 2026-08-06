@@ -8,6 +8,7 @@ const InputField = ({
   value,
   onChange,
   icon,
+  rightSlot,
   error,
   disabled = false,
   className = "",
@@ -71,6 +72,9 @@ const InputField = ({
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         )}
+
+        {/* Elemento opcional a la derecha (ej. marca de tarjeta detectada, tooltip) */}
+        {rightSlot && <span className="flex-shrink-0 flex items-center">{rightSlot}</span>}
       </div>
 
       {error && (

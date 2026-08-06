@@ -39,6 +39,22 @@ const VerifyEmail = () => {
     }
   };
 
+  // Permite pegar el código completo (copiado del correo) en cualquier casilla,
+  // en vez de forzar a escribirlo carácter por carácter
+  const handlePaste = (e, index) => {
+    e.preventDefault();
+    const texto = e.clipboardData.getData("text").trim();
+    if (!/^[a-fA-F0-9]+$/.test(texto)) return;
+
+    const caracteres = texto.slice(0, 6 - index).split("");
+    const newCode = [...code];
+    caracteres.forEach((ch, i) => { newCode[index + i] = ch; });
+    setCode(newCode);
+
+    const siguiente = Math.min(index + caracteres.length, 5);
+    document.getElementById(`code-${siguiente}`)?.focus();
+  };
+
   const handleVerify = async (e) => {
     e.preventDefault();
     if (!allRulesPassed) return;
@@ -108,6 +124,7 @@ const VerifyEmail = () => {
                     value={digit}
                     onChange={(e) => handleChange(e.target.value, index)}
                     onKeyDown={(e) => handleKeyDown(e, index)}
+                    onPaste={(e) => handlePaste(e, index)}
                     disabled={isLoading}
                     className="w-12 h-12 border rounded-lg text-center text-xl outline-none focus:border-blue-500 transition-colors disabled:opacity-60"
                   />

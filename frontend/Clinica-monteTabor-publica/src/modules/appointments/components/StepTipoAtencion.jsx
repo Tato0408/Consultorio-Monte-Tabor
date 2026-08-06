@@ -1,0 +1,115 @@
+import { Stethoscope, FlaskConical, Syringe, ClipboardList, HeartPulse, Activity, Clock, CreditCard, ShieldCheck, Info } from "lucide-react";
+import InfoSidebar from "./InfoSidebar";
+
+// Se van rotando entre los procedimientos reales para que no se vean todos idénticos
+const ICONOS = [Stethoscope, FlaskConical, Syringe, ClipboardList, HeartPulse, Activity];
+const COLORES = [
+  { bg: "bg-blue-50", text: "text-blue-500" },
+  { bg: "bg-purple-50", text: "text-purple-500" },
+  { bg: "bg-emerald-50", text: "text-emerald-500" },
+  { bg: "bg-amber-50", text: "text-amber-500" },
+  { bg: "bg-rose-50", text: "text-rose-500" },
+  { bg: "bg-cyan-50", text: "text-cyan-500" },
+];
+
+const INFO_ITEMS = [
+  { icon: Clock, title: "Duración promedio", description: "Las consultas generales duran aproximadamente 30 minutos." },
+  { icon: CreditCard, title: "Formas de pago", description: "Puedes pagar en efectivo o con tarjeta directamente en recepción, el día de tu cita." },
+  { icon: ShieldCheck, title: "Cancelaciones", description: "Puedes cancelar tu cita en cualquier momento antes de la hora agendada, desde 'Mis citas'." },
+];
+
+const Radio = ({ selected }) => (
+  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-[#3B6FCA] bg-[#3B6FCA]" : "border-gray-200"}`}>
+    {selected && <div className="w-2 h-2 rounded-full bg-white" />}
+  </div>
+);
+
+// Paso 1: el paciente elige si quiere una consulta general o un procedimiento específico.
+// "general" es un valor fijo (siempre existe); el resto son los procedimientos reales que
+// el staff haya configurado — si no hay ninguno, solo se ofrece la consulta general.
+const StepTipoAtencion = ({ procedures, selected, onSelect }) => (
+  <div className="flex flex-col lg:flex-row gap-6">
+    <InfoSidebar
+      hero={
+        <>
+          <div className="w-11 h-11 rounded-xl bg-[#3B6FCA]/10 flex items-center justify-center mb-3">
+            <HeartPulse className="w-5 h-5 text-[#3B6FCA]" />
+          </div>
+          <p className="font-bold text-gray-900">Tu salud es nuestra prioridad</p>
+          <p className="text-sm text-gray-500 mt-1">Agenda tu cita de manera rápida y segura.</p>
+        </>
+      }
+      items={{ tipo: "importante", list: INFO_ITEMS }}
+    />
+
+    <div className="flex-1 min-w-0">
+      <h2 className="text-lg font-bold text-gray-900 mb-1">Selecciona el tipo de atención</h2>
+      <p className="text-sm text-gray-500 mb-6">Elige una opción para continuar.</p>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <button
+          type="button"
+          onClick={() => onSelect("general")}
+          className={`text-left p-5 rounded-2xl border-2 transition-all ${
+            selected === "general" ? "border-[#3B6FCA] bg-[#3B6FCA]/5" : "border-gray-100 hover:border-[#3B6FCA]/40"
+          }`}
+        >
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+              <Stethoscope className="w-5 h-5 text-blue-500" />
+            </div>
+            <Radio selected={selected === "general"} />
+          </div>
+          <p className="font-semibold text-gray-800">Consulta médica general</p>
+          <p className="text-sm text-gray-500 mt-1">Evaluación con un médico general para problemas de salud comunes.</p>
+          <div className="flex items-center justify-between mt-4 text-sm">
+            <span className="flex items-center gap-1.5 text-gray-400"><Clock className="w-3.5 h-3.5" /> 30 min</span>
+            <span className="font-bold text-[#3B6FCA]">$15.00</span>
+          </div>
+        </button>
+
+        {procedures.map((p, i) => {
+          const Icon = ICONOS[i % ICONOS.length];
+          const color = COLORES[i % COLORES.length];
+          const isSelected = selected === p._id;
+          return (
+            <button
+              key={p._id}
+              type="button"
+              onClick={() => onSelect(p._id)}
+              className={`text-left p-5 rounded-2xl border-2 transition-all ${
+                isSelected ? "border-[#3B6FCA] bg-[#3B6FCA]/5" : "border-gray-100 hover:border-[#3B6FCA]/40"
+              }`}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className={`w-10 h-10 rounded-xl ${color.bg} flex items-center justify-center`}>
+                  <Icon className={`w-5 h-5 ${color.text}`} />
+                </div>
+                <Radio selected={isSelected} />
+              </div>
+              <p className="font-semibold text-gray-800">{p.name}</p>
+              {p.description && <p className="text-sm text-gray-500 mt-1">{p.description}</p>}
+              <div className="flex items-center justify-between mt-4 text-sm">
+                <span className="flex items-center gap-1.5 text-gray-400">
+                  <Clock className="w-3.5 h-3.5" /> {p.estimated_duration ? `${p.estimated_duration} min` : "—"}
+                </span>
+                <span className="font-bold text-[#3B6FCA]">${Number(p.price || 0).toFixed(2)}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {procedures.length === 0 && (
+        <div className="flex items-start gap-2 bg-[#3B6FCA]/5 border border-[#3B6FCA]/10 rounded-xl p-4 mt-4">
+          <Info className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-gray-600">
+            Por ahora no hay procedimientos adicionales disponibles, pero puedes agendar tu consulta general.
+          </p>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+export default StepTipoAtencion;

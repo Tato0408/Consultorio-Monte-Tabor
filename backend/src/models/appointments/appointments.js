@@ -31,7 +31,12 @@ const appointmentsSchema = new Schema({
     description: { type: String },
     status: { type: String, required: true },
     total: { type: Number, required: true },
-    cancellation_reason: { type: String }
+    cancellation_reason: { type: String },
+    // Id de la transacción de Wompi cuando la cita se paga en línea (status "pending" hasta confirmarse)
+    wompi_transaction_id: { type: String },
+    // Anticipo (50% del total) que se cobra en línea para apartar la hora. No aplica a
+    // citas que se pagan en recepción. Este monto no se reembolsa si la cita se cancela.
+    deposit_amount: { type: Number }
 }, {
     timestamps: true,
     strict: false

@@ -34,12 +34,18 @@ import rolesRoutes from './src/routes/roles/roles.js'
 import permissionsRoutes from './src/routes/permissions/permissions.js'
 import reportsRoutes from './src/routes/reports/reports.js'
 import sickLeavesRoutes from './src/routes/sickLeaves/sickLeaves.js'
+import patientPortalRoutes from './src/routes/patientPortal/patientPortal.js'
+import wompiWebhookRoutes from './src/routes/webhooks/wompi.js'
+import wompiRoutes from './src/routes/wompiRoutes.js'
 const app = express();
 
 app.use(cookieParser());
 
-//Para que la API acepte JSON
-app.use(express.json());
+//Para que la API acepte JSON. El "verify" guarda también el cuerpo crudo en
+//req.rawBody, necesario para validar la firma HMAC de los webhooks de Wompi
+app.use(express.json({
+    verify: (req, res, buf) => { req.rawBody = buf.toString("utf8"); }
+}));
 
 app.use(cors({
     origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
@@ -86,5 +92,17 @@ app.use("/api/roles", rolesRoutes);
 app.use("/api/permissions", permissionsRoutes);
 app.use("/api/reports", authenticate, reportsRoutes);
 app.use("/api/sick-leaves", authenticate, sickLeavesRoutes);
+
+// Portal del paciente (sitio público): solo pacientes logueados, endpoints propios
+// que no dependen de los permisos de staff (admin/doctor/enfermera/recepcionista)
+app.use("/api/patient-portal", validateAuthCookie(["patient"]), patientPortalRoutes);
+
+// Webhook de Wompi: sin cookie de sesión (lo llama Wompi, no un navegador logueado),
+// la seguridad la da la firma HMAC verificada dentro del controller
+app.use("/api/webhooks/wompi", wompiWebhookRoutes);
+
+// Proxy directo hacia la API de Wompi (token, tokenizar tarjeta, cobrar) usado por la
+// página de pago del paciente; solo pacientes logueados pueden llamarlo
+app.use("/api/wompi", validateAuthCookie(["patient"]), wompiRoutes);
 
 export default app;

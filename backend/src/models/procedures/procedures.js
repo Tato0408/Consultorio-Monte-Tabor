@@ -26,6 +26,10 @@ const procedureSchema = new Schema(
         post_operative_instructions: {
             type: String
         },
+        // Indicaciones que el paciente debe leer ANTES de venir a su cita (ej. ayuno, documentos a traer)
+        pre_care_instructions: {
+            type: String
+        },
         requires_nurse: {
             type: Boolean,
             default: false
