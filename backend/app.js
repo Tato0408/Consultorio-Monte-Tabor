@@ -1,6 +1,7 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from "cors";
+import swaggerUi from "swagger-ui-express"
 import doctorsRoutes from "./src/routes/doctors/doctors.js"
 import registerDoctorRoutes from "./src/routes/doctors/registerDoctor.js"
 import loginDoctorRoutes from "./src/routes/doctors/loginDoctors.js"
@@ -39,6 +40,8 @@ import permissionsRoutes from './src/routes/permissions/permissions.js'
 import reportsRoutes from './src/routes/reports/reports.js'
 import sickLeavesRoutes from './src/routes/sickLeaves/sickLeaves.js'
 import notificationsRoutes from './src/routes/notifications/notifications.js'
+import swaggerDocument from "./src/utils/montetabor-60e-ptc-api-1.0.0-resolved.json" with {type: "json"}
+
 const app = express();
 
 app.use(cookieParser());
@@ -51,6 +54,8 @@ app.use(cors({
     //Permitir el envío de cookies y credenciales
     credentials: true
 }))
+
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument))
 
 //Enpoints publicos
 app.use("/api/auth" , authRoutes);
