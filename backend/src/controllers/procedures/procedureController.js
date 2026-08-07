@@ -9,11 +9,11 @@ proceduresController.getProcedures = async (req, res) => {
             // Populate del ObjectId insumo trayendo solo el nombre del inventario
             .populate("materials.insumo", "name")
 
-        if (!response) return res.status(400).json({ message: "Data not found" })
+        if (!response) return res.status(400).json({ message: "Dato no encontrado" })
         return res.status(200).json(response)
     } catch (error) {
         console.log(error)
-        return res.status(500).json({ message: "Internal Server Error" })
+        return res.status(500).json({ message: "Error interno del servidor" })
     }
 }
 
@@ -51,10 +51,10 @@ proceduresController.insertProcedure = async (req, res) => {
         })
 
         const savedProcedure = await payload.save()
-        return res.status(200).json({ message: "Data save", Data: savedProcedure })
+        return res.status(200).json({ message: "Dato guardado", Data: savedProcedure })
     } catch (error) {
         console.log(error)
-        return res.status(500).json({ message: "Internal Server Error" })
+        return res.status(500).json({ message: "Error interno del servidor" })
     }
 }
 
@@ -62,7 +62,7 @@ proceduresController.insertProcedure = async (req, res) => {
 proceduresController.updateProcedure = async (req, res) => {
     try {
         const response = await proceduresModel.findById(req.params.id)
-        if (!response) return res.status(400).json({ message: "Data not found" })
+        if (!response) return res.status(400).json({ message: "Dato no encontrado" })
 
         const {
             name,
@@ -99,10 +99,10 @@ proceduresController.updateProcedure = async (req, res) => {
             payload,
             { new: true }
         )
-        return res.status(200).json({ message: "Data updated", Data: procedureUpdate })
+        return res.status(200).json({ message: "Dato actualizado", Data: procedureUpdate })
     } catch (error) {
         console.log(error)
-        return res.status(500).json({ message: "Internal Server Error" })
+        return res.status(500).json({ message: "Error interno del servidor" })
     }
 }
 
@@ -110,11 +110,11 @@ proceduresController.updateProcedure = async (req, res) => {
 proceduresController.deleteProcedure = async (req, res) => {
     try {
         const response = await proceduresModel.findByIdAndDelete(req.params.id)
-        if (!response) return res.status(400).json({ message: "Data not found" })
-        return res.status(200).json({ message: "Data deleted" })
+        if (!response) return res.status(400).json({ message: "Dato no encontrado" })
+        return res.status(200).json({ message: "Dato eliminado" })
     } catch (error) {
         console.log(error)
-        return res.status(500).json({ message: "Internal Server Error" })
+        return res.status(500).json({ message: "Error interno del servidor" })
     }
 }
 

@@ -18,7 +18,7 @@ loginDoctorController.login = async (req, res) => {
 
     //Si no existe el correo
     if (!doctorFound) {
-      return res.status(400).json({ message: "Doctor not found" });
+      return res.status(400).json({ message: "Doctor no encontrado" });
     }
 
     //Verificamos que la cuenta no esté bloqueada
@@ -47,7 +47,7 @@ loginDoctorController.login = async (req, res) => {
 
       await doctorFound.save();
 
-      return res.status(401).json({ message: "Wrong password" });
+      return res.status(401).json({ message: "Contraseña incorrecta" });
     }
 
     //Reseteamos intentos si el login es correcto
@@ -70,7 +70,7 @@ loginDoctorController.login = async (req, res) => {
     return res.status(200).json({ message: "Login successfully" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

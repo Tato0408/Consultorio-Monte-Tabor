@@ -39,7 +39,7 @@ consultationController.getConsultations = async (req, res) => {
     return res.status(200).json(responseData);
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -109,13 +109,13 @@ consultationController.insertConsultation = async (req, res) => {
     //Cerramos el canal de la session
     session.endSession();
 
-    return res.status(200).json({ message: "Consultation saved" });
+    return res.status(200).json({ message: "Consulta guardada" });
   } catch (error) {
     //Si algo ocurre mal, no inserta ningun dato
     await session.abortTransaction();
     session.endSession();
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -127,12 +127,12 @@ consultationController.deleteConsultation = async (req, res) => {
     );
 
     if (!consultationDeleted) {
-      return res.status(404).json({ message: "Consultation not found" });
+      return res.status(404).json({ message: "Consulta no encontrada" });
     }
-    return res.status(200).json({ message: "Consultation deleted" });
+    return res.status(200).json({ message: "Consulta eliminada" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -176,7 +176,7 @@ consultationController.updateConsultation = async (req, res) => {
     if (!consultationUpdated) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ message: "Consultation not found" });
+      return res.status(404).json({ message: "Consulta no encontrada" });
     }
     if (prescription) {
       await prescriptionsModel.findOneAndUpdate(
@@ -202,14 +202,14 @@ consultationController.updateConsultation = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    return res.status(200).json({ message: "Consultation updated" });
+    return res.status(200).json({ message: "Consulta actualizada" });
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
     session.endSession();
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -221,7 +221,7 @@ consultationController.getConsultationById = async (req, res) => {
     const consultation = await consultationsModel.findById(id).populate("patient_id").populate("appointment_id");
 
     if (!consultation) {
-      return res.status(404).json({ message: "Consultation not found" });
+      return res.status(404).json({ message: "Consulta no encontrada" });
     }
 
     //Buscamos si hay alguna prescripcion asociada a la consulta
@@ -238,7 +238,7 @@ consultationController.getConsultationById = async (req, res) => {
   } catch (error) {
 
     console.log("error " + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 }
 
@@ -271,7 +271,7 @@ consultationController.getConsultationByAppointmentId = async (req, res) => {
     return res.status(200).json(responseData);
   } catch (error) {
     console.log("error " + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

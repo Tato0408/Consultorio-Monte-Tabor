@@ -47,7 +47,7 @@ const RecoveryPassword = () => {
       try {
         const doctorRes = await doctorRecovery.requestCode(email);
         // Solo entramos al IF si fue exitoso
-        if (doctorRes.message === "email sent") {
+        if (doctorRes.message === "Correo enviado") {
           localStorage.setItem("recoveryType", "doctor");
           localStorage.setItem("recoveryEmail", email);
           showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
@@ -61,7 +61,7 @@ const RecoveryPassword = () => {
       //2. Intentamos con Receptionist
       try {
         const recRes = await receptionistRecovery.requestCode(email);
-        if (recRes.message === "email sent") {
+        if (recRes.message === "Correo enviado") {
           localStorage.setItem("recoveryType", "receptionist");
           localStorage.setItem("recoveryEmail", email);
           showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
@@ -75,7 +75,7 @@ const RecoveryPassword = () => {
       //3. Intentamos con Admin
       try {
         const adminRes = await adminRecovery.requestCode(email);
-        if (adminRes.message === "email sent") {
+        if (adminRes.message === "Correo enviado") {
           localStorage.setItem("recoveryType", "admin");
           localStorage.setItem("recoveryEmail", email);
           showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
@@ -89,7 +89,7 @@ const RecoveryPassword = () => {
       // 4.Intentamos con Nurse
       try {
         const nurseRes = await nurseRecovery.requestCode(email);
-        if (nurseRes.message === "email sent") {
+        if (nurseRes.message === "Correo enviado") {
           localStorage.setItem("recoveryType", "nurse");
           localStorage.setItem("recoveryEmail", email);
           showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo.");

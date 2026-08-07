@@ -12,7 +12,7 @@ loginController.login = async (req, res) => {
     if (!rawEmail || !rawPassword) {
       return res
         .status(400)
-        .json({ message: "Email and password are required." });
+        .json({ message: "El correo y la contraseña son requeridos." });
     }
 
     // Se limpian los espacios y se asignan a nuevas constantes de forma segura
@@ -21,10 +21,10 @@ loginController.login = async (req, res) => {
 
     const response = await patientModel.findOne({ email });
     if (!response) {
-      return res.status(400).json({ message: "Invalid email or password." });
+      return res.status(400).json({ message: "Correo o contraseña inválidos." });
     }
     if (response.timeOut && response.timeOut > Date.now()) {
-      return res.status(400).json({ message: "User is locked" });
+      return res.status(400).json({ message: "Usuario bloqueado" });
     }
     const isMatch = await bcrypt.compare(password, response.password);
     if (!isMatch) {
@@ -35,12 +35,12 @@ loginController.login = async (req, res) => {
         response.timeOut = Date.now() + 1000 * 60 * 15; // 15 minutos
         response.loginAttemps = 0;
         await response.save();
-        return res.status(400).json({ message: "User is locked" });
+        return res.status(400).json({ message: "Usuario bloqueado" });
       }
 
       // Si falló pero el contador aún no es 5, solo se guarda el contador de intentos
       await response.save();
-      return res.status(400).json({ message: "Wrong password" });
+      return res.status(400).json({ message: "Contraseña incorrecta" });
     }
     response.loginAttemps = 0;
     response.timeOut = null;
@@ -53,7 +53,7 @@ loginController.login = async (req, res) => {
 
     res.cookie("authCookie", token);
     return res.status(200).json({
-      message: "Login successful",
+      message: "Inicio de sesión exitoso",
       token,
       userType: "patient",
       user: {
@@ -65,7 +65,7 @@ loginController.login = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

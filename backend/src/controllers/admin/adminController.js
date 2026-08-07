@@ -16,13 +16,13 @@ adminController.getAdmins = async (req, res) => {
         const admins = await adminModel.find();
         const adminCount = await adminModel.countDocuments();
         if (adminCount === 0) {
-            return res.status(404).json({ message: "No admins found" });
+            return res.status(404).json({ message: "No se encontraron administradores" });
         }
         return res.status(200).json(admins);
     } catch (error) {
         console.log("error " + error);
 
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -44,7 +44,7 @@ adminController.updateAdmin = async (req, res) => {
         const adminFound = await adminModel.findById(req.params.id);
 
         if (!adminFound) {
-            return res.status(404).json({ message: "Admin not found" });
+            return res.status(404).json({ message: "Administrador no encontrado" });
         }
 
         //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
@@ -106,7 +106,7 @@ adminController.updateAdmin = async (req, res) => {
 
         //Si el correo es el mismo, no hay mas que hacer
         if (!email || email === adminFound.email) {
-            return res.status(200).json({ message: "Admin updated" })
+            return res.status(200).json({ message: "Administrador actualizado" })
         }
 
         //#1 si el correo es diferente hay que verificarlo antes de actualizarlo
@@ -115,7 +115,7 @@ adminController.updateAdmin = async (req, res) => {
         const emailInUse = await adminModel.findOne({ email });
 
         if (emailInUse) {
-            return res.status(400).json({ message: "Email already in use" });
+            return res.status(400).json({ message: "El correo ya está en uso" });
         }
 
         //Generamos un codigo
@@ -157,15 +157,15 @@ adminController.updateAdmin = async (req, res) => {
             if (error) {
                 console.log("error " + error);
 
-                return res.status(500).json({ message: "Error sending email" });
+                return res.status(500).json({ message: "Error al enviar el correo" });
             }
         });
 
-        return res.status(200).json({ message: "Admin updated" });
+        return res.status(200).json({ message: "Administrador actualizado" });
 
     } catch (error) {
         console.log("error:", error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -181,7 +181,7 @@ adminController.verifyEmailChange = async (req, res) => {
         const { admin_id, newEmail, randomCode: storedCode } = decoded;
 
         if (verificationCodeRequest !== storedCode) {
-            return res.status(400).json({ message: "Invalid code" });
+            return res.status(400).json({ message: "Código inválido" });
         }
 
         await adminModel.findByIdAndUpdate(
@@ -192,11 +192,11 @@ adminController.verifyEmailChange = async (req, res) => {
 
         res.clearCookie("emailChangeCookie");
 
-        return res.status(200).json({ message: "Email updated" });
+        return res.status(200).json({ message: "Correo actualizado" });
 
     } catch (error) {
         console.log("error " + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 }
 
@@ -208,7 +208,7 @@ adminController.deleteAdmin = async (req, res) => {
             await adminModel.findById(req.params.id);
 
         if (!adminFound) {
-            return res.status(404).json({ message: "Admin not found" });
+            return res.status(404).json({ message: "Administrador no encontrado" });
         }
 
         //Borrar la imagen
@@ -216,11 +216,11 @@ adminController.deleteAdmin = async (req, res) => {
 
         await adminModel.findByIdAndDelete(req.params.id,);
 
-        return res.status(200).json({ message: "Admin deleted" });
+        return res.status(200).json({ message: "Administrador eliminado" });
 
     } catch (error) {
         console.log("error", error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -229,7 +229,7 @@ adminController.checkAdminExists = async (req, res) => {
         const count = await adminModel.countDocuments();
         return res.status(200).json({ exists: count > 0 });
     } catch (error) {
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

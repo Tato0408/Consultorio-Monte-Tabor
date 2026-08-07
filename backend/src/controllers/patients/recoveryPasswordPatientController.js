@@ -32,7 +32,7 @@ recoveryPasswordController.requestCode = async (req, res) => {
     const userFound = await patientModel.findOne({ email });
 
     if (!userFound) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     //Generamos un código aleatorio
@@ -73,13 +73,13 @@ recoveryPasswordController.requestCode = async (req, res) => {
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Error sending mail" });
+        return res.status(500).json({ message: "Error al enviar el correo" });
       }
-      return res.status(200).json({ message: "email sent", recoveryToken: token });
+      return res.status(200).json({ message: "Correo enviado", recoveryToken: token });
     });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -95,7 +95,7 @@ recoveryPasswordController.verifyCode = async (req, res) => {
     //Ahora, comparar el código que el usuario escribió
     //con el que está guardado en el token
     if (code !== decoded.randomCode) {
-      return res.status(400).json({ message: "Invalid code" });
+      return res.status(400).json({ message: "Código inválido" });
     }
 
     //En cambio, si escribe bien el código
@@ -111,10 +111,10 @@ recoveryPasswordController.verifyCode = async (req, res) => {
 
     res.cookie("recoveryCookie", newToken, { maxAge: 15 * 60 * 1000 });
 
-    return res.status(200).json({ message: "Code verified successfully", recoveryToken: newToken });
+    return res.status(200).json({ message: "Código verificado correctamente", recoveryToken: newToken });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -124,7 +124,7 @@ recoveryPasswordController.newPassword = async (req, res) => {
 
     //Comparo las dos contraseñas
     if (newPassword !== confirmNewPassword) {
-      return res.status(400).json({ message: "Password doesnt match" });
+      return res.status(400).json({ message: "Las contraseñas no coinciden" });
     }
 
     //Vamos a comprobar que la constante verified que está en el token
@@ -133,7 +133,7 @@ recoveryPasswordController.newPassword = async (req, res) => {
     const decoded = jsonwebtoken.verify(token, config.JWT.secret);
 
     if (!decoded.verified) {
-      return res.status(400).json({ message: "Code not verified" });
+      return res.status(400).json({ message: "Código no verificado" });
     }
 
     //////////
@@ -149,10 +149,10 @@ recoveryPasswordController.newPassword = async (req, res) => {
 
     res.clearCookie("recoveryCookie");
 
-    return res.status(200).json({ message: "Password updated" });
+    return res.status(200).json({ message: "Contraseña actualizada" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -163,7 +163,7 @@ recoveryPasswordController.resendCode = async (req, res) => {
     const token = getRecoveryToken(req);
 
     if (!token) {
-      return res.status(400).json({ message: "No active recovery session found" });
+      return res.status(400).json({ message: "No se encontró una sesión de recuperación activa" });
     }
 
     const decoded = jsonwebtoken.verify(token, config.JWT.secret);
@@ -172,7 +172,7 @@ recoveryPasswordController.resendCode = async (req, res) => {
     // Verificamos que el usuario siga existiendo
     const userFound = await patientModel.findOne({ email });
     if (!userFound) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     // Generamos un nuevo código aleatorio
@@ -209,18 +209,18 @@ recoveryPasswordController.resendCode = async (req, res) => {
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Error sending mail" });
+        return res.status(500).json({ message: "Error al enviar el correo" });
       }
-      return res.status(200).json({ message: "Code resent successfully", recoveryToken: newToken });
+      return res.status(200).json({ message: "Código reenviado correctamente", recoveryToken: newToken });
     });
 
   } catch (error) {
     // Si el token expiró, la cookie ya no es válida
     if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Recovery session expired, please start again" });
+      return res.status(401).json({ message: "La sesión de recuperación expiró, vuelve a empezar" });
     }
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

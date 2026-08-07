@@ -12,7 +12,7 @@ patientsController.getAllPatients = async (req, res) => {
     return res.status(200).json(patients);
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -48,7 +48,7 @@ patientsController.createPatient = async (req, res) => {
 
     const existsPatient = await patientsModel.findOne({ $or: [{ email }, { dui }] });
     if (existsPatient) {
-      return res.status(400).json({ message: "Patient already exists" });
+      return res.status(400).json({ message: "El paciente ya existe" });
     }
 
     const passwordHashed = await bcryptjs.hash(password, 10);
@@ -71,13 +71,13 @@ patientsController.createPatient = async (req, res) => {
 
     const savedPatient = await newPatient.save();
     if (!savedPatient) {
-      return res.status(500).json({ message: "Error while adding a patient" });
+      return res.status(500).json({ message: "Error al agregar el paciente" });
     }
 
-    return res.status(200).json({ message: "Patient added successfully" });
+    return res.status(200).json({ message: "Paciente agregado correctamente" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -88,13 +88,13 @@ patientsController.deletePatient = async (req, res) => {
     const deletedPatient = await patientsModel.findByIdAndDelete(req.params.id);
     //Si no coincide con ninguno entonces el paciente no existe
     if (!deletedPatient) {
-      return res.status(400).json({ message: "Patient not found" });
+      return res.status(400).json({ message: "Paciente no encontrado" });
     }
     //Si todo es correcto elimina el paciente
-    return res.status(200).json({ message: "Patient deleted" });
+    return res.status(200).json({ message: "Paciente eliminado" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -128,7 +128,7 @@ patientsController.updatePatient = async (req, res) => {
     //Verificamos que el paciente exista, si no lanzara un error
     const patientFound = await patientsModel.findById(req.params.id);
     if (!patientFound) {
-      return res.status(400).json({ message: "Patient not found" });
+      return res.status(400).json({ message: "Paciente no encontrado" });
     }
 
     //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
@@ -150,7 +150,7 @@ patientsController.updatePatient = async (req, res) => {
     if (name !== undefined) {
       name = name.trim();
       if (name.length < 3)
-        return res.status(400).json({ message: "Name too short" });
+        return res.status(400).json({ message: "El nombre es demasiado corto" });
       fieldsToSet.name = name;
     }
 
@@ -293,7 +293,7 @@ patientsController.updatePatient = async (req, res) => {
 
     // Si no enviaron absolutamente nada en el body
     if (Object.keys(patientData).length === 0) {
-      return res.status(400).json({ message: "No data provided to update" });
+      return res.status(400).json({ message: "No se proporcionaron datos para actualizar" });
     }
 
     //Si todo esta correcto actualizamos
@@ -309,13 +309,13 @@ patientsController.updatePatient = async (req, res) => {
     );
     //Si no se realiza la actualizacion significa que el paciente no existe
     if (!patientUpdated) {
-      return res.status(400).json({ message: "Patient not found" });
+      return res.status(400).json({ message: "Paciente no encontrado" });
     }
     //Si todo ha sido correcto actualizara la informacion enviada del paciente
-    return res.status(200).json({ message: "Patient updated" });
+    return res.status(200).json({ message: "Paciente actualizado" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

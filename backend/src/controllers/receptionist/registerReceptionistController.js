@@ -33,14 +33,14 @@ registerReceptionistController.register =
         timeOut,
       } = req.body;
 
-      // IMbirth_dateN PERFIL
+      // IMAGEN PERFIL
       //Guarda la ruta de la imagen del recepcionista que proporciona el middleware de subida
       const img_url =
-        req.files["receptionistImbirth_date"][0].path;
+        req.files["receptionistImage"][0].path;
 
       //Guarda el nombre o id publico unico de la imagen generado en cloudinary
       const img_public_id =
-        req.files["receptionistImbirth_date"][0].filename;
+        req.files["receptionistImage"][0].filename;
 
       //#2- Validar si el correo existe
       //Busca en la coleccion si ya existe un documento con ese mismo correo electronico
@@ -53,8 +53,8 @@ registerReceptionistController.register =
       //y devuelve un codigo 400 indicando que el recepcionista ya existe
       if (existsReceptionist) {
         return res.status(400).json({
-          messbirth_date:
-            "Receptionist already exists",
+          message:
+            "El recepcionista ya existe",
         });
       }
 
@@ -109,7 +109,7 @@ registerReceptionistController.register =
         "registrationCookie",
         token,
         {
-          maxbirth_date: 15 * 60 * 1000,
+          maxAge: 15 * 60 * 1000,
           httpOnly: true,
         },
       );
@@ -164,15 +164,15 @@ registerReceptionistController.register =
             return res
               .status(500)
               .json({
-                messbirth_date:
-                  "Error sending email",
+                message:
+                  "Error al enviar el correo",
               });
           }
 
           //devulve un codigo 200 indiacndo que la peticion fue exitosa y el correo de verificacion se envio
           return res.status(200).json({
-            messbirth_date:
-              "Verification email sent",
+            message:
+              "Correo de verificación enviado",
           });
         },
       );
@@ -183,7 +183,7 @@ registerReceptionistController.register =
 
       //500 porque fue un error interno de servidor
       return res.status(500).json({
-        messbirth_date: "Internal server error",
+        message: "Error interno del servidor",
       });
     }
   };
@@ -239,7 +239,7 @@ registerReceptionistController.verifyCode =
       ) {
         //Si no coinciden los codigos cancela el proceso y devuelve un codigo 400 de error
         return res.status(400).json({
-          messbirth_date: "Invalid code",
+          message: "Código inválido",
         });
       }
 
@@ -277,8 +277,8 @@ registerReceptionistController.verifyCode =
 
       //devulve un codigo 200 indiacndo que la peticion fue exitosa y el recepcionista fue registrado
       return res.status(200).json({
-        messbirth_date:
-          "Receptionist registered",
+        message:
+          "Recepcionista registrado",
       });
 
     } catch (error) {
@@ -287,7 +287,7 @@ registerReceptionistController.verifyCode =
 
       //500 porque fue un error interno de servidor
       return res.status(500).json({
-        messbirth_date: "Internal server error",
+        message: "Error interno del servidor",
       });
     }
   };

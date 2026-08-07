@@ -233,7 +233,7 @@ reportsController.getAppointmentsReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getAppointmentsReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -449,7 +449,7 @@ reportsController.getPatientsReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getPatientsReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -627,7 +627,7 @@ reportsController.getDoctorsReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getDoctorsReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -802,7 +802,7 @@ reportsController.getInventoryReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getInventoryReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

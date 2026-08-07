@@ -25,7 +25,7 @@ doctorController.getDoctors = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -143,7 +143,7 @@ doctorController.createDoctor = async (req, res) => {
 
     return res.status(500).json({
       message:
-        "Internal server error",
+        "Error interno del servidor",
     });
   }
 };
@@ -181,7 +181,7 @@ doctorController.updateDoctors = async (req, res) => {
     if (!doctorFound) {
       return res.status(404).json({
         message:
-          "Doctor not found",
+          "Doctor no encontrado",
       });
     }
 
@@ -277,7 +277,7 @@ doctorController.updateDoctors = async (req, res) => {
     //Retorna un estado 500 indicando un error imprevisto en el servidor junto con su respectivo mensaje
     return res.status(500).json({
       message:
-        "Internal server error",
+        "Error interno del servidor",
     });
   }
 };
@@ -293,7 +293,7 @@ doctorController.deleteDoctor = async (req, res) => {
     //Si findById no devuelve nada, significa que el registro no existe o ya fue eliminado, por lo que envia un estado 404
     if (!doctorFound) {
       return res.status(404).json({
-        message: "Doctor not found",
+        message: "Doctor no encontrado",
       });
     }
 
@@ -317,7 +317,7 @@ doctorController.deleteDoctor = async (req, res) => {
 
     //Manda una respuesta con codigo 200 detallando que el doctor fue removido exitosamente del sistema
     return res.status(200).json({
-      message: "Doctor deleted",
+      message: "Doctor eliminado",
     });
 
   } catch (error) {
@@ -326,7 +326,7 @@ doctorController.deleteDoctor = async (req, res) => {
 
     //Se responde con codigo 500 para notificar que la base de datos o el servidor tuvieron un problema de ejecucion
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -343,7 +343,7 @@ doctorController.updateOwnProfile = async (req, res) => {
     //Si el doctor asociado al token no es localizado en la base de datos aborta y lanza un codigo 404
     if (!doctorFound) {
       return res.status(404).json({
-        message: "Doctor profile not found",
+        message: "Perfil del doctor no encontrado",
       });
     }
 
@@ -404,7 +404,7 @@ doctorController.updateOwnProfile = async (req, res) => {
 
     //Responde con codigo de exito 200, adjuntando un texto informativo y el objeto completo del usuario ya modificado
     return res.status(200).json({
-      message: "Your profile has been updated successfully",
+      message: "Tu perfil se actualizó correctamente",
       user: profileUpdated
     });
 
@@ -413,7 +413,7 @@ doctorController.updateOwnProfile = async (req, res) => {
     console.log("error " + error);
     //Manda una respuesta JSON con codigo de estado de error interno del servidor indicando el punto exacto de la falla
     return res.status(500).json({
-      message: "Internal server error updating your profile",
+      message: "Error interno del servidor al actualizar tu perfil",
     }); // Cerrado correctamente el objeto y el método .json()
   } // Cerrado correctamente el bloque catch
 }; // Cerrada correctamente la función asíncrona
@@ -494,7 +494,7 @@ doctorController.searchDoctors = async (req, res) => {
 
     //Manda una respuesta con codigo 500 informando al front que se ha producido un error interno del servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };

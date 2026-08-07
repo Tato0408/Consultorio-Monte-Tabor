@@ -151,7 +151,7 @@ appointmentsController.getAppointments = async (req, res) => {
 
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -194,7 +194,7 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         });
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -219,13 +219,13 @@ appointmentsController.getAppointmentById = async (req, res) => {
             .populate("nurse_id", "name last_name");
 
         if (!appointment) {
-            return res.status(404).json({ message: "Appointment not found" });
+            return res.status(404).json({ message: "Cita no encontrada" });
         }
 
         return res.status(200).json(appointment);
     } catch (error) {
         console.log("error " + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -298,7 +298,7 @@ appointmentsController.getAvailableSlots = async (req, res) => {
     } catch (error) {
         console.log(error);
         res.status(500).json({
-            message: "Internal Server Error"
+            message: "Error interno del servidor"
         });
     }
 };
@@ -330,14 +330,14 @@ appointmentsController.insertAppointment = async (req, res) => {
 
         // Valida que estén los campos obligatorios.
         if (!doctor_id || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
-            return res.status(400).json({ message: "Please fill all the required fields." });
+            return res.status(400).json({ message: "Completa todos los campos requeridos." });
         }
 
         // Valida la longitud de la descripción si se envió.
         if (description && (description.length < 3 || description.length > 500)) {
             return res
                 .status(400)
-                .json({ message: "Description must be between 3 and 500 characters." });
+                .json({ message: "La descripción debe tener entre 3 y 500 caracteres." });
         }
 
         const validStatus = [
@@ -350,7 +350,7 @@ appointmentsController.insertAppointment = async (req, res) => {
 
         // Valida que el status sea uno de los permitidos.
         if (!validStatus.includes(status)) {
-            return res.status(400).json({ message: "Invalid appointment status" });
+            return res.status(400).json({ message: "Estado de la cita inválido" });
         }
 
         const newAppointment = new appointmentsModel({
@@ -371,10 +371,10 @@ appointmentsController.insertAppointment = async (req, res) => {
         });
 
         await newAppointment.save();
-        return res.status(201).json({ message: "Appointment created successfully" });
+        return res.status(201).json({ message: "Cita creada correctamente" });
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -404,14 +404,14 @@ appointmentsController.updateAppointment = async (req, res) => {
 
         // Valida que estén los campos obligatorios.
         if (!doctor_id || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
-            return res.status(400).json({ message: "Please fill all the required fields." });
+            return res.status(400).json({ message: "Completa todos los campos requeridos." });
         }
 
         // Valida la longitud de la descripción si se envió.
         if (description && (description.length < 3 || description.length > 500)) {
             return res
                 .status(400)
-                .json({ message: "Description must be between 3 and 500 characters." });
+                .json({ message: "La descripción debe tener entre 3 y 500 caracteres." });
         }
 
         const validStatus = [
@@ -424,7 +424,7 @@ appointmentsController.updateAppointment = async (req, res) => {
 
         // Valida que el status sea uno de los permitidos.
         if (!validStatus.includes(status)) {
-            return res.status(400).json({ message: "Invalid appointment status" });
+            return res.status(400).json({ message: "Estado de la cita inválido" });
         }
 
         const appointmentUpdated = await appointmentsModel.findByIdAndUpdate(
@@ -448,17 +448,17 @@ appointmentsController.updateAppointment = async (req, res) => {
         );
 
         if (!appointmentUpdated) {
-            return res.status(404).json({ message: "Appointment not found" });
+            return res.status(404).json({ message: "Cita no encontrada" });
         }
 
         return res.status(200).json({
-            message: "Appointment updated successfully"
+            message: "Cita actualizada correctamente"
         });
 
     } catch (error) {
         console.log("error" + error);
         return res.status(500).json({
-            message: "Internal server error"
+            message: "Error interno del servidor"
         });
     }
 };
@@ -468,12 +468,12 @@ appointmentsController.deleteAppointment = async (req, res) => {
     try {
         const appointment = await appointmentsModel.findByIdAndDelete(req.params.id);
         if (!appointment) {
-            return res.status(404).json({ message: "Appointment not found" });
+            return res.status(404).json({ message: "Cita no encontrada" });
         }
-        return res.status(200).json({ message: "Appointment deleted successfully" });
+        return res.status(200).json({ message: "Cita eliminada correctamente" });
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -483,7 +483,7 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
         const { status, cancellation_reason } = req.body;
 
         if (!status) {
-            return res.status(400).json({ message: "Status is required." });
+            return res.status(400).json({ message: "El estado es requerido." });
         }
 
         const update = { status };
@@ -498,13 +498,13 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
         );
 
         if (!appointmentUpdated) {
-            return res.status(404).json({ message: "Appointment not found" });
+            return res.status(404).json({ message: "Cita no encontrada" });
         }
 
-        return res.status(200).json({ message: "Status updated successfully", data: appointmentUpdated });
+        return res.status(200).json({ message: "Estado actualizado correctamente", data: appointmentUpdated });
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -524,7 +524,7 @@ appointmentsController.getAppointmentsHistory = async (req, res) => {
         return res.status(200).json(history);
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

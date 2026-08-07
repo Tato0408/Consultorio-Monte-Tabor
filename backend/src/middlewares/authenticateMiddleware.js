@@ -18,7 +18,7 @@ export const authenticate = (req, res, next) => {
         if (!token) {
             return res
                 .status(403)
-                .json({ message: "No cookie found, Authorization required" });
+                .json({ message: "No se encontró la cookie de sesión, se requiere autorización" });
         }
 
         const decoded = jsonwebToken.verify(token, config.JWT.secret);
@@ -28,6 +28,6 @@ export const authenticate = (req, res, next) => {
         next();
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };

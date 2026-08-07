@@ -13,7 +13,7 @@ nursesController.getAllNurses = async (req, res) => {
     try {
         const response = await nursesModel.find();
         if (!response) {
-            return res.status(404).json({ message: "Nurse not found" });
+            return res.status(404).json({ message: "Enfermera no encontrada" });
         }
         return res.status(200).json(response);
     } catch (error) {
@@ -134,7 +134,7 @@ nursesController.insertNurses = async (req, res) => {
         })
         const savedNurse = await payload.save()
         if (!savedNurse) {
-            return res.status(500).json({ message: "Error while adding a nurse" })
+            return res.status(500).json({ message: "Error al agregar la enfermera" })
         }
         const transporter = nodemailer.createTransport({
             service: "gmail",
@@ -161,7 +161,7 @@ nursesController.insertNurses = async (req, res) => {
                 console.log("Email sent: " + info.response);
             }
         });
-        return res.status(200).json({ message: "Nurse added succesfuly" })
+        return res.status(200).json({ message: "Enfermera agregada correctamente" })
     } catch (error) {
         return res.status(500).json({ message: error.message })
     }
@@ -173,21 +173,21 @@ nursesController.deleteNurse = async (req, res) => {
         const response = await nursesModel.findById(req.params.id)
         const deleteImage = await cloudinary.uploader.destroy(response.public_id)
         if (!response) {
-            return res.status(404).json({ message: "Nurse not found" })
+            return res.status(404).json({ message: "Enfermera no encontrada" })
         }
         if (!deleteImage) {
             const error = new Error("Error while deleting a nurse");
-            return res.status(500).json({ message: "Internal Server error", error: error.message })
+            return res.status(500).json({ message: "Error interno del servidor", error: error.message })
         }
         const nurseDeleted = await nursesModel.findByIdAndDelete(req.params.id)
         if(!nurseDeleted){
                 const error = new Error("Error deleting a nurse");
-                return res.status(500).json({message: "Internal Server error", error: error.message})
+                return res.status(500).json({message: "Error interno del servidor", error: error.message})
             }
-        return res.status(200).json({ message: "Nurse deleted succesfuly" })
+        return res.status(200).json({ message: "Enfermera eliminada correctamente" })
     } catch (error) {
         console.log(error)
-        return res.staus(500).json({ message: "Internal Server error" })
+        return res.staus(500).json({ message: "Error interno del servidor" })
     }
 }
 
@@ -207,7 +207,7 @@ nursesController.updateNurse = async(req,res) => {
 
         const response = await nursesModel.findById(req.params.id)
         if(!response){
-            return res.status(404).json({message: "Nurse not found"})
+            return res.status(404).json({message: "Enfermera no encontrada"})
         }
 
         //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
@@ -249,7 +249,7 @@ nursesController.updateNurse = async(req,res) => {
             const updateImage = await cloudinary.uploader.destroy(response.public_id)
             if(!updateImage){
                 const error = new Error("Error updating a nurse");
-                return res.status(500).json({message: "Internal Server error", error: error.message})
+                return res.status(500).json({message: "Error interno del servidor", error: error.message})
             }
             payload.img_url = req.file.path
             payload.public_id = req.file.filename
@@ -257,12 +257,12 @@ nursesController.updateNurse = async(req,res) => {
         const nurseUpdated = await nursesModel.findByIdAndUpdate(req.params.id, payload, { new: true })
         if(!nurseUpdated){
             const error = new Error("Error updatinf a nurse");
-            return res.status(500).json({message: "Internal Server error", error: error.message})
+            return res.status(500).json({message: "Error interno del servidor", error: error.message})
         }
-        return res.status(200).json({message: "Nurse updates succesfuly", nurse: nurseUpdated})
+        return res.status(200).json({message: "Enfermera actualizada correctamente", nurse: nurseUpdated})
     } catch (error) {
         console.log("Error: ", error)
-        return res.status(500).json({message: "Internal Server error"})
+        return res.status(500).json({message: "Error interno del servidor"})
     }
 }
 
@@ -273,7 +273,7 @@ nursesController.updateOwnProfile = async (req, res) => {
         // Buscamos a la enfermera en la base de datos
         const nurseFound = await nursesModel.findById(nurseId);
         if (!nurseFound) {
-            return res.status(404).json({ message: "Nurse profile not found" });
+            return res.status(404).json({ message: "Perfil de la enfermera no encontrado" });
         }
 
         // Excluimos 'is_active', 'is_verified', 'password' y 'time_out' por seguridad.
@@ -312,17 +312,17 @@ nursesController.updateOwnProfile = async (req, res) => {
         // Actualizamos el perfil de la enfermera autenticada
         const nurseUpdated = await nursesModel.findByIdAndUpdate(nurseId, payload, { new: true }).select("-password");
         if (!nurseUpdated) {
-            return res.status(500).json({ message: "Error updating your profile" });
+            return res.status(500).json({ message: "Error al actualizar tu perfil" });
         }
 
         return res.status(200).json({ 
-            message: "Your profile has been updated successfully", 
+            message: "Tu perfil se actualizó correctamente", 
             user: nurseUpdated 
         });
 
     } catch (error) {
         console.log("Error: ", error);
-        return res.status(500).json({ message: "Internal Server error updating your profile" });
+        return res.status(500).json({ message: "Error interno del servidor al actualizar tu perfil" });
     }
 };
 

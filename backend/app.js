@@ -58,6 +58,7 @@ app.use("/api/recoveryDoctor", doctorRecoveryRoutes);
 app.use("/api/recoveryAdminPassword" ,recoveryAdminPassword);
 app.use("/api/recoveryReceptionist", receptionistRecoveryRoutes);
 app.use("/api/recoveryNursePassword", recoveryNursePassword);
+app.use("/api/recoveryPatientPassword", recoveryPatientPassword);
 
 //Endpoints privados
 app.use("/api/registerDoctors", authenticate, authorize("users.doctors", "create"), registerDoctorRoutes);

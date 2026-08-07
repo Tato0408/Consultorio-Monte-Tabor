@@ -51,7 +51,7 @@ registerDoctorController.register = async (req, res) => {
 
     if (existsDoctor) {
       return res.status(400).json({
-        message: "Doctor already exists",
+        message: "El doctor ya existe",
       });
     }
 
@@ -136,12 +136,12 @@ registerDoctorController.register = async (req, res) => {
           console.log("error " + error);
 
           return res.status(500).json({
-            message: "Error sending email",
+            message: "Error al enviar el correo",
           });
         }
 
         return res.status(200).json({
-          message: "Verification email sent",
+          message: "Correo de verificación enviado",
         });
       },
     );
@@ -150,7 +150,7 @@ registerDoctorController.register = async (req, res) => {
     console.log("error " + error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -208,7 +208,7 @@ registerDoctorController.verifyCode =
         storedCode
       ) {
         return res.status(400).json({
-          message: "Invalid code",
+          message: "Código inválido",
         });
       }
 
@@ -245,7 +245,7 @@ registerDoctorController.verifyCode =
       res.clearCookie("registrationCookie");
 
       return res.status(200).json({
-        message: "Doctor registered",
+        message: "Doctor registrado",
       });
 
     } catch (error) {
@@ -253,7 +253,7 @@ registerDoctorController.verifyCode =
       console.log("error " + error);
 
       return res.status(500).json({
-        message: "Internal server error",
+        message: "Error interno del servidor",
       });
     }
 };

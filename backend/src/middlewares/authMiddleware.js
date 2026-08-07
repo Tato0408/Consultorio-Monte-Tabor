@@ -17,7 +17,7 @@ export const validateAuthCookie = (allowedTypes = []) => {
       if (!token) {
         return res
           .status(403)
-          .json({ message: "No cookie found, Authorization required" });
+          .json({ message: "No se encontró la cookie de sesión, se requiere autorización" });
       }
 
       //#2 Extraer toda la informacion del token
@@ -25,7 +25,7 @@ export const validateAuthCookie = (allowedTypes = []) => {
 
       //#3 Verificar si el rol de la cookie puede pasar o no
       if (allowedTypes.length > 0 && !allowedTypes.includes(decoded.userType)) {
-        return res.status(401).json({ message: "Acces denied" });
+        return res.status(401).json({ message: "Acceso denegado" });
       }
 
       req.user = decoded;
@@ -33,7 +33,7 @@ export const validateAuthCookie = (allowedTypes = []) => {
       next();
     } catch (error) {
       console.log("error" + error);
-      return res.status(500).json({ message: "Internal server error" });
+      return res.status(500).json({ message: "Error interno del servidor" });
     }
   };
 };

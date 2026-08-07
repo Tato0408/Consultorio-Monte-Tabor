@@ -28,7 +28,7 @@ registerPatientController.register = async (req, res) => {
         //#2 Validar si existe el correo del usuario dentro de la base de datos
         const existsPatient = await patientsModel.findOne({ email });
         if (existsPatient) {
-            return res.status(400).json({ message: "Patient already exists" });
+            return res.status(400).json({ message: "El paciente ya existe" });
         }
 
         //#3 Encriptar la contraseña
@@ -85,13 +85,13 @@ registerPatientController.register = async (req, res) => {
         transporter.sendMail(mailOptions, (error, info) => {
             if (error) {
                 console.log("error" + error);
-                return res.status(500).json({ message: "Error sending email" });
+                return res.status(500).json({ message: "Error al enviar el correo" });
             }
-            return res.status(200).json({ message: "Email sent" });
+            return res.status(200).json({ message: "Correo enviado" });
         });
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 }
 
@@ -123,7 +123,7 @@ registerPatientController.verifyCode = async (req, res) => {
         } = decoded
 
         if (verificationCodeRequest !== storedCode) {
-            return res.status(400).json({ message: "Invalid code" })
+            return res.status(400).json({ message: "Código inválido" })
         }
 
         //Si todos los datos estan correctos guardamos en la base de datos
@@ -139,12 +139,12 @@ registerPatientController.verifyCode = async (req, res) => {
         await newPatient.save();
 
         res.clearCookie("registrationCookie")
-        return res.status(200).json({ message: "Patient registered" })
+        return res.status(200).json({ message: "Paciente registrado" })
 
 
     } catch (error) {
         console.log("error" + error)
-        return res.status(500).json({ message: "Internal server error" })
+        return res.status(500).json({ message: "Error interno del servidor" })
     }
 
 }

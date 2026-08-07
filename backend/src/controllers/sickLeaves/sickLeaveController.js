@@ -19,7 +19,7 @@ sickLeaveController.getSickLeaves = async (req, res) => {
     return res.status(200).json(sickLeaves);
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -47,10 +47,10 @@ sickLeaveController.createSickLeave = async (req, res) => {
     });
 
     const savedSickLeave = await newSickLeave.save();
-    return res.status(200).json({ message: "Sick leave saved", data: savedSickLeave });
+    return res.status(200).json({ message: "Incapacidad guardada", data: savedSickLeave });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -74,12 +74,12 @@ sickLeaveController.updateSickLeave = async (req, res) => {
     );
 
     if (!sickLeaveUpdated) {
-      return res.status(404).json({ message: "Sick leave not found" });
+      return res.status(404).json({ message: "Incapacidad no encontrada" });
     }
-    return res.status(200).json({ message: "Sick leave updated", data: sickLeaveUpdated });
+    return res.status(200).json({ message: "Incapacidad actualizada", data: sickLeaveUpdated });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -89,12 +89,12 @@ sickLeaveController.deleteSickLeave = async (req, res) => {
     const sickLeaveDeleted = await sickLeavesModel.findByIdAndDelete(req.params.id);
 
     if (!sickLeaveDeleted) {
-      return res.status(404).json({ message: "Sick leave not found" });
+      return res.status(404).json({ message: "Incapacidad no encontrada" });
     }
-    return res.status(200).json({ message: "Sick leave deleted" });
+    return res.status(200).json({ message: "Incapacidad eliminada" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

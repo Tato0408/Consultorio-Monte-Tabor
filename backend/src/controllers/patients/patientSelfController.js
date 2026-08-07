@@ -98,7 +98,7 @@ patientSelfController.register = async (req, res) => {
         });
     } catch (error) {
         console.log("error " + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -119,7 +119,7 @@ patientSelfController.getMe = async (req, res) => {
         return res.status(200).json(patient);
     } catch (error) {
         console.log("error " + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -182,7 +182,7 @@ patientSelfController.updateMe = async (req, res) => {
         return res.status(200).json({ message: "Perfil actualizado", user: updatedPatient });
     } catch (error) {
         console.log("error " + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -232,7 +232,7 @@ patientSelfController.changePassword = async (req, res) => {
         return res.status(200).json({ message: "Contraseña actualizada correctamente" });
     } catch (error) {
         console.log("error " + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

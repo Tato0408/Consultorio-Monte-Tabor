@@ -25,7 +25,7 @@ receptionistController.getReceptionists = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -103,7 +103,7 @@ receptionistController.createReceptionist = async (req, res) => {
     console.log("error " + error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -135,7 +135,7 @@ receptionistController.updateReceptionist = async (req, res) => {
     //y devuelve un codigo 404 indicando que no fue encontrado
     if (!receptionistFound) {
       return res.status(404).json({
-        message: "Receptionist not found",
+        message: "Recepcionista no encontrado",
       });
     }
 
@@ -197,7 +197,7 @@ receptionistController.updateReceptionist = async (req, res) => {
     //devulve un codigo 200 indiacndo que la peticion fue exitosa
     //y que el recepcionista se actualizo de forma correcta
     return res.status(200).json({
-      message: "Receptionist updated",
+      message: "Recepcionista actualizado",
     });
   } catch (error) {
     //Si ocurre un error durante la actualizacion muestra une rror
@@ -205,7 +205,7 @@ receptionistController.updateReceptionist = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -222,7 +222,7 @@ receptionistController.deleteReceptionist = async (req, res) => {
     //Si no encuentra ningun recepcionista con ese id devuelve un codigo 404
     if (!receptionistFound) {
       return res.status(404).json({
-        message: "Receptionist not found",
+        message: "Recepcionista no encontrado",
       });
     }
 
@@ -236,7 +236,7 @@ receptionistController.deleteReceptionist = async (req, res) => {
 
     //devulve un codigo 200 indiacndo que la peticion fue exitosa y se borro el registro
     return res.status(200).json({
-      message: "Receptionist deleted",
+      message: "Recepcionista eliminado",
     });
   } catch (error) {
     //Si ocurre un error durante la eliminacion muestra une rror
@@ -244,7 +244,7 @@ receptionistController.deleteReceptionist = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -261,7 +261,7 @@ receptionistController.updateOwnProfile = async (req, res) => {
     //Si no encuentra el perfil de ese recepcionista en el sistema devuelve un codigo 404
     if (!receptionistFound) {
       return res.status(404).json({
-        message: "Receptionist profile not found",
+        message: "Perfil del recepcionista no encontrado",
       });
     }
     
@@ -300,7 +300,7 @@ receptionistController.updateOwnProfile = async (req, res) => {
     //devulve un codigo 200 indiacndo que la peticion fue exitosa
     //y envia un json con el mensaje y los datos del usuario actualizados
     return res.status(200).json({
-      message: "Your profile has been updated successfully",
+      message: "Tu perfil se actualizó correctamente",
       user: profileUpdated,
     });
   } catch (error) {
@@ -309,7 +309,7 @@ receptionistController.updateOwnProfile = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error updating your profile",
+      message: "Error interno del servidor al actualizar tu perfil",
     });
   }
 };
@@ -354,7 +354,7 @@ receptionistController.searchReceptionist = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
