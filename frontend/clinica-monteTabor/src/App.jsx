@@ -32,6 +32,7 @@ import AppointmentsFormCalendar from './modules/schedule/appointments/components
 import RecordsPage from './modules/reports/records/page/RecordsPage'
 import NotFound from './modules/notFound/pages/NotFound';
 import RequirePermission from './components/layouts/RequirePermission';
+import RequireRole from './components/layouts/RequireRole';
 function AppRoutes() {
   const { isLoading, hasAdmins } = useAuth();
 
@@ -85,7 +86,7 @@ function AppRoutes() {
         <Route path="/calendar/appointments/calendar/:id" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsFormCalendar /></RequirePermission>} />
         <Route path="/calendar/consultations" element={<RequirePermission moduleKey="calendar.consultations"><Consultations /></RequirePermission>} />
         <Route path="/calendar/consultations/:appointmentId" element={<RequirePermission moduleKey="calendar.consultations"><ConsultationForm /></RequirePermission>} />
-        <Route path="/calendar/schedule-config" element={<RequirePermission moduleKey="calendar.schedule"><ScheduleConfig /></RequirePermission>} />
+        <Route path="/calendar/schedule-config" element={<RequirePermission moduleKey="calendar.schedule"><RequireRole roles={["doctor", "nurse", "admin"]}><ScheduleConfig /></RequireRole></RequirePermission>} />
         <Route path="/inventory/products" element={<RequirePermission moduleKey="inventory.products"><InventoryDashboard /></RequirePermission>} />
         <Route path="/inventory/movements" element={<RequirePermission moduleKey="inventory.movements"><InventoryMovementsPage /></RequirePermission>} />
         <Route path="/inventory/treatments" element={<RequirePermission moduleKey="inventory.treatments"><TreatmentsPage /></RequirePermission>} />

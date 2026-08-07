@@ -9,6 +9,7 @@ import useMedicalData from "../hooks/useMedicalData";
 import { showSuccess, showError } from "@/lib/alerts";
 import useSchedule from "../hooks/useSchedule";
 import { useAuth } from "@/context/AuthContext";
+import apiClient from "@/lib/apiClient";
 
 
 const fmt12 = (t) => {
@@ -65,7 +66,7 @@ export default function AppointmentsForm() {
   const canUpdateAppt = hasPermission("calendar.appointments", "update");
 
   const { getAppointmentById, createAppointment, updateAppointment, submitting } = useAppointments();
-  const { patients, doctors, nurses } = useMedicalData();
+  const { patients, doctors } = useMedicalData();
   const { getAvailableSlots, getSchedule } = useSchedule();
 
   // El modo edición inicial respeta el permiso: sin create no arranca en modo
@@ -98,6 +99,10 @@ export default function AppointmentsForm() {
   const [selectedSlot, setSelectedSlot]       = useState(null);
   const [scheduleData, setScheduleData]       = useState(null);
   const scheduleId = scheduleData?._id || null;
+  // Enfermeras con horario disponible para el doctor/fecha/horario ya elegidos — no el
+  // catálogo completo (ver efecto más abajo, mismo endpoint que AppointmentsForm.jsx).
+  const [availableNurses, setAvailableNurses] = useState([]);
+  const [loadingNurses, setLoadingNurses]     = useState(false);
 
   // Si el usuario es doctor, pre-rellenar su propio ID en citas nuevas
   useEffect(() => {
@@ -153,6 +158,35 @@ export default function AppointmentsForm() {
       .finally(() => setSlotsLoading(false));
   }, [formData.doctor_id, date, duration]);
 
+  // Enfermeras disponibles para el horario ya elegido — mismo endpoint que usa
+  // AppointmentsGrid.jsx al aceptar/asignar una cita.
+  useEffect(() => {
+    if (!formData.doctor_id || !selectedSlot || !date) { setAvailableNurses([]); return; }
+    let cancelled = false;
+    setLoadingNurses(true);
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+    apiClient("/appointments/nurses-for-acceptance", {
+      params: {
+        date: dateStr,
+        start_time: selectedSlot.start_time,
+        end_time: selectedSlot.end_time,
+        appointment_id: id,
+      },
+    }).then((response) => {
+      if (cancelled) return;
+      const list = Array.isArray(response) ? response : response.data || [];
+      setAvailableNurses(list);
+      // Si la enfermera ya elegida (ej. cargada al editar una cita) no está en la lista
+      // recién obtenida, se limpia en vez de dejar una asignación inválida.
+      setFormData(p => (p.nurse_id && !list.some(n => n._id === p.nurse_id) ? { ...p, nurse_id: "" } : p));
+    }).catch(() => {
+      if (!cancelled) setAvailableNurses([]);
+    }).finally(() => {
+      if (!cancelled) setLoadingNurses(false);
+    });
+    return () => { cancelled = true; };
+  }, [formData.doctor_id, date, selectedSlot, id]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
@@ -203,7 +237,7 @@ export default function AppointmentsForm() {
 
   const selectedPatient = patients.find(p => p._id === formData.patient_id);
   const selectedDoctor  = doctors.find(d => d._id === formData.doctor_id);
-  const selectedNurse   = nurses.find(n => n._id === formData.nurse_id);
+  const selectedNurse   = availableNurses.find(n => n._id === formData.nurse_id);
 
   // Filtra slots ya pasados cuando la fecha seleccionada es hoy
   const now = new Date();
@@ -326,9 +360,17 @@ export default function AppointmentsForm() {
                 label="Enfermera asignada"
                 value={formData.nurse_id}
                 onChange={v => setFormData(p => ({ ...p, nurse_id: v }))}
-                options={nurses.map(n => ({ value: n._id, label: `${n.name} ${n.last_name}` }))}
-                placeholder="Opcional"
-                disabled={!isEditing}
+                options={availableNurses.map(n => ({ value: n._id, label: `${n.name} ${n.last_name}` }))}
+                placeholder={
+                  !selectedSlot
+                    ? "Elija primero doctor, fecha y horario"
+                    : loadingNurses
+                      ? "Buscando enfermeras disponibles..."
+                      : availableNurses.length === 0
+                        ? "Sin enfermeras disponibles en ese horario"
+                        : "Opcional"
+                }
+                disabled={!isEditing || !selectedSlot || loadingNurses}
               />
             </div>
 

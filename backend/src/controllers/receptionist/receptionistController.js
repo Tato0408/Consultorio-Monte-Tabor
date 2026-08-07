@@ -267,7 +267,7 @@ receptionistController.updateOwnProfile = async (req, res) => {
     
     //Obtiene toda la informacion enviada desde el formulario del perfil
     //los datos vienen dentro del body de la peticion
-    const { name, last_name, dui, birth_date, phone, email } = req.body;
+    const { name, last_name, dui, birth_date, phone, email, password } = req.body;
 
     //Crea una constante con el objeto de los datos del propio perfil que se van a actualizar
     const updatedData = {
@@ -278,6 +278,20 @@ receptionistController.updateOwnProfile = async (req, res) => {
       phone,
       email,
     };
+
+    // Si viene una nueva contraseña, la validamos y encriptamos (mismo criterio que
+    // receptionistController.updateReceptionist / adminController.updateAdmin)
+    if (password && password.trim() !== "") {
+      const passwordError = getPasswordError(password);
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
+      }
+      const samePassword = await bcryptjs.compare(password, receptionistFound.password);
+      if (samePassword) {
+        return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+      }
+      updatedData.password = await bcryptjs.hash(password, 10);
+    }
 
     //Verifica si el recepcionista subio una nueva imagen para cambiar su foto de perfil
     if (req.files?.receptionistImage) {

@@ -55,6 +55,14 @@ loginController.loginCommonRole = async (req, res) => {
     // Obtenemos el documento completo del usuario encontrado
     const userFound = results[matchIndex];
 
+    // 3.5 Una cuenta desactivada (doctor, recepcionista o enfermera) no puede iniciar sesión.
+    // El admin queda fuera de esta regla: es el único rol que no se puede desactivar.
+    if (userType !== "admin" && userFound.is_active === false) {
+      return res.status(403).json({
+        message: "Su cuenta ha sido desactivada. Si cree que esto es un error, comuníquese con el administrador.",
+      });
+    }
+
     // 4. Si el usuario tiene los 15 minutos de bloqueo rechaza el inicio de sesion
     if (userFound.time_out && userFound.time_out > Date.now()) {
       return res.status(400).json({ message: "Usuario bloqueado" });
@@ -111,8 +119,11 @@ loginController.loginCommonRole = async (req, res) => {
         gender: userFound.gender,
         is_active: userFound.is_active,
         is_verified: userFound.is_verified,
-        image: userFound.image,
-        public_id: userFound.public_id,
+        // Cada modelo usa un nombre distinto para la foto (admin: "image", doctor/enfermera/
+        // recepcionista: "img_url") — mismo fallback que ya usa authController.getCurrentUser,
+        // para que la foto se vea desde el primer momento del login y no solo tras un refresh.
+        image: userFound.image || userFound.img_url || null,
+        public_id: userFound.public_id || userFound.img_public_id || null,
       },
     });
   } catch (error) {

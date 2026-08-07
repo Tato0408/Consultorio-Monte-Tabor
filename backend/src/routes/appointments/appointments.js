@@ -20,7 +20,7 @@ router.route("/patient")
     .post(appointmentsController.insertAppointment);
 
 router.get("/patient/procedures", appointmentsController.getPatientProcedures);
-router.get("/nurses-for-acceptance", appointmentsController.getNursesForAcceptance);
+router.get("/nurses-for-acceptance", authorize("calendar.appointments", "view"), appointmentsController.getNursesForAcceptance);
 
 router.route("/patient/:id")
     .put(appointmentsController.updatePatientAppointment);

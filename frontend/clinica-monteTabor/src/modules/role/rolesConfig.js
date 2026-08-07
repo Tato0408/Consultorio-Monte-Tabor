@@ -123,6 +123,10 @@ export const LOCKED_TRUE_PERMISSIONS = {
 const FULL_CRUD = { view: true, create: true, update: true, delete: true };
 const NO_ACCESS = { view: false, create: false, update: false, delete: false };
 const VIEW_ONLY = { view: true, create: false, update: false, delete: false };
+// Ver + editar, sin crear/eliminar — el caso de "tener y poder editar mi propio horario"
+// (doctor y enfermera), donde el registro se crea implícitamente por upsert, no por un
+// botón "Crear" separado.
+const VIEW_UPDATE = { view: true, create: false, update: true, delete: false };
 
 // Valores predeterminados por rol, usados por el botón "Volver a los valores
 // predeterminados" de cada card. Solo cubre los moduleKey gestionables desde
@@ -154,8 +158,9 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     "inventory.reports": NO_ACCESS,
   },
   nurse: {
-    // Necesita ver el horario de los doctores para agendar citas (dashboard + calendario)
-    "calendar.schedule": VIEW_ONLY,
+    // A diferencia de recepción, la enfermera SÍ puede tener y editar su propio horario —
+    // es lo que permite que solo se le asignen citas dentro de ese horario.
+    "calendar.schedule": VIEW_UPDATE,
     "calendar.appointments": FULL_CRUD,
     "calendar.consultations": NO_ACCESS,
     "users.doctors": NO_ACCESS,

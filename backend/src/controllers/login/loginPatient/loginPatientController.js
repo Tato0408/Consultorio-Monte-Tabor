@@ -23,6 +23,11 @@ loginController.login = async (req, res) => {
     if (!response) {
       return res.status(400).json({ message: "Correo o contraseña inválidos." });
     }
+    if (response.is_active === false) {
+      return res.status(403).json({
+        message: "Su cuenta ha sido desactivada. Si cree que esto es un error, comuníquese con el administrador.",
+      });
+    }
     if (response.timeOut && response.timeOut > Date.now()) {
       return res.status(400).json({ message: "Usuario bloqueado" });
     }

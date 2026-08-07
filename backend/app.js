@@ -30,6 +30,7 @@ import { authorize } from './src/middlewares/authorizeMiddleware.js';
 import registerPatientRoutes from "./src/routes/patients/registerPatients.js"
 import patientSelfRoutes from "./src/routes/patients/patientSelf.js"
 import scheduleRoutes from './src/routes/schedule/schedule.js'
+import nurseScheduleRoutes from './src/routes/schedule/nurseSchedule.js'
 import dashboardRoutes from './src/routes/dashboard/dashboard.js'
 import doctorDashboardRoutes from './src/routes/dashboard/doctorDashboard.js'
 import receptionistDashboardRoutes from './src/routes/dashboard/receptionistDashboard.js'
@@ -91,6 +92,7 @@ app.use("/api/appointments" , authenticate , appointmentsRoutes);
 app.use("/api/inventory", authenticate, inventoryRoutes);
 app.use("/api/procedures", authenticate, proceduresRoutes);
 app.use("/api/schedule", authenticate, scheduleRoutes);
+app.use("/api/nurse-schedule", authenticate, nurseScheduleRoutes);
 app.use("/api/dashboard", validateAuthCookie(["admin"]), dashboardRoutes);
 app.use("/api/doctor-dashboard", validateAuthCookie(["doctor"]), doctorDashboardRoutes);
 app.use("/api/receptionist-dashboard", validateAuthCookie(["receptionist"]), receptionistDashboardRoutes);

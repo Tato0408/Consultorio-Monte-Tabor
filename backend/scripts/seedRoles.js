@@ -74,8 +74,9 @@ const ROLE_PERMISSIONS = {
     },
     nurse: {
         "dashboard": [true, false, false, false],
-        // Necesita ver el horario de los doctores para agendar citas (dashboard + calendario)
-        "calendar.schedule": [true, false, false, false],
+        // A diferencia de recepción, la enfermera SÍ puede tener su propio horario (update=true)
+        // — es lo que permite que solo se le asignen citas dentro de ese horario.
+        "calendar.schedule": [true, false, true, false],
         // La enfermera sí puede crear/confirmar/cancelar citas desde su dashboard
         "calendar.appointments": [true, true, true, true],
         "calendar.consultations": [false, false, false, false],

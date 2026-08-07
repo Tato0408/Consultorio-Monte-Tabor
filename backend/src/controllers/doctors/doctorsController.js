@@ -499,4 +499,64 @@ doctorController.searchDoctors = async (req, res) => {
   }
 };
 
+// Autoservicio de perfil: el propio doctor edita sus datos básicos y su foto, sin depender de
+// authorize("users.doctors","update") (ese permiso es para que un admin gestione a OTROS
+// doctores, no para que el doctor edite su propio registro). Mismo patrón que
+// nursesController.updateOwnProfile / receptionistController.updateOwnProfile.
+// img_url/img_public_id son obligatorios en el modelo (un doctor siempre debe tener foto), así
+// que a diferencia de enfermería aquí no se ofrece "eliminar foto", solo reemplazarla.
+doctorController.updateOwnProfile = async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+
+    const doctorFound = await doctorsModel.findById(doctorId);
+    if (!doctorFound) {
+      return res.status(404).json({ message: "Perfil del doctor no encontrado" });
+    }
+
+    const { name, last_name, dui, birth_date, phone, email, password } = req.body;
+
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+    if (formatError) {
+      return res.status(400).json({ message: formatError });
+    }
+
+    const updatedData = { name, last_name, dui, birth_date, phone, email };
+
+    // Si viene una nueva contraseña, la validamos y encriptamos (mismo criterio que
+    // doctorController.updateDoctors / adminController.updateAdmin)
+    if (password && password.trim() !== "") {
+      const passwordError = getPasswordError(password);
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
+      }
+      const samePassword = await bcryptjs.compare(password, doctorFound.password);
+      if (samePassword) {
+        return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+      }
+      updatedData.password = await bcryptjs.hash(password, 10);
+    }
+
+    if (req.file) {
+      if (doctorFound.img_public_id) {
+        await cloudinary.uploader.destroy(doctorFound.img_public_id);
+      }
+      updatedData.img_url = req.file.path;
+      updatedData.img_public_id = req.file.filename;
+    }
+
+    const doctorUpdated = await doctorsModel
+      .findByIdAndUpdate(doctorId, updatedData, { new: true })
+      .select("-password");
+    if (!doctorUpdated) {
+      return res.status(500).json({ message: "Error al actualizar tu perfil" });
+    }
+
+    return res.status(200).json({ message: "Tu perfil se actualizó correctamente", user: doctorUpdated });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor al actualizar tu perfil" });
+  }
+};
+
 export default doctorController;

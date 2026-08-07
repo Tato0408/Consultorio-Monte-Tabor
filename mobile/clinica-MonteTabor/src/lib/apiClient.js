@@ -73,7 +73,11 @@ async function apiClient(path, { method = "GET", body, params, signal, timeout =
     }
 
     if (!response.ok) {
-        throw new Error(data?.message || `Error ${response.status}`);
+        const error = new Error(data?.message || `Error ${response.status}`);
+        // Se expone el status para poder distinguir casos puntuales (ej. 403 = cuenta
+        // desactivada) sin depender del texto exacto del mensaje.
+        error.status = response.status;
+        throw error;
     }
 
     return data;

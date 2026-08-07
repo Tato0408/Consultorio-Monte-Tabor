@@ -8,12 +8,18 @@ const useProfile = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState("");
 
+  // admin usa el endpoint genérico /admin/:id porque ahí solo depende de validateAuthCookie
+  // (sin permiso dinámico de por medio) — ya es "autoservicio" de hecho. doctor/nurse/
+  // receptionist en cambio tienen una ruta de autoservicio dedicada (/profile/update):
+  // el endpoint genérico /:id de esos tres exige el permiso de ADMINISTRAR a otros usuarios
+  // de ese rol (users.doctors/users.nurses/users.receptionist "update"), que estos roles no
+  // tienen sobre sí mismos — por eso editar la propia foto ahí devolvía 403.
   const getEndpoint = () => {
     const routes = {
       admin:        `/admin/${user?.id}`,
-      doctor:       `/doctors/${user?.id}`,
-      nurse:        `/nurses/${user?.id}`,
-      receptionist: `/receptionist/${user?.id}`,
+      doctor:       `/doctors/profile/update`,
+      nurse:        `/nurses/profile/update`,
+      receptionist: `/receptionist/profile/update`,
     };
     return routes[userType];
   };
@@ -23,7 +29,10 @@ const useProfile = () => {
       admin:        "image",
       doctor:       "doctorImage",
       nurse:        "img_url",
-      receptionist: "img_url",
+      // receptionistController espera el archivo bajo "receptionistImage" (ver
+      // routes/receptionist/receptionist.js), no "img_url" — ese es el nombre del campo en la
+      // base de datos, no el nombre del campo de subida.
+      receptionist: "receptionistImage",
     };
     return fields[userType];
   };

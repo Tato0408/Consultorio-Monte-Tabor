@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Save } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import useSchedule from "../hooks/useSchedule";
+import useNurseSchedule from "../hooks/useNurseSchedule";
 import { showError } from "@/lib/alerts";
 import AppointmentTypesSection  from "../components/AppointmentTypesSection";
 import WeeklyAvailabilitySection from "../components/WeeklyAvailabilitySection";
@@ -33,13 +34,20 @@ const EMPTY_SCHEDULE = {
 };
 
 const ScheduleConfig = () => {
-    const { user, isLoading: authLoading, hasPermission } = useAuth();
+    const { user, userType, isLoading: authLoading, hasPermission } = useAuth();
     const canUpdate = hasPermission("calendar.schedule", "update");
-    const { getSchedule, saveSchedule } = useSchedule();
+    // Horarios es doctor/enfermera/admin — cada uno guarda en una colección distinta
+    // (backend/src/models/schedule/schedule.js vs nurseSchedule.js), por eso hay dos hooks.
+    const isNurse = userType === "nurse";
+    const doctorSchedule = useSchedule();
+    const nurseSchedule = useNurseSchedule();
+    const { getSchedule, saveSchedule } = isNurse
+        ? nurseSchedule
+        : doctorSchedule;
 
-    // El user.id del JWT puede diferir del _id en la colección doctors.
-    // Buscamos al usuario por email en la lista de doctores para obtener el _id correcto.
-    const [doctorId, setDoctorId] = useState(null);
+    // El user.id del JWT puede diferir del _id en la colección doctors/nurses.
+    // Buscamos al usuario por email en el catálogo correspondiente para obtener el _id correcto.
+    const [ownerId, setOwnerId] = useState(null);
 
     const [config, setConfig]   = useState(EMPTY_SCHEDULE);
     const [loading, setLoading] = useState(false);
@@ -49,17 +57,18 @@ const ScheduleConfig = () => {
 
     useEffect(() => {
         if (!user?.email) return;
-        fetch("http://localhost:4000/api/doctors")
+        const catalogUrl = isNurse ? "http://localhost:4000/api/nurses" : "http://localhost:4000/api/doctors";
+        fetch(catalogUrl)
             .then(r => r.json())
             .then(list => {
                 const me = Array.isArray(list) ? list.find(d => d.email === user.email) : null;
-                setDoctorId(me?._id || user?.id || null);
+                setOwnerId(me?._id || user?.id || null);
             })
-            .catch(() => setDoctorId(user?.id || null));
-    }, [user]);
+            .catch(() => setOwnerId(user?.id || null));
+    }, [user, isNurse]);
 
     useEffect(() => {
-        if (!doctorId) return;
+        if (!ownerId) return;
         setLoading(true);
 
         const applyConfig = (data) => {
@@ -75,29 +84,31 @@ const ScheduleConfig = () => {
             });
         };
 
-        getSchedule(doctorId)
+        getSchedule(ownerId)
             .then(applyConfig)
             .catch(() => {
-                // Fallback: intenta cargar con el user.id del JWT si difiere del doctorId resuelto
-                if (user?.id && user.id !== doctorId) {
+                // Fallback: intenta cargar con el user.id del JWT si difiere del ownerId resuelto
+                if (user?.id && user.id !== ownerId) {
                     getSchedule(user.id).then(applyConfig).catch(() => {});
                 }
             })
             .finally(() => setLoading(false));
-    }, [doctorId]);
+    }, [ownerId]);
 
     const patch = (key, value) => setConfig(prev => ({ ...prev, [key]: value }));
 
     const handleSave = async () => {
         if (saving) return;
-        if (!doctorId) {
-            setError("No se pudo obtener el ID del doctor. Recarga la página.");
+        if (!ownerId) {
+            setError(`No se pudo obtener el ID del ${isNurse ? "enfermera" : "doctor"}. Recarga la página.`);
             return;
         }
         setSaving(true);
         setError(null);
         try {
-            await saveSchedule(doctorId, config);
+            // Las enfermeras no tienen tipos de cita propios (eso es exclusivo del doctor)
+            const payload = isNurse ? { ...config, appointment_types: undefined } : config;
+            await saveSchedule(ownerId, payload);
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
@@ -123,7 +134,11 @@ const ScheduleConfig = () => {
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Configuración de disponibilidad</h1>
-                    <p className="text-sm text-slate-400 mt-1">Define tus horarios de atención, tipos de citas y descansos.</p>
+                    <p className="text-sm text-slate-400 mt-1">
+                        {isNurse
+                            ? "Define tus horarios de disponibilidad y descansos."
+                            : "Define tus horarios de atención, tipos de citas y descansos."}
+                    </p>
                 </div>
                 <div className="flex gap-3 flex-shrink-0">
                     {canUpdate && (
@@ -151,10 +166,14 @@ const ScheduleConfig = () => {
                 layout de grid. No hace falta estar dentro de un <form> para que funcione. */}
             <fieldset disabled={saving} className="contents">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                <AppointmentTypesSection
-                    types={config.appointment_types}
-                    onChange={v => patch("appointment_types", v)}
-                />
+                {/* Los tipos de cita son exclusivos del horario de doctor — una enfermera no
+                    ofrece "citas" propias, solo se asigna dentro de las de un doctor. */}
+                {!isNurse && (
+                    <AppointmentTypesSection
+                        types={config.appointment_types}
+                        onChange={v => patch("appointment_types", v)}
+                    />
+                )}
                 <WeeklyAvailabilitySection
                     availability={config.weekly_availability}
                     onChange={v => patch("weekly_availability", v)}

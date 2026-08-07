@@ -276,14 +276,17 @@ nursesController.updateOwnProfile = async (req, res) => {
             return res.status(404).json({ message: "Perfil de la enfermera no encontrado" });
         }
 
-        // Excluimos 'is_active', 'is_verified', 'password' y 'time_out' por seguridad.
+        // Excluimos 'is_active', 'is_verified' y 'time_out' por seguridad — esos los controla
+        // solo un admin. La contraseña sí se puede cambiar aquí (mismo criterio que
+        // adminController.updateAdmin / nursesController.updateNurse): solo si viene no vacía.
         const {
             name,
             last_name,
             dui,
             phone,
             birth_date,
-            email
+            email,
+            password
         } = req.body;
 
         const payload = {
@@ -293,20 +296,39 @@ nursesController.updateOwnProfile = async (req, res) => {
             phone,
             birth_date,
             email,
-            password: nurseFound.password, // Mantenemos la contraseña actual intacta
             is_active: nurseFound.is_active,
             is_verified: nurseFound.is_verified,
             time_out: nurseFound.time_out
         };
+
+        if (password && password.trim() !== "") {
+            const passwordError = getPasswordError(password);
+            if (passwordError) {
+                return res.status(400).json({ message: passwordError });
+            }
+            const samePassword = await bcrypt.compare(password, nurseFound.password);
+            if (samePassword) {
+                return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+            }
+            payload.password = await bcrypt.hash(password, 10);
+        }
 
         if (req.file) {
             // Borramos la imagen anterior solo si tiene un public_id registrado
             if (nurseFound.public_id) {
                 await cloudinary.uploader.destroy(nurseFound.public_id);
             }
-            
+
             payload.img_url = req.file.path;
             payload.public_id = req.file.filename;
+        } else if (req.body.img_url === null || req.body.img_url === "null") {
+            // Eliminar foto (a diferencia de doctor/recepción, aquí la foto es opcional en el
+            // modelo). Mismo criterio que adminController.updateAdmin.
+            if (nurseFound.public_id) {
+                await cloudinary.uploader.destroy(nurseFound.public_id);
+            }
+            payload.img_url = null;
+            payload.public_id = null;
         }
 
         // Actualizamos el perfil de la enfermera autenticada

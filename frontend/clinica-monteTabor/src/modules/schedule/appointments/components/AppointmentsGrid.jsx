@@ -116,6 +116,17 @@ export default function AppointmentsGrid() {
         }
     };
 
+    // Query params con la fecha/hora exacta de la cita: el backend solo devuelve enfermeras
+    // que tengan ese horario configurado como disponible (ver nurseScheduleController.js).
+    // appointment_id evita que la enfermera ya asignada a ESTA cita se filtre por "chocar"
+    // contra sí misma.
+    const nurseAvailabilityParams = (appointment) => ({
+        date: new Date(appointment.date).toISOString().split("T")[0],
+        start_time: appointment.start_time,
+        end_time: appointment.end_time,
+        appointment_id: appointment._id,
+    });
+
     const requestAccept = async (appointment) => {
         if (!appointment.procedure_id?.requires_nurse) {
             return handleAceptar(appointment._id);
@@ -124,7 +135,9 @@ export default function AppointmentsGrid() {
         setSelectedNurseId("");
         setLoadingNurses(true);
         try {
-            const response = await apiClient("/appointments/nurses-for-acceptance");
+            const response = await apiClient("/appointments/nurses-for-acceptance", {
+                params: nurseAvailabilityParams(appointment),
+            });
             setNurses(Array.isArray(response) ? response : response.data || []);
         } catch (error) {
             showError(error.message || "No se pudieron cargar las enfermeras.");
@@ -169,7 +182,9 @@ export default function AppointmentsGrid() {
         if (appointment.procedure_id?.requires_nurse) {
             setLoadingNurses(true);
             try {
-                const response = await apiClient("/appointments/nurses-for-acceptance");
+                const response = await apiClient("/appointments/nurses-for-acceptance", {
+                    params: nurseAvailabilityParams(appointment),
+                });
                 setNurses(Array.isArray(response) ? response : response.data || []);
             } catch (error) {
                 showError(error.message || "No se pudieron cargar las enfermeras.");

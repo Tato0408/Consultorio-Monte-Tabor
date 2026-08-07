@@ -3,6 +3,7 @@ import patientsModel from "../../models/patients/patients.js";
 import doctorsModel from "../../models/doctors/doctors.js";
 import notificationModel from "../../models/notifications/notification.js";
 import { isSlotFreeForDoctor } from "../schedule/scheduleController.js";
+import { isNurseAvailable } from "../schedule/nurseScheduleController.js";
 import { notifyAppointmentRecipients } from "../../services/notificationService.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import nursesModel from "../../models/nurses/nurses.js";
@@ -917,15 +918,30 @@ appointmentsController.getPatientProcedures = async (req, res) => {
     }
 };
 
-// Catálogo mínimo para aceptar/asignar una cita; no depende del permiso
-// general de administración de enfermeras.
+// Catálogo mínimo para asignar una enfermera al crear/editar/aceptar una cita — usado tanto por
+// AppointmentsForm.jsx (crear/editar) como por AppointmentsGrid.jsx (aceptar/asignar). Se monta
+// con authorize("calendar.appointments","view") en las rutas, así que cualquier rol que pueda
+// gestionar citas (admin, doctor, recepción, enfermería) llega aquí, sin depender del permiso
+// de administración de enfermeras (users.nurses), que es un tema aparte.
+// Si se envían date/start_time/end_time (los de la cita a crear/editar/aceptar), el catálogo se
+// filtra a solo las enfermeras que tienen ese horario configurado como disponible — igual
+// que un doctor solo puede recibir citas dentro de su propio horario. appointment_id se envía
+// al editar una cita existente, para no filtrar a la enfermera ya asignada por "chocar" con
+// la misma cita que se está editando.
 appointmentsController.getNursesForAcceptance = async (req, res) => {
     try {
-        if (!["doctor", "admin"].includes(req.user.role)) {
-            return res.status(403).json({ message: "No tienes permiso para asignar una enfermera." });
+        const { date, start_time, end_time, appointment_id } = req.query;
+        const nurses = await nursesModel.find({ is_active: true }).select("name last_name").sort({ name: 1 }).lean();
+
+        if (!date || !start_time || !end_time) {
+            return res.json({ data: nurses });
         }
-        const nurses = await nursesModel.find({}).select("name last_name").sort({ name: 1 }).lean();
-        return res.json({ data: nurses });
+
+        const availability = await Promise.all(
+            nurses.map((n) => isNurseAvailable(n._id, date, start_time, end_time, appointmentsModel, appointment_id))
+        );
+        const availableNurses = nurses.filter((_, i) => availability[i]);
+        return res.json({ data: availableNurses });
     } catch (error) {
         return res.status(500).json({ message: "No se pudieron cargar las enfermeras." });
     }

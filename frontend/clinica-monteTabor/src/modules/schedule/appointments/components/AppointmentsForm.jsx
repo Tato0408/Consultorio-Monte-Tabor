@@ -21,6 +21,7 @@ import useMedicalData from "../hooks/useMedicalData";
 import { showSuccess, showError } from "@/lib/alerts";
 import ProcedureModal from "./ProcedureModal.jsx";
 import { useAuth } from "@/context/AuthContext";
+import apiClient from "@/lib/apiClient";
 
 // Formulario único para crear, ver y editar una cita. El modo depende de si
 // hay "id" en la URL y del estado isEditing.
@@ -48,7 +49,6 @@ export default function AppointmentsForm() {
   const {
     patients,
     doctors,
-    nurses,
     procedures,
     loadingData,
     addLocalProcedure,
@@ -70,11 +70,15 @@ export default function AppointmentsForm() {
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [scheduleMessage, setScheduleMessage] = useState("");
   const [isProcedureModalOpen, setIsProcedureModalOpen] = useState(false);
+  // Enfermeras con horario disponible para el doctor/fecha/hora ya elegidos — no el catálogo
+  // completo. Se recalcula cada vez que cambia el horario elegido (ver efecto más abajo).
+  const [availableNurses, setAvailableNurses] = useState([]);
+  const [loadingNurses, setLoadingNurses] = useState(false);
   const originalSlotRef = useRef(null);
 
   // Se usa Controller en todos los campos porque los Input/Textarea/Select
   // de la UI no reenvían el ref; Controller los maneja de forma controlada.
-  const { control, handleSubmit, watch, setValue, reset } = useForm({
+  const { control, handleSubmit, watch, setValue, getValues, reset } = useForm({
     defaultValues: {
       patient_id: "",
       doctor_id: "",
@@ -190,7 +194,7 @@ export default function AppointmentsForm() {
   // Objetos completos a partir de los ids guardados en el formulario.
   const selectedPatient = patients.find(p => p._id === patientId);
   const selectedDoctor = doctors.find(p => p._id === doctorId);
-  const selectedNurse = nurses.find(p => p._id === nurseId);
+  const selectedNurse = availableNurses.find(p => p._id === nurseId);
 
   const selectedProcedure = procedures.find(p => {
     const targetId = typeof procedure === "object" ? procedure?._id : procedure;
@@ -214,6 +218,45 @@ export default function AppointmentsForm() {
       setValue("nurse_id", "");
     }
   }, [procedure, isNurseRequired, nurseId, setValue]);
+
+  // Pide el catálogo de enfermeras DISPONIBLES para el doctor/fecha/horario ya elegidos —
+  // mismo endpoint y mismo criterio (horario configurado, sin descansos, sin otra cita) que usa
+  // AppointmentsGrid.jsx al aceptar/asignar una cita. Depende de start_time/end_time (no del
+  // objeto selectedSlot completo) para no re-disparar el efecto en cada render.
+  const selectedSlotStart = selectedSlot?.start_time;
+  const selectedSlotEnd = selectedSlot?.end_time;
+  useEffect(() => {
+    if (!isEditing || !isNurseRequired || !doctorId || !selectedSlotStart || !selectedSlotEnd) {
+      setAvailableNurses([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingNurses(true);
+    apiClient("/appointments/nurses-for-acceptance", {
+      params: {
+        date: date.toISOString().split("T")[0],
+        start_time: selectedSlotStart,
+        end_time: selectedSlotEnd,
+        appointment_id: id,
+      },
+    }).then((response) => {
+      if (cancelled) return;
+      const list = Array.isArray(response) ? response : response.data || [];
+      setAvailableNurses(list);
+      // Si la enfermera ya elegida (ej. cargada al editar una cita) no está en la lista recién
+      // obtenida, se limpia en vez de dejar una asignación inválida. Se lee con getValues (no
+      // como dependencia del efecto) para no volver a pedir el catálogo cada vez que cambia.
+      const currentNurseId = getValues("nurse_id");
+      if (currentNurseId && !list.some(n => n._id === currentNurseId)) {
+        setValue("nurse_id", "");
+      }
+    }).catch(() => {
+      if (!cancelled) setAvailableNurses([]);
+    }).finally(() => {
+      if (!cancelled) setLoadingNurses(false);
+    });
+    return () => { cancelled = true; };
+  }, [isEditing, isNurseRequired, doctorId, date, selectedSlotStart, selectedSlotEnd, id, getValues, setValue]);
 
   // Se ejecuta solo si pasan todas las reglas de validación de los
   // Controller definidos en el JSX.
@@ -539,7 +582,7 @@ export default function AppointmentsForm() {
                     <Select
                       value={field.value}
                       onValueChange={field.onChange}
-                      disabled={!isEditing || !isNurseRequired}
+                      disabled={!isEditing || !isNurseRequired || !selectedSlotStart || loadingNurses}
                     >
                       <SelectTrigger className={`w-full h-11 rounded-xl border transition-all ${!isNurseRequired
                         ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
@@ -548,11 +591,21 @@ export default function AppointmentsForm() {
                           : "border-slate-200 focus:ring-[#0b66d6]"
                         }`}>
                         <SelectValue>
-                          {!isNurseRequired ? "No requerida para este servicio" : selectedNurse ? `${selectedNurse.name} ${selectedNurse.last_name}` : "Seleccione una enfermera"}
+                          {!isNurseRequired
+                            ? "No requerida para este servicio"
+                            : !selectedSlotStart
+                              ? "Elija primero doctor, fecha y horario"
+                              : loadingNurses
+                                ? "Buscando enfermeras disponibles..."
+                                : selectedNurse
+                                  ? `${selectedNurse.name} ${selectedNurse.last_name}`
+                                  : availableNurses.length === 0
+                                    ? "Sin enfermeras disponibles en ese horario"
+                                    : "Seleccione una enfermera"}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {nurses.map((nurse) => (
+                        {availableNurses.map((nurse) => (
                           <SelectItem key={nurse._id} value={nurse._id.toString()}>{nurse.name} {nurse.last_name}</SelectItem>
                         ))}
                       </SelectContent>

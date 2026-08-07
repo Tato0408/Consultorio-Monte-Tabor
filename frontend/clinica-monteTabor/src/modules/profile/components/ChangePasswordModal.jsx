@@ -46,12 +46,16 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
     r.test(formData.contrasena, formData.confirmContrasena)
   );
 
+  // admin usa /admin/:id porque ahí solo depende de validateAuthCookie (ya es autoservicio);
+  // doctor/nurse/receptionist usan su ruta de autoservicio dedicada (/profile/update) — el
+  // endpoint genérico /:id de esos tres exige el permiso de ADMINISTRAR a otros usuarios de ese
+  // rol, que no tienen sobre sí mismos, y devolvía 403 (mismo criterio que useProfile.js).
   const getEndpoint = () => {
     const routes = {
       admin:        `/admin/${user?.id}`,
-      doctor:       `/doctors/${user?.id}`,
-      nurse:        `/nurses/${user?.id}`,
-      receptionist: `/receptionist/${user?.id}`,
+      doctor:       `/doctors/profile/update`,
+      nurse:        `/nurses/profile/update`,
+      receptionist: `/receptionist/profile/update`,
     };
     return routes[userType];
   };

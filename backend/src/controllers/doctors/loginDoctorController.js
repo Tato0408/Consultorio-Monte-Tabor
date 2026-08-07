@@ -21,6 +21,13 @@ loginDoctorController.login = async (req, res) => {
       return res.status(400).json({ message: "Doctor no encontrado" });
     }
 
+    //Cuenta desactivada por un administrador: no puede iniciar sesión
+    if (doctorFound.is_active === false) {
+      return res.status(403).json({
+        message: "Su cuenta ha sido desactivada. Si cree que esto es un error, comuníquese con el administrador.",
+      });
+    }
+
     //Verificamos que la cuenta no esté bloqueada
     if (doctorFound.timeOut && doctorFound.timeOut > Date.now()) {
       return res.status(403).json({ message: "Blocked account" });

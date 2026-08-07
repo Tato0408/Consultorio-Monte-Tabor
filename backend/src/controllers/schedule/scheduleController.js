@@ -25,9 +25,18 @@ const findScheduleByDoctorId = async (doctorId) => {
     return scheduleModel.findOne({ doctor_id: { $in: ids } });
 };
 
+// Solo doctores (su propio horario) y admin pueden ver/editar un horario de doctor — receptionist
+// y nurse quedan fuera aunque tengan calendar.schedule.view/update en true, porque ese permiso
+// también gobierna endpoints que sí necesitan (ej. consultar slots libres para agendar una cita).
+// Mismo patrón que appointmentsController.getNursesForAcceptance.
+const isDoctorScheduleManager = (role) => ["doctor", "admin"].includes(role);
+
 // GET /api/schedule/:doctorId  — obtener horario del médico
 scheduleController.getSchedule = async (req, res) => {
     try {
+        if (!isDoctorScheduleManager(req.user.role)) {
+            return res.status(403).json({ message: "No tienes permiso para consultar este horario." });
+        }
         const schedule = await findScheduleByDoctorId(req.params.doctorId);
         if (!schedule) return res.status(404).json({ message: "Horario no configurado aún" });
         return res.status(200).json(schedule);
@@ -39,6 +48,9 @@ scheduleController.getSchedule = async (req, res) => {
 // PUT /api/schedule/:doctorId  — crear o actualizar horario (upsert)
 scheduleController.saveSchedule = async (req, res) => {
     try {
+        if (!isDoctorScheduleManager(req.user.role)) {
+            return res.status(403).json({ message: "No tienes permiso para editar este horario." });
+        }
         const { doctorId } = req.params;
         const data = req.body;
 

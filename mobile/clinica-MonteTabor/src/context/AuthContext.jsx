@@ -141,7 +141,11 @@ export const AuthProvider = ({ children }) => {
             return { ok: true, user: response.user };
         } catch (error) {
             await clearSession();
-            const message = ERROR_MESSAGES[error.message] || error.message || "No se pudo iniciar sesión.";
+            // 403 = cuenta desactivada (ver loginPatientController.js): mensaje específico,
+            // igual al que muestra la web, en vez del genérico de credenciales.
+            const message = error.status === 403
+                ? "Cuenta desactivada. Si considera que es un error, comuníquese con el administrador."
+                : ERROR_MESSAGES[error.message] || error.message || "No se pudo iniciar sesión.";
             return { ok: false, message };
         }
     };
