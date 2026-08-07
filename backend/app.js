@@ -38,6 +38,7 @@ import rolesRoutes from './src/routes/roles/roles.js'
 import permissionsRoutes from './src/routes/permissions/permissions.js'
 import reportsRoutes from './src/routes/reports/reports.js'
 import sickLeavesRoutes from './src/routes/sickLeaves/sickLeaves.js'
+import notificationsRoutes from './src/routes/notifications/notifications.js'
 const app = express();
 
 app.use(cookieParser());
@@ -96,5 +97,6 @@ app.use("/api/roles", rolesRoutes);
 app.use("/api/permissions", permissionsRoutes);
 app.use("/api/reports", authenticate, reportsRoutes);
 app.use("/api/sick-leaves", authenticate, sickLeavesRoutes);
+app.use("/api/notifications", authenticate, notificationsRoutes);
 
 export default app;

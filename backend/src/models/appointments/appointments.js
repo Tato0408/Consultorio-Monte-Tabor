@@ -1,24 +1,12 @@
-/*
-Campos:
-    doctor_id
-    patient_id
-    nurse_id
-    procedure_id
-    type
-    date
-    start_time
-    end_time
-    duration_minutes
-    description
-    status
-    total
-    cancellation_reason
-*/
+// Campos: doctor_id, patient_id, nurse_id, procedure_id, type, date, start_time,
+// end_time, duration_minutes, description, status, total, cancellation_reason.
 
 import mongoose, { Schema, model } from "mongoose";
 
 const appointmentsSchema = new Schema({
-    doctor_id: { type: mongoose.Schema.Types.ObjectId, ref: "Doctors", required: true },
+    // Las solicitudes creadas por pacientes quedan sin doctor hasta que uno
+    // las acepte, y las creadas por personal siguen llegando asignadas.
+    doctor_id: { type: mongoose.Schema.Types.ObjectId, ref: "Doctors", default: null },
     patient_id: { type: mongoose.Schema.Types.ObjectId, ref: "Patients", required: true },
     nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "nurses" },
     procedure_id: { type: mongoose.Schema.Types.ObjectId, ref: "Procedure" },

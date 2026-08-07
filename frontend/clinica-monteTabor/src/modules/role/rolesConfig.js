@@ -174,16 +174,14 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     "inventory.reports": NO_ACCESS,
   },
   receptionist: {
-    // Necesita ver el horario de los doctores para agendar citas (dashboard + calendario)
     "calendar.schedule": VIEW_ONLY,
     "calendar.appointments": FULL_CRUD,
     "calendar.consultations": NO_ACCESS,
-    "users.doctors": NO_ACCESS,
-    // Registrar pacientes nuevos es parte central de su trabajo
+    "users.doctors": VIEW_ONLY,
     "users.patients": FULL_CRUD,
     "users.receptionist": NO_ACCESS,
-    "users.nurses": NO_ACCESS,
-    "procedures": NO_ACCESS,
+    "users.nurses": VIEW_ONLY,
+    "procedures": VIEW_ONLY,
     "reports.appointments": NO_ACCESS,
     "reports.records": NO_ACCESS,
     "reports.patients": NO_ACCESS,

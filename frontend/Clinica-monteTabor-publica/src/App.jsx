@@ -7,6 +7,8 @@ import Register from './modules/login/pages/register/Register';
 import VerifyEmail from './modules/login/pages/register/VerifyEmail';
 import Dashboard from './modules/dashboard/pages/Dashboard';
 import Home from './modules/home/pages/Home';
+import PatientAppointments from './modules/appointments/pages/PatientAppointments';
+import PatientAppointmentForm from './modules/appointments/pages/PatientAppointmentForm';
 
 function App() {
   return (
@@ -28,6 +30,9 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/appointments" element={<ProtectedRoute><PatientAppointments /></ProtectedRoute>} />
+          <Route path="/appointments/new" element={<ProtectedRoute><PatientAppointmentForm /></ProtectedRoute>} />
+          <Route path="/appointments/:id/edit" element={<ProtectedRoute><PatientAppointmentForm /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

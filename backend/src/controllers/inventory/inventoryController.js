@@ -1,6 +1,7 @@
 import inventoryModel from "../../models/inventory/inventory.js";
 import movementModel from "../../models/inventory/movements.js";
 import { v2 as cloudinary } from "cloudinary";
+import { notifyLowStockAdmins } from "../../services/notificationService.js";
 
 const inventoryController = {};
 
@@ -78,6 +79,7 @@ inventoryController.create = async (req, res) => {
     }
 
     await newItem.save();
+    await notifyLowStockAdmins(newItem).catch((error) => console.log("Error notificando inventario:", error));
 
     // Registrar movimiento inicial si hay stock
     if (Number(stock) > 0) {
@@ -121,6 +123,7 @@ inventoryController.update = async (req, res) => {
     }
 
     const updatedItem = await inventoryModel.findByIdAndUpdate(id, updateData, { new: true });
+    await notifyLowStockAdmins(updatedItem).catch((error) => console.log("Error notificando inventario:", error));
     return res.status(200).json({ message: "Insumo actualizado", item: updatedItem });
   } catch (error) {
     return res.status(500).json({ message: "Error al actualizar", error: error.message });
@@ -260,6 +263,7 @@ inventoryController.adjustStock = async (req, res) => {
     }
 
     await item.save();
+    await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
 
     await new movementModel({
       type:     "Inventory adjustment",
@@ -292,11 +296,13 @@ inventoryController.stockEntry = async (req, res) => {
       item.stock += qty;
       item.price  = cost;
       await item.save();
+      await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
     } else {
       item = await new inventoryModel({
         name, category, unit_measure,
         stock: qty, min_stock: 5, price: cost, supplier,
       }).save();
+      await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
     }
 
     await new movementModel({
@@ -327,6 +333,7 @@ inventoryController.manualUsage = async (req, res) => {
       item.stock     = Math.max(0, item.stock - Number(entry.quantity));
       item.last_used = new Date();
       await item.save();
+      await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
 
       await new movementModel({
         type:     "Manual use",
@@ -358,6 +365,7 @@ inventoryController.discountFromProcedure = async (req, res) => {
       item.stock     = Math.max(0, item.stock - Number(entry.quantity));
       item.last_used = new Date();
       await item.save();
+      await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
 
       await new movementModel({
         type:     "Treatment use",

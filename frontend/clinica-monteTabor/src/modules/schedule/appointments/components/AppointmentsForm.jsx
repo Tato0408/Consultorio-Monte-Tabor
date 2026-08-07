@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Search, Plus, CheckCircle2, X, Edit2, Save, AlertCircle, Clock } from "lucide-react";
+import { Search, Plus, CheckCircle2, X, Edit2, Save, AlertCircle, Clock, CalendarDays } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { PublicStyleCalendar } from "@/components/ui/calendar-public-style";
 import {
   Select,
   SelectContent,
@@ -28,9 +28,15 @@ export default function AppointmentsForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
-  const { hasPermission } = useAuth();
+  const { hasPermission, userType, user } = useAuth();
   const canCreateAppt = hasPermission("calendar.appointments", "create");
   const canUpdateAppt = hasPermission("calendar.appointments", "update");
+  // Al crear, el estado de la recepcionista queda fijo en "scheduled" (el
+  // backend lo fuerza igual); esto es solo para no mostrar un selector inútil.
+  const lockStatusForCreate = userType === "receptionist" && !id;
+  // Al crear una cita, el doctor solo puede asignársela a sí mismo. El
+  // backend aplica la misma regla para que no dependa solo de la interfaz.
+  const isDoctorCreating = userType === "doctor" && !id;
 
   const {
     getAppointmentById,
@@ -50,22 +56,16 @@ export default function AppointmentsForm() {
     fetchMedicalData
   } = useMedicalData();
 
-  // Existe id -> se ve/edita una cita existente; si no, se crea una nueva.
-  // editMode llega por location.state cuando se navega desde el botón
-  // "Editar" de la tarjeta, para abrir ya en modo edición.
-  // El modo edición inicial también respeta el permiso: sin create no se puede
-  // arrancar en modo creación habilitado, y sin update no se puede arrancar
-  // en modo edición habilitado (aunque hayan llegado con editMode: true).
+  // Con id se ve/edita una cita existente; sin id, se crea una nueva. El modo
+  // edición inicial respeta los permisos, aunque llegue editMode: true por state.
   const isViewOrEditMode = !!id;
   const [isEditing, setIsEditing] = useState(
     (!isViewOrEditMode && canCreateAppt) || (!!location.state?.editMode && canUpdateAppt) || false
   );
   const [loading, setLoading] = useState(false);
 
-  // Estado de interfaz que no forma parte de los valores del formulario:
-  // - calendarMonth: mes que muestra el Calendar, aparte de la fecha elegida.
-  // - availableTimeSlots / scheduleMessage: horarios disponibles a mostrar.
-  // - isProcedureModalOpen: visibilidad del modal de creación rápida.
+  // Estado de interfaz aparte del formulario: mes mostrado en el calendario,
+  // horarios disponibles/mensaje, y visibilidad del modal de procedimiento.
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [scheduleMessage, setScheduleMessage] = useState("");
@@ -167,7 +167,22 @@ export default function AppointmentsForm() {
     completed: "Completada",
     cancelled: "Cancelada",
     no_show: "No se presentó",
+    expired: "Vencida",
   };
+
+  // Fuerza el status a "scheduled" cuando la recepcionista está creando una
+  // cita nueva (el backend lo va a forzar de todos modos al guardar).
+  useEffect(() => {
+    if (lockStatusForCreate) {
+      setValue("status", "scheduled");
+    }
+  }, [lockStatusForCreate, setValue]);
+
+  useEffect(() => {
+    if (isDoctorCreating && user?.id) {
+      setValue("doctor_id", String(user.id));
+    }
+  }, [isDoctorCreating, setValue, user?.id]);
 
   // Sin doctor elegido no se habilita fecha ni horario.
   const canSelectSchedule = !!doctorId;
@@ -280,6 +295,15 @@ export default function AppointmentsForm() {
   useEffect(() => {
     if (!isEditing) return;
 
+    // En creación el formulario arranca sin doctor: sin esto se construiría
+    // una URL como /schedule//slots o se mostrarían horarios de otro médico.
+    if (!doctorId) {
+      setAvailableTimeSlots([]);
+      setScheduleMessage("");
+      setValue("selectedTime", "");
+      return;
+    }
+
     const loadSlots = async () => {
       const formattedDate = date.toISOString().split("T")[0];
       let response = await getAvailableSlots(doctorId, formattedDate, duration);
@@ -294,9 +318,8 @@ export default function AppointmentsForm() {
         response = response.filter(slot => slot.start_time > currentHourString);
       }
 
-      // Si seguimos en la misma fecha/doctor de la cita original, se agrega
-      // su horario aunque el backend no lo reporte como "disponible"
-      // porque está ocupado por esta misma cita, o porque ya pasó la fecha
+      // En la misma fecha/doctor original, se agrega su horario aunque el
+      // backend no lo reporte "disponible" por estar ocupado por esta cita.
       const original = originalSlotRef.current;
       if (original && original.date === formattedDate && original.doctor_id === doctorId) {
         const yaIncluido = response.some(s => s.start_time === original.start_time);
@@ -396,7 +419,11 @@ export default function AppointmentsForm() {
                 rules={{ required: "Debe seleccionar un paciente." }}
                 render={({ field, fieldState }) => (
                   <>
-                    <Select value={field.value} onValueChange={field.onChange} disabled={!isEditing}>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={!isEditing}
+                    >
                       <SelectTrigger className="w-full border-slate-200 focus:ring-[#0b66d6] h-11 rounded-xl">
                         <SelectValue>{selectedPatient ? `${selectedPatient.name} ${selectedPatient.last_name}` : "Seleccione un paciente"}</SelectValue>
                       </SelectTrigger>
@@ -419,10 +446,14 @@ export default function AppointmentsForm() {
               <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Tipo de Procedimiento</Label>
               <div className="flex gap-2">
                 <Controller
-                  name="procedure"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange} disabled={!isEditing}>
+                name="procedure"
+                control={control}
+                render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={!isEditing}
+                    >
                       <SelectTrigger className="w-full border-slate-200 focus:ring-[#0b66d6] h-11 rounded-xl">
                         <SelectValue>{procedure === "general" ? "Consulta Médica General" : selectedProcedure?.name || "Seleccione un procedimiento"}</SelectValue>
                       </SelectTrigger>
@@ -465,7 +496,11 @@ export default function AppointmentsForm() {
                 rules={{ required: "Debe seleccionar un doctor." }}
                 render={({ field, fieldState }) => (
                   <>
-                    <Select value={field.value} onValueChange={field.onChange} disabled={!isEditing}>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={!isEditing || isDoctorCreating}
+                    >
                       <SelectTrigger className="w-full border-slate-200 focus:ring-[#0b66d6] h-11 rounded-xl">
                         <SelectValue>{selectedDoctor ? `${selectedDoctor.name} ${selectedDoctor.last_name}` : "Seleccione un doctor"}</SelectValue>
                       </SelectTrigger>
@@ -534,8 +569,12 @@ export default function AppointmentsForm() {
           </div>
 
           {/* Calendario y horarios */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-6">
-            <div className={`md:col-span-3 flex flex-col items-center border-r border-slate-100 pr-2 ${!isEditing || submitting ? "cursor-not-allowed" : ""}`}>
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 xl:grid-cols-5 gap-6">
+            <div className={`xl:col-span-3 flex flex-col xl:border-r border-slate-100 xl:pr-6 ${!isEditing ? "cursor-not-allowed" : ""}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <CalendarDays className="h-4 w-4 text-[#0b66d6]" />
+                <span className="text-sm font-semibold text-slate-700">Fecha de atención</span>
+              </div>
               {!canSelectSchedule && (
                 <p className="text-xs text-amber-600 font-medium mb-3">
                   Seleccione un doctor para habilitar la fecha y el horario.
@@ -545,33 +584,28 @@ export default function AppointmentsForm() {
                 name="date"
                 control={control}
                 render={({ field }) => (
-                  <Calendar
+                  <PublicStyleCalendar
                     mode="single"
                     locale={es}
                     selected={field.value}
                     // Controla qué mes se muestra, aparte del día seleccionado.
                     month={calendarMonth}
                     onMonthChange={setCalendarMonth}
-                    // onSelect debe ser siempre una función, incluso en modo
-                    // lectura, para que el calendario trate "selected" como
-                    // controlado y refleje cambios de fecha por fuera.
+                    // onSelect siempre debe ser función, incluso en modo lectura,
+                    // para que el calendario trate "selected" como controlado.
                     onSelect={(day) => { if (isEditing && canSelectSchedule && !submitting) field.onChange(day); }}
                     disabled={(date) => date < todayMidnight || date > endOfCurrentWeek}
-                    className={`rounded-md border-0 w-full flex justify-center ${!isEditing || !canSelectSchedule || submitting ? "pointer-events-none opacity-50" : ""}`}
-                    classNames={{
-                      day_selected: "bg-[#0b66d6] text-white rounded-full font-bold",
-                      day_today: "bg-slate-100 text-slate-900 font-bold rounded-full",
-                      day: "h-9 w-9 p-0 font-medium text-sm text-slate-700 hover:bg-slate-100 rounded-full flex items-center justify-center aria-selected:bg-[#0b66d6]"
-                    }}
+                    className={`w-full flex justify-center ${!isEditing || !canSelectSchedule ? "pointer-events-none opacity-50" : ""}`}
                   />
                 )}
               />
             </div>
 
-            <div className="md:col-span-2 space-y-3 flex flex-col">
-              <span className="text-xs font-bold text-slate-400 text-right uppercase tracking-wider block mb-1">
-                Personalizar Horario
-              </span>
+            <div className="xl:col-span-2 space-y-3 flex flex-col">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="h-4 w-4 text-[#0b66d6]" />
+                <span className="text-sm font-semibold text-slate-700">Horarios disponibles</span>
+              </div>
               {/* Lista de horarios disponibles; valida que el elegido siga
                   existiendo en la lista actual. */}
               <Controller
@@ -602,9 +636,9 @@ export default function AppointmentsForm() {
                               type="button"
                               disabled={!isEditing || !canSelectSchedule}
                               onClick={() => field.onChange(slot.start_time)}
-                              className={`w-full text-center py-2.5 px-4 rounded-full text-xs font-medium transition-all duration-150 border ${isSelected
+                              className={`w-full text-center py-2.5 px-4 rounded-full text-sm font-semibold transition-all duration-150 border ${isSelected
                                 ? "bg-[#0b66d6] text-white border-[#0b66d6] shadow-md shadow-blue-100"
-                                : "bg-white text-slate-600 border-blue-200 hover:bg-blue-50/50"
+                                : "bg-white text-slate-700 border-blue-200 hover:bg-blue-50"
                                 } disabled:opacity-80 disabled:cursor-not-allowed`}
                             >
                               {slot.start_time} - {slot.end_time}
@@ -635,9 +669,11 @@ export default function AppointmentsForm() {
                 rules={{ required: "Debe seleccionar un estado para la cita." }}
                 render={({ field, fieldState }) => (
                   <>
-                    <Select disabled={!isEditing} value={field.value} onValueChange={field.onChange}>
+                    <Select disabled={!isEditing || lockStatusForCreate} value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger className="w-full border-slate-200 focus:ring-[#0b66d6] h-10 rounded-xl text-slate-700">
-                        <SelectValue>{statusLabels[field.value] || "Seleccione un estado"}</SelectValue>
+                        <SelectValue>
+                          {lockStatusForCreate ? "Programada (automático)" : (statusLabels[field.value] || "Seleccione un estado")}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">
@@ -670,6 +706,14 @@ export default function AppointmentsForm() {
                           <div className="flex items-center gap-2">
                             <AlertCircle className="h-4 w-4 text-slate-400" />
                             <span>No se presentó</span>
+                          </div>
+                        </SelectItem>
+                        {/* Estado asignado automáticamente cuando ningún
+                            doctor acepta una "pending" a tiempo. */}
+                        <SelectItem value="expired">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 text-orange-500" />
+                            <span>Vencida</span>
                           </div>
                         </SelectItem>
                       </SelectContent>

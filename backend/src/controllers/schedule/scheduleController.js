@@ -1,6 +1,7 @@
 import scheduleModel from "../../models/schedule/schedule.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import doctorModel from "../../models/doctors/doctors.js";
+import proceduresModel from "../../models/procedures/procedures.js";
 
 const scheduleController = {};
 
@@ -50,6 +51,138 @@ scheduleController.saveSchedule = async (req, res) => {
         return res.status(200).json({ message: "Horario guardado correctamente", schedule });
     } catch (error) {
         return res.status(500).json({ message: "Error al guardar el horario", error: error.message });
+    }
+};
+
+// Convierte "HH:mm" a minutos desde medianoche.
+const toMins = (t) => { const [h, m] = (t || "0:0").split(":").map(Number); return h * 60 + m; };
+
+// Revalida si un horario puntual (fecha + start_time/end_time) sigue libre para
+// un doctor: mismo criterio que getAvailableSlots (excepciones, día
+// disponible, descansos, otras citas), pero para un slot ya elegido en vez de
+// generar la lista completa. Se usa al aceptar una cita, para no confiar en
+// que el horario siga libre desde que se creó la cita hasta que se acepta.
+// excludeAppointmentId se pasa al aceptar una cita existente, para no
+// chocar contra sí misma.
+export const isSlotFreeForDoctor = async (doctorId, date, start_time, end_time, excludeAppointmentId) => {
+    const schedule = await findScheduleByDoctorId(doctorId);
+    if (!schedule) return { free: false, reason: "El doctor no tiene un horario configurado." };
+
+    const [yr, mo, dy] = date.split("-").map(Number);
+    const localDate = new Date(yr, mo - 1, dy);
+    const dayOfWeek = localDate.getDay();
+
+    const toDateStr = (d) => {
+        if (!d) return "";
+        if (typeof d === "string") return d.split("T")[0];
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+    };
+    const exception = schedule.exceptions.find(ex => {
+        if (ex.end_date) {
+            return date >= toDateStr(ex.date) && date <= toDateStr(ex.end_date);
+        }
+        return toDateStr(ex.date) === date;
+    });
+    if (exception && exception.type !== "special_hours") {
+        return { free: false, reason: "Ese día no es laborable." };
+    }
+
+    const dayConfig = schedule.weekly_availability.find(d => d.day === dayOfWeek);
+    if (!dayConfig || !dayConfig.is_available) {
+        return { free: false, reason: "El doctor no atiende ese día." };
+    }
+
+    const start = toMins(start_time);
+    const end = toMins(end_time);
+
+    const inBreak = schedule.breaks.some(br => {
+        if (br.day !== dayOfWeek) return false;
+        const bStart = toMins(br.start_time);
+        const bEnd = toMins(br.end_time);
+        return start < bEnd && end > bStart;
+    });
+    if (inBreak) {
+        return { free: false, reason: "Ese horario cae dentro de un descanso del doctor." };
+    }
+
+    const dayStart = new Date(`${date}T00:00:00.000Z`);
+    const dayEnd = new Date(`${date}T23:59:59.999Z`);
+    const existingAppointments = await appointmentsModel.find({
+        doctor_id: doctorId,
+        date: { $gte: dayStart, $lte: dayEnd },
+        status: { $nin: ["cancelled"] },
+        ...(excludeAppointmentId ? { _id: { $ne: excludeAppointmentId } } : {}),
+    }).select({ start_time: 1, end_time: 1 });
+
+    const isBooked = existingAppointments.some(a => {
+        if (!a.start_time || !a.end_time) return false;
+        return start < toMins(a.end_time) && end > toMins(a.start_time);
+    });
+    if (isBooked) {
+        return { free: false, reason: "Ya existe otra cita en ese horario." };
+    }
+
+    return { free: true };
+};
+
+// Horarios que puede solicitar un paciente: se incluyen solo si al menos un
+// doctor con horario configurado puede atenderlos. No revela qué doctor es.
+scheduleController.getPatientAvailableSlots = async (req, res) => {
+    try {
+        const { date, procedure_id } = req.query;
+        if (!date) return res.status(400).json({ message: "Se requiere el parámetro 'date'" });
+        const [requestedYear, requestedMonth, requestedDay] = date.split("-").map(Number);
+        const requested = new Date(requestedYear, requestedMonth - 1, requestedDay);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const sunday = new Date(today); sunday.setDate(today.getDate() + (7 - today.getDay()) % 7);
+        if (requested < today || requested > sunday) {
+            return res.status(400).json({ message: "Solo se muestran horarios de la semana actual." });
+        }
+
+        // El portal no decide la duración: se obtiene del catálogo oficial.
+        // Así un procedimiento de 60 minutos solo produce bloques de 60 min.
+        let minutes = 30;
+        if (procedure_id && procedure_id !== "general") {
+            const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: true })
+                .select("estimated_duration");
+            if (!procedure) {
+                return res.status(400).json({ message: "El procedimiento seleccionado no está disponible." });
+            }
+            minutes = Number(procedure.estimated_duration) || 30;
+        }
+
+        const schedules = await scheduleModel.find({}).select("doctor_id weekly_availability buffer_time").lean();
+        const [year, month, day] = date.split("-").map(Number);
+        const dayOfWeek = new Date(year, month - 1, day).getDay();
+        const candidateSlots = new Map();
+        const isToday = requested.getTime() === today.getTime();
+        const now = new Date();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+        for (const schedule of schedules) {
+            const dayConfig = schedule.weekly_availability?.find((entry) => entry.day === dayOfWeek && entry.is_available);
+            if (!dayConfig) continue;
+            for (const block of dayConfig.time_blocks || []) {
+                let current = toMins(block.start_time);
+                const end = toMins(block.end_time);
+                while (current + minutes <= end) {
+                    // Una hora que ya comenzó (o ya pasó) no puede reservarse.
+                    if (isToday && current <= currentMinutes) {
+                        current += minutes + (schedule.buffer_time || 0);
+                        continue;
+                    }
+                    const start_time = `${String(Math.floor(current / 60)).padStart(2, "0")}:${String(current % 60).padStart(2, "0")}`;
+                    const slotEnd = current + minutes;
+                    const end_time = `${String(Math.floor(slotEnd / 60)).padStart(2, "0")}:${String(slotEnd % 60).padStart(2, "0")}`;
+                    const available = await isSlotFreeForDoctor(schedule.doctor_id, date, start_time, end_time);
+                    if (available.free) candidateSlots.set(start_time, { start_time, end_time });
+                    current += minutes + (schedule.buffer_time || 0);
+                }
+            }
+        }
+        return res.json({ slots: [...candidateSlots.values()].sort((a, b) => a.start_time.localeCompare(b.start_time)) });
+    } catch (error) {
+        return res.status(500).json({ message: "Error al obtener horarios disponibles", error: error.message });
     }
 };
 

@@ -16,6 +16,7 @@ const ReportHeader = ({
   onToggleGeneral,
   onExport,
   exporting,
+  disableExport = false,
 }) => {
   return (
     <div className="space-y-4">
@@ -36,7 +37,7 @@ const ReportHeader = ({
         <button
           type="button"
           onClick={onExport}
-          disabled={exporting}
+          disabled={exporting || disableExport}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors disabled:opacity-60"
         >
           {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
