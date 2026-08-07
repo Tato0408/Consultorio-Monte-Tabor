@@ -279,6 +279,7 @@ const RolesPage = () => {
                     accentSolidClass={ROLE_COLOR_TOKENS[selectedRole.color].solidBg}
                     readOnly={selectedRole.locked || isSaving}
                     defaultOpen={false}
+                    roleKey={selectedRole.key}
                   />
                 ))}
               </div>
@@ -331,6 +332,7 @@ const RolesPage = () => {
                 accentSolidClass={ROLE_COLOR_TOKENS[selectedRole.color].solidBg}
                 readOnly={selectedRole.locked || isSaving}
                 defaultOpen={section.section === "Calendario"}
+                roleKey={selectedRole.key}
               />
             ))}
           </div>

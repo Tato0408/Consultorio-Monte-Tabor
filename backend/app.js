@@ -31,6 +31,8 @@ import patientSelfRoutes from "./src/routes/patients/patientSelf.js"
 import scheduleRoutes from './src/routes/schedule/schedule.js'
 import dashboardRoutes from './src/routes/dashboard/dashboard.js'
 import doctorDashboardRoutes from './src/routes/dashboard/doctorDashboard.js'
+import receptionistDashboardRoutes from './src/routes/dashboard/receptionistDashboard.js'
+import nurseDashboardRoutes from './src/routes/dashboard/nurseDashboard.js'
 import nurse_noteRoute from './src/routes/nurse_notes/nurse_notes.js'
 import rolesRoutes from './src/routes/roles/roles.js'
 import permissionsRoutes from './src/routes/permissions/permissions.js'
@@ -85,6 +87,8 @@ app.use("/api/procedures", authenticate, proceduresRoutes);
 app.use("/api/schedule", authenticate, scheduleRoutes);
 app.use("/api/dashboard", validateAuthCookie(["admin"]), dashboardRoutes);
 app.use("/api/doctor-dashboard", validateAuthCookie(["doctor"]), doctorDashboardRoutes);
+app.use("/api/receptionist-dashboard", validateAuthCookie(["receptionist"]), receptionistDashboardRoutes);
+app.use("/api/nurse-dashboard", validateAuthCookie(["nurse"]), nurseDashboardRoutes);
 
 app.use("/api/logout", validateAuthCookie(), logoutRoute);
 app.use("/api/nurse_notes",  nurse_noteRoute);

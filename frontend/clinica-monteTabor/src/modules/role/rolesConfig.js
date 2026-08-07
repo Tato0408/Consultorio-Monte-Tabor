@@ -98,6 +98,28 @@ export const ALL_MODULE_KEYS = SIDEBAR_MODULES.flatMap((section) =>
 // GET /api/reports/inventory es su única ruta.
 export const VIEW_ONLY_MODULE_KEYS = ["reports.appointments", "reports.patients", "reports.doctors", "inventory.reports"];
 
+// Permisos que, para ciertos roles, el propio dashboard de ese rol necesita en true para
+// funcionar (ej. el recepcionista no puede agendar citas si le apagan "ver horarios" o
+// "crear pacientes" — su propio panel principal quedaría roto). Se muestran marcados con un
+// candado y no se pueden destildar. El backend (rolesController.js) tiene la MISMA lista y es
+// quien realmente lo hace cumplir — esto solo evita la confusión de destildar algo que el
+// servidor va a rechazar de todas formas. A diferencia de "isProtected" (bloquea TODO el rol,
+// como admin), esto solo bloquea esos permisos puntuales.
+export const LOCKED_TRUE_PERMISSIONS = {
+  receptionist: {
+    "calendar.schedule": ["view"],
+    "calendar.appointments": ["view", "create", "update"],
+    "users.patients": ["view", "create"],
+  },
+  nurse: {
+    "calendar.schedule": ["view"],
+    "calendar.appointments": ["view", "create", "update"],
+    // La enfermera no tiene registro rápido de pacientes (a diferencia de recepción), solo
+    // necesita poder verlos para buscarlos al agendar una cita.
+    "users.patients": ["view"],
+  },
+};
+
 const FULL_CRUD = { view: true, create: true, update: true, delete: true };
 const NO_ACCESS = { view: false, create: false, update: false, delete: false };
 const VIEW_ONLY = { view: true, create: false, update: false, delete: false };
@@ -132,11 +154,13 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     "inventory.reports": NO_ACCESS,
   },
   nurse: {
-    "calendar.schedule": NO_ACCESS,
+    // Necesita ver el horario de los doctores para agendar citas (dashboard + calendario)
+    "calendar.schedule": VIEW_ONLY,
     "calendar.appointments": FULL_CRUD,
     "calendar.consultations": NO_ACCESS,
     "users.doctors": NO_ACCESS,
-    "users.patients": NO_ACCESS,
+    // A diferencia de recepción, no registra pacientes nuevos — solo los busca al agendar
+    "users.patients": VIEW_ONLY,
     "users.receptionist": NO_ACCESS,
     "users.nurses": NO_ACCESS,
     "procedures": NO_ACCESS,
@@ -150,11 +174,13 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     "inventory.reports": NO_ACCESS,
   },
   receptionist: {
-    "calendar.schedule": NO_ACCESS,
+    // Necesita ver el horario de los doctores para agendar citas (dashboard + calendario)
+    "calendar.schedule": VIEW_ONLY,
     "calendar.appointments": FULL_CRUD,
     "calendar.consultations": NO_ACCESS,
     "users.doctors": NO_ACCESS,
-    "users.patients": NO_ACCESS,
+    // Registrar pacientes nuevos es parte central de su trabajo
+    "users.patients": FULL_CRUD,
     "users.receptionist": NO_ACCESS,
     "users.nurses": NO_ACCESS,
     "procedures": NO_ACCESS,

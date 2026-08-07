@@ -74,11 +74,15 @@ const ROLE_PERMISSIONS = {
     },
     nurse: {
         "dashboard": [true, false, false, false],
-        "calendar.schedule": [false, false, false, false],
-        "calendar.appointments": [false, false, false, false],
+        // Necesita ver el horario de los doctores para agendar citas (dashboard + calendario)
+        "calendar.schedule": [true, false, false, false],
+        // La enfermera sí puede crear/confirmar/cancelar citas desde su dashboard
+        "calendar.appointments": [true, true, true, true],
         "calendar.consultations": [false, false, false, false],
         "users.doctors": [false, false, false, false],
-        "users.patients": [false, false, false, false],
+        // A diferencia de recepción, la enfermera NO registra pacientes nuevos — solo necesita
+        // verlos para buscarlos al agendar una cita.
+        "users.patients": [true, false, false, false],
         "users.receptionist": [false, false, false, false],
         "users.nurses": [false, false, false, false],
         "procedures": [false, false, false, false],
@@ -95,11 +99,16 @@ const ROLE_PERMISSIONS = {
     },
     receptionist: {
         "dashboard": [true, false, false, false],
-        "calendar.schedule": [false, false, false, false],
+        // La recepción necesita ver el horario de los doctores para poder agendar citas
+        // (agenda del dashboard + horarios disponibles) — antes estaba en [false,false,false,false]
+        // por lo que ni siquiera podía consultar horarios, solo editarlos nunca.
+        "calendar.schedule": [true, false, false, false],
         "calendar.appointments": [true, true, true, true],
         "calendar.consultations": [true, false, false, false],
         "users.doctors": [false, false, false, false],
-        "users.patients": [true, false, true, true],
+        // La recepción SÍ registra pacientes nuevos (es parte central de su trabajo) —
+        // antes create estaba en false, lo que se lo impedía por completo.
+        "users.patients": [true, true, true, true],
         "users.receptionist": [false, false, false, false],
         "users.nurses": [false, false, false, false],
         "procedures": [false, false, false, false],

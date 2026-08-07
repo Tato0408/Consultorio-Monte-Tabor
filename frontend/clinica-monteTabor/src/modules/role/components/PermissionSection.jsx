@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import ModulePermissionCard from "./ModulePermissionCard";
-import { VIEW_ONLY_MODULE_KEYS } from "../rolesConfig.js";
+import { VIEW_ONLY_MODULE_KEYS, LOCKED_TRUE_PERMISSIONS } from "../rolesConfig.js";
 
 const PermissionSection = ({
   section,
@@ -10,6 +10,7 @@ const PermissionSection = ({
   accentSolidClass,
   readOnly,
   defaultOpen = true,
+  roleKey,
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const SectionIcon = section.icon;
@@ -64,6 +65,7 @@ const PermissionSection = ({
                 accentSolidClass={accentSolidClass}
                 readOnly={readOnly}
                 viewOnly={VIEW_ONLY_MODULE_KEYS.includes(module.key)}
+                lockedActions={LOCKED_TRUE_PERMISSIONS[roleKey]?.[module.key] || []}
               />
             ))}
           </div>

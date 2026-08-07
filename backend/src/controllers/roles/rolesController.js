@@ -5,6 +5,29 @@ import { refreshRoleCache } from "../../services/roleCache.js";
 
 const VALID_ACTIONS = ["view", "create", "update", "delete"];
 
+// Permisos que, para ciertos roles, el propio dashboard de ese rol necesita en true para
+// funcionar (ej. el recepcionista no puede agendar citas si le apagan "ver horarios" o
+// "crear pacientes" — su propio panel principal quedaría roto). A diferencia de isProtected
+// (que bloquea TODO el rol, como admin), esto solo bloquea esos permisos puntuales; el resto
+// del rol se sigue pudiendo editar con normalidad.
+const LOCKED_TRUE_PERMISSIONS = {
+    receptionist: {
+        "calendar.schedule": ["view"],
+        "calendar.appointments": ["view", "create", "update"],
+        "users.patients": ["view", "create"],
+    },
+    nurse: {
+        "calendar.schedule": ["view"],
+        "calendar.appointments": ["view", "create", "update"],
+        // La enfermera no tiene registro rápido de pacientes (a diferencia de recepción), así
+        // que solo necesita poder ver el listado para buscar un paciente al agendar una cita.
+        "users.patients": ["view"],
+    },
+};
+
+const isLockedTrue = (roleKey, moduleKey, action) =>
+    !!LOCKED_TRUE_PERMISSIONS[roleKey]?.[moduleKey]?.includes(action);
+
 export const getRoles = async (req, res) => {
     try {
         const roles = await Role.find({}).lean();
@@ -57,6 +80,12 @@ export const updateRolePermissions = async (req, res) => {
 
             if (!moduleKey || !VALID_ACTIONS.includes(action) || typeof value !== "boolean") {
                 return res.status(400).json({ message: `Cambio invalido: ${JSON.stringify(change)}` });
+            }
+
+            if (value === false && isLockedTrue(roleKey, moduleKey, action)) {
+                return res.status(400).json({
+                    message: `El permiso "${action}" de "${moduleKey}" es necesario para que el dashboard de este rol funcione y no se puede desactivar`,
+                });
             }
 
             const permission = role.permissions.find((p) => p.moduleKey === moduleKey);
