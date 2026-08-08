@@ -169,3 +169,38 @@ export const getPasswordError = (password) => {
     }
     return null;
 };
+
+// Mismo patrón que exige TriageCard.jsx (Consultas) y VitalSignsFormModal.jsx (Expediente) para
+// la presión arterial: sistólica/diastólica, 2-3 dígitos por lado.
+const BLOOD_PRESSURE_PATTERN = /^\d{2,3}\/\d{2,3}$/;
+
+// Mismos rangos fisiológicos razonables que usan esos dos formularios en el frontend — se
+// repiten aquí porque el backend nunca debe confiar en que el frontend ya validó, sobre todo en
+// endpoints como éste que también se pueden llamar directo (ej. Swagger). OJO: "height" llega en
+// METROS (no cm) porque así lo manda el frontend después de convertir lo que el usuario digitó.
+const VITAL_SIGNS_RANGES = {
+    glucosa_mgdl: { min: 0, max: 999, label: "Glucosa" },
+    weight: { min: 0, max: 500, label: "Peso" },
+    height: { min: 0, max: 3, label: "Talla" },
+    temperature: { min: 30, max: 45, label: "Temperatura" },
+    spo2: { min: 0, max: 100, label: "Saturación de O2" },
+};
+
+// Valida una toma de signos vitales (blood_pressure, glucosa_mgdl, weight, height, temperature,
+// spo2 — mismas llaves que usa Patients.clinical_history.vital_signs). Cada campo es opcional
+// (se puede guardar una toma parcial), pero si viene, tiene que tener formato/rango válido.
+// Devuelve el mensaje del primer problema encontrado, o null si todo está bien.
+export const getVitalSignsError = (vitals = {}) => {
+    const { blood_pressure } = vitals;
+    if (blood_pressure !== undefined && blood_pressure !== null && blood_pressure !== "" && !BLOOD_PRESSURE_PATTERN.test(blood_pressure)) {
+        return "Formato de presión arterial inválido, debe ser sistólica/diastólica (ej. 120/80)";
+    }
+    for (const [key, range] of Object.entries(VITAL_SIGNS_RANGES)) {
+        const value = vitals[key];
+        if (value === undefined || value === null || value === "") continue;
+        const num = Number(value);
+        if (Number.isNaN(num)) return `${range.label} debe ser un número`;
+        if (num < range.min || num > range.max) return `${range.label} debe estar entre ${range.min} y ${range.max}`;
+    }
+    return null;
+};

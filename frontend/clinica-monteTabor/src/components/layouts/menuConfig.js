@@ -42,7 +42,8 @@ export const sideBarMenu = [
         title: 'Procedimientos',
         icon: 'Activity',
         subItems: [
-            { title: 'Procedimientos', icon: 'Stethoscope', path: '/procedures', moduleKey: 'procedures' }
+            { title: 'Procedimientos', icon: 'Stethoscope', path: '/procedures', moduleKey: 'procedures' },
+            { title: 'Tratamientos', icon: 'FileBox', path: '/inventory/treatments', moduleKey: 'inventory.treatments' }
         ]
     },
     {
@@ -60,7 +61,6 @@ export const sideBarMenu = [
         icon: 'Package',
         subItems: [
             { title: 'Productos', icon: 'Briefcase', path: '/inventory/products', moduleKey: 'inventory.products' },
-            { title: 'Tratamientos', icon: 'FileBox', path: '/inventory/treatments', moduleKey: 'inventory.treatments' },
             { title: 'Movimientos', icon: 'FileSignature', path: '/inventory/movements', moduleKey: 'inventory.movements' },
             { title: 'Reportes de inventario', icon: 'ClipboardCheck', path: '/inventory/reports', moduleKey: 'inventory.reports' }
         ]

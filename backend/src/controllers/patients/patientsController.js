@@ -1,6 +1,6 @@
 import patientsModel from "../../models/patients/patients.js";
 import bcryptjs from "bcryptjs";
-import { validateUserFieldFormats, getMissingRequiredField, getPasswordError } from "../../utils/validators.js";
+import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, getVitalSignsError } from "../../utils/validators.js";
 
 //Array de funciones
 const patientsController = {};
@@ -231,6 +231,10 @@ patientsController.updatePatient = async (req, res) => {
     //Envia los signos vitales, los prepara usando comillas y puntos para que MongoDB actualice solo esa casilla interna y no borre los demás datos médicos, si no los mandó, los ignora por completo
     //Usamos el fieldsToPush porque es una lista de datos
     if (new_vital_signs) {
+      const vitalSignsError = getVitalSignsError(new_vital_signs);
+      if (vitalSignsError) {
+        return res.status(400).json({ message: vitalSignsError });
+      }
       fieldsToPush["clinical_history.vital_signs"] = {
         blood_pressure: new_vital_signs.blood_pressure,
         glucosa_mgdl: new_vital_signs.glucosa_mgdl,
@@ -313,6 +317,70 @@ patientsController.updatePatient = async (req, res) => {
     }
     //Si todo ha sido correcto actualizara la informacion enviada del paciente
     return res.status(200).json({ message: "Paciente actualizado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// UPDATE de una toma puntual del historial de signos vitales (no reemplaza todo el arreglo,
+// solo esa entrada) — botón de editar en la tabla de la pestaña "Signos vitales" del Expediente.
+patientsController.updateVitalSign = async (req, res) => {
+  try {
+    const { patientId, vitalSignId } = req.params;
+    const { blood_pressure, glucosa_mgdl, weight, height, imc, temperature, spo2 } = req.body;
+
+    const vitalSignsError = getVitalSignsError({ blood_pressure, glucosa_mgdl, weight, height, temperature, spo2 });
+    if (vitalSignsError) {
+      return res.status(400).json({ message: vitalSignsError });
+    }
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.vital_signs?.id(vitalSignId);
+    if (!entry) {
+      return res.status(404).json({ message: "Registro de signos vitales no encontrado" });
+    }
+
+    if (blood_pressure !== undefined) entry.blood_pressure = blood_pressure;
+    if (glucosa_mgdl !== undefined) entry.glucosa_mgdl = glucosa_mgdl;
+    if (weight !== undefined) entry.weight = weight;
+    if (height !== undefined) entry.height = height;
+    if (imc !== undefined) entry.imc = imc;
+    if (temperature !== undefined) entry.temperature = temperature;
+    if (spo2 !== undefined) entry.spo2 = spo2;
+
+    await patient.save();
+
+    return res.status(200).json({ message: "Signos vitales actualizados" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE de una toma puntual del historial de signos vitales — botón de eliminar en la misma tabla.
+patientsController.deleteVitalSign = async (req, res) => {
+  try {
+    const { patientId, vitalSignId } = req.params;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.vital_signs?.id(vitalSignId);
+    if (!entry) {
+      return res.status(404).json({ message: "Registro de signos vitales no encontrado" });
+    }
+
+    patient.clinical_history.vital_signs.pull(vitalSignId);
+    await patient.save();
+
+    return res.status(200).json({ message: "Registro de signos vitales eliminado" });
   } catch (error) {
     console.log("error" + error);
     return res.status(500).json({ message: "Error interno del servidor" });

@@ -7,7 +7,14 @@ import { confirmResetPermissions } from "@/lib/alerts";
 import RoleCard from "../components/RoleCard";
 import PermissionSection from "../components/PermissionSection";
 import PermissionsHeader from "../components/PermissionsHeader";
-import { SIDEBAR_MODULES, ROLE_COLOR_TOKENS, ROLE_COLOR_BY_KEY, DEFAULT_ROLE_PERMISSIONS } from "../rolesConfig.js";
+import {
+  SIDEBAR_MODULES,
+  ROLE_COLOR_TOKENS,
+  ROLE_COLOR_BY_KEY,
+  DEFAULT_ROLE_PERMISSIONS,
+  MODULE_VIEW_DEPENDENCIES,
+  MODULE_LABEL_BY_KEY,
+} from "../rolesConfig.js";
 
 // Iconos de respaldo si el campo "icon" del rol (guardado en la base de datos) no coincide con ningún ícono de lucide-react
 const ROLE_ICON_FALLBACK = {
@@ -105,10 +112,38 @@ const RolesPage = () => {
 
   const handleDiscardChanges = () => setPendingChanges({});
 
+  // Revisa, contra el estado combinado (guardado + pendiente), si algún módulo con "Ver"
+  // activado le falta el "Ver" de algún módulo del que depende su pantalla (ver
+  // MODULE_VIEW_DEPENDENCIES) — devuelve un mensaje listo para mostrar, o null si todo está bien.
+  const findMissingDependenciesMessage = (permissions) => {
+    const problems = Object.entries(MODULE_VIEW_DEPENDENCIES)
+      .filter(([moduleKey]) => permissions[moduleKey]?.view)
+      .map(([moduleKey, deps]) => ({
+        moduleLabel: MODULE_LABEL_BY_KEY[moduleKey] || moduleKey,
+        missingLabels: deps.filter((dep) => !permissions[dep.moduleKey]?.view).map((dep) => dep.label),
+      }))
+      .filter((entry) => entry.missingLabels.length > 0);
+
+    if (problems.length === 0) return null;
+
+    return problems
+      .map((p) => `Para ${p.moduleLabel} es necesario activar "Ver" en estos apartados: ${p.missingLabels.join(", ")}.`)
+      .join(" ");
+  };
+
   // agrupa todos los toggles pendientes en un solo PATCH (un batchId por guardado)
   const handleSaveChanges = async () => {
     if (isSaving) return;
     if (!selectedRoleRaw || !hasPendingChanges) return;
+
+    // Bloquea el guardado (sin tocar nada) si la combinación resultante le rompería la
+    // pantalla a este rol — más vale avisar aquí que dejarlo descubrirlo con la app ya rota.
+    const dependencyMessage = findMissingDependenciesMessage(effectivePermissions);
+    if (dependencyMessage) {
+      toast.error(dependencyMessage);
+      return;
+    }
+
     const changes = Object.entries(pendingChanges).flatMap(([moduleKey, actions]) =>
       Object.entries(actions).map(([action, value]) => ({ moduleKey, action, value }))
     );

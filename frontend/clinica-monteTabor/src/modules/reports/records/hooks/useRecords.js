@@ -123,8 +123,12 @@ const toRecordDetail = (patient) => {
         }
       : {},
     // Historial completo de tomas, más reciente primero (para la tabla de la
-    // pestaña "Signos vitales")
+    // pestaña "Signos vitales"). "id" es el _id real del subdocumento (Mongoose lo autogenera
+    // en cada elemento del array) — lo necesita el botón de editar/eliminar una toma puntual.
+    // Todos los valores van crudos (sin unidad pegada al string) para poder precargarlos tal
+    // cual en el modal de edición; la tabla le agrega la unidad solo al mostrarlos.
     signosVitalesHistorial: vitalSignsHistory.map((v) => ({
+      id: String(v._id),
       fecha: formatFecha(v.last_date_taken) || "—",
       presion: v.blood_pressure || "—",
       glucosa: v.glucosa_mgdl ?? "—",
@@ -132,7 +136,7 @@ const toRecordDetail = (patient) => {
       altura: v.height ?? "—",
       imc: v.imc ?? "—",
       temp: v.temperature ?? "—",
-      spo2: v.spo2 != null ? `${v.spo2}%` : "—",
+      spo2: v.spo2 ?? "—",
     })),
     // El modelo no tiene una duración registrada por procedimiento; se deja
     // como dato predeterminado hasta que exista ese campo.

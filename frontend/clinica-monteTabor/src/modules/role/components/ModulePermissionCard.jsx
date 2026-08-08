@@ -1,4 +1,4 @@
-import { Check, Lock } from "lucide-react";
+import { Check, Lock, TriangleAlert } from "lucide-react";
 import { PERMISSION_TYPES } from "../rolesConfig.js";
 
 const PermissionCheckbox = ({ checked, disabled, locked, onClick, accentClass, label }) => (
@@ -48,6 +48,9 @@ const ModulePermissionCard = ({
   // Acciones (ej. ["view","create"]) que para este rol+módulo el dashboard necesita en true
   // siempre — ver LOCKED_TRUE_PERMISSIONS en rolesConfig.js. El backend impone lo mismo.
   lockedActions = [],
+  // Módulos (con su label legible) cuyo "Ver" le falta a ESTE rol y que este módulo necesita
+  // para funcionar sin errores — ver MODULE_VIEW_DEPENDENCIES en rolesConfig.js.
+  missingDependencies = [],
 }) => {
   const handleToggle = (permKey) => {
     if (readOnly) return;
@@ -95,6 +98,19 @@ const ModulePermissionCard = ({
           );
         })}
       </div>
+
+      {/* Solo se muestra si este módulo ya tiene "Ver" activado y le falta "Ver" en alguno de
+          los módulos de los que depende su pantalla — si "Ver" está apagado, no aplica todavía. */}
+      {permissions.view && missingDependencies.length > 0 && (
+        <div className="mt-3 md:mt-4 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5">
+          <TriangleAlert className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" strokeWidth={2.2} />
+          <p className="text-[11px] leading-relaxed text-amber-700">
+            Si activas la visualización de {moduleLabel}, también hay que activar &quot;Ver&quot; en:{" "}
+            <span className="font-semibold">{missingDependencies.map((d) => d.label).join(", ")}</span>
+            . Si no, esta pantalla va a cargar incompleta o con errores para este rol.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

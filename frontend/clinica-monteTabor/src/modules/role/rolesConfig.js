@@ -58,6 +58,7 @@ export const SIDEBAR_MODULES = [
     icon: ClipboardList,
     modules: [
       { key: "procedures", label: "Procedimientos", icon: ClipboardList },
+      { key: "inventory.treatments", label: "Tratamientos", icon: FlaskConical },
     ],
   },
   {
@@ -75,7 +76,6 @@ export const SIDEBAR_MODULES = [
     icon: Package,
     modules: [
       { key: "inventory.products", label: "Productos", icon: Boxes },
-      { key: "inventory.treatments", label: "Tratamientos", icon: FlaskConical },
       { key: "inventory.movements", label: "Movimientos", icon: ArrowLeftRight },
       { key: "inventory.reports", label: "Reportes de inventario", icon: TrendingUp },
     ],
@@ -89,6 +89,13 @@ export const ALL_MODULE_KEYS = SIDEBAR_MODULES.flatMap((section) =>
   section.modules.map((m) => m.key)
 );
 
+// Etiqueta legible de cada moduleKey (ej. "reports.records" -> "Expediente") — la usa el
+// mensaje de error de RolesPage cuando falta activar una dependencia (ver
+// MODULE_VIEW_DEPENDENCIES más abajo).
+export const MODULE_LABEL_BY_KEY = Object.fromEntries(
+  SIDEBAR_MODULES.flatMap((section) => section.modules.map((m) => [m.key, m.label]))
+);
+
 // Módulos que en el backend solo tienen una ruta GET (backend/src/routes/reports/reports.js
 // solo define .get() para estos cuatro, sin POST/PUT/DELETE) — activar Crear/Editar/Eliminar
 // ahí no tendría ningún efecto real, así que ModulePermissionCard oculta esos tres checkboxes
@@ -97,6 +104,21 @@ export const ALL_MODULE_KEYS = SIDEBAR_MODULES.flatMap((section) =>
 // sus 4 checkboxes normales. "inventory.reports" entra por la misma razón que los otros tres:
 // GET /api/reports/inventory es su única ruta.
 export const VIEW_ONLY_MODULE_KEYS = ["reports.appointments", "reports.patients", "reports.doctors", "inventory.reports"];
+
+// Módulos cuya pantalla, aunque tengan su propio "Ver" activado, dependen del "Ver" de OTROS
+// módulos para no romperse — porque su pantalla llama a esos otros endpoints por separado.
+// Caso real: el Expediente (reports.records) solo controla si el rol puede abrir la pantalla y
+// gestionar Incapacidades; la ficha del paciente viene de users.patients, el historial de
+// consultas de calendar.consultations y las citas pendientes de calendar.appointments — si a
+// alguno de esos le falta "Ver", el Expediente carga pero esas secciones truenan con un 403.
+// ModulePermissionCard usa esto para avisar dentro de la propia card cuando falta alguno.
+export const MODULE_VIEW_DEPENDENCIES = {
+  "reports.records": [
+    { moduleKey: "users.patients", label: "Pacientes" },
+    { moduleKey: "calendar.consultations", label: "Consultas" },
+    { moduleKey: "calendar.appointments", label: "Citas" },
+  ],
+};
 
 // Permisos que, para ciertos roles, el propio dashboard de ese rol necesita en true para
 // funcionar (ej. el recepcionista no puede agendar citas si le apagan "ver horarios" o
@@ -146,14 +168,18 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     "procedures": FULL_CRUD,
     // El doctor sí puede ver estos dos reportes hoy (seedRoles.js: view=true) — antes este
     // archivo decía NO_ACCESS, así que el botón "Restablecer a valores predeterminados" le
-    // habría quitado ese acceso real. reports.records no se toca (fuera del alcance de este
-    // cambio, y su desajuste con el seed es un tema aparte).
+    // habría quitado ese acceso real.
     "reports.appointments": VIEW_ONLY,
+    // CRUD completo: el doctor es quien emite/edita/elimina incapacidades desde el Expediente
+    // (la única acción real detrás de este moduleKey — ver sickLeaves routes). seedRoles.js
+    // ahora coincide con esto (antes solo tenía view=true).
     "reports.records": FULL_CRUD,
     "reports.patients": VIEW_ONLY,
     "reports.doctors": NO_ACCESS,
     "inventory.products": NO_ACCESS,
-    "inventory.treatments": NO_ACCESS,
+    // El doctor hace el seguimiento clínico del tratamiento (evolución, notas, controles,
+    // alta) desde /inventory/treatments — necesita las 4 acciones, no solo ver.
+    "inventory.treatments": FULL_CRUD,
     "inventory.movements": NO_ACCESS,
     "inventory.reports": NO_ACCESS,
   },
@@ -174,7 +200,9 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     "reports.patients": NO_ACCESS,
     "reports.doctors": NO_ACCESS,
     "inventory.products": NO_ACCESS,
-    "inventory.treatments": NO_ACCESS,
+    // La enfermera también participa del seguimiento del tratamiento (curaciones, controles),
+    // así que tiene las mismas 4 acciones que el doctor en /inventory/treatments.
+    "inventory.treatments": FULL_CRUD,
     "inventory.movements": NO_ACCESS,
     "inventory.reports": NO_ACCESS,
   },

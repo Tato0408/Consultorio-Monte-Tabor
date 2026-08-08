@@ -62,11 +62,15 @@ const ROLE_PERMISSIONS = {
         "users.nurses": [true, false, false, false],
         "procedures": [true, true, true, true],
         "reports.appointments": [true, false, false, false],
-        "reports.records": [true, false, false, false],
+        // CRUD completo: el doctor es quien emite/edita/elimina incapacidades desde el
+        // Expediente (la única acción real detrás de este moduleKey).
+        "reports.records": [true, true, true, true],
         "reports.patients": [true, false, false, false],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],
-        "inventory.treatments": [false, false, false, false],
+        // El doctor hace el seguimiento clínico del tratamiento (evolución, notas, controles,
+        // alta) desde /inventory/treatments — necesita las 4 acciones, no solo ver.
+        "inventory.treatments": [true, true, true, true],
         "inventory.movements": [false, false, false, false],
         "inventory.reports": [false, false, false, false],
         "system.roles": [false, false, false, false],
@@ -92,7 +96,9 @@ const ROLE_PERMISSIONS = {
         "reports.patients": [false, false, false, false],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],
-        "inventory.treatments": [false, false, false, false],
+        // La enfermera también participa del seguimiento del tratamiento (curaciones,
+        // controles), así que tiene las mismas 4 acciones que el doctor aquí.
+        "inventory.treatments": [true, true, true, true],
         "inventory.movements": [false, false, false, false],
         "inventory.reports": [false, false, false, false],
         "system.roles": [false, false, false, false],
