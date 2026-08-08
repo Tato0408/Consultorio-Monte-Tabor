@@ -265,7 +265,9 @@ scheduleController.getAvailableSlots = async (req, res) => {
                 end:   toMins(a.end_time),
             }));
 
-        const slots = [];
+        // Map en vez de array: si dos bloques se solapan (ej. el médico los definió por error
+        // encimados), el mismo start_time no debe aparecer dos veces en la respuesta.
+        const slotsByStart = new Map();
 
         for (const block of dayConfig.time_blocks) {
             const [startH, startM] = block.start_time.split(":").map(Number);
@@ -293,12 +295,17 @@ scheduleController.getAvailableSlots = async (req, res) => {
                 const isBooked = bookedRanges.some(r => current < r.end && slotEnd > r.start);
 
                 if (!inBreak && !isBooked) {
-                    slots.push({ start_time: `${hh}:${mm}`, end_time: `${hhe}:${mme}` });
+                    const startStr = `${hh}:${mm}`;
+                    slotsByStart.set(startStr, { start_time: startStr, end_time: `${hhe}:${mme}` });
                 }
 
                 current += durationMin + bufferMin;
             }
         }
+
+        // Orden cronológico: al iterar bloque por bloque, un bloque que empieza más tarde en el
+        // día (ej. uno mal configurado desde medianoche) podía terminar antes en el arreglo.
+        const slots = [...slotsByStart.values()].sort((a, b) => a.start_time.localeCompare(b.start_time));
 
         return res.status(200).json({ slots });
     } catch (error) {

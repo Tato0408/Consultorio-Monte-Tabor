@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { Plus, MoreVertical } from "lucide-react";
 import { Card, SectionCard } from "../global/ui";
+import VitalSignsFormModal from "../global/VitalSignsFormModal";
 
 // Configuración de cada tarjeta clicable: a qué campo(s) de
 // `signosVitalesHistorial` corresponde y cómo graficarlo.
@@ -40,9 +41,10 @@ const buildChartData = (historial, metricKey) => {
 
 // Espera `patient.signosVitales` (última toma) y
 // `patient.signosVitalesHistorial` (para el gráfico y la tabla).
-const HistorialSignosVitales = ({ patient = {}, onAgregar }) => {
+const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
   const v = patient.signosVitales ?? {};
   const [selectedMetric, setSelectedMetric] = useState("imc");
+  const [modalOpen, setModalOpen] = useState(false);
   const historial = useMemo(() => patient.signosVitalesHistorial ?? [], [patient.signosVitalesHistorial]);
 
   const metrics = [
@@ -66,7 +68,7 @@ const HistorialSignosVitales = ({ patient = {}, onAgregar }) => {
       {/* Encabezado */}
       <div className="flex justify-end">
         <button
-          onClick={onAgregar}
+          onClick={() => setModalOpen(true)}
           className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm"
         >
           Agregar <Plus size={16} />
@@ -196,7 +198,9 @@ const HistorialSignosVitales = ({ patient = {}, onAgregar }) => {
                 <td className="py-3 pr-4">{r.temp}</td>
                 <td className="py-3 pr-4">{r.spo2}</td>
                 <td className="py-3 text-center">
-                  <button className="text-slate-400 hover:text-slate-600 inline-flex justify-center">
+                  {/* Editar/eliminar una toma puntual todavía no tiene destino (PUT
+                      /patients/:id de hoy solo permite agregar una toma nueva). */}
+                  <button className="text-slate-300 cursor-not-allowed inline-flex justify-center" disabled title="Próximamente">
                     <MoreVertical size={16} />
                   </button>
                 </td>
@@ -205,6 +209,13 @@ const HistorialSignosVitales = ({ patient = {}, onAgregar }) => {
           </tbody>
         </table>
       </Card>
+
+      <VitalSignsFormModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        patientId={patient.id}
+        onSaved={onSaved}
+      />
     </div>
   );
 };

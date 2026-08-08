@@ -26,7 +26,7 @@ const MODULE_KEYS = [
 
 // Cada entrada [view, create, update, delete] refleja EXACTAMENTE el comportamiento
 // actual del sistema (allowedRoles en app.js / rutas backend / menuConfig.js), no un
-// diseño nuevo. Ver conversación de migración para el detalle de cada mapeo.
+// diseño nuevo. 
 const ROLE_PERMISSIONS = {
     admin: {
         "dashboard": [true, true, true, true],
@@ -75,7 +75,7 @@ const ROLE_PERMISSIONS = {
     nurse: {
         "dashboard": [true, false, false, false],
         // A diferencia de recepción, la enfermera SÍ puede tener su propio horario (update=true)
-        // — es lo que permite que solo se le asignen citas dentro de ese horario.
+        //  es lo que permite que solo se le asignen citas dentro de ese horario.
         "calendar.schedule": [true, false, true, false],
         // La enfermera sí puede crear/confirmar/cancelar citas desde su dashboard
         "calendar.appointments": [true, true, true, true],

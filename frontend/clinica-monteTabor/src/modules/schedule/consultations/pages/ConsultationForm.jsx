@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
 
 import useConsultation from "../hooks/useConsultation";
 import PatientHeader from "../components/PatientHeader";
+import BloodTypeCard from "../components/BloodTypeCard";
 import EvolutionCard from "../components/EvolutionCard";
 import TriageCard from "../components/TriageCard";
 import PhysicalExamCard from "../components/PhysicalExamCard";
@@ -25,6 +26,11 @@ const ConsultationForm = () => {
 
     const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord } =
         useConsultation(appointmentId);
+
+    // Refleja al instante lo que se guarda en BloodTypeCard sin depender de recargar toda la
+    // cita — PatientHeader (solo lectura) y BloodTypeCard (la tarjeta editable) son hermanos,
+    // así que el valor se levanta hasta aquí para que ambos lo compartan.
+    const [bloodTypeOverride, setBloodTypeOverride] = useState(null);
 
 
     // useForm sin defaultValues todavía: la cita aún no ha cargado en el
@@ -86,7 +92,7 @@ const ConsultationForm = () => {
         // los hijos vía useFormContext(), sin tener que pasarlos por props.
         <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="p-4 sm:p-8">
-                <PatientHeader appointment={appointment} />
+                <PatientHeader appointment={appointment} bloodTypeOverride={bloodTypeOverride} />
 
                 {error && (
                     <div className="bg-red-50 text-red-600 text-sm rounded-lg p-3 mb-4">
@@ -129,8 +135,15 @@ const ConsultationForm = () => {
                         />
                     </div>
 
-                    {/* Columna derecha: receta, referencia, antecedentes secundarios y acciones */}
+                    {/* Columna derecha: tipo de sangre, receta, referencia y antecedentes secundarios */}
                     <div className="space-y-6">
+                        <BloodTypeCard
+                            patientId={appointment?.patient_id?._id}
+                            currentValue={bloodTypeOverride ?? appointment?.patient_id?.clinical_history?.blood_type}
+                            onSaved={setBloodTypeOverride}
+                            readOnly={readOnly}
+                        />
+
                         <PrescriptionCard readOnly={readOnly} />
                         <ReferralCard readOnly={readOnly} />
 

@@ -93,6 +93,9 @@ const toRecordDetail = (patient) => {
     apellido: patient.last_name,
     dui: patient.dui,
     edad: age != null ? `${age} años` : "—",
+    // Fecha de nacimiento cruda (además de "edad" ya formateada) — la necesita
+    // EditPatientModal para precargar el campo de fecha al editar.
+    birthDate: patient.birth_date || null,
     sexo,
     sexoCorto,
     telefono: patient.phone,

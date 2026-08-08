@@ -2,7 +2,14 @@ import { useFormContext } from "react-hook-form";
 import SectionCard from "./SectionCard";
 
 const DiagnosisCard = ({ readOnly }) => {
-    const { register } = useFormContext();
+    const { register, setValue, formState: { errors } } = useFormContext();
+
+    // Máscara de CIE-10: solo letras/números/punto, en mayúsculas (ej. "J00", "E11.9") — mismo
+    // criterio de "limpiar mientras se escribe" que las demás máscaras del sistema.
+    const handleIcdMask = (e) => {
+        const masked = e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 8);
+        setValue("clinical_data.icd_diagnosis", masked, { shouldValidate: true });
+    };
 
     return (
         <SectionCard title="Impresión Diagnóstica">
@@ -13,9 +20,15 @@ const DiagnosisCard = ({ readOnly }) => {
                         type="text"
                         placeholder="Ej. J00"
                         disabled={readOnly}
-                        {...register("clinical_data.icd_diagnosis")}
+                        {...register("clinical_data.icd_diagnosis", {
+                            pattern: { value: /^[A-Z0-9.]*$/, message: "Solo letras, números y punto" },
+                        })}
+                        onChange={handleIcdMask}
                         className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
                     />
+                    {errors?.clinical_data?.icd_diagnosis && (
+                        <p className="text-[11px] text-red-500 mt-0.5">{errors.clinical_data.icd_diagnosis.message}</p>
+                    )}
                 </div>
                 <div>
                     <label className="text-xs text-slate-500 block mb-1">Nombre del diagnóstico</label>

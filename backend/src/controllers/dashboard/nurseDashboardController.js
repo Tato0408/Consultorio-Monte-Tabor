@@ -162,7 +162,11 @@ nurseDashboardController.getDoctorsAgenda = async (req, res) => {
             const dayConfig = schedule?.weekly_availability?.find((d) => d.day === dayOfWeek);
             const doctorAppts = apptsByDoctor.get(doctor._id.toString()) || [];
 
-            const slots = [];
+            // Map en vez de array: si dos bloques del horario del doctor se solapan (ej. un
+            // bloque mal configurado), el mismo start_time no debe aparecer dos veces. Si un
+            // horario ya quedó marcado por una cita/descanso real, no se deja que una segunda
+            // vuelta lo pise con "available".
+            const slotsByStart = new Map();
             if (dayConfig?.is_available && dayConfig.time_blocks?.length) {
                 for (const block of dayConfig.time_blocks) {
                     let current = timeToMins(block.start_time);
@@ -177,6 +181,12 @@ nurseDashboardController.getDoctorsAgenda = async (req, res) => {
                         const startStr = `${hh}:${mm}`;
                         const endStr = `${hhe}:${mme}`;
 
+                        const existing = slotsByStart.get(startStr);
+                        if (existing && existing.status !== "available") {
+                            current += SLOT_MIN;
+                            continue;
+                        }
+
                         const onBreak = (schedule.breaks || []).some((br) => {
                             if (br.day !== dayOfWeek) return false;
                             return current < timeToMins(br.end_time) && slotEnd > timeToMins(br.start_time);
@@ -187,7 +197,7 @@ nurseDashboardController.getDoctorsAgenda = async (req, res) => {
                         );
 
                         if (matchingAppt) {
-                            slots.push({
+                            slotsByStart.set(startStr, {
                                 start_time: startStr,
                                 end_time: endStr,
                                 status: matchingAppt.status,
@@ -198,15 +208,19 @@ nurseDashboardController.getDoctorsAgenda = async (req, res) => {
                                 },
                             });
                         } else if (onBreak) {
-                            slots.push({ start_time: startStr, end_time: endStr, status: "break", appointment: null });
+                            slotsByStart.set(startStr, { start_time: startStr, end_time: endStr, status: "break", appointment: null });
                         } else {
-                            slots.push({ start_time: startStr, end_time: endStr, status: "available", appointment: null });
+                            slotsByStart.set(startStr, { start_time: startStr, end_time: endStr, status: "available", appointment: null });
                         }
 
                         current += SLOT_MIN;
                     }
                 }
             }
+
+            // Orden cronológico: un bloque mal configurado que empieza más tarde en el día (ej.
+            // uno desde medianoche) podía terminar antes en el arreglo si no se ordenaba.
+            const slots = [...slotsByStart.values()].sort((a, b) => a.start_time.localeCompare(b.start_time));
 
             return {
                 _id: doctor._id,

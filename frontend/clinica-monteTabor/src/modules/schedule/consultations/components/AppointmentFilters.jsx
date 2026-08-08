@@ -1,4 +1,4 @@
-import { Calendar, Filter } from "lucide-react";
+import { Calendar, Filter, X } from "lucide-react";
 
 const STATUS_OPTIONS = [
     { value: "pending, scheduled", label: "Agendados" },
@@ -10,6 +10,8 @@ const STATUS_OPTIONS = [
 ];
 
 const AppointmentFilters = ({ filters, onChange }) => {
+    const hasDateFilter = Boolean(filters.dateFrom || filters.dateTo);
+
     return (
         <div className="flex items-start justify-between mb-4">
             <div>
@@ -17,7 +19,7 @@ const AppointmentFilters = ({ filters, onChange }) => {
                     <Calendar size={16} className="text-[#0b66d6]" />
                     Filtro por fechas
                 </div>
-                <div className="flex gap-4">
+                <div className="flex items-end gap-4">
                     <div>
                         <label className="block text-xs text-slate-500 mb-1">Desde</label>
                         <input
@@ -36,6 +38,18 @@ const AppointmentFilters = ({ filters, onChange }) => {
                             className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#0b66d6]"
                         />
                     </div>
+                    {/* Solo aparece si hay una fecha puesta — es la única forma de volver a la
+                        vista general una vez que se parametrizó el filtro. */}
+                    {hasDateFilter && (
+                        <button
+                            type="button"
+                            onClick={() => onChange({ dateFrom: "", dateTo: "" })}
+                            className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-red-500 border border-slate-200 hover:border-red-200 rounded-lg px-3 py-1.5 transition-colors"
+                        >
+                            <X size={14} />
+                            Ver todas
+                        </button>
+                    )}
                 </div>
             </div>
 

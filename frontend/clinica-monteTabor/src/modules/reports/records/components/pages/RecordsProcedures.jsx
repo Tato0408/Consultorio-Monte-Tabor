@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import { Plus, MoreVertical, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import ProcedureRecordModal from "../global/ProcedureRecordModal";
 
 // Espera `patient.procedimientos` = [{ nombre, fecha, doctor, duracion }]
-export default function ProcedimientosTab({ patient = {} }) {
+export default function ProcedimientosTab({ patient = {}, onSaved }) {
   const data = patient.procedimientos ?? [];
 
   const [rowsPerPage, setRowsPerPage] = useState(8);
   const [page, setPage] = useState(1);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(data.length / rowsPerPage));
   const start = (page - 1) * rowsPerPage;
@@ -20,6 +22,7 @@ export default function ProcedimientosTab({ patient = {} }) {
       <div className="mb-6 flex justify-end">
         <button
           type="button"
+          onClick={() => setModalOpen(true)}
           className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           Agregar <Plus className="h-4 w-4" />
@@ -47,7 +50,9 @@ export default function ProcedimientosTab({ patient = {} }) {
             <span className="text-slate-600">{p.doctor}</span>
             <span className="text-slate-600">{p.duracion}</span>
             <span className="flex justify-center">
-              <button type="button" className="text-slate-400 hover:text-slate-600">
+              {/* Editar/eliminar un procedimiento puntual no tiene destino todavía (PUT
+                  /patients/:id de hoy solo permite agregar, no editar/quitar uno existente). */}
+              <button type="button" className="text-slate-300 cursor-not-allowed" disabled title="Próximamente">
                 <MoreVertical className="h-4 w-4" />
               </button>
             </span>
@@ -102,6 +107,13 @@ export default function ProcedimientosTab({ patient = {} }) {
           </button>
         </div>
       </div>
+
+      <ProcedureRecordModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        patientId={patient.id}
+        onSaved={onSaved}
+      />
     </div>
   );
 }
