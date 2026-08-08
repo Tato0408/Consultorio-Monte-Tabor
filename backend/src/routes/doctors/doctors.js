@@ -7,9 +7,12 @@ import { validateAuthCookie } from "../../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
+// Solo exige sesion iniciada (authenticate), sin authorize("users.doctors","view"):
+// recepcion, doctores y enfermeras necesitan este catalogo para agendar citas aunque
+// su rol no tenga permiso sobre el modulo de administracion de doctores.
 router
   .route("/")
-  .get(doctorsController.getDoctors)
+  .get(authenticate, doctorsController.getDoctors)
 
   .post(
     authenticate,
@@ -49,6 +52,6 @@ router
 
  router
  .route("/search")
-  .get(doctorsController.searchDoctors)
+  .get(authenticate, doctorsController.searchDoctors)
 
 export default router;

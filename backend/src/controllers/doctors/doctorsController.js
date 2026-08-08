@@ -14,7 +14,8 @@ doctorController.getDoctors = async (req, res) => {
   try {
     //doctorsModel.find() busca todos los documentos de la colección doctors.
     //y lo guarda en la constante doctors
-    const doctors = await doctorsModel.find();
+    //-password: nunca se envia el hash de la contraseña al cliente
+    const doctors = await doctorsModel.find().select("-password");
 
     //devulve un codigo 200 indiacndo que la peticion fue exitosa
     //y envia  a todos los doctores encontrados en un json
@@ -430,13 +431,15 @@ doctorController.searchDoctors = async (req, res) => {
     //Evalua si la variable 'search' no fue enviada o si unicamente contiene espacios vacios o en blanco
     if (!search || search.trim() === "") {
       //Al no haber filtros especificos busca todos los documentos existentes en doctorsModel de manera general
-      const doctors = await doctorsModel.find();
+      //-password: nunca se envia el hash de la contraseña al cliente
+      const doctors = await doctorsModel.find().select("-password");
 
       //Retorna la lista total de medicos encontrados con un codigo de estado exitoso 200
       return res.status(200).json(doctors);
     }
 
     //Si 'search' contiene texto, realiza una busqueda avanzada utilizando filtros condicionales dentro de Mongoose
+    //-password: nunca se envia el hash de la contraseña al cliente
     const doctors = await doctorsModel.find({
       //$or asegura que el registro sera valido con que una sola de las propiedades internas coincida con el parametro
       $or: [
@@ -484,7 +487,7 @@ doctorController.searchDoctors = async (req, res) => {
           },
         },
       ],
-    });
+    }).select("-password");
 
     //Manda de regreso al cliente la coleccion de doctores filtrados que cumplieron los criterios junto a un codigo 200
     return res.status(200).json(doctors);

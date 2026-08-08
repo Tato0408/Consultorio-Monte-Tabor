@@ -125,6 +125,29 @@ export const confirmResetPermissions = async (roleName) => {
   return result.isConfirmed;
 };
 
+export const confirmDischarge = async () => {
+  const result = await Swal.fire({
+    title: "¿Dar de alta este tratamiento?",
+    text: "Se quitará el control pendiente y el paciente pasará a \"Finalizado\".",
+    icon: "warning",
+    iconColor: "#fbbf24",
+    showCancelButton: true,
+    confirmButtonText: "Sí, dar de alta",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#ef4444",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return result.isConfirmed;
+};
+
 export const confirmCancelAppointment = async () => {
   const result = await Swal.fire({
     title: "¿Cancelar esta cita?",

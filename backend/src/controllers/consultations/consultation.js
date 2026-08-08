@@ -4,6 +4,7 @@ import prescriptionsModel from "../../models/consultations/prescription.js"
 import patientsModel from "../../models/patients/patients.js";
 import doctorsModel from "../../models/doctors/doctors.js";
 import proceduresModel from "../../models/procedures/procedures.js";
+import inventoryController from "../inventory/inventoryController.js";
 const consultationController = {};
 
 // Convierte el triage de la consulta al shape de Patients.clinical_history.vital_signs — null si
@@ -37,6 +38,16 @@ const buildVitalSignsEntry = (triage, consultationDate) => {
 const nonEmptyRows = (rows, keys) =>
   (Array.isArray(rows) ? rows : []).filter((row) => keys.some((k) => String(row?.[k] || "").trim() !== ""));
 
+// Descarta materiales sin insumo elegido (el doctor le dio "Agregar material" pero dejó el
+// selector en blanco) — si no se limpia aquí, Mongoose revienta al intentar castear "" como
+// ObjectId al guardar la consulta, y de paso evita que se descuente inventario con cantidad 0.
+const sanitizeProcedureRows = (procedure) =>
+  (Array.isArray(procedure) ? procedure : []).map((p) => ({
+    ...p,
+    material_used: (Array.isArray(p?.material_used) ? p.material_used : [])
+      .filter((m) => m?.inventory_id && Number(m.quantity) > 0),
+  }));
+
 // Arma el update ($set + $push) de Patients.clinical_history a partir de lo que el doctor cargó
 // en esta consulta. hereditary/pathological/antecedentes de texto se REEMPLAZAN por completo: el
 // formulario de consulta ya precarga lo que el paciente tenía registrado (ver
@@ -63,6 +74,15 @@ const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedur
     push["clinical_history.vital_signs"] = vitalSignsEntry;
   }
 
+  // Se resuelven los nombres reales (no solo los ids) para poder etiquetar con algo legible el
+  // movimiento de inventario que descuenta los materiales usados (ver applyMaterialUsageDelta
+  // más abajo), y se devuelven junto con los mapas para que syncProcedureHistory (justo debajo)
+  // los reutilice sin tener que volver a consultar la colección.
+  let procedureNames = [];
+  let doctorName = "";
+  let procedureNameById = new Map();
+  let doctorNameById = new Map();
+
   const procedureRows = (procedure || []).filter((p) => p?.procedure_id);
   if (procedureRows.length) {
     const procedureIds = [...new Set(procedureRows.map((p) => p.procedure_id))];
@@ -71,27 +91,77 @@ const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedur
       proceduresModel.find({ _id: { $in: procedureIds } }).select("name").lean(),
       doctorsModel.find({ _id: { $in: doctorIds } }).select("name last_name").lean(),
     ]);
-    const procedureNameById = new Map(procedureDocs.map((p) => [String(p._id), p.name]));
-    const doctorNameById = new Map(doctorDocs.map((d) => [String(d._id), `${d.name} ${d.last_name}`]));
+    procedureNameById = new Map(procedureDocs.map((p) => [String(p._id), p.name]));
+    doctorNameById = new Map(doctorDocs.map((d) => [String(d._id), `${d.name} ${d.last_name}`]));
 
-    push["clinical_history.procedures"] = {
-      $each: procedureRows.map((p) => ({
-        procedure_id: p.procedure_id,
-        procedure_name: procedureNameById.get(String(p.procedure_id)) || "Procedimiento",
-        consultation_id: consultationId,
-        doctor_id: p.doctor_id || undefined,
-        doctor_name: p.doctor_id ? doctorNameById.get(String(p.doctor_id)) || "" : "",
-        date: consultationDate || new Date(),
-        diagnosis: clinical_data?.diagnosis_description || clinical_data?.diagnosis || undefined,
-        follow_up_date: followUpDate || undefined,
-      })),
-    };
+    procedureNames = procedureRows.map((p) => procedureNameById.get(String(p.procedure_id)) || "Procedimiento");
+    doctorName = procedureRows.map((p) => p.doctor_id && doctorNameById.get(String(p.doctor_id))).find(Boolean) || "";
   }
 
   const update = {};
   if (Object.keys(set).length) update.$set = set;
   if (Object.keys(push).length) update.$push = push;
-  return Object.keys(update).length ? update : null;
+  return { update: Object.keys(update).length ? update : null, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById };
+};
+
+// Sincroniza Patients.clinical_history.procedures fila por fila, en vez de simplemente empujar
+// (`$push`) lo que traiga la consulta cada vez que se guarda. Antes, tanto insertConsultation
+// como updateConsultation usaban $push sin condición: guardar/editar la MISMA consulta dos veces
+// duplicaba su procedimiento en el expediente del paciente y en el seguimiento de Tratamientos
+// (cada guardado agregaba una copia más). Ahora, si ya existe una entrada para este
+// (consultation_id, procedure_id) — porque esta consulta ya se había guardado antes — se
+// actualiza en su lugar, SIN tocar result/resultAuthor/resultUpdatedAt/notes/documents (esos son
+// datos que Tratamientos pudo haber agregado después y no deben perderse solo porque el doctor
+// volvió a guardar la consulta). Si no existe todavía, se agrega nueva.
+const syncProcedureHistory = async ({ patientId, consultationId, procedureRows, procedureNameById, doctorNameById, consultationDate, diagnosisText, followUpDate, session }) => {
+  for (const row of procedureRows) {
+    const procedureName = procedureNameById.get(String(row.procedure_id)) || "Procedimiento";
+    const doctorNm = row.doctor_id ? doctorNameById.get(String(row.doctor_id)) || "" : "";
+    const entryFields = {
+      procedure_name: procedureName,
+      doctor_id: row.doctor_id || undefined,
+      doctor_name: doctorNm,
+      date: consultationDate || new Date(),
+      diagnosis: diagnosisText,
+      follow_up_date: followUpDate || undefined,
+    };
+
+    const setResult = await patientsModel.updateOne(
+      {
+        _id: patientId,
+        "clinical_history.procedures": { $elemMatch: { consultation_id: consultationId, procedure_id: row.procedure_id } },
+      },
+      {
+        $set: {
+          "clinical_history.procedures.$.procedure_name": entryFields.procedure_name,
+          "clinical_history.procedures.$.doctor_id": entryFields.doctor_id,
+          "clinical_history.procedures.$.doctor_name": entryFields.doctor_name,
+          "clinical_history.procedures.$.date": entryFields.date,
+          "clinical_history.procedures.$.diagnosis": entryFields.diagnosis,
+          "clinical_history.procedures.$.follow_up_date": entryFields.follow_up_date,
+        },
+      },
+      { session, runValidators: true }
+    );
+
+    // matchedCount === 0 significa que esta fila (procedure_id) todavía no existía para esta
+    // consulta — o es la primera vez que se guarda, o el doctor la agregó en esta edición.
+    if (!setResult.matchedCount) {
+      await patientsModel.updateOne(
+        { _id: patientId },
+        {
+          $push: {
+            "clinical_history.procedures": {
+              procedure_id: row.procedure_id,
+              consultation_id: consultationId,
+              ...entryFields,
+            },
+          },
+        },
+        { session, runValidators: true }
+      );
+    }
+  }
 };
 
 //Select
@@ -153,12 +223,14 @@ consultationController.insertConsultation = async (req, res) => {
       prescription,
     } = req.body;
 
+    const sanitizedProcedure = sanitizeProcedureRows(procedure);
+
     const newConsultation = new consultationsModel({
       appointment_id,
       patient_id,
       clinical_data,
       physical_exam,
-      procedure,
+      procedure: sanitizedProcedure,
       follow_up_date,
       referral,
     });
@@ -185,10 +257,10 @@ consultationController.insertConsultation = async (req, res) => {
     // Sincroniza el expediente del paciente (signos vitales, antecedentes, procedimientos) con
     // lo que el doctor acaba de registrar en esta consulta — así el Expediente Clínico deja de
     // depender de un flujo aparte que nunca existió.
-    const patientUpdate = await buildClinicalHistoryUpdate({
+    const { update: patientUpdate, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById } = await buildClinicalHistoryUpdate({
       clinical_data,
       antecedents,
-      procedure,
+      procedure: sanitizedProcedure,
       consultationId: savedConsultation._id,
       consultationDate: savedConsultation.date,
       followUpDate: follow_up_date,
@@ -200,6 +272,33 @@ consultationController.insertConsultation = async (req, res) => {
         runValidators: true,
       });
     }
+    if (procedureRows.length) {
+      await syncProcedureHistory({
+        patientId: patient_id,
+        consultationId: savedConsultation._id,
+        procedureRows,
+        procedureNameById,
+        doctorNameById,
+        consultationDate: savedConsultation.date,
+        diagnosisText: clinical_data?.diagnosis_description || clinical_data?.diagnosis || undefined,
+        followUpDate: follow_up_date,
+        session,
+      });
+    }
+
+    // Descuenta del inventario real los materiales que el doctor marcó como usados en cada
+    // procedimiento de esta consulta (antes se guardaban en material_used pero nunca tocaban
+    // el stock). Como es una consulta nueva, "lo anterior" está vacío: se descuenta todo.
+    const patientForMovement = await patientsModel.findById(patient_id).select("name last_name").session(session).lean();
+    await inventoryController.applyMaterialUsageDelta({
+      previousProcedureRows: [],
+      procedureRows: sanitizedProcedure,
+      patientName: patientForMovement ? `${patientForMovement.name} ${patientForMovement.last_name}`.trim() : undefined,
+      responsible: doctorName || undefined,
+      procedureType: procedureNames.join(", ") || undefined,
+      session,
+    });
+
     //Ahora que todos los cambios temporales son confirmados los guarda en la base de datos
     await session.commitTransaction();
     //Cerramos el canal de la session
@@ -225,6 +324,17 @@ consultationController.deleteConsultation = async (req, res) => {
     if (!consultationDeleted) {
       return res.status(404).json({ message: "Consulta no encontrada" });
     }
+
+    // Si esta consulta había empujado algún procedimiento al expediente del paciente (ver
+    // syncProcedureHistory), se limpia también — si no, queda un "tratamiento fantasma" en
+    // Tratamientos (/inventory/treatments) apuntando a una consulta que ya no existe.
+    if (consultationDeleted.patient_id) {
+      await patientsModel.updateOne(
+        { _id: consultationDeleted.patient_id },
+        { $pull: { "clinical_history.procedures": { consultation_id: consultationDeleted._id } } }
+      );
+    }
+
     return res.status(200).json({ message: "Consulta eliminada" });
   } catch (error) {
     console.log("error" + error);
@@ -252,6 +362,16 @@ consultationController.updateConsultation = async (req, res) => {
       prescription,
     } = req.body;
 
+    // Se guarda "lo anterior" ANTES de sobreescribir, para poder descontar solo la diferencia
+    // de material_used (ver applyMaterialUsageDelta) y no el total de nuevo en cada edición.
+    const previousConsultation = await consultationsModel
+      .findById(req.params.id)
+      .select("procedure")
+      .session(session)
+      .lean();
+
+    const sanitizedProcedure = sanitizeProcedureRows(procedure);
+
     const consultationUpdated = await consultationsModel.findByIdAndUpdate(
       req.params.id,
       {
@@ -259,7 +379,7 @@ consultationController.updateConsultation = async (req, res) => {
         patient_id,
         clinical_data,
         physical_exam,
-        procedure,
+        procedure: sanitizedProcedure,
         follow_up_date,
         referral,
       },
@@ -289,10 +409,10 @@ consultationController.updateConsultation = async (req, res) => {
     // Misma sincronización que insertConsultation — al editar una consulta ya existente
     // (ej. completar el registro de una cita en curso) el expediente del paciente también
     // debe quedar al día.
-    const patientUpdate = await buildClinicalHistoryUpdate({
+    const { update: patientUpdate, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById } = await buildClinicalHistoryUpdate({
       clinical_data,
       antecedents,
-      procedure,
+      procedure: sanitizedProcedure,
       consultationId: consultationUpdated._id,
       consultationDate: consultationUpdated.date,
       followUpDate: follow_up_date,
@@ -304,6 +424,35 @@ consultationController.updateConsultation = async (req, res) => {
         runValidators: true,
       });
     }
+    // syncProcedureHistory (no un $push directo): esta consulta puede que ya se haya guardado
+    // antes, así que hay que actualizar en su lugar la entrada existente en vez de duplicarla —
+    // ver el comentario junto a la función para el detalle del bug que esto evita.
+    if (procedureRows.length) {
+      await syncProcedureHistory({
+        patientId: patient_id,
+        consultationId: consultationUpdated._id,
+        procedureRows,
+        procedureNameById,
+        doctorNameById,
+        consultationDate: consultationUpdated.date,
+        diagnosisText: clinical_data?.diagnosis_description || clinical_data?.diagnosis || undefined,
+        followUpDate: follow_up_date,
+        session,
+      });
+    }
+
+    // Solo mueve la DIFERENCIA entre lo que la consulta usaba antes de esta edición y lo que
+    // usa ahora — si no cambió nada en material_used, no se genera ningún movimiento.
+    const patientForMovement = await patientsModel.findById(patient_id).select("name last_name").session(session).lean();
+    await inventoryController.applyMaterialUsageDelta({
+      previousProcedureRows: previousConsultation?.procedure || [],
+      procedureRows: sanitizedProcedure,
+      patientName: patientForMovement ? `${patientForMovement.name} ${patientForMovement.last_name}`.trim() : undefined,
+      responsible: doctorName || undefined,
+      procedureType: procedureNames.join(", ") || undefined,
+      session,
+    });
+
     await session.commitTransaction();
     session.endSession();
 

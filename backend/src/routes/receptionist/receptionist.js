@@ -45,10 +45,10 @@ router
     ]),
     receptionistsController.updateReceptionist
   )
-  .delete(receptionistsController.deleteReceptionist);
+  .delete(authenticate, authorize("users.receptionist", "delete"), receptionistsController.deleteReceptionist);
 
 router
 .route("/search")
-.get(receptionistsController.searchReceptionist);
+.get(authenticate, authorize("users.receptionist", "view"), receptionistsController.searchReceptionist);
 
 export default router;

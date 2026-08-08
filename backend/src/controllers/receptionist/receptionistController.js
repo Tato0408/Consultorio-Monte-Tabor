@@ -14,7 +14,8 @@ receptionistController.getReceptionists = async (req, res) => {
   try {
     //receptionistsModel.find() busca todos los documentos de la colección receptionists.
     //y lo guarda en la constante receptionists
-    const receptionists = await receptionistsModel.find();
+    //-password: nunca se envia el hash de la contraseña al cliente
+    const receptionists = await receptionistsModel.find().select("-password");
 
     //devulve un codigo 200 indiacndo que la peticion fue exitosa
     //y envia  a todos los recepcionistas encontrados en un json
@@ -340,7 +341,8 @@ receptionistController.searchReceptionist = async (req, res) => {
     //Si el parametro search no existe o viene vacio solo con espacios en blanco
     if (!search || search.trim() === "") {
       //Busca todos los documentos de la coleccion de forma general sin filtros
-      const allReceptionists = await receptionistsModel.find();
+      //-password: nunca se envia el hash de la contraseña al cliente
+      const allReceptionists = await receptionistsModel.find().select("-password");
       
       //devulve un codigo 200 indiacndo que fue exitoso y manda a todos los recepcionistas en un json
       return res.status(200).json(allReceptionists);
@@ -359,7 +361,7 @@ receptionistController.searchReceptionist = async (req, res) => {
         { dui: { $regex: search, $options: "i" } },
         { phone: { $regex: search, $options: "i" } },
       ],
-    });
+    }).select("-password");
     //devulve un codigo 200 indiacndo exito y envia todos los recepcionistas filtrados en un json
     return res.status(200).json(results);
   } catch (error) {

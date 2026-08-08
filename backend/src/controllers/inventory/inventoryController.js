@@ -384,6 +384,67 @@ inventoryController.discountFromProcedure = async (req, res) => {
   }
 };
 
+// ── Descuento real de inventario al guardar una consulta ──────────────────────
+// Suma la cantidad usada por insumo a través de todos los procedimientos de una consulta
+// (una misma consulta puede tener varios procedimientos, y cada uno varios materiales).
+const sumMaterialUsage = (procedureRows) => {
+  const totals = new Map();
+  for (const proc of procedureRows || []) {
+    for (const m of proc?.material_used || []) {
+      if (!m?.inventory_id || !Number(m.quantity)) continue;
+      const key = String(m.inventory_id);
+      totals.set(key, (totals.get(key) || 0) + Number(m.quantity));
+    }
+  }
+  return totals;
+};
+
+// Llamada directamente desde consultationController (no por HTTP) al crear o editar una
+// consulta, para que "material_used" deje de ser un dato inerte y realmente descuente stock.
+// Compara lo que la consulta usaba ANTES contra lo que usa AHORA y solo mueve la diferencia:
+// así, editar una consulta ya guardada no vuelve a descontar el total desde cero, y si el
+// doctor reduce/quita un material, la diferencia se repone automáticamente.
+inventoryController.applyMaterialUsageDelta = async ({
+  previousProcedureRows,
+  procedureRows,
+  patientName,
+  responsible,
+  procedureType,
+  session,
+}) => {
+  const previousTotals = sumMaterialUsage(previousProcedureRows);
+  const newTotals = sumMaterialUsage(procedureRows);
+  const inventoryIds = new Set([...previousTotals.keys(), ...newTotals.keys()]);
+
+  for (const inventoryId of inventoryIds) {
+    const delta = (newTotals.get(inventoryId) || 0) - (previousTotals.get(inventoryId) || 0);
+    if (!delta) continue;
+
+    const item = await inventoryModel.findById(inventoryId).session(session);
+    if (!item) continue;
+
+    item.stock = Math.max(0, item.stock - delta);
+    if (delta > 0) item.last_used = new Date();
+    await item.save({ session });
+
+    await new movementModel({
+      type:     delta > 0 ? "Treatment use" : "Inventory adjustment",
+      item:     item._id,
+      itemName: item.name,
+      quantity: -delta,
+      detail:   delta > 0
+        ? `Procedimiento: ${procedureType || "Consulta médica"}`
+        : `Ajuste por edición de consulta (se redujo el material usado): ${procedureType || "Consulta médica"}`,
+      user:     responsible || "Sistema",
+      patient:  patientName || null,
+    }).save({ session });
+
+    // Fuera de la transacción a propósito: si notificar falla, no debe tumbar el guardado
+    // de la consulta (mismo criterio que el resto de este controlador).
+    notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
+  }
+};
+
 // ── GET datos para gráficas ───────────────────────────────────────────────────
 inventoryController.getCharts = async (req, res) => {
   try {

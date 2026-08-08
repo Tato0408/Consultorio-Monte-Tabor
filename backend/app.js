@@ -18,6 +18,7 @@ import doctorRecoveryRoutes from './src/routes/doctors/recoveryPasswordDoctor.js
 import logoutRoute from './src/routes/login/logout.js'
 import inventoryRoutes from './src/routes/inventory/inventory.js'
 import proceduresRoutes from './src/routes/procedures/procedures.js'
+import treatmentsRoutes from './src/routes/treatments/treatments.js'
 import authRoutes from "./src/routes/auth/authRoutes.js"
 import adminRoutes from "./src/routes/admin/admin.js"
 import registerAdminRoute from "./src/routes/admin/registerAdmin.js"
@@ -91,6 +92,7 @@ app.use("/api/consultations", authenticate, consultationsRoutes);
 app.use("/api/appointments" , authenticate , appointmentsRoutes);
 app.use("/api/inventory", authenticate, inventoryRoutes);
 app.use("/api/procedures", authenticate, proceduresRoutes);
+app.use("/api/treatments", authenticate, treatmentsRoutes);
 app.use("/api/schedule", authenticate, scheduleRoutes);
 app.use("/api/nurse-schedule", authenticate, nurseScheduleRoutes);
 app.use("/api/dashboard", validateAuthCookie(["admin"]), dashboardRoutes);
