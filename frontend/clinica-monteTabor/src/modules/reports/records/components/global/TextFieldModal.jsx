@@ -58,11 +58,13 @@ const TextFieldModal = ({ isOpen, onClose, patientId, title, bodyKey, currentVal
         <fieldset disabled={loading} className="contents">
           <textarea
             rows={5}
+            maxLength={1000}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="Escribe aquí..."
             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors resize-none"
           />
+          <p className="text-[11px] text-slate-400 text-right mt-1">{value.length}/1000</p>
 
           <button
             type="button"

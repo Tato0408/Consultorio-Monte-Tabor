@@ -4,6 +4,12 @@ import { X, Loader2, FileClock } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
 
+const TODAY_STR = new Date().toISOString().split("T")[0];
+const MIN_YEAR = 2000;
+// Tope amplio (una incapacidad rara vez dura años, pero da margen razonable) — sigue siendo un
+// año real de 4 dígitos, que es justo lo que un <input type="date"> sin límite no garantiza.
+const MAX_DATE_STR = `${new Date().getFullYear() + 2}-12-31`;
+
 // Modal simple para crear una incapacidad (SickLeave) desde el expediente.
 // Es un recurso independiente (patient_id + doctor_id), no depende de una
 // consulta, por eso no reusa el flujo de /calendar/consultations.
@@ -13,6 +19,7 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
     register,
     handleSubmit,
     reset,
+    getValues,
     formState: { errors },
   } = useForm({
     defaultValues: { diagnosis: "", start_date: "", end_date: "" },
@@ -82,7 +89,12 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
             <input
               type="text"
               placeholder="Ej. Gripe estacional"
-              {...register("diagnosis", { required: "El diagnóstico es requerido" })}
+              maxLength={150}
+              {...register("diagnosis", {
+                required: "El diagnóstico es requerido",
+                minLength: { value: 2, message: "Debe tener al menos 2 caracteres" },
+                maxLength: { value: 150, message: "Máximo 150 caracteres" },
+              })}
               className={inputClass(errors.diagnosis)}
             />
             {errors.diagnosis && (
@@ -95,7 +107,21 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
               <label className="text-xs font-semibold text-slate-500">Desde</label>
               <input
                 type="date"
-                {...register("start_date", { required: "Requerido" })}
+                min={`${MIN_YEAR}-01-01`}
+                max={MAX_DATE_STR}
+                {...register("start_date", {
+                  required: "Requerido",
+                  // Mismo problema que reportaste: un <input type="date"> deja escribir un año
+                  // de más de 4 dígitos si no se valida a mano (min/max del input no siempre lo
+                  // bloquea mientras se escribe).
+                  validate: (value) => {
+                    if (!value) return true;
+                    if (value.length !== 10) return "Fecha inválida";
+                    const year = Number(value.slice(0, 4));
+                    if (year < MIN_YEAR || value > MAX_DATE_STR) return "Fecha fuera de rango";
+                    return true;
+                  },
+                })}
                 className={inputClass(errors.start_date)}
               />
               {errors.start_date && (
@@ -106,7 +132,21 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
               <label className="text-xs font-semibold text-slate-500">Hasta</label>
               <input
                 type="date"
-                {...register("end_date", { required: "Requerido" })}
+                min={`${MIN_YEAR}-01-01`}
+                max={MAX_DATE_STR}
+                {...register("end_date", {
+                  required: "Requerido",
+                  validate: (value) => {
+                    if (!value) return true;
+                    if (value.length !== 10) return "Fecha inválida";
+                    const year = Number(value.slice(0, 4));
+                    if (year < MIN_YEAR || value > MAX_DATE_STR) return "Fecha fuera de rango";
+                    // No puede terminar antes de empezar.
+                    const start = getValues("start_date");
+                    if (start && value < start) return "No puede ser antes de la fecha de inicio";
+                    return true;
+                  },
+                })}
                 className={inputClass(errors.end_date)}
               />
               {errors.end_date && (

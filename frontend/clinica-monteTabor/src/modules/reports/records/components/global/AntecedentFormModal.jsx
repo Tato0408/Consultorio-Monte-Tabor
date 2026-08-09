@@ -6,9 +6,14 @@ import { showSuccess, showError } from "@/lib/alerts";
 // Modal genérico y compacto para agregar UN antecedente hereditario o patológico — mismo tamaño
 // que IncapacidadFormModal/ProcedureModal (2 campos, sin scroll). `bodyKey` es "new_hereditary" o
 // "new_pathological" (lo que ya acepta PUT /patients/:id), `fields` = [{key,label}] de ese tipo.
+// Máximo razonable para un campo corto de una sola línea (parentesco, condición, enfermedad,
+// tipo) — evita que alguien pegue un párrafo entero en un campo pensado para 2-3 palabras.
+const MAX_FIELD_LENGTH = 100;
+
 const AntecedentFormModal = ({ isOpen, onClose, patientId, title, bodyKey, fields, onSaved }) => {
   const emptyValues = Object.fromEntries(fields.map((f) => [f.key, ""]));
   const [values, setValues] = useState(emptyValues);
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -16,6 +21,7 @@ const AntecedentFormModal = ({ isOpen, onClose, patientId, title, bodyKey, field
   const close = () => {
     if (loading) return;
     setValues(emptyValues);
+    setErrors({});
     onClose();
   };
 
@@ -23,6 +29,22 @@ const AntecedentFormModal = ({ isOpen, onClose, patientId, title, bodyKey, field
     if (loading) return;
     const hasSomething = fields.some((f) => values[f.key]?.trim());
     if (!hasSomething) return;
+
+    // Si un campo viene lleno, tiene que tener al menos 2 caracteres reales (no solo espacios)
+    // — un campo vacío sigue siendo válido (no todos son obligatorios a la vez).
+    const nextErrors = {};
+    fields.forEach((f) => {
+      const value = values[f.key]?.trim() || "";
+      if (value && value.length < 2) {
+        nextErrors[f.key] = "Debe tener al menos 2 caracteres";
+      }
+    });
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+    setErrors({});
+
     setLoading(true);
     try {
       await apiClient(`/patients/${patientId}`, {
@@ -65,10 +87,14 @@ const AntecedentFormModal = ({ isOpen, onClose, patientId, title, bodyKey, field
                 <label className="text-xs font-semibold text-slate-500">{f.label}</label>
                 <input
                   type="text"
+                  maxLength={MAX_FIELD_LENGTH}
                   value={values[f.key]}
                   onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"
+                  className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none transition-colors ${
+                    errors[f.key] ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-blue-500"
+                  }`}
                 />
+                {errors[f.key] && <p className="text-[11px] text-red-500">{errors[f.key]}</p>}
               </div>
             ))}
           </div>

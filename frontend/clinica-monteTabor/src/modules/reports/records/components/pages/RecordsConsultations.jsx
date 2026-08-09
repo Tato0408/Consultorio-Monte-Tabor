@@ -9,6 +9,9 @@ const ESTADO_STYLES = {
   en_espera: { label: "En espera", tone: "blue" },
 };
 
+const MIN_FILTER_YEAR = 2000;
+const MAX_FILTER_DATE = `${new Date().getFullYear() + 1}-12-31`;
+
 // Espera `patient.consultas` = [{ id, hora, paciente, medico, estado, _fecha }]
 const ConsultasDelDia = ({
   patient = {},
@@ -66,8 +69,17 @@ const ConsultasDelDia = ({
             <span className="text-xs text-slate-500">Desde</span>
             <input
               type="date"
+              min={`${MIN_FILTER_YEAR}-01-01`}
+              max={MAX_FILTER_DATE}
               value={desde}
-              onChange={(e) => { setDesde(e.target.value); setPagina(1); }}
+              onChange={(e) => {
+                const val = e.target.value;
+                // Corta un año de más de 4 dígitos antes de que entre al estado del filtro.
+                if (val && val.length !== 10) return;
+                if (val && (val < `${MIN_FILTER_YEAR}-01-01` || val > MAX_FILTER_DATE)) return;
+                setDesde(val);
+                setPagina(1);
+              }}
               className={inputCls}
             />
           </label>
@@ -75,8 +87,16 @@ const ConsultasDelDia = ({
             <span className="text-xs text-slate-500">Hasta</span>
             <input
               type="date"
+              min={`${MIN_FILTER_YEAR}-01-01`}
+              max={MAX_FILTER_DATE}
               value={hasta}
-              onChange={(e) => { setHasta(e.target.value); setPagina(1); }}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val && val.length !== 10) return;
+                if (val && (val < `${MIN_FILTER_YEAR}-01-01` || val > MAX_FILTER_DATE)) return;
+                setHasta(val);
+                setPagina(1);
+              }}
               className={inputCls}
             />
           </label>
