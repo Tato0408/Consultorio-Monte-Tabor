@@ -1,4 +1,8 @@
 import doctorsModel from "../../models/doctors/doctors.js";
+import patientsModel from "../../models/patients/patients.js";
+import appointmentsModel from "../../models/appointments/appointments.js";
+import proceduresModel from "../../models/procedures/procedures.js";
+import consultationsModel from "../../models/consultations/consultation.js";
 import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js";
@@ -193,6 +197,17 @@ doctorController.updateDoctors = async (req, res) => {
       return res.status(400).json({ message: formatError });
     }
 
+    // Mismo chequeo que al crear: si el correo o DUI editado ya lo usa otro miembro del staff
+    // (admin/doctor/enfermera/recepcionista), se avisa con un mensaje claro en vez de dejar que
+    // reviente contra el índice único de Mongo con un error 500 genérico. excludeId es el propio
+    // doctor, para no chocar contra sí mismo si no cambió el correo/DUI.
+    if (email || dui) {
+      const staffDuplicate = await findStaffDuplicate(email, dui, req.params.id);
+      if (staffDuplicate) {
+        return res.status(400).json(staffDuplicate);
+      }
+    }
+
     //Crea un objeto nuevo con todos los datos limpios y listos para ser actualizados en la base de datos
     const updatedData = {
       name,
@@ -298,6 +313,21 @@ doctorController.deleteDoctor = async (req, res) => {
       });
     }
 
+    // No se permite eliminar un doctor con citas o consultas relacionadas: doctor_id es una
+    // referencia obligatoria en esos registros, así que borrarlo de todos modos los dejaría
+    // apuntando a un doctor fantasma (Citas, Consultas y Reportes podrían fallar o mostrar el
+    // campo en blanco al intentar leerlo). Se revisa ANTES de tocar Cloudinary, para no borrar
+    // las fotos del doctor si al final la eliminación no procede.
+    const [hasAppointments, hasConsultations] = await Promise.all([
+      appointmentsModel.exists({ doctor_id: req.params.id }),
+      consultationsModel.exists({ "procedure.doctor_id": req.params.id }),
+    ]);
+    if (hasAppointments || hasConsultations) {
+      return res.status(400).json({
+        message: "Este doctor tiene citas o consultas relacionadas, por eso no se puede eliminar. Si ya no debe seguir activo, márcalo como inactivo en su lugar.",
+      });
+    }
+
     // VALIDACIÓN: Solo borrar de Cloudinary si el ID público existe
     //Condicion de seguridad para confirmar que el doctor cuenta con un identificador de imagen de perfil en la nube
     if (doctorFound.img_public_id) {
@@ -331,93 +361,6 @@ doctorController.deleteDoctor = async (req, res) => {
     });
   }
 };
-
-doctorController.updateOwnProfile = async (req, res) => {
-  //Bloque try para procesar de forma segura la actualizacion del perfil del usuario que inicio sesion
-  try {
-    //Toma el ID del doctor autenticado directamente desde la propiedad 'id' que inyecto el middleware del token en req.user
-    const doctorId = req.user.id; 
-
-    //Realiza una busqueda en la coleccion de doctores usando el ID obtenido del usuario logueado
-    const doctorFound = await doctorsModel.findById(doctorId);
-
-    //Si el doctor asociado al token no es localizado en la base de datos aborta y lanza un codigo 404
-    if (!doctorFound) {
-      return res.status(404).json({
-        message: "Perfil del doctor no encontrado",
-      });
-    }
-
-    //Obtiene del cuerpo de la peticion (body) unicamente los campos generales que el doctor tiene permitido cambiarse a si mismo
-    const {
-      name,
-      last_name,
-      dui,
-      birth_date,
-      gender,
-      phone,
-      email,
-    } = req.body;
-
-    //Estructura un objeto temporal que almacena los valores basicos que seran reemplazados en el documento de MongoDB
-    const updatedData = {
-      name,
-      last_name,
-      dui,
-      birth_date,
-      gender,
-      phone,
-      email,
-    };
-
-    //Comprueba si el doctor decidio actualizar su fotografia de perfil mandando un archivo nuevo
-    if (req.files?.doctorImage) {
-      //Valida si el doctor ya contaba con un identificador de imagen previo guardado en la nube
-      if (doctorFound.img_public_id) {
-        //Elimina el archivo antiguo de Cloudinary para evitar acumular archivos huerfanos o duplicados
-        await cloudinary.uploader.destroy(doctorFound.img_public_id);
-      }
-      //Inserta la nueva ubicacion del archivo en disco/nube dentro del objeto de los datos modificados
-      updatedData.img_url = req.files["doctorImage"][0].path;
-      //Establece el nuevo id publico de la imagen generada por Cloudinary para control futuro
-      updatedData.img_public_id = req.files["doctorImage"][0].filename;
-    }
-
-    //Comprueba si el doctor decidio adjuntar un archivo para reemplazar su documento o fotografia de licencia medica
-    if (req.files?.licenseImage) {
-      //Verifica la existencia del identificador publico de la licencia actual dentro de la base de datos
-      if (doctorFound.license_public_id) {
-        //Invoca la destruccion del recurso antiguo en Cloudinary de manera asincrona
-        await cloudinary.uploader.destroy(doctorFound.license_public_id);
-      }
-      //Almacena la ruta de acceso de la nueva licencia subida en las propiedades de actualizacion
-      updatedData.license_url = req.files["licenseImage"][0].path;
-      //Actualiza el ID publico asignado a la nueva imagen de la licencia en Cloudinary
-      updatedData.license_public_id = req.files["licenseImage"][0].filename;
-    }
-
-    //Ejecuta la consulta de actualizacion sobre el ID del doctor logueado inyectandole todos los campos preparados en updatedData
-    const profileUpdated = await doctorsModel.findByIdAndUpdate(
-      doctorId,
-      updatedData,
-      { new: true }
-    );
-
-    //Responde con codigo de exito 200, adjuntando un texto informativo y el objeto completo del usuario ya modificado
-    return res.status(200).json({
-      message: "Tu perfil se actualizó correctamente",
-      user: profileUpdated
-    });
-
-  } catch (error) {
-    //Imprime el error capturado en los logs del servidor en caso de caer en el catch
-    console.log("error " + error);
-    //Manda una respuesta JSON con codigo de estado de error interno del servidor indicando el punto exacto de la falla
-    return res.status(500).json({
-      message: "Error interno del servidor al actualizar tu perfil",
-    }); // Cerrado correctamente el objeto y el método .json()
-  } // Cerrado correctamente el bloque catch
-}; // Cerrada correctamente la función asíncrona
 
 // =====================
 // SEARCH
@@ -559,6 +502,36 @@ doctorController.updateOwnProfile = async (req, res) => {
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor al actualizar tu perfil" });
+  }
+};
+
+// Mismo criterio que nursesController.countAppointments/countProcedures: cifras reales del
+// sistema para las tarjetas de estadísticas de /users/doctors (antes eran constantes fijas
+// en DoctorsStats.jsx, sin relación con los datos reales de la clínica).
+doctorController.countPatients = async (req, res) => {
+  try {
+    const count = await patientsModel.countDocuments();
+    return res.status(200).json({ count });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+doctorController.countAppointments = async (req, res) => {
+  try {
+    const count = await appointmentsModel.countDocuments({ status: "completed" });
+    return res.status(200).json({ count });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+doctorController.countProcedures = async (req, res) => {
+  try {
+    const count = await proceduresModel.countDocuments();
+    return res.status(200).json({ count });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };
 

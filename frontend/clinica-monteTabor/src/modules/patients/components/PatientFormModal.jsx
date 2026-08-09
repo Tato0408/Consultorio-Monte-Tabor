@@ -48,7 +48,7 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
   const isActiveValue = watch("is_active");
 
   const passwordValidations = {
-    hasMinLength: passwordValue.length > 8,
+    hasMinLength: passwordValue.length >= 8,
     hasMixedCase: /[a-z]/.test(passwordValue) && /[A-Z]/.test(passwordValue),
     hasNumbers: /\d/.test(passwordValue),
     hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(passwordValue),
@@ -353,7 +353,7 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
               </div>
 
               <div className="flex flex-col gap-2 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-                <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene más de 8 dígitos" />
+                <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene al menos 8 caracteres" />
                 <ValidationRow checked={passwordValidations.hasMixedCase} label="La contraseña contiene mayúsculas y minúsculas" />
                 <ValidationRow checked={passwordValidations.hasNumbers} label="La contraseña incluye números" />
                 <ValidationRow checked={passwordValidations.hasSpecialChar} label="La contraseña incluye caracteres especiales" />

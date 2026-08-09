@@ -22,14 +22,18 @@ const STAFF_MODELS = [
 ];
 
 // Busca si el correo o el DUI ya están en uso por CUALQUIER rol de staff (admin, doctor,
-// enfermera o recepcionista) al crear un usuario nuevo. Pacientes queda fuera a propósito:
+// enfermera o recepcionista) al crear O EDITAR un usuario. Pacientes queda fuera a propósito:
 // sí puede repetir correo/DUI con el staff. loginCommonRole depende de que el correo sea único
 // entre estas 4 colecciones para saber a qué rol pertenece cada usuario al iniciar sesión —
-// por eso esta validación existe. Devuelve { message } listo para responder 400, o null si
-// no hay colisión.
-export const findStaffDuplicate = async (email, dui) => {
+// por eso esta validación existe. excludeId se pasa al EDITAR, para que un usuario no choque
+// contra su propio registro cuando no cambió el correo/DUI. Devuelve { message } listo para
+// responder 400, o null si no hay colisión.
+export const findStaffDuplicate = async (email, dui, excludeId) => {
     for (const { roleKey, model } of STAFF_MODELS) {
-        const found = await model.findOne({ $or: [{ email }, { dui }] });
+        const found = await model.findOne({
+            $or: [{ email }, { dui }],
+            ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+        });
         if (found) {
             const field = found.email === email ? "correo" : "DUI";
             return {
@@ -39,6 +43,11 @@ export const findStaffDuplicate = async (email, dui) => {
     }
     return null;
 };
+
+// Escapa caracteres especiales de regex antes de usar un texto libre dentro de un $regex de
+// Mongo (ej. una búsqueda de nombre insensible a mayúsculas) — evita tanto errores de sintaxis
+// (un nombre con paréntesis) como que el texto se interprete como patrón en vez de texto literal.
+export const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PHONE_REGEX = /^\d{4}-\d{4}$/;
@@ -150,8 +159,10 @@ export const validateUserFieldFormats = ({ name, last_name, phone, email, dui, b
 
 // Valida la fortaleza de una contraseña nueva. Devuelve el mensaje del primer requisito
 // incumplido, o null si la contraseña cumple todos los requisitos (misma regla que el
-// checklist del frontend: más de 8 caracteres, mayúscula, minúscula, número y símbolo).
+// checklist del frontend: al menos 8 caracteres, mayúscula, minúscula, número y símbolo).
 export const getPasswordError = (password) => {
+    // 8, mínimo que exige el frontend en todos los formularios de contraseña (doctor/enfermera/
+    // recepcionista/paciente, registro, recuperación y cambio desde el perfil).
     if (!password || password.length < 8) {
         return "La contraseña debe tener al menos 8 caracteres";
     }
@@ -202,5 +213,18 @@ export const getVitalSignsError = (vitals = {}) => {
         if (Number.isNaN(num)) return `${range.label} debe ser un número`;
         if (num < range.min || num > range.max) return `${range.label} debe estar entre ${range.min} y ${range.max}`;
     }
+    return null;
+};
+
+// Valida que un campo numérico (precio, stock, cantidad, duración, costo, etc.) no sea negativo.
+// value === undefined/null/"" se considera "no enviado" y no es un error aquí — cada controller
+// decide aparte si el campo es obligatorio. Mismo motivo que el resto de este archivo: el
+// frontend ya bloquea el signo "-" al escribir, pero el backend nunca debe confiar solo en eso
+// (ej. una llamada directa por Swagger).
+export const getNonNegativeError = (value, label) => {
+    if (value === undefined || value === null || value === "") return null;
+    const num = Number(value);
+    if (Number.isNaN(num)) return `${label} debe ser un número`;
+    if (num < 0) return `${label} no puede ser negativo`;
     return null;
 };

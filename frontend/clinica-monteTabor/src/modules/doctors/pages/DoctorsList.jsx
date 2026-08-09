@@ -23,6 +23,7 @@ const DoctorsList = () => {
     doctors,
     loading,
     error,
+    stats,
     getDoctors,
     deleteDoctor,
   } = useDoctors();
@@ -38,10 +39,8 @@ const DoctorsList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(8);
 
-  // useEffect que se ejecuta una sola vez cuando el componente se monta
-  useEffect(() => {
-    getDoctors();
-  }, []);
+  // El propio hook useDoctors ya pide la lista al montarse (su useEffect interno) — pedirla
+  // también aquí duplicaba la petición en cada carga de la página.
 
   // Resetear a página 1 si cambia la cantidad de filas por página
   useEffect(() => {
@@ -131,7 +130,7 @@ const DoctorsList = () => {
       </div>
 
       {/* Renderiza las tarjetas de estadísticas */}
-      <DoctorsStats doctors={doctors} loading={loading} />
+      <DoctorsStats doctors={doctors} stats={stats} loading={loading} />
 
       {/* CONTENEDOR EN REJILLA DE 12 COLUMNAS */}
       <div className="grid grid-cols-12 gap-6 mt-8">

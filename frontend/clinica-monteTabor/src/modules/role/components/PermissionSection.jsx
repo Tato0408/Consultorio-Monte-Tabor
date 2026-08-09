@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import ModulePermissionCard from "./ModulePermissionCard";
-import { VIEW_ONLY_MODULE_KEYS, LOCKED_TRUE_PERMISSIONS, MODULE_VIEW_DEPENDENCIES } from "../rolesConfig.js";
+import { VIEW_ONLY_MODULE_KEYS, HIDDEN_PERMISSION_ACTIONS, LOCKED_TRUE_PERMISSIONS, MODULE_VIEW_DEPENDENCIES } from "../rolesConfig.js";
 
 const PermissionSection = ({
   section,
@@ -65,6 +65,7 @@ const PermissionSection = ({
                 accentSolidClass={accentSolidClass}
                 readOnly={readOnly}
                 viewOnly={VIEW_ONLY_MODULE_KEYS.includes(module.key)}
+                hiddenActions={HIDDEN_PERMISSION_ACTIONS[module.key] || []}
                 lockedActions={LOCKED_TRUE_PERMISSIONS[roleKey]?.[module.key] || []}
                 // Dependencias de OTROS módulos que a este le falten en "Ver" — se recalcula en
                 // cada render con el estado más reciente (incluye cambios aún sin guardar), así

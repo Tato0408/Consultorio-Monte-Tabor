@@ -169,15 +169,21 @@ nursesController.insertNurses = async (req, res) => {
 
 nursesController.deleteNurse = async (req, res) => {
     try {
-
+        // Primero se comprueba que la enfermera exista — antes se llamaba a Cloudinary con
+        // response.public_id sin este chequeo, así que un id ya borrado (doble clic, condición
+        // de carrera) tronaba con un TypeError ("Cannot read properties of null") en vez de
+        // devolver un simple 404.
         const response = await nursesModel.findById(req.params.id)
-        const deleteImage = await cloudinary.uploader.destroy(response.public_id)
         if (!response) {
             return res.status(404).json({ message: "Enfermera no encontrada" })
         }
-        if (!deleteImage) {
-            const error = new Error("Error while deleting a nurse");
-            return res.status(500).json({ message: "Error interno del servidor", error: error.message })
+        // No todas las enfermeras tienen foto guardada (public_id puede venir vacío).
+        if (response.public_id) {
+            const deleteImage = await cloudinary.uploader.destroy(response.public_id)
+            if (!deleteImage) {
+                const error = new Error("Error while deleting a nurse");
+                return res.status(500).json({ message: "Error interno del servidor", error: error.message })
+            }
         }
         const nurseDeleted = await nursesModel.findByIdAndDelete(req.params.id)
         if(!nurseDeleted){
@@ -187,7 +193,7 @@ nursesController.deleteNurse = async (req, res) => {
         return res.status(200).json({ message: "Enfermera eliminada correctamente" })
     } catch (error) {
         console.log(error)
-        return res.staus(500).json({ message: "Error interno del servidor" })
+        return res.status(500).json({ message: "Error interno del servidor" })
     }
 }
 
@@ -215,6 +221,17 @@ nursesController.updateNurse = async(req,res) => {
         const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
         if (formatError) {
             return res.status(400).json({ message: formatError });
+        }
+
+        // Mismo chequeo que ya hacen doctores/recepcionistas al editar: si el correo o DUI
+        // editado ya lo usa otro miembro del staff, se avisa con un mensaje claro en vez de
+        // reventar contra el índice único de Mongo con un 500 genérico. excludeId es la propia
+        // enfermera, para no chocar contra sí misma.
+        if (email || dui) {
+            const staffDuplicate = await findStaffDuplicate(email, dui, req.params.id);
+            if (staffDuplicate) {
+                return res.status(400).json(staffDuplicate);
+            }
         }
 
         let payload = {

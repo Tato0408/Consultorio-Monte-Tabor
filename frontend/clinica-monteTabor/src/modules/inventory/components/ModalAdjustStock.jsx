@@ -240,10 +240,11 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <InputField
-                label="Cantidad *" id="quantity" type="number"
+                label="Cantidad *" id="quantity" type="number" min={0}
                 placeholder="Ej. 10"
                 value={quantity}
                 onChange={(e) => { setQuantity(e.target.value); setErrors((p) => ({ ...p, quantity: "" })); }}
+                onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                 error={errors.quantity}
               />
             </div>

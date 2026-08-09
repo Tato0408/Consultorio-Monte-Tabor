@@ -5,6 +5,7 @@ import patientsModel from "../../models/patients/patients.js";
 import doctorsModel from "../../models/doctors/doctors.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import inventoryController from "../inventory/inventoryController.js";
+import { getVitalSignsError } from "../../utils/validators.js";
 const consultationController = {};
 
 // Convierte el triage de la consulta al shape de Patients.clinical_history.vital_signs — null si
@@ -223,6 +224,20 @@ consultationController.insertConsultation = async (req, res) => {
       prescription,
     } = req.body;
 
+    // El frontend (TriageCard.jsx) ya bloquea el signo "-" al escribir, pero el backend nunca
+    // debe confiar solo en eso (ej. una llamada directa por Swagger) — mismas reglas que ya
+    // exige el expediente clínico para signos vitales (buildVitalSignsEntry hace la misma
+    // conversión cm→m que usa Patients.clinical_history.vital_signs).
+    const vitalSignsCheck = buildVitalSignsEntry(clinical_data?.triage, null);
+    if (vitalSignsCheck) {
+      const vitalsError = getVitalSignsError(vitalSignsCheck);
+      if (vitalsError) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: vitalsError });
+      }
+    }
+
     const sanitizedProcedure = sanitizeProcedureRows(procedure);
 
     const newConsultation = new consultationsModel({
@@ -361,6 +376,16 @@ consultationController.updateConsultation = async (req, res) => {
       antecedents,
       prescription,
     } = req.body;
+
+    const vitalSignsCheck = buildVitalSignsEntry(clinical_data?.triage, null);
+    if (vitalSignsCheck) {
+      const vitalsError = getVitalSignsError(vitalSignsCheck);
+      if (vitalsError) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: vitalsError });
+      }
+    }
 
     // Se guarda "lo anterior" ANTES de sobreescribir, para poder descontar solo la diferencia
     // de material_used (ver applyMaterialUsageDelta) y no el total de nuevo en cada edición.

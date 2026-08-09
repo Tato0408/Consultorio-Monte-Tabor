@@ -578,6 +578,7 @@ export default function AppointmentsForm() {
               <span className="text-slate-400 text-sm font-medium">$</span>
               <input type="number" min="0" step="0.01" disabled={!isEditing}
                 value={total} onChange={e => setTotal(e.target.value)}
+                onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                 placeholder="0.00"
                 className="flex-1 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-300 disabled:text-slate-400" />
             </div>

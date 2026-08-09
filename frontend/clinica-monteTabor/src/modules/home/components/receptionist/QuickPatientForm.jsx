@@ -39,7 +39,7 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
         if (!form.email.trim()) e.email = "Requerido";
         else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Correo inválido";
         if (!form.password) e.password = "Requerido";
-        else if (form.password.length <= 8) e.password = "Mínimo 9 caracteres";
+        else if (form.password.length < 8) e.password = "Mínimo 8 caracteres";
         return e;
     };
 

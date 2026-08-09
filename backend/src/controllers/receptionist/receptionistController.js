@@ -147,6 +147,16 @@ receptionistController.updateReceptionist = async (req, res) => {
       return res.status(400).json({ message: formatError });
     }
 
+    // Mismo chequeo que al crear: si el correo o DUI editado ya lo usa otro miembro del staff,
+    // se avisa con un mensaje claro en vez de reventar contra el índice único de Mongo con un
+    // 500 genérico. excludeId es el propio recepcionista, para no chocar contra sí mismo.
+    if (email || dui) {
+      const staffDuplicate = await findStaffDuplicate(email, dui, req.params.id);
+      if (staffDuplicate) {
+        return res.status(400).json(staffDuplicate);
+      }
+    }
+
     //Crea una constante con el objeto de los datos que vamos a actualizar en el modelo
     const updatedData = {
       name,

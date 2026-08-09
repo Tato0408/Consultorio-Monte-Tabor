@@ -45,6 +45,10 @@ const ModulePermissionCard = ({
   // rolesConfig.js) — Crear/Editar/Eliminar no tienen ningún endpoint real detrás, así que
   // ni siquiera se muestran esos checkboxes en vez de dejarlos togglear sin efecto.
   viewOnly = false,
+  // Acciones puntuales (ej. ["create","delete"]) sin ningún endpoint real detrás para este
+  // módulo — ver HIDDEN_PERMISSION_ACTIONS en rolesConfig.js. A diferencia de viewOnly, oculta
+  // solo esas acciones puntuales, no todo menos "Ver".
+  hiddenActions = [],
   // Acciones (ej. ["view","create"]) que para este rol+módulo el dashboard necesita en true
   // siempre — ver LOCKED_TRUE_PERMISSIONS en rolesConfig.js. El backend impone lo mismo.
   lockedActions = [],
@@ -66,9 +70,10 @@ const ModulePermissionCard = ({
     onChange(updated);
   };
 
-  const visiblePermissionTypes = viewOnly
+  const visiblePermissionTypes = (viewOnly
     ? PERMISSION_TYPES.filter((p) => p.key === "view")
-    : PERMISSION_TYPES;
+    : PERMISSION_TYPES
+  ).filter((p) => !hiddenActions.includes(p.key));
 
   const anyActive = PERMISSION_TYPES.some((p) => permissions[p.key]);
 

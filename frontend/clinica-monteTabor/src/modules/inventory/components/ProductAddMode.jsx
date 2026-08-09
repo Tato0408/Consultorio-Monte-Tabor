@@ -158,8 +158,10 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           <SectionTitle>Inventario inicial</SectionTitle>
           <div className="grid grid-cols-3 gap-4">
             <InputField label={isEdit ? "Stock actual *" : "Stock inicial *"} id="stock"
-              type="number" placeholder="Ej. 100"
-              value={form.stock} onChange={set("stock")} error={errors.stock} />
+              type="number" min={0} placeholder="Ej. 100"
+              value={form.stock} onChange={set("stock")}
+              onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
+              error={errors.stock} />
 
             <SelectField label="Unidad de medida" required
               value={form.unit_measure} onChange={set("unit_measure")}
@@ -168,8 +170,10 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
 
             <div>
               <InputField label="Stock mínimo *" id="min_stock"
-                type="number" placeholder="Ej. 10"
-                value={form.min_stock} onChange={set("min_stock")} error={errors.min_stock} />
+                type="number" min={0} placeholder="Ej. 10"
+                value={form.min_stock} onChange={set("min_stock")}
+                onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
+                error={errors.min_stock} />
               <p className="text-xs text-gray-400 mt-1">Cantidad mínima antes de mostrar alerta</p>
             </div>
           </div>
@@ -190,8 +194,9 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
             </div>
 
             <InputField label="Precio unitario (opcional)" id="price"
-              type="number" placeholder="$0.00"
-              value={form.price} onChange={set("price")} />
+              type="number" min={0} placeholder="$0.00"
+              value={form.price} onChange={set("price")}
+              onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }} />
           </div>
         </section>
 

@@ -59,12 +59,14 @@ const DoctorForm = ({
       email: "",
       license_number: "",
       password: "",
+      is_active: true,
     },
   });
 
   const passwordValue = watch("password", "");
+  const isActiveValue = watch("is_active");
   const passwordValidations = {
-    hasMinLength: passwordValue.length > 8,
+    hasMinLength: passwordValue.length >= 8,
     hasMixedCase: /[a-z]/.test(passwordValue) && /[A-Z]/.test(passwordValue),
     hasNumbers: /\d/.test(passwordValue),
     hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(passwordValue),
@@ -87,6 +89,7 @@ const DoctorForm = ({
         email: doctor.email || "",
         license_number: doctor.license_number || "",
         password: "", // Se deja vacío al editar por seguridad
+        is_active: doctor.is_active !== undefined ? doctor.is_active : true,
       });
     } else if (!doctor && isOpen) {
       // Limpiar si es un doctor nuevo
@@ -100,6 +103,7 @@ const DoctorForm = ({
         email: "",
         license_number: "",
         password: "",
+        is_active: true,
       });
     }
 
@@ -420,6 +424,37 @@ const DoctorForm = ({
                 />
                 {errors.license_number && <span className="text-[10px] text-red-500 font-medium px-1">{errors.license_number.message}</span>}
               </div>
+
+              {/* Estado — solo en edición */}
+              {doctor && (
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-gray-400">Estado de la cuenta</label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setValue("is_active", true)}
+                      className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        isActiveValue
+                          ? "bg-green-50 text-green-700 border-green-200 shadow-sm"
+                          : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      Activo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setValue("is_active", false)}
+                      className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        !isActiveValue
+                          ? "bg-red-50 text-red-700 border-red-200 shadow-sm"
+                          : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      Inactivo
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* DERECHA */}
@@ -492,7 +527,7 @@ const DoctorForm = ({
                   </div>
 
                   <div className="flex flex-col gap-2 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-                    <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene más de 8 dígitos" />
+                    <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene al menos 8 caracteres" />
                     <ValidationRow checked={passwordValidations.hasMixedCase} label="La contraseña contiene mayúsculas y minúsculas" />
                     <ValidationRow checked={passwordValidations.hasNumbers} label="La contraseña incluye números" />
                     <ValidationRow checked={passwordValidations.hasSpecialChar} label="La contraseña incluye caracteres especiales" />

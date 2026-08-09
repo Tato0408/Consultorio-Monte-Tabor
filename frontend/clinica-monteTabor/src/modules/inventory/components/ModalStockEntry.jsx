@@ -149,6 +149,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
   const validate = () => {
     const e = {};
     if (!form.name.trim())  e.name         = "Requerido";
+    if (!form.category)     e.category     = "Requerido";
     if (!form.quantity)     e.quantity      = "Requerido";
     if (!form.unit_measure) e.unit_measure  = "Requerido";
     return e;
@@ -223,9 +224,10 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
               error={errors.name}
             />
 
-            <SelectField label="Categoría"
+            <SelectField label="Categoría" required
               value={form.category} onChange={set("category")}
-              options={CATEGORIAS} placeholder="Selecciona una categoría" />
+              options={CATEGORIAS} placeholder="Selecciona una categoría"
+              error={errors.category} />
 
             <SelectField label="Unidad de medida" required
               value={form.unit_measure} onChange={set("unit_measure")}
@@ -242,13 +244,16 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
         <section>
           <SectionTitle>Cantidad y costo</SectionTitle>
           <div className="grid grid-cols-2 gap-4">
-            <InputField label="Cantidad recibida *" id="quantity" type="number"
+            <InputField label="Cantidad recibida *" id="quantity" type="number" min={0}
               placeholder="Ej. 100"
-              value={form.quantity} onChange={set("quantity")} error={errors.quantity} />
+              value={form.quantity} onChange={set("quantity")}
+              onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
+              error={errors.quantity} />
 
-            <InputField label="Costo unitario (opcional)" id="unit_cost" type="number"
+            <InputField label="Costo unitario (opcional)" id="unit_cost" type="number" min={0}
               placeholder="$0.00"
-              value={form.unit_cost} onChange={set("unit_cost")} />
+              value={form.unit_cost} onChange={set("unit_cost")}
+              onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }} />
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-4">

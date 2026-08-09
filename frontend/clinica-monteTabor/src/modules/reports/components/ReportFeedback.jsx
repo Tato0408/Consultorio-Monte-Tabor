@@ -1,8 +1,8 @@
 import { AlertCircle, BarChart3, RefreshCw } from "lucide-react";
 
-// Estado vacío/error del reporte de citas: sin error, avisa que no hay
-// datos en el período; con error, muestra el mensaje y un botón de reintento.
-const ReportFeedback = ({ error, onRetry }) => {
+// Estado vacío/error de un reporte (citas, pacientes, doctores, inventario): sin error, avisa
+// que no hay datos en el período; con error, muestra el mensaje y un botón de reintento.
+const ReportFeedback = ({ error, onRetry, emptyTitle = "No hay datos en este período", emptyMessage = "Prueba con otro rango de fechas o consulta el reporte general." }) => {
   const hasError = Boolean(error);
 
   return (
@@ -11,10 +11,10 @@ const ReportFeedback = ({ error, onRetry }) => {
         {hasError ? <AlertCircle className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
       </div>
       <h2 className="text-sm font-bold text-slate-800">
-        {hasError ? "No se pudo cargar el reporte" : "No hay citas en este período"}
+        {hasError ? "No se pudo cargar el reporte" : emptyTitle}
       </h2>
       <p className="mx-auto mt-1 max-w-md text-sm text-slate-400">
-        {hasError ? error : "Prueba con otro rango de fechas o consulta el reporte general."}
+        {hasError ? error : emptyMessage}
       </p>
       {hasError && (
         <button

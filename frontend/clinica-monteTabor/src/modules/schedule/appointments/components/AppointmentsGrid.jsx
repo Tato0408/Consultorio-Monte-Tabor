@@ -169,7 +169,9 @@ export default function AppointmentsGrid() {
         setSelectedNurseId("");
         setLoadingDoctors(true);
         try {
-            const response = await apiClient("/doctors");
+            // Catálogo liviano — no requiere el permiso "Ver Doctores" (ver
+            // backend/src/routes/doctors/doctors.js).
+            const response = await apiClient("/doctors/catalog");
             setDoctors(Array.isArray(response) ? response : response.data || []);
         } catch (error) {
             showError(error.message || "No se pudieron cargar los doctores.");

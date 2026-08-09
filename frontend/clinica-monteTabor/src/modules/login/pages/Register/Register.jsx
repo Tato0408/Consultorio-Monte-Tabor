@@ -23,7 +23,7 @@ const Register = () => {
   const [errors, setErrors] = useState({});
 
   const passwordRules = [
-    { id: "length", label: "La contraseña tiene más de 8 dígitos", test: (p) => p.length > 8 },
+    { id: "length", label: "La contraseña tiene al menos 8 caracteres", test: (p) => p.length >= 8 },
     { id: "upper", label: "Las contraseña contiene mayúsculas y minúsculas", test: (p) => /[A-Z]/.test(p) && /[a-z]/.test(p) },
     { id: "number", label: "La contraseña incluye números", test: (p) => /[0-9]/.test(p) },
     { id: "special", label: "La contraseña incluye caracteres especiales", test: (p) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
@@ -72,7 +72,7 @@ const Register = () => {
 
     if (!formData.contrasena) e.contrasena = "Requerido";
     else if (
-      formData.contrasena.length <= 8 ||
+      formData.contrasena.length < 8 ||
       !/[A-Z]/.test(formData.contrasena) ||
       !/[a-z]/.test(formData.contrasena) ||
       !/[0-9]/.test(formData.contrasena) ||

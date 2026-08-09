@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import ReceptionistsTable from "../components/RecepcionistTable";
 import ReceptionistForm from "../components/RecepcionistForm";
 import { useReceptionist } from "../hooks/useRecepcionist";
@@ -27,10 +27,8 @@ const ReceptionistsList = () => {
   //Si es null significa que vamos a crear uno nuevo
   const [receptionistToEdit, setReceptionistToEdit] = useState(null);
 
-  //Cuando carga la vista obtenemos todos los recepcionistas
-  useEffect(() => {
-    getReceptionists();
-  }, []);
+  // El propio hook useReceptionist ya pide la lista al montarse (su useEffect interno) —
+  // pedirla también aquí duplicaba la petición en cada carga de la página.
 
   //Abre el formulario para registrar un nuevo recepcionista
   const handleOpenCreate = () => {

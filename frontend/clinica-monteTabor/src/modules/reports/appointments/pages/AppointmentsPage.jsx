@@ -5,7 +5,7 @@ import ReportSection from "../../components/ReportsSection";
 import useCitasReport from "../hooks/useAppointmentsReports";
 import { exportReportPdf } from "../../exportReportPdf";
 import { showError } from "../../../../lib/alerts";
-import ReportFeedback from "../components/ReportFeedback";
+import ReportFeedback from "../../components/ReportFeedback";
 
 const SkeletonCard = () => (
   <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 h-[220px] animate-pulse">
@@ -78,7 +78,7 @@ const CitasPage = () => {
           </div>
         </>
       ) : error || (!topCards.length && !sections.length) ? (
-        <ReportFeedback error={error} onRetry={refetch} />
+        <ReportFeedback error={error} onRetry={refetch} emptyTitle="No hay citas en este período" />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

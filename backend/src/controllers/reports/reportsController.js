@@ -269,6 +269,10 @@ reportsController.getPatientsReport = async (req, res) => {
         const distinctAttended = (filter, type) =>
             appointmentsModel.distinct("patient_id", { ...filter, status: "completed", ...(type ? { type } : {}) });
 
+        // Pacientes atendidos dentro del rango elegido — se usa para acotar pathologicalCount
+        // (más abajo) al mismo período que el resto del reporte, en vez de a toda la historia.
+        const attendedPatientIdsCur = isGeneral ? null : await distinctAttended(curFilter);
+
         const [
             totalPatientsNow, totalPatientsPrevEnd,
             newPatientsCur, newPatientsPrev,
@@ -295,13 +299,21 @@ reportsController.getPatientsReport = async (req, res) => {
             // ingreso real aunque tenga un "total" (precio) guardado desde que se agendó.
             appointmentsModel.aggregate([{ $match: { ...curFilter, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" } } }]).then((r) => r[0]?.total || 0),
             isGeneral ? Promise.resolve(0) : appointmentsModel.aggregate([{ $match: { ...prevFilter, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" } } }]).then((r) => r[0]?.total || 0),
+            // Antes contaba sobre TODA la base histórica, sin importar el rango de fechas elegido
+            // — ahora, igual que el resto de cifras de esta sección, se acota al período.
             appointmentsModel.aggregate([
-                { $match: { status: "completed" } },
+                { $match: { ...curFilter, status: "completed" } },
                 { $group: { _id: "$patient_id", count: { $sum: 1 } } },
                 { $match: { count: { $gte: 2 } } },
                 { $count: "total" },
             ]).then((r) => r[0]?.total || 0),
-            patientsModel.countDocuments({ "clinical_history.pathological.0": { $exists: true } }),
+            // Mismo problema: no hay fecha propia en cada antecedente patológico, así que se acota
+            // a los pacientes efectivamente atendidos dentro del período elegido (en vez de a
+            // todos los pacientes que alguna vez tuvieron un antecedente registrado).
+            patientsModel.countDocuments({
+                ...(isGeneral ? {} : { _id: { $in: attendedPatientIdsCur } }),
+                "clinical_history.pathological.0": { $exists: true },
+            }),
             buildTimeSeries(appointmentsModel, "date", { status: "completed" }, range),
             prescriptionModel.aggregate([
                 ...(isGeneral ? [] : [{ $match: { issued_at: { $gte: start, $lte: end } } }]),

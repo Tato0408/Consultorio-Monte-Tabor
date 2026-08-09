@@ -74,6 +74,8 @@ export const updateRolePermissions = async (req, res) => {
         const changedBy = req.user?.id || "unknown";
         const batchId = crypto.randomUUID();
         const logs = [];
+        // moduleKey de cada permiso tocado en este batch — se revisan todos al final (ver abajo).
+        const touchedModuleKeys = new Set();
 
         for (const change of changes) {
             const { moduleKey, action, value } = change;
@@ -93,6 +95,8 @@ export const updateRolePermissions = async (req, res) => {
                 return res.status(400).json({ message: `moduleKey desconocido: ${moduleKey}` });
             }
 
+            touchedModuleKeys.add(moduleKey);
+
             const previousValue = permission[action];
             if (previousValue === value) continue;
 
@@ -107,6 +111,21 @@ export const updateRolePermissions = async (req, res) => {
                 changedBy,
                 batchId
             });
+        }
+
+        // Nada impedía, a nivel de backend, que "Crear"/"Editar"/"Eliminar" quedaran en true
+        // mientras "Ver" está en false — esa regla solo vivía en el frontend
+        // (ModulePermissionCard.jsx: apagar "view" apaga los demás en cascada). Una llamada
+        // directa a la API (ej. Swagger) podía dejar un permiso inconsistente e inalcanzable
+        // desde la propia interfaz. Se revisa el estado FINAL de cada módulo tocado en este
+        // batch, ya con todos los cambios aplicados en memoria (antes de guardar).
+        for (const moduleKey of touchedModuleKeys) {
+            const permission = role.permissions.find((p) => p.moduleKey === moduleKey);
+            if (!permission.view && (permission.create || permission.update || permission.delete)) {
+                return res.status(400).json({
+                    message: `No se puede activar "Crear", "Editar" o "Eliminar" en "${moduleKey}" mientras "Ver" está desactivado.`,
+                });
+            }
         }
 
         role.updatedBy = changedBy;

@@ -48,8 +48,8 @@ const NewPassword = () => {
   const passwordRules = [
     {
       id: "length",
-      label: "La contraseña tiene más de 8 dígitos",
-      test: (p) => p.length > 8,
+      label: "La contraseña tiene al menos 8 caracteres",
+      test: (p) => p.length >= 8,
     },
     {
       id: "uppercase",

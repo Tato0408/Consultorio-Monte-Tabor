@@ -211,7 +211,8 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
                   <input type="number" min={1}
                     className="w-10 text-center text-sm font-medium text-gray-800 outline-none bg-transparent"
                     value={row.quantity}
-                    onChange={(e) => updateRow(idx, { quantity: Math.max(1, Number(e.target.value)) })} />
+                    onChange={(e) => updateRow(idx, { quantity: Math.max(1, Number(e.target.value)) })}
+                    onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }} />
                   <button type="button" onClick={() => changeQty(idx, 1)}
                     className="px-2.5 py-2 hover:bg-gray-100 text-gray-600 transition-colors">
                     <Plus className="w-3.5 h-3.5" />

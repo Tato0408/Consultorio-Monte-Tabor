@@ -802,6 +802,7 @@ export default function AppointmentsForm() {
                       disabled={!isEditing}
                       value={field.value ?? ""}
                       onChange={(e) => field.onChange(e.target.value)}
+                      onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                       placeholder="Ingrese el costo"
                       className="border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl h-10"
                     />

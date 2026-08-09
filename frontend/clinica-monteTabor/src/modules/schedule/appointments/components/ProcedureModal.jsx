@@ -115,6 +115,8 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                     render={({ field }) => (
                                         <Input
                                             type="number"
+                                            min={1}
+                                            onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                                             value={field.value}
                                             onChange={field.onChange}
                                             className="bg-gray-50 border-gray-200 rounded-lg h-10 pl-9 focus-visible:ring-[#0b66d6]"
@@ -144,6 +146,8 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                     render={({ field }) => (
                                         <Input
                                             type="number"
+                                            min={0}
+                                            onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                                             value={field.value}
                                             onChange={field.onChange}
                                             className="bg-gray-50 border-gray-200 rounded-lg h-10 pl-9 focus-visible:ring-[#0b66d6]"

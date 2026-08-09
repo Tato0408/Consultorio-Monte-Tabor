@@ -1,4 +1,8 @@
 import patientsModel from "../../models/patients/patients.js";
+import appointmentsModel from "../../models/appointments/appointments.js";
+import consultationsModel from "../../models/consultations/consultation.js";
+import proceduresModel from "../../models/procedures/procedures.js";
+import inventoryController from "../inventory/inventoryController.js";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, getVitalSignsError } from "../../utils/validators.js";
 
@@ -84,12 +88,28 @@ patientsController.createPatient = async (req, res) => {
 //Delete
 patientsController.deletePatient = async (req, res) => {
   try {
-    //Buscamos el paciente por su id
-    const deletedPatient = await patientsModel.findByIdAndDelete(req.params.id);
+    //Buscamos el paciente por su id (sin borrar todavía, para poder revisar sus citas/consultas)
+    const patientFound = await patientsModel.findById(req.params.id);
     //Si no coincide con ninguno entonces el paciente no existe
-    if (!deletedPatient) {
+    if (!patientFound) {
       return res.status(400).json({ message: "Paciente no encontrado" });
     }
+
+    // No se permite eliminar un paciente con citas o consultas relacionadas: patient_id es una
+    // referencia obligatoria en esos registros, así que borrarlo de todos modos los dejaría
+    // apuntando a un paciente fantasma (Citas, Consultas y Reportes podrían fallar o mostrar el
+    // campo en blanco al intentar leerlo).
+    const [hasAppointments, hasConsultations] = await Promise.all([
+      appointmentsModel.exists({ patient_id: req.params.id }),
+      consultationsModel.exists({ patient_id: req.params.id }),
+    ]);
+    if (hasAppointments || hasConsultations) {
+      return res.status(400).json({
+        message: "Este paciente tiene citas o consultas relacionadas, por eso no se puede eliminar.",
+      });
+    }
+
+    await patientsModel.findByIdAndDelete(req.params.id);
     //Si todo es correcto elimina el paciente
     return res.status(200).json({ message: "Paciente eliminado" });
   } catch (error) {
@@ -136,6 +156,17 @@ patientsController.updatePatient = async (req, res) => {
     const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date });
     if (formatError) {
       return res.status(400).json({ message: formatError });
+    }
+
+    // Mismo chequeo que al registrar un paciente (registerPatientsController.js): si el correo
+    // editado ya lo usa OTRO paciente, se avisa con un mensaje claro en vez de reventar contra
+    // el índice único de Mongo con un 500 genérico. Los pacientes sí pueden repetir correo con
+    // el staff (a propósito), así que la búsqueda queda dentro de la propia colección.
+    if (email) {
+      const emailInUse = await patientsModel.findOne({ email, _id: { $ne: req.params.id } });
+      if (emailInUse) {
+        return res.status(400).json({ message: "Ya existe un paciente registrado con ese correo" });
+      }
     }
 
     //Campos singulares a actualizar
@@ -315,6 +346,26 @@ patientsController.updatePatient = async (req, res) => {
     if (!patientUpdated) {
       return res.status(400).json({ message: "Paciente no encontrado" });
     }
+
+    // Descuenta del inventario los materiales del procedimiento recién registrado — ver
+    // inventoryController.discountMaterialsForProcedure para el porqué (ProceduresForm.jsx
+    // prometía esto pero ningún código lo hacía). No debe tumbar la respuesta si falla: el
+    // procedimiento ya quedó guardado en el expediente, así que un error de inventario aquí se
+    // registra y se ignora, igual que el resto de las notificaciones "best effort" del sistema.
+    if (new_procedure?.procedure_id) {
+      proceduresModel.findById(new_procedure.procedure_id).select("materials name").lean()
+        .then((procedure) => {
+          if (!procedure?.materials?.length) return;
+          return inventoryController.discountMaterialsForProcedure({
+            materials: procedure.materials,
+            patientName: `${patientFound.name || ""} ${patientFound.last_name || ""}`.trim(),
+            responsible: new_procedure.doctor_name,
+            procedureType: procedure.name || new_procedure.procedure_name,
+          });
+        })
+        .catch((error) => console.log("Error descontando inventario del procedimiento:", error));
+    }
+
     //Si todo ha sido correcto actualizara la informacion enviada del paciente
     return res.status(200).json({ message: "Paciente actualizado" });
   } catch (error) {

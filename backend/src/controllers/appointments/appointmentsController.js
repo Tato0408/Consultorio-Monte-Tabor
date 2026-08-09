@@ -7,6 +7,7 @@ import { isNurseAvailable } from "../schedule/nurseScheduleController.js";
 import { notifyAppointmentRecipients } from "../../services/notificationService.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import nursesModel from "../../models/nurses/nurses.js";
+import { getNonNegativeError } from "../../utils/validators.js";
 
 const appointmentsController = {};
 const GENERAL_CONSULTATION_PRICE = 15;
@@ -479,6 +480,12 @@ appointmentsController.insertAppointment = async (req, res) => {
             return res.status(400).json({ message: "Estado de la cita inválido" });
         }
 
+        const numberError = getNonNegativeError(total, "El costo total")
+            || getNonNegativeError(duration_minutes, "La duración");
+        if (numberError) {
+            return res.status(400).json({ message: numberError });
+        }
+
         const newAppointment = new appointmentsModel({
             doctor_id,
             patient_id,
@@ -563,6 +570,12 @@ appointmentsController.updateAppointment = async (req, res) => {
         // Valida que el status sea uno de los permitidos.
         if (!validStatus.includes(status)) {
             return res.status(400).json({ message: "Estado de la cita inválido" });
+        }
+
+        const numberError = getNonNegativeError(total, "El costo total")
+            || getNonNegativeError(duration_minutes, "La duración");
+        if (numberError) {
+            return res.status(400).json({ message: numberError });
         }
 
         const appointmentUpdated = await appointmentsModel.findByIdAndUpdate(
