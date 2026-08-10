@@ -2,6 +2,10 @@ import { useState } from "react";
 import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import InputField from "@/components/ui/InputField";
 
+// Límite amplio pero real: evita años absurdos (5+ dígitos) al escribir la fecha a mano.
+const MIN_DATE_STR = "2000-01-01";
+const MAX_DATE_STR = `${new Date().getFullYear() + 5}-12-31`;
+
 const TYPE_LABEL = {
     non_working:    "Día no laborable",
     special_hours:  "Horario especial",
@@ -100,9 +104,9 @@ const ExceptionsSection = ({ exceptions, onChange }) => {
                             <tr className="bg-blue-50/40 border-b border-blue-100">
                                 <td className="py-2.5 pr-2">
                                     <div className="flex flex-col gap-1">
-                                        <InputField type="date" value={form.date}
+                                        <InputField type="date" min={MIN_DATE_STR} max={MAX_DATE_STR} value={form.date}
                                             onChange={e => setForm(p => ({ ...p, date: e.target.value }))} />
-                                        <InputField type="date" value={form.end_date}
+                                        <InputField type="date" min={MIN_DATE_STR} max={MAX_DATE_STR} value={form.end_date}
                                             placeholder="Fecha fin (opcional)"
                                             onChange={e => setForm(p => ({ ...p, end_date: e.target.value }))} />
                                     </div>
@@ -115,12 +119,12 @@ const ExceptionsSection = ({ exceptions, onChange }) => {
                                     </select>
                                 </td>
                                 <td className="py-2.5 pr-2">
-                                    <InputField value={form.description}
+                                    <InputField value={form.description} maxLength={200}
                                         onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
                                         placeholder="Descripción" />
                                 </td>
                                 <td className="py-2.5 pr-2">
-                                    <InputField value={form.schedule_info}
+                                    <InputField value={form.schedule_info} maxLength={100}
                                         onChange={e => setForm(p => ({ ...p, schedule_info: e.target.value }))}
                                         placeholder="Ej. Todo el día" />
                                 </td>

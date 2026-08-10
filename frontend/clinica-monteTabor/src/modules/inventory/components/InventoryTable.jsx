@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Clock, Package, MoreVertical, Edit2, Trash2, Pencil } from "lucide-react";
 import useInsumos from "../hooks/useInsumos";
 import GenericTable from "@/components/ui/GenericTable";
+import { showError } from "@/lib/alerts";
 
 const statusStyle = {
   Disponible: "bg-green-50 text-green-700",
@@ -51,10 +52,15 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
 
   const handleDelete = async (id) => {
     if (!confirm("¿Eliminar este producto?")) return;
-    await deleteInsumo(id);
-    onRefresh?.();
-    load();
-    setActiveMenuId(null);
+    try {
+      await deleteInsumo(id);
+      onRefresh?.();
+      load();
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar el producto.");
+    } finally {
+      setActiveMenuId(null);
+    }
   };
 
   const columns = [

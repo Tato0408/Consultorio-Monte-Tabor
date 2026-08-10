@@ -77,6 +77,9 @@ const patientSchema = new Schema({
             },
             condition: {
                 type: String
+            },
+            type: {
+                type: String
             }
         }],
         pathological: [{
@@ -84,6 +87,9 @@ const patientSchema = new Schema({
                 type: String
             },
             diagnosis: {
+                type: String
+            },
+            type: {
                 type: String
             }
         }],
@@ -150,9 +156,53 @@ const patientSchema = new Schema({
             result: {
                 type: String
             },
+            // Quién actualizó por última vez "result" y cuándo — para mostrarlo con el mismo
+            // formato que las notas (texto + autor + fecha + editar/eliminar) en vez de un campo
+            // de texto suelto sin rastro de quién lo escribió.
+            resultAuthor: {
+                type: String
+            },
+            resultUpdatedAt: {
+                type: Date
+            },
             follow_up_date: {
                 type: Date
-            }
+            },
+            // Bitácora de notas de seguimiento del tratamiento (botón "Agregar nota" en
+            // /inventory/treatments) — a diferencia de "result" (que se sobreescribe), aquí se
+            // van acumulando todas las notas, cada una con quién la escribió y cuándo.
+            notes: [{
+                text: {
+                    type: String
+                },
+                author: {
+                    type: String
+                },
+                date: {
+                    type: Date,
+                    default: Date.now
+                }
+            }],
+            // Documentos adjuntos del tratamiento (botón "Subir documento" en /inventory/treatments,
+            // pestaña Documentos) — archivos reales guardados en Cloudinary, no solo un link.
+            documents: [{
+                name: {
+                    type: String
+                },
+                url: {
+                    type: String
+                },
+                public_id: {
+                    type: String
+                },
+                uploadedBy: {
+                    type: String
+                },
+                date: {
+                    type: Date,
+                    default: Date.now
+                }
+            }]
         }]
     },
     referred_by: {

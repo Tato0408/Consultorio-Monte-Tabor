@@ -19,7 +19,11 @@ const getTodayString = () => {
 const Consultations =() => {
      const today = getTodayString();
 
-   // Por defecto la tabla muestra el día de hoy, citas "pending" (agendadas sin confirmar) y "scheduled" (confirmadas / en espera) - las "completed" se ven en el Historial del Día en vez de en esta tabla operativa.
+   // Por defecto la tabla muestra TODAS las fechas (el filtro de fechas es secundario, el
+    // usuario lo activa si lo necesita) con citas "pending" (agendadas sin confirmar) y
+    // "scheduled" (confirmadas / en espera) - las "completed" se ven en el Historial del Día en
+    // vez de en esta tabla operativa. Antes arrancaba fijado a "hoy", lo que dejaba la tabla
+    // vacía o casi vacía cualquier día sin citas agendadas para esa fecha exacta.
     const {
         appointments,
         pagination,
@@ -29,8 +33,6 @@ const Consultations =() => {
         updateFilters,
         goToPage,
     } = useAppointments({
-        dateFrom: today,
-        dateTo: today,
         status: "scheduled, pending",
         limit: 8,
     });

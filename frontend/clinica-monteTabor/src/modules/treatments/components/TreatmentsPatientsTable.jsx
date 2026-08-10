@@ -8,7 +8,6 @@ const TABS = [
   { key: "all",        label: "Todos" },
   { key: "En tratamiento",    label: "Activos" },
   { key: "Requiere revisión", label: "Requiere revisión" },
-  { key: "Suspendido",       label: "Suspendidos" },
   { key: "Finalizado",      label: "Finalizados" },
 ];
 
@@ -27,7 +26,6 @@ const TreatmentsPatientsTable = ({ patients, loading, onSelectPatient, selectedP
           </div>
           <div>
             <p className="font-medium text-slate-900 leading-tight">{p.name}</p>
-            <p className="text-xs text-slate-400 mt-0.5">ID: {p.id}</p>
           </div>
         </div>
       ),

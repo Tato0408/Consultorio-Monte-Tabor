@@ -21,7 +21,7 @@ const IconComponent = ({ name, className, size = 18 }) => {
 //controla el menú de navegación principal del sistema, aplicando un filtrado de opciones según el rol del usuario autenticado  y manejando estados colapsables
 const SideBar = ({ onClose = () => {} }) => {
     const location = useLocation();
-    const { hasPermission, isLoading } = useAuth();
+    const { hasPermission, userType, isLoading } = useAuth();
 
     // Mientras se verifica la sesión (GET /auth/me) no sabemos el rol real todavía entonces se renderiza un estado de carga
     // Evitamos renderizar el menú con un rol incorrecto/vacío en ese instante.
@@ -42,7 +42,9 @@ const SideBar = ({ onClose = () => {} }) => {
     const filteredMenu = sideBarMenu.reduce((acc, item) => {
         // 2. Si el módulo tiene hijos (grupo sin moduleKey propio), filtrar los hijos y mostrar el grupo solo si queda al menos uno visible
         if (item.subItems) {
-            const visibleSubItems = item.subItems.filter(sub => hasPermission(sub.moduleKey, "view"));
+            const visibleSubItems = item.subItems.filter(sub =>
+                hasPermission(sub.moduleKey, "view") && !sub.hiddenForRoles?.includes(userType)
+            );
             if (visibleSubItems.length > 0) {
                 acc.push({ ...item, subItems: visibleSubItems });
             }

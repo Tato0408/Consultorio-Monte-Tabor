@@ -1,6 +1,10 @@
 import patientsModel from "../../models/patients/patients.js";
+import appointmentsModel from "../../models/appointments/appointments.js";
+import consultationsModel from "../../models/consultations/consultation.js";
+import proceduresModel from "../../models/procedures/procedures.js";
+import inventoryController from "../inventory/inventoryController.js";
 import bcryptjs from "bcryptjs";
-import { validateUserFieldFormats, getMissingRequiredField, getPasswordError } from "../../utils/validators.js";
+import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, getVitalSignsError } from "../../utils/validators.js";
 
 //Array de funciones
 const patientsController = {};
@@ -12,7 +16,7 @@ patientsController.getAllPatients = async (req, res) => {
     return res.status(200).json(patients);
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -48,7 +52,7 @@ patientsController.createPatient = async (req, res) => {
 
     const existsPatient = await patientsModel.findOne({ $or: [{ email }, { dui }] });
     if (existsPatient) {
-      return res.status(400).json({ message: "Patient already exists" });
+      return res.status(400).json({ message: "El paciente ya existe" });
     }
 
     const passwordHashed = await bcryptjs.hash(password, 10);
@@ -71,30 +75,46 @@ patientsController.createPatient = async (req, res) => {
 
     const savedPatient = await newPatient.save();
     if (!savedPatient) {
-      return res.status(500).json({ message: "Error while adding a patient" });
+      return res.status(500).json({ message: "Error al agregar el paciente" });
     }
 
-    return res.status(200).json({ message: "Patient added successfully" });
+    return res.status(200).json({ message: "Paciente agregado correctamente" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
 //Delete
 patientsController.deletePatient = async (req, res) => {
   try {
-    //Buscamos el paciente por su id
-    const deletedPatient = await patientsModel.findByIdAndDelete(req.params.id);
+    //Buscamos el paciente por su id (sin borrar todavía, para poder revisar sus citas/consultas)
+    const patientFound = await patientsModel.findById(req.params.id);
     //Si no coincide con ninguno entonces el paciente no existe
-    if (!deletedPatient) {
-      return res.status(400).json({ message: "Patient not found" });
+    if (!patientFound) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
     }
+
+    // No se permite eliminar un paciente con citas o consultas relacionadas: patient_id es una
+    // referencia obligatoria en esos registros, así que borrarlo de todos modos los dejaría
+    // apuntando a un paciente fantasma (Citas, Consultas y Reportes podrían fallar o mostrar el
+    // campo en blanco al intentar leerlo).
+    const [hasAppointments, hasConsultations] = await Promise.all([
+      appointmentsModel.exists({ patient_id: req.params.id }),
+      consultationsModel.exists({ patient_id: req.params.id }),
+    ]);
+    if (hasAppointments || hasConsultations) {
+      return res.status(400).json({
+        message: "Este paciente tiene citas o consultas relacionadas, por eso no se puede eliminar.",
+      });
+    }
+
+    await patientsModel.findByIdAndDelete(req.params.id);
     //Si todo es correcto elimina el paciente
-    return res.status(200).json({ message: "Patient deleted" });
+    return res.status(200).json({ message: "Paciente eliminado" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -128,7 +148,7 @@ patientsController.updatePatient = async (req, res) => {
     //Verificamos que el paciente exista, si no lanzara un error
     const patientFound = await patientsModel.findById(req.params.id);
     if (!patientFound) {
-      return res.status(400).json({ message: "Patient not found" });
+      return res.status(400).json({ message: "Paciente no encontrado" });
     }
 
     //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
@@ -136,6 +156,17 @@ patientsController.updatePatient = async (req, res) => {
     const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date });
     if (formatError) {
       return res.status(400).json({ message: formatError });
+    }
+
+    // Mismo chequeo que al registrar un paciente (registerPatientsController.js): si el correo
+    // editado ya lo usa OTRO paciente, se avisa con un mensaje claro en vez de reventar contra
+    // el índice único de Mongo con un 500 genérico. Los pacientes sí pueden repetir correo con
+    // el staff (a propósito), así que la búsqueda queda dentro de la propia colección.
+    if (email) {
+      const emailInUse = await patientsModel.findOne({ email, _id: { $ne: req.params.id } });
+      if (emailInUse) {
+        return res.status(400).json({ message: "Ya existe un paciente registrado con ese correo" });
+      }
     }
 
     //Campos singulares a actualizar
@@ -150,7 +181,7 @@ patientsController.updatePatient = async (req, res) => {
     if (name !== undefined) {
       name = name.trim();
       if (name.length < 3)
-        return res.status(400).json({ message: "Name too short" });
+        return res.status(400).json({ message: "El nombre es demasiado corto" });
       fieldsToSet.name = name;
     }
 
@@ -231,6 +262,10 @@ patientsController.updatePatient = async (req, res) => {
     //Envia los signos vitales, los prepara usando comillas y puntos para que MongoDB actualice solo esa casilla interna y no borre los demás datos médicos, si no los mandó, los ignora por completo
     //Usamos el fieldsToPush porque es una lista de datos
     if (new_vital_signs) {
+      const vitalSignsError = getVitalSignsError(new_vital_signs);
+      if (vitalSignsError) {
+        return res.status(400).json({ message: vitalSignsError });
+      }
       fieldsToPush["clinical_history.vital_signs"] = {
         blood_pressure: new_vital_signs.blood_pressure,
         glucosa_mgdl: new_vital_signs.glucosa_mgdl,
@@ -249,6 +284,7 @@ patientsController.updatePatient = async (req, res) => {
       fieldsToPush["clinical_history.pathological"] = {
         disease: new_pathological.disease,
         diagnosis: new_pathological.diagnosis,
+        type: new_pathological.type,
       };
     }
 
@@ -258,6 +294,7 @@ patientsController.updatePatient = async (req, res) => {
       fieldsToPush["clinical_history.hereditary"] = {
         relationship: new_hereditary.relationship,
         condition: new_hereditary.condition,
+        type: new_hereditary.type,
       };
     }
 
@@ -293,7 +330,7 @@ patientsController.updatePatient = async (req, res) => {
 
     // Si no enviaron absolutamente nada en el body
     if (Object.keys(patientData).length === 0) {
-      return res.status(400).json({ message: "No data provided to update" });
+      return res.status(400).json({ message: "No se proporcionaron datos para actualizar" });
     }
 
     //Si todo esta correcto actualizamos
@@ -309,13 +346,207 @@ patientsController.updatePatient = async (req, res) => {
     );
     //Si no se realiza la actualizacion significa que el paciente no existe
     if (!patientUpdated) {
-      return res.status(400).json({ message: "Patient not found" });
+      return res.status(400).json({ message: "Paciente no encontrado" });
     }
+
+    // Descuenta del inventario los materiales del procedimiento recién registrado — ver
+    // inventoryController.discountMaterialsForProcedure para el porqué (ProceduresForm.jsx
+    // prometía esto pero ningún código lo hacía). No debe tumbar la respuesta si falla: el
+    // procedimiento ya quedó guardado en el expediente, así que un error de inventario aquí se
+    // registra y se ignora, igual que el resto de las notificaciones "best effort" del sistema.
+    if (new_procedure?.procedure_id) {
+      proceduresModel.findById(new_procedure.procedure_id).select("materials name").lean()
+        .then((procedure) => {
+          if (!procedure?.materials?.length) return;
+          return inventoryController.discountMaterialsForProcedure({
+            materials: procedure.materials,
+            patientName: `${patientFound.name || ""} ${patientFound.last_name || ""}`.trim(),
+            responsible: new_procedure.doctor_name,
+            procedureType: procedure.name || new_procedure.procedure_name,
+          });
+        })
+        .catch((error) => console.log("Error descontando inventario del procedimiento:", error));
+    }
+
     //Si todo ha sido correcto actualizara la informacion enviada del paciente
-    return res.status(200).json({ message: "Patient updated" });
+    return res.status(200).json({ message: "Paciente actualizado" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// UPDATE de una toma puntual del historial de signos vitales (no reemplaza todo el arreglo,
+// solo esa entrada) — botón de editar en la tabla de la pestaña "Signos vitales" del Expediente.
+patientsController.updateVitalSign = async (req, res) => {
+  try {
+    const { patientId, vitalSignId } = req.params;
+    const { blood_pressure, glucosa_mgdl, weight, height, imc, temperature, spo2 } = req.body;
+
+    const vitalSignsError = getVitalSignsError({ blood_pressure, glucosa_mgdl, weight, height, temperature, spo2 });
+    if (vitalSignsError) {
+      return res.status(400).json({ message: vitalSignsError });
+    }
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.vital_signs?.id(vitalSignId);
+    if (!entry) {
+      return res.status(404).json({ message: "Registro de signos vitales no encontrado" });
+    }
+
+    if (blood_pressure !== undefined) entry.blood_pressure = blood_pressure;
+    if (glucosa_mgdl !== undefined) entry.glucosa_mgdl = glucosa_mgdl;
+    if (weight !== undefined) entry.weight = weight;
+    if (height !== undefined) entry.height = height;
+    if (imc !== undefined) entry.imc = imc;
+    if (temperature !== undefined) entry.temperature = temperature;
+    if (spo2 !== undefined) entry.spo2 = spo2;
+
+    await patient.save();
+
+    return res.status(200).json({ message: "Signos vitales actualizados" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE de una toma puntual del historial de signos vitales — botón de eliminar en la misma tabla.
+patientsController.deleteVitalSign = async (req, res) => {
+  try {
+    const { patientId, vitalSignId } = req.params;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.vital_signs?.id(vitalSignId);
+    if (!entry) {
+      return res.status(404).json({ message: "Registro de signos vitales no encontrado" });
+    }
+
+    patient.clinical_history.vital_signs.pull(vitalSignId);
+    await patient.save();
+
+    return res.status(200).json({ message: "Registro de signos vitales eliminado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// UPDATE de un antecedente hereditario puntual (no reemplaza todo el arreglo, solo esa entrada)
+// — botón de editar en la tabla "Antecedentes hereditarios" de la pestaña Historia clínica.
+patientsController.updateHereditary = async (req, res) => {
+  try {
+    const { patientId, hereditaryId } = req.params;
+    const { relationship, condition, type } = req.body;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.hereditary?.id(hereditaryId);
+    if (!entry) {
+      return res.status(404).json({ message: "Antecedente hereditario no encontrado" });
+    }
+
+    if (relationship !== undefined) entry.relationship = relationship;
+    if (condition !== undefined) entry.condition = condition;
+    if (type !== undefined) entry.type = type;
+
+    await patient.save();
+
+    return res.status(200).json({ message: "Antecedente hereditario actualizado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE de un antecedente hereditario puntual — botón de eliminar en la misma tabla.
+patientsController.deleteHereditary = async (req, res) => {
+  try {
+    const { patientId, hereditaryId } = req.params;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.hereditary?.id(hereditaryId);
+    if (!entry) {
+      return res.status(404).json({ message: "Antecedente hereditario no encontrado" });
+    }
+
+    patient.clinical_history.hereditary.pull(hereditaryId);
+    await patient.save();
+
+    return res.status(200).json({ message: "Antecedente hereditario eliminado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// UPDATE de un antecedente patológico puntual — botón de editar en la tabla "Antecedentes
+// patológicos" de la pestaña Historia clínica.
+patientsController.updatePathological = async (req, res) => {
+  try {
+    const { patientId, pathologicalId } = req.params;
+    const { disease, diagnosis, type } = req.body;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.pathological?.id(pathologicalId);
+    if (!entry) {
+      return res.status(404).json({ message: "Antecedente patológico no encontrado" });
+    }
+
+    if (disease !== undefined) entry.disease = disease;
+    if (diagnosis !== undefined) entry.diagnosis = diagnosis;
+    if (type !== undefined) entry.type = type;
+
+    await patient.save();
+
+    return res.status(200).json({ message: "Antecedente patológico actualizado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE de un antecedente patológico puntual — botón de eliminar en la misma tabla.
+patientsController.deletePathological = async (req, res) => {
+  try {
+    const { patientId, pathologicalId } = req.params;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.pathological?.id(pathologicalId);
+    if (!entry) {
+      return res.status(404).json({ message: "Antecedente patológico no encontrado" });
+    }
+
+    patient.clinical_history.pathological.pull(pathologicalId);
+    await patient.save();
+
+    return res.status(200).json({ message: "Antecedente patológico eliminado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

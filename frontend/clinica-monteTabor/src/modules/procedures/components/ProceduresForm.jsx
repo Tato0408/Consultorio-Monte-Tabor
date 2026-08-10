@@ -1,31 +1,87 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Plus, Trash2, Clock, Package, Activity, FileText, Info } from "lucide-react";
+import useInsumos from "@/modules/inventory/hooks/useInsumos";
+
+// Prefijo para distinguir, dentro del mismo <select>, un material "legacy" (guardado antes con
+// solo un nombre libre, o cuyo insumo ya no existe en el inventario) de un insumo real elegido
+// del catálogo. Nunca choca con un ObjectId real de Mongo.
+const LEGACY_PREFIX = "legacy:";
+
+// Normaliza los materiales que vienen del backend (edición) al shape que usa el formulario:
+// "insumo" siempre es un string — el _id real del insumo, o un sentinel "legacy:<nombre>" cuando
+// el material no está vinculado a ningún insumo del catálogo (nunca lo estuvo, o el insumo se
+// eliminó). Así el <select> siempre tiene una opción que calza con el valor actual y nunca cae
+// en blanco por sí solo.
+const normalizeMaterials = (materials) =>
+  (materials && materials.length ? materials : [{ quantity: 1 }]).map((m) => {
+    const insumoId = m.insumo && typeof m.insumo === "object" ? m.insumo._id : m.insumo;
+    const denormalizedName = m.name || (m.insumo && typeof m.insumo === "object" ? m.insumo.name : "") || "";
+    return {
+      quantity: m.quantity ?? 1,
+      insumo: insumoId || (denormalizedName ? `${LEGACY_PREFIX}${denormalizedName}` : ""),
+      name: denormalizedName,
+    };
+  });
 
 const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, formId }) => {
-  const { register, control, handleSubmit, watch, formState: { errors } } = useForm({
-    defaultValues: initialData || {
-      name: "",
-      description: "",
-      estimated_duration: "",
-      price: "",
-      requires_nurse: false,
-      is_active: true,
-      post_operative_instructions: "",
-      materials: [{ name: "", quantity: 1 }],
-    },
+  const { getInsumos } = useInsumos();
+  const [insumos, setInsumos] = useState([]);
+
+  useEffect(() => {
+    getInsumos({ limit: 500 })
+      .then((data) => setInsumos(data.insumos || []))
+      .catch(() => setInsumos([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const emptyValues = {
+    name: "",
+    description: "",
+    estimated_duration: "",
+    price: "",
+    requires_nurse: false,
+    is_active: true,
+    post_operative_instructions: "",
+    materials: [{ insumo: "", quantity: 1, name: "" }],
+  };
+
+  const { register, control, handleSubmit, watch, reset, formState: { errors } } = useForm({
+    defaultValues: initialData
+      ? { ...initialData, materials: normalizeMaterials(initialData.materials) }
+      : emptyValues,
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "materials" });
   const watchedValues = watch();
 
+  // Los materiales que llegan aquí (insumo/quantity, con "insumo" siendo un id real o un
+  // sentinel legacy) se traducen al shape que espera el backend (insumo? + name), resolviendo el
+  // nombre real desde el catálogo cargado en vez de dejarlo vacío.
+  const handleFormSubmit = (data) => {
+    const materials = (data.materials || [])
+      .filter((m) => m.insumo)
+      .map((m) => {
+        const raw = m.insumo;
+        if (raw.startsWith(LEGACY_PREFIX)) {
+          return { quantity: m.quantity, name: raw.slice(LEGACY_PREFIX.length) };
+        }
+        const product = insumos.find((i) => i._id === raw);
+        return { quantity: m.quantity, insumo: raw, name: product?.name || m.name || "" };
+      });
+    onSubmit({ ...data, materials });
+  };
+
   return (
     <form
       id={formId}
-      onSubmit={handleSubmit(onSubmit)}
-      
+      onSubmit={handleSubmit(handleFormSubmit)}
+
       className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 items-start"
     >
+      {/* fieldset con display:contents — desactiva todos los inputs/selects/botones que
+          contiene de un solo golpe durante el envío, sin alterar el layout de grid */}
+      <fieldset disabled={isSubmitting} className="contents">
       <div className="lg:col-span-2 space-y-4 md:space-y-6">
 
         <div className="bg-white border border-gray-100 rounded-xl p-4 md:p-6 shadow-sm space-y-4">
@@ -39,6 +95,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
             <input
               type="text"
               placeholder="Ej. Apendicectomía laparoscópica"
+              maxLength={100}
               {...register("name", { required: "El campo tiene que llenarse" })}
               className={`w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
                 errors.name
@@ -75,8 +132,16 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
                 <Clock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${errors.estimated_duration ? "text-red-400" : "text-gray-400"}`} />
                 <input
                   type="number"
+                  min="1"
+                  max="480"
                   placeholder="Ej. 45"
-                  {...register("estimated_duration", { required: "El campo tiene que llenarse", valueAsNumber: true })}
+                  onKeyDown={(e) => { if (["-", "e", "E", "+", "."].includes(e.key)) e.preventDefault(); }}
+                  {...register("estimated_duration", {
+                    required: "El campo tiene que llenarse",
+                    valueAsNumber: true,
+                    min: { value: 1, message: "Debe ser mayor a 0" },
+                    max: { value: 480, message: "No puede superar 480 minutos (8 horas)" },
+                  })}
                   className={`w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
                     errors.estimated_duration
                       ? "border border-red-500 bg-red-50/30 focus:border-red-500"
@@ -94,8 +159,16 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
+                  max="999999"
                   placeholder="Ej. 120.00"
-                  {...register("price", { required: "El campo tiene que llenarse", valueAsNumber: true })}
+                  onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
+                  {...register("price", {
+                    required: "El campo tiene que llenarse",
+                    valueAsNumber: true,
+                    min: { value: 0, message: "No puede ser negativo" },
+                    max: { value: 999999, message: "El precio es demasiado alto" },
+                  })}
                   className={`w-full pl-7 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
                     errors.price
                       ? "border border-red-500 bg-red-50/30 focus:border-red-500"
@@ -123,32 +196,57 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
             </div>
 
             {fields.map((item, index) => {
-              const nameError = errors.materials?.[index]?.name;
+              const insumoError = errors.materials?.[index]?.insumo;
               const quantityError = errors.materials?.[index]?.quantity;
+
+              const rawInsumo = watchedValues.materials?.[index]?.insumo || "";
+              const isLegacySentinel = rawInsumo.startsWith(LEGACY_PREFIX);
+              const legacyName = isLegacySentinel ? rawInsumo.slice(LEGACY_PREFIX.length) : "";
+              // Insumo real (no legacy) que ya no aparece en el catálogo cargado (ej. fue
+              // eliminado del inventario después de asignarse a este procedimiento) — mismo
+              // problema que un material legacy: sin esta opción de respaldo, el <select> caería
+              // en blanco y se perdería el nombre al guardar sin querer.
+              const isOrphanedRealInsumo = rawInsumo && !isLegacySentinel && !insumos.some((i) => i._id === rawInsumo);
 
               return (
                 <div key={item.id} className="space-y-1">
                   <div className="grid grid-cols-12 gap-2 md:gap-3 items-center">
                     <div className="col-span-7">
                       <select
-                        {...register(`materials.${index}.name`, { required: "Seleccione un material" })}
+                        {...register(`materials.${index}.insumo`, { required: "Selecciona un material" })}
                         className={`w-full px-2 md:px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
-                          nameError
+                          insumoError
                             ? "border border-red-500 bg-red-50/30 focus:border-red-500 text-red-900"
                             : "bg-gray-50 border border-gray-200 focus:border-blue-500"
                         }`}
                       >
-                        <option value="">Buscar material...</option>
-                        <option value="Gasa estéril 10x10">Gasa estéril 10x10</option>
-                        <option value="Guantes quirúrgicos N° 7">Guantes quirúrgicos N° 7</option>
-                        <option value="Jeringa descartable 5ml">Jeringa descartable 5ml</option>
+                        <option value="">Selecciona un material del inventario...</option>
+                        {isLegacySentinel && (
+                          <option value={rawInsumo}>{legacyName} (no vinculado al inventario)</option>
+                        )}
+                        {isOrphanedRealInsumo && (
+                          <option value={rawInsumo}>{item.name || "Material eliminado del inventario"} (ya no está en el inventario)</option>
+                        )}
+                        {insumos.map((i) => (
+                          <option key={i._id} value={i._id}>{i.name}</option>
+                        ))}
                       </select>
+                      {(isLegacySentinel || isOrphanedRealInsumo) && (
+                        <p className="text-[11px] text-amber-600 mt-1">Este material no está vinculado a un insumo real del inventario — selecciona uno para vincularlo.</p>
+                      )}
                     </div>
                     <div className="col-span-3">
                       <input
                         type="number"
                         min="1"
-                        {...register(`materials.${index}.quantity`, { required: "Requerido", valueAsNumber: true })}
+                        max="100000"
+                        onKeyDown={(e) => { if (["-", "e", "E", "+", "."].includes(e.key)) e.preventDefault(); }}
+                        {...register(`materials.${index}.quantity`, {
+                          required: "Requerido",
+                          valueAsNumber: true,
+                          min: { value: 1, message: "Debe ser al menos 1" },
+                          max: { value: 100000, message: "Cantidad demasiado alta" },
+                        })}
                         className={`w-full px-2 md:px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
                           quantityError
                             ? "border border-red-500 bg-red-50/30 focus:border-red-500"
@@ -163,9 +261,9 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
                     </div>
                   </div>
 
-                  {(nameError || quantityError) && (
+                  {(insumoError || quantityError) && (
                     <div className="grid grid-cols-12 gap-2 md:gap-3 px-1">
-                      <div className="col-span-7">{nameError && <span className="text-[11px] text-red-500 font-medium">{nameError.message}</span>}</div>
+                      <div className="col-span-7">{insumoError && <span className="text-[11px] text-red-500 font-medium">{insumoError.message}</span>}</div>
                       <div className="col-span-3">{quantityError && <span className="text-[11px] text-red-500 font-medium">{quantityError.message}</span>}</div>
                     </div>
                   )}
@@ -176,7 +274,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
 
           <button
             type="button"
-            onClick={() => append({ name: "", quantity: 1 })}
+            onClick={() => append({ insumo: "", quantity: 1, name: "" })}
             className="w-full mt-2 py-2.5 border border-dashed border-gray-200 hover:border-blue-500 rounded-lg text-sm text-blue-600 font-medium flex items-center justify-center gap-2 hover:bg-blue-50/20 transition-all"
           >
             <Plus className="w-4 h-4" /> Agregar material
@@ -244,7 +342,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
             {[
               { label: "Duración estimada", value: watchedValues.estimated_duration ? `${watchedValues.estimated_duration} minutos` : "-- minutos" },
               { label: "Precio", value: watchedValues.price ? `$ ${Number(watchedValues.price).toFixed(2)}` : "$ --.--" },
-              { label: "Materiales", value: `${(watchedValues.materials || []).filter(m => m.name).length} materiales` },
+              { label: "Materiales", value: `${(watchedValues.materials || []).filter(m => m.insumo).length} materiales` },
               { label: "Requiere enfermera", value: watchedValues.requires_nurse ? "Sí" : "No especificado" },
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between border-b border-gray-50 pb-2">
@@ -275,8 +373,13 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
 
         {!initialData && (
           <div className="flex items-center justify-end gap-3 pt-2">
-            <button type="button" className="px-4 md:px-5 py-2 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-              Cancelar
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => reset(emptyValues)}
+              className="px-4 md:px-5 py-2 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Limpiar campos
             </button>
             <button type="submit" disabled={isSubmitting} className="px-4 md:px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
               {isSubmitting ? "Guardando..." : "Guardar"}
@@ -284,6 +387,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
           </div>
         )}
       </div>
+      </fieldset>
     </form>
   );
 };

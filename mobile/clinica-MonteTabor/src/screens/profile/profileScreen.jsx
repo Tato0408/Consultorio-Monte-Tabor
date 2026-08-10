@@ -3,10 +3,13 @@ import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
+import BottomNav from "../../components/BottomNav";
 import ProfileCard from "../../components/profile/ProfileCard";
 import ShortcutCard from "../../components/profile/ShortcutCard";
 import InfoCard from "../../components/profile/InfoCard";
 import styles, { colors } from "../../styles/profile/profileStyle";
+import { useAuth } from "../../context/AuthContext";
+import { showSuccess, showWarning, confirmLogout } from "../../lib/toast";
 
 const EMPTY = "Sin registrar";
 
@@ -41,7 +44,26 @@ const accountInfo = [
 ];
 
 const ProfileScreen = ({ navigation }) => {
+  const { logout } = useAuth();
   const noop = (label) => console.log("Pressed:", label);
+
+  // Usa el único /logout del backend (mismo endpoint que la web, vale para cualquier rol).
+  // No navegamos manualmente: al quedar isLoggedIn = false, RootNavigator (App.js) cambia
+  // solo de vuelta al stack de Login.
+  const handleLogout = async () => {
+    const confirmed = await confirmLogout();
+    if (!confirmed) return;
+
+    const result = await logout();
+
+    if (result.backendOk) {
+      console.log("[Logout] Sesión cerrada correctamente (backend notificado).");
+      showSuccess("Sesión cerrada.");
+    } else {
+      console.log("[Logout] Sesión cerrada localmente; no se pudo notificar al servidor.");
+      showWarning("Sesión cerrada en este dispositivo. No se pudo notificar al servidor.");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -91,9 +113,19 @@ const ProfileScreen = ({ navigation }) => {
 
         <InfoCard
           title="Cuenta y seguridad"
-          items={accountInfo.map((i) => ({ ...i, onPress: () => noop(i.label) }))}
+          items={accountInfo.map((i) => ({
+            ...i,
+            onPress:
+              i.label === "Cerrar sesión"
+                ? handleLogout
+                : i.label === "Cambiar contraseña"
+                ? () => navigation.navigate("ChangePassword")
+                : () => noop(i.label),
+          }))}
         />
       </ScrollView>
+
+      <BottomNav navigation={navigation} active="Profile" />
     </SafeAreaView>
   );
 };

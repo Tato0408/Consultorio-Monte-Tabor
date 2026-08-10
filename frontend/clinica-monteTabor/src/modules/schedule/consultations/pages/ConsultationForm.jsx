@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
 
 import useConsultation from "../hooks/useConsultation";
 import PatientHeader from "../components/PatientHeader";
+import BloodTypeCard from "../components/BloodTypeCard";
 import EvolutionCard from "../components/EvolutionCard";
 import TriageCard from "../components/TriageCard";
 import PhysicalExamCard from "../components/PhysicalExamCard";
@@ -25,6 +26,11 @@ const ConsultationForm = () => {
 
     const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord } =
         useConsultation(appointmentId);
+
+    // Refleja al instante lo que se guarda en BloodTypeCard sin depender de recargar toda la
+    // cita — PatientHeader (solo lectura) y BloodTypeCard (la tarjeta editable) son hermanos,
+    // así que el valor se levanta hasta aquí para que ambos lo compartan.
+    const [bloodTypeOverride, setBloodTypeOverride] = useState(null);
 
 
     // useForm sin defaultValues todavía: la cita aún no ha cargado en el
@@ -56,6 +62,7 @@ const ConsultationForm = () => {
 
     // Se ejecuta solo si handleSubmit valida que el form está bien formado.
     const onSubmit = async (formValues) => {
+        if (isSaving) return;
         try {
             await save(formValues, { markCompleted: true });
             const successMsg = hasExistingRecord
@@ -85,7 +92,7 @@ const ConsultationForm = () => {
         // los hijos vía useFormContext(), sin tener que pasarlos por props.
         <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="p-4 sm:p-8">
-                <PatientHeader appointment={appointment} />
+                <PatientHeader appointment={appointment} bloodTypeOverride={bloodTypeOverride} />
 
                 {error && (
                     <div className="bg-red-50 text-red-600 text-sm rounded-lg p-3 mb-4">
@@ -93,6 +100,11 @@ const ConsultationForm = () => {
                     </div>
                 )}
 
+                {/* fieldset con display:contents — las tarjetas hijas solo reciben "readOnly"
+                    (nunca isSaving), así que sin esto todo el expediente quedaría editable
+                    mientras se envía. Desactiva todos los inputs/botones de un solo golpe,
+                    sin alterar el layout de grid. */}
+                <fieldset disabled={isSaving} className="contents">
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
                     {/* Columna izquierda: flujo clínico principal */}
                     <div className="space-y-6">
@@ -106,8 +118,8 @@ const ConsultationForm = () => {
                             title="Antecedentes heredofamiliarios"
                             name="antecedents.hereditary"
                             fields={[
-                                { key: "relative", label: "Parentesco" },
-                                { key: "condition", label: "Condición" },
+                                { key: "relative", label: "Parentesco", maxLength: 50 },
+                                { key: "condition", label: "Condición", maxLength: 50 },
                             ]}
                             readOnly={readOnly}
                         />
@@ -116,29 +128,36 @@ const ConsultationForm = () => {
                             title="Antecedentes patológicos"
                             name="antecedents.pathological"
                             fields={[
-                                { key: "disease", label: "Enfermedad" },
-                                { key: "type", label: "Tipo" },
+                                { key: "disease", label: "Enfermedad", maxLength: 50 },
+                                { key: "type", label: "Tipo", maxLength: 30 },
                             ]}
                             readOnly={readOnly}
                         />
                     </div>
 
-                    {/* Columna derecha: receta, referencia, antecedentes secundarios y acciones */}
+                    {/* Columna derecha: tipo de sangre, receta, referencia y antecedentes secundarios */}
                     <div className="space-y-6">
+                        <BloodTypeCard
+                            patientId={appointment?.patient_id?._id}
+                            currentValue={bloodTypeOverride ?? appointment?.patient_id?.clinical_history?.blood_type}
+                            onSaved={setBloodTypeOverride}
+                            readOnly={readOnly}
+                        />
+
                         <PrescriptionCard readOnly={readOnly} />
                         <ReferralCard readOnly={readOnly} />
 
                         <AntecedentsCard
                             title="Antecedentes no patológicos"
                             name="antecedents.non_pathological"
-                            fields={[{ key: "description", label: "Descripción" }]}
+                            fields={[{ key: "description", label: "Descripción", maxLength: 300 }]}
                             readOnly={readOnly}
                         />
 
                         <AntecedentsCard
                             title="Antecedentes ecológico-sociales"
                             name="antecedents.socio_ecological"
-                            fields={[{ key: "description", label: "Descripción" }]}
+                            fields={[{ key: "description", label: "Descripción", maxLength: 300 }]}
                             readOnly={readOnly}
                         />
 
@@ -150,6 +169,7 @@ const ConsultationForm = () => {
                         />
                     </div>
                 </div>
+                </fieldset>
             </form>
         </FormProvider>
     );

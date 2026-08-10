@@ -21,6 +21,11 @@ const ProfilePage = () => {
     receptionist: "Recepcionista del sistema",
   };
 
+  // doctor y recepcionista tienen la foto como campo obligatorio en su modelo (siempre se sube
+  // una al registrarlos) — a diferencia de admin/enfermería, eliminarla dejaría la cuenta en un
+  // estado que el propio backend no permite crear, así que aquí no se ofrece esa opción.
+  const canDeleteAvatar = userType === "admin" || userType === "nurse";
+
   const handleTriggerFileInput = () => {
     fileInputRef.current.click();
   };
@@ -110,7 +115,7 @@ const ProfilePage = () => {
               >
                 Cambiar foto
               </button>
-              {user.image && (
+              {canDeleteAvatar && user.image && (
                 <button
                   onClick={deleteAvatar}
                   disabled={submitting}

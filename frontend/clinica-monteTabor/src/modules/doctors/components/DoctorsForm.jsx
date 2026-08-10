@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { User, Plus, X, Loader2, Lock, Eye, EyeOff, CheckCircle2, Circle } from "lucide-react";
 import { showError } from "../../../lib/alerts";
 import { getMaxAdultBirthDate, validateAdultBirthDate } from "../../../lib/validators";
+import { maskLettersOnly, maskAlnum } from "../../../lib/inputMasks";
 import { useDoctors } from "../hooks/useDoctors";
 
 // Nombres legibles de cada campo, para el aviso que identifica qué campo falló al enviar
@@ -59,12 +60,14 @@ const DoctorForm = ({
       email: "",
       license_number: "",
       password: "",
+      is_active: true,
     },
   });
 
   const passwordValue = watch("password", "");
+  const isActiveValue = watch("is_active");
   const passwordValidations = {
-    hasMinLength: passwordValue.length > 8,
+    hasMinLength: passwordValue.length >= 8,
     hasMixedCase: /[a-z]/.test(passwordValue) && /[A-Z]/.test(passwordValue),
     hasNumbers: /\d/.test(passwordValue),
     hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(passwordValue),
@@ -87,6 +90,7 @@ const DoctorForm = ({
         email: doctor.email || "",
         license_number: doctor.license_number || "",
         password: "", // Se deja vacío al editar por seguridad
+        is_active: doctor.is_active !== undefined ? doctor.is_active : true,
       });
     } else if (!doctor && isOpen) {
       // Limpiar si es un doctor nuevo
@@ -100,6 +104,7 @@ const DoctorForm = ({
         email: "",
         license_number: "",
         password: "",
+        is_active: true,
       });
     }
 
@@ -141,6 +146,15 @@ const DoctorForm = ({
     return () => URL.revokeObjectURL(objectUrl);
   }, [licenseImage, doctor]);
 
+  // Mascaras de solo-letras (nombres/apellidos) y alfanumerica (numero de licencia) — mismo
+  // patron que handlePhoneMask/handleDuiMask: el onChange sobreescribe el del register y
+  // dispara la validacion manualmente.
+  const makeLettersMaskHandler = (field, max) => (e) =>
+    setValue(field, maskLettersOnly(e.target.value, max), { shouldValidate: true });
+
+  const handleLicenseMask = (e) =>
+    setValue("license_number", maskAlnum(e.target.value, 30), { shouldValidate: true });
+
   // Mascara de telefono: solo digitos, formato XXXX-XXXX (misma logica que Pacientes/Enfermeras)
   const handlePhoneMask = (e) => {
     let digits = e.target.value.replace(/\D/g, "");
@@ -159,6 +173,7 @@ const DoctorForm = ({
 
   //Funcion asincrona que procesa y envia el formulario al dar click en guardar/editar
   const onSubmit = async (formValues) => {
+    if (loading) return;
     // Al crear, no se permite enviar si la contraseña no cumple los requisitos de seguridad
     if (!doctor && !isPasswordValid) return;
 
@@ -263,7 +278,8 @@ const DoctorForm = ({
         <button
           type="button"
           onClick={() => onClose(false)}
-          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          disabled={loading}
+          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           <X className="w-5 h-5" />
         </button>
@@ -281,8 +297,8 @@ const DoctorForm = ({
             className="hidden"
           />
           <div
-            className="relative mb-1.5 group cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
+            className={`relative mb-1.5 group ${loading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
+            onClick={() => !loading && fileInputRef.current?.click()}
           >
             <div className={`w-20 h-20 rounded-full bg-[#F3F4F6] border flex items-center justify-center overflow-hidden ${imageError ? "border-red-400" : "border-gray-100"}`}>
               {profilePreview ? (
@@ -303,6 +319,9 @@ const DoctorForm = ({
         </div>
 
         <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="w-full">
+          {/* fieldset con display:contents — desactiva todos los inputs/selects/botones que
+              contiene de un solo golpe durante el envío, sin alterar el layout de grid */}
+          <fieldset disabled={loading} className="contents">
           {/* Cuerpo horizontal: datos a la izquierda, licencia/contraseña a la derecha */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
@@ -313,7 +332,9 @@ const DoctorForm = ({
                 <input
                   type="text"
                   placeholder="Ingrese los nombres"
+                  maxLength={50}
                   {...register("name", { required: "El nombre es requerido" })}
+                  onChange={makeLettersMaskHandler("name", 50)}
                   className={inputClass(errors.name)}
                 />
                 {errors.name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.name.message}</span>}
@@ -324,7 +345,9 @@ const DoctorForm = ({
                 <input
                   type="text"
                   placeholder="Ingrese los apellidos"
+                  maxLength={50}
                   {...register("last_name", { required: "El apellido es requerido" })}
+                  onChange={makeLettersMaskHandler("last_name", 50)}
                   className={inputClass(errors.last_name)}
                 />
                 {errors.last_name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.last_name.message}</span>}
@@ -334,7 +357,9 @@ const DoctorForm = ({
                 <label className="text-xs font-semibold text-gray-400">Teléfono</label>
                 <input
                   type="text"
+                  inputMode="numeric"
                   placeholder="0000-0000"
+                  maxLength={9}
                   {...register("phone", {
                     required: "El teléfono es requerido",
                     pattern: {
@@ -353,6 +378,7 @@ const DoctorForm = ({
                 <input
                   type="email"
                   placeholder="correo@gmail.com"
+                  maxLength={100}
                   {...register("email", {
                     required: "El correo es requerido",
                     pattern: {
@@ -369,7 +395,9 @@ const DoctorForm = ({
                 <label className="text-xs font-semibold text-gray-400">DUI</label>
                 <input
                   type="text"
+                  inputMode="numeric"
                   placeholder="00000000-0"
+                  maxLength={10}
                   {...register("dui", {
                     required: "El DUI es requerido",
                     pattern: {
@@ -410,11 +438,44 @@ const DoctorForm = ({
                 <input
                   type="text"
                   placeholder="Ingrese el número de licencia"
+                  maxLength={30}
                   {...register("license_number", { required: "El número de licencia es requerido" })}
+                  onChange={handleLicenseMask}
                   className={inputClass(errors.license_number)}
                 />
                 {errors.license_number && <span className="text-[10px] text-red-500 font-medium px-1">{errors.license_number.message}</span>}
               </div>
+
+              {/* Estado — solo en edición */}
+              {doctor && (
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-gray-400">Estado de la cuenta</label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setValue("is_active", true)}
+                      className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        isActiveValue
+                          ? "bg-green-50 text-green-700 border-green-200 shadow-sm"
+                          : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      Activo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setValue("is_active", false)}
+                      className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        !isActiveValue
+                          ? "bg-red-50 text-red-700 border-red-200 shadow-sm"
+                          : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      Inactivo
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* DERECHA */}
@@ -466,6 +527,7 @@ const DoctorForm = ({
                       <input
                         type={showPassword ? "text" : "password"}
                         placeholder="Ingresa la contraseña"
+                        maxLength={100}
                         {...register("password", {
                           required: "La contraseña es requerida",
                           validate: () =>
@@ -487,7 +549,7 @@ const DoctorForm = ({
                   </div>
 
                   <div className="flex flex-col gap-2 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-                    <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene más de 8 dígitos" />
+                    <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene al menos 8 caracteres" />
                     <ValidationRow checked={passwordValidations.hasMixedCase} label="La contraseña contiene mayúsculas y minúsculas" />
                     <ValidationRow checked={passwordValidations.hasNumbers} label="La contraseña incluye números" />
                     <ValidationRow checked={passwordValidations.hasSpecialChar} label="La contraseña incluye caracteres especiales" />
@@ -507,6 +569,7 @@ const DoctorForm = ({
               {doctor ? "Guardar cambios" : "Guardar"}
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
     </div>

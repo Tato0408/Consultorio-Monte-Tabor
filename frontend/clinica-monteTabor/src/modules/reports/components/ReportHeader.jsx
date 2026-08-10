@@ -1,5 +1,9 @@
 import { Download, Calendar, Loader2 } from "lucide-react";
 
+// Límite amplio pero real: evita años absurdos (5+ dígitos) al escribir la fecha a mano.
+const MIN_DATE_STR = "2000-01-01";
+const MAX_DATE_STR = `${new Date().getFullYear() + 1}-12-31`;
+
 // dateFrom/dateTo: strings "YYYY-MM-DD" (formato nativo de <input type="date">)
 // isGeneral: si true, el rango de fechas se ignora y se piden TODOS los datos históricos
 // onChangeFrom/onChangeTo/onToggleGeneral: setters controlados por el hook de cada página
@@ -16,6 +20,7 @@ const ReportHeader = ({
   onToggleGeneral,
   onExport,
   exporting,
+  disableExport = false,
 }) => {
   return (
     <div className="space-y-4">
@@ -36,7 +41,7 @@ const ReportHeader = ({
         <button
           type="button"
           onClick={onExport}
-          disabled={exporting}
+          disabled={exporting || disableExport}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors disabled:opacity-60"
         >
           {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
@@ -50,6 +55,8 @@ const ReportHeader = ({
           <Calendar className="w-3.5 h-3.5 text-slate-400" />
           <input
             type="date"
+            min={MIN_DATE_STR}
+            max={MAX_DATE_STR}
             value={dateFrom || ""}
             onChange={(e) => onChangeFrom(e.target.value)}
             disabled={isGeneral}
@@ -58,6 +65,8 @@ const ReportHeader = ({
           <span className="text-xs text-slate-400">–</span>
           <input
             type="date"
+            min={MIN_DATE_STR}
+            max={MAX_DATE_STR}
             value={dateTo || ""}
             onChange={(e) => onChangeTo(e.target.value)}
             disabled={isGeneral}

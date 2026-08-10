@@ -56,6 +56,7 @@ const ProductCombobox = ({ value, onSelect, error }) => {
           className={`w-full border rounded-lg px-3 py-2.5 pr-9 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500
             ${error ? "border-red-400" : "border-gray-200"}`}
           placeholder="Buscar producto registrado..."
+          maxLength={100}
           value={query}
           onChange={(e) => search(e.target.value)}
           autoComplete="off"
@@ -121,6 +122,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     const ve = validate();
     if (Object.keys(ve).length) { setErrors(ve); return; }
     setLoading(true);
@@ -148,8 +150,8 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
 
   const footer = (
     <>
-      <button type="button" onClick={onClose}
-        className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">
+      <button type="button" onClick={onClose} disabled={loading}
+        className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
         Cancelar
       </button>
       <button type="submit" form="form-adjust" disabled={loading}
@@ -166,8 +168,13 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
       onClose={onClose}
       footer={footer}
       width="w-[480px]"
+      closeDisabled={loading}
     >
+      {/* El botón submit vive fuera de este <form> (en el footer del Modal, asociado por el
+          atributo form="form-adjust"), así que el fieldset de aquí no lo alcanza — por eso
+          además se desactiva a mano arriba en el footer. */}
       <form id="form-adjust" onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <fieldset disabled={loading} className="contents">
         {errors.general && (
           <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
             {errors.general}
@@ -234,10 +241,11 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <InputField
-                label="Cantidad *" id="quantity" type="number"
+                label="Cantidad *" id="quantity" type="number" min={0} max={100000}
                 placeholder="Ej. 10"
                 value={quantity}
                 onChange={(e) => { setQuantity(e.target.value); setErrors((p) => ({ ...p, quantity: "" })); }}
+                onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                 error={errors.quantity}
               />
             </div>
@@ -263,6 +271,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
             <InputField
               label="Responsable *" id="responsible"
               placeholder="Nombre de quien realiza el ajuste"
+              maxLength={100}
               value={responsible}
               onChange={(e) => { setResp(e.target.value); setErrors((p) => ({ ...p, responsible: "" })); }}
               error={errors.responsible}
@@ -286,6 +295,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
             </div>
           </div>
         </section>
+      </fieldset>
       </form>
     </Modal>
   );

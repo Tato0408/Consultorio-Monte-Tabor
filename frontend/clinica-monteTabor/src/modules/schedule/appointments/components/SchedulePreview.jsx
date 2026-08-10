@@ -36,43 +36,31 @@ const generateSlots = (availability, breaks, bufferTime, duration) => {
     return slots.slice(0, 5);
 };
 
-const SchedulePreview = ({ types, availability, breaks, bufferTime }) => {
-    const hasTypes = types.length > 0;
+// Los tipos de cita ahora son un catálogo global (solo nombre + color, sin duración — ver
+// AppointmentTypesSection.jsx), así que ya no se puede generar una vista previa POR tipo. En su
+// lugar, se muestra un ejemplo genérico usando la duración mínima de bloque configurada
+// (min_block_duration), que es la única duración que sigue viviendo en el horario del doctor.
+const SchedulePreview = ({ availability, breaks, bufferTime, minBlockDuration }) => {
+    const duration = minBlockDuration || 30;
+    const slots = generateSlots(availability, breaks, bufferTime, duration);
 
     return (
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
             <div className="mb-4">
                 <h3 className="text-sm font-semibold text-slate-800">Vista previa de tu agenda (ejemplo)</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Así verán tus horarios disponibles los pacientes para cada tipo de cita.</p>
+                <p className="text-xs text-slate-400 mt-0.5">Así se verían tus horarios disponibles, usando la duración mínima de bloque configurada ({duration} min).</p>
             </div>
 
-            {!hasTypes ? (
-                <p className="text-xs text-slate-400 text-center py-6">Agrega tipos de cita para ver la vista previa</p>
+            {slots.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-6">Sin slots disponibles con la configuración actual</p>
             ) : (
-                <div className="flex flex-col gap-5">
-                    {types.map((type, i) => {
-                        const slots = generateSlots(availability, breaks, bufferTime, type.duration);
-                        return (
-                            <div key={i}>
-                                <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: type.color }} />
-                                    {type.name} ({type.duration} min)
-                                </p>
-                                {slots.length === 0 ? (
-                                    <p className="text-xs text-slate-400">Sin slots disponibles con la configuración actual</p>
-                                ) : (
-                                    <div className="flex flex-wrap gap-2">
-                                        {slots.map(s => (
-                                            <span key={s} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium">
-                                                {fmt12(s)}
-                                            </span>
-                                        ))}
-                                        <span className="px-2.5 py-1 rounded-lg bg-slate-50 text-slate-400 text-xs">...</span>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                <div className="flex flex-wrap gap-2">
+                    {slots.map(s => (
+                        <span key={s} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium">
+                            {fmt12(s)}
+                        </span>
+                    ))}
+                    <span className="px-2.5 py-1 rounded-lg bg-slate-50 text-slate-400 text-xs">...</span>
                 </div>
             )}
         </div>

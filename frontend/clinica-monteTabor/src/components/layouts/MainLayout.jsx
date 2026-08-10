@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { Menu } from "lucide-react";
 import SideBar from "./SideBar";
+import NotificationBell from "./NotificationBell";
 import { useAuth } from "../../context/AuthContext";
 
 
@@ -37,27 +38,34 @@ const MainLayout = () => {
             </div>
 
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                {/* Mobile top bar */}
-                <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 shrink-0 z-20">
-                    <button
-                        onClick={() => setSideOpen(true)}
-                        className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
-                        aria-label="Abrir menú"
-                    >
-                        <Menu className="w-5 h-5" />
-                    </button>
-                    <div
-                        className="w-7 h-7 bg-[#0b66d6] text-white flex items-center justify-center font-bold text-sm"
-                        style={{ clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)" }}
-                    >
-                        T
+                {/* Top bar: en móvil trae el botón de menú + logo; la
+                    campana de notificaciones se muestra en ambos tamaños. */}
+                <header className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 shrink-0 md:hidden">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setSideOpen(true)}
+                            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                            aria-label="Abrir menú"
+                        >
+                            <Menu className="w-5 h-5" />
+                        </button>
+                        <div
+                            className="w-7 h-7 bg-[#0b66d6] text-white flex items-center justify-center font-bold text-sm"
+                            style={{ clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)" }}
+                        >
+                            T
+                        </div>
+                        <span className="font-bold text-slate-800 text-sm">Monte Tabor</span>
                     </div>
-                    <span className="font-bold text-slate-800 text-sm">Monte Tabor</span>
                 </header>
 
                 <main className="flex-1 overflow-y-auto p-4 sm:p-6 relative">
                     <Outlet />
                 </main>
+            </div>
+
+            <div className="fixed top-4 right-4 z-30">
+                <NotificationBell />
             </div>
         </div>
     );

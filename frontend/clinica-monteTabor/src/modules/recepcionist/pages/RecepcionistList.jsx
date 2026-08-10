@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import ReceptionistsTable from "../components/RecepcionistTable";
 import ReceptionistForm from "../components/RecepcionistForm";
+import ReceptionistProfileCard from "../components/ReceptionistProfileCard";
 import { useReceptionist } from "../hooks/useRecepcionist";
 import { showSuccess, showError, confirmDelete } from "../../../lib/alerts";
 import { useAuth } from "@/context/AuthContext";
@@ -27,10 +28,23 @@ const ReceptionistsList = () => {
   //Si es null significa que vamos a crear uno nuevo
   const [receptionistToEdit, setReceptionistToEdit] = useState(null);
 
-  //Cuando carga la vista obtenemos todos los recepcionistas
+  //Aquí guardamos el recepcionista seleccionado para mostrar su tarjeta de perfil
+  const [selectedReceptionist, setSelectedReceptionist] = useState(null);
+
+  // El propio hook useReceptionist ya pide la lista al montarse (su useEffect interno) —
+  // pedirla también aquí duplicaba la petición en cada carga de la página.
+
+  // Selección automática de la primera fila al cargar (misma lógica que Pacientes/Enfermeras)
   useEffect(() => {
-    getReceptionists();
-  }, []);
+    if (receptionists.length > 0) {
+      const exists = receptionists.find((r) => r._id === selectedReceptionist?._id);
+      if (!exists) {
+        setSelectedReceptionist(receptionists[0]);
+      }
+    } else {
+      setSelectedReceptionist(null);
+    }
+  }, [receptionists, selectedReceptionist]);
 
   //Abre el formulario para registrar un nuevo recepcionista
   const handleOpenCreate = () => {
@@ -99,16 +113,16 @@ const ReceptionistsList = () => {
         </p>
       </div>
 
-      {/* Contenedor principal donde irá la tabla */}
+      {/* Contenedor principal: tabla a la izquierda, tarjeta de perfil a la derecha */}
       <div className="grid grid-cols-12 gap-6 mt-8">
-        {/* La tabla ocupa las 12 columnas */}
-        <div className="col-span-12">
-          
+        <div className="col-span-9">
+
           {/* Aquí enviamos toda la información necesaria a la tabla */}
           <ReceptionistsTable
             receptionists={receptionists}
             loading={loading}
             error={error}
+            onSelect={setSelectedReceptionist}
             onOpenForm={canCreate ? handleOpenCreate : undefined}
             onEdit={handleOpenEdit}
             onDelete={handleDelete}
@@ -116,6 +130,10 @@ const ReceptionistsList = () => {
             canDelete={canDelete}
           />
 
+        </div>
+
+        <div className="col-span-3">
+          <ReceptionistProfileCard receptionist={selectedReceptionist} />
         </div>
       </div>
 

@@ -22,18 +22,18 @@ const Login = () => {
     if (apiError) setApiError("");
   };
 
-  // validacion la estructura del correo y la longitud mínima de la contraseña
+  // validacion la estructura del correo; la contraseña solo se exige que no venga vacía —
+  // no tiene sentido decirle al usuario qué le falta a su contraseña en la pantalla de login
+  // (eso es útil al crearla, no al iniciar sesión con una que ya existe)
   const validate = () => {
     const newErrors = {};
     if (!formData.email.trim()) {
-      newErrors.email = "El email es requerido";
+      newErrors.email = "El correo electrónico es requerido";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Ingresa un email válido";
     }
     if (!formData.password) {
       newErrors.password = "La contraseña es requerida";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Mínimo 6 caracteres";
     }
     return newErrors;
   };
@@ -41,6 +41,8 @@ const Login = () => {
   // Gestiona el envío del formulario, la llamada al contexto y las notificaciones
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Guarda extra por si dos clics llegan antes de que el botón refleje isLoading=true en el DOM
+    if (isLoading) return;
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -75,14 +77,9 @@ const Login = () => {
         title: "¡Bienvenido de nuevo!"
       });
         navigate("/home");
-      } else {
-        // mensaje de error en caso de credenciales inválidas detectadas por la petición
-       Toast.fire({
-        icon: "error",
-        title: "No se pudo iniciar sesión",
-        text: "Verifica tu correo o contraseña."
-      });
       }
+      // Si succes es false, login() (AuthContext) ya mostró su propia notificación de error —
+      // mostrar otra aquí duplicaba el aviso con un segundo mensaje distinto
 
     } catch (error) {
       Toast.fire({
@@ -188,6 +185,7 @@ const Login = () => {
                 placeholder="Ingresa tu correo electrónico"
                 value={formData.email}
                 onChange={handleChange("email")}
+                maxLength={100}
                 icon={<Mail className="w-4 h-4" />}
                 error={errors.email}
                 disabled={isLoading}
@@ -201,6 +199,7 @@ const Login = () => {
                   placeholder="Ingresa tu contraseña"
                   value={formData.password}
                   onChange={handleChange("password")}
+                  maxLength={100}
                   icon={<Lock className="w-4 h-4" />}
                   error={errors.password}
                   disabled={isLoading}
@@ -208,7 +207,12 @@ const Login = () => {
                 <div className="flex justify-end mt-1">
                   <Link
                     to="/recovery"
-                    className="text-xs text-[#3B6FCA] hover:text-[#2d5ab5] hover:underline transition-colors"
+                    onClick={(e) => { if (isLoading) e.preventDefault(); }}
+                    aria-disabled={isLoading}
+                    tabIndex={isLoading ? -1 : undefined}
+                    className={`text-xs text-[#3B6FCA] hover:text-[#2d5ab5] hover:underline transition-colors ${
+                      isLoading ? "opacity-50 pointer-events-none" : ""
+                    }`}
                   >
                     ¿Olvidaste tu contraseña?
                   </Link>

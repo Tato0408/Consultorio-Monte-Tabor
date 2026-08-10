@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 
 const RecordsPage = () => {
-  const { records, loading, error, getRecordById } = useRecords();
+  const { records, loading, error, getRecordById, refetch } = useRecords();
   const [selectedId, setSelectedId] = useState(null);
 
   // Renderizado tipo SPA: en lugar de navegar a una ruta nueva, esta misma
@@ -24,6 +24,11 @@ const RecordsPage = () => {
       <RecordDetailPage
         record={getRecordById(selectedId)}
         onBack={() => setSelectedId(null)}
+        // getRecordById deriva del arreglo "patients" de useRecords, así que refrescarlo aquí
+        // (no solo usePatientRecordDetail, que trae consultas/citas/incapacidades aparte) es lo
+        // que hace que datos del propio documento del paciente (nombre, tipo de sangre,
+        // antecedentes, signos vitales, procedimientos) se reflejen tras guardar un modal.
+        onPatientUpdated={refetch}
       />
     );
   }

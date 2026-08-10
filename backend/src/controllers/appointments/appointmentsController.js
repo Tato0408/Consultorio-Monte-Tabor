@@ -1,19 +1,48 @@
 import appointmentsModel from "../../models/appointments/appointments.js";
 import patientsModel from "../../models/patients/patients.js";
 import doctorsModel from "../../models/doctors/doctors.js";
-import "../../models/procedures/procedures.js"; // ensures "procedure" is registered for populate
+import notificationModel from "../../models/notifications/notification.js";
+import { isSlotFreeForDoctor } from "../schedule/scheduleController.js";
+import { isNurseAvailable } from "../schedule/nurseScheduleController.js";
+import { notifyAppointmentRecipients } from "../../services/notificationService.js";
+import proceduresModel from "../../models/procedures/procedures.js";
+import nursesModel from "../../models/nurses/nurses.js";
+import { getNonNegativeError } from "../../utils/validators.js";
 
 const appointmentsController = {};
+const GENERAL_CONSULTATION_PRICE = 15;
 
-// Interpreta "YYYY-MM-DD" como año/mes/día LOCALES. `new Date("YYYY-MM-DD")` a secas se
-// interpreta como medianoche UTC, y leerla luego con setHours()/getMonth() en hora local corre
-// la fecha un día hacia atrás en zonas horarias detrás de UTC (como esta, America/El_Salvador).
-// Mismo bug ya corregido en backend/src/utils/reportDateRange.js y backend/src/utils/validators.js;
-// aquí faltaba aplicarlo. Construir con el constructor (year, month, day, ...) evita el corrimiento.
+// Resuelve tipo, duración y precio del servicio elegido por el paciente,
+// tomando el catálogo del servidor o la consulta general por defecto.
+async function resolvePatientService(procedureId) {
+    if (!procedureId || procedureId === "general") {
+        return {
+            procedure_id: null,
+            type: "Consulta Médica General",
+            duration_minutes: 30,
+            total: GENERAL_CONSULTATION_PRICE,
+        };
+    }
+
+    const procedure = await proceduresModel.findOne({ _id: procedureId, is_active: true })
+        .select("name estimated_duration price requires_nurse");
+    if (!procedure) return null;
+
+    return {
+        procedure_id: procedure._id,
+        type: "Procedimiento",
+        duration_minutes: Number(procedure.estimated_duration) || 30,
+        total: Number(procedure.price) || 0,
+        procedure,
+    };
+}
+
+// Interpreta "YYYY-MM-DD" como año/mes/día locales, evitando el corrimiento
+// de un día que provoca leer una fecha UTC con métodos de hora local.
 function getDayRange(dateInput) {
     let year, month, day;
     if (dateInput instanceof Date) {
-        // Ya es un instante real (ej. "ahora"): se leen sus componentes locales tal cual.
+        // Si ya es una fecha real, se toman sus componentes locales.
         year = dateInput.getFullYear();
         month = dateInput.getMonth() + 1;
         day = dateInput.getDate();
@@ -26,8 +55,21 @@ function getDayRange(dateInput) {
     return { start, end };
 }
 
-// Marca como "no_show" las citas "pending" cuya fecha/hora ya pasó. No
-// aplica a "scheduled", ya que esas las debe resolver el personal manualmente.
+// Indica si una fecha cae dentro de la semana actual (hoy hasta el domingo).
+function isWithinCurrentWeek(dateInput) {
+    const requested = getDayRange(dateInput).start;
+    const today = getDayRange(new Date()).start;
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() + (7 - today.getDay()) % 7);
+    return requested >= today && requested <= sunday;
+}
+
+// Tiempo máximo que una cita puede esperar sin que ningún doctor la acepte
+// antes de vencer sola (independiente de si su fecha ya llegó o no).
+const PENDING_EXPIRATION_MS = 48 * 60 * 60 * 1000;
+
+// Marca como "no_show" las "pending" cuya fecha ya pasó, y como "expired"
+// las que llevan demasiado tiempo sin que ningún doctor las acepte.
 async function expirePendingAppointments() {
     const now = new Date();
     const { start: startOfToday, end: endOfToday } = getDayRange(now);
@@ -43,6 +85,25 @@ async function expirePendingAppointments() {
         },
         { $set: { status: "no_show" } }
     );
+
+    const staleCutoff = new Date(now.getTime() - PENDING_EXPIRATION_MS);
+    const staleAppointments = await appointmentsModel
+        .find({ status: "pending", createdAt: { $lt: staleCutoff } })
+        .select("_id patient_id");
+
+    if (staleAppointments.length > 0) {
+        await appointmentsModel.updateMany(
+            { _id: { $in: staleAppointments.map(a => a._id) } },
+            { $set: { status: "expired" } }
+        );
+
+        await notificationModel.insertMany(staleAppointments.map(a => ({
+            recipient_role: "patient",
+            recipient_id: a.patient_id,
+            message: "Tu solicitud de cita venció porque ningún doctor la aceptó a tiempo. Puedes agendar de nuevo o contactar a la clínica.",
+            appointment_id: a._id,
+        })));
+    }
 }
 
 // Lista citas con paginación, filtros y búsqueda.
@@ -102,9 +163,8 @@ appointmentsController.getAppointments = async (req, res) => {
             filters.type = type;
         }
 
-        // Búsqueda libre por paciente, doctor, tipo o descripción. Como
-        // patient_id/doctor_id son referencias, primero se buscan los ids que
-        // calzan con el texto y luego se filtran las citas por esos ids.
+        // Búsqueda libre por paciente, doctor, tipo o descripción; primero se
+        // resuelven los ids de paciente/doctor que coinciden con el texto.
         if (search) {
             const regex = new RegExp(search, "i");
             const [matchingPatients, matchingDoctors] = await Promise.all([
@@ -120,19 +180,37 @@ appointmentsController.getAppointments = async (req, res) => {
             ];
         }
 
+        // Alcance forzado por rol: el doctor solo ve las suyas; la
+        // recepcionista no ve las que aún no han sido aceptadas.
+        if (req.user.role === "doctor") {
+            // Ve sus citas y las solicitudes aún sin tomar para poder aceptarlas.
+            filters.$and = (filters.$and || []).concat([{
+                $or: [{ doctor_id: req.user.id }, { doctor_id: null, status: "pending" }],
+            }]);
+        } else if (req.user.role === "patient") {
+            filters.patient_id = req.user.id;
+        } else if (req.user.role === "receptionist") {
+            if (filters.status) {
+                filters.$and = (filters.$and || []).concat([{ status: filters.status }, { status: { $ne: "pending" } }]);
+                delete filters.status;
+            } else {
+                filters.status = { $ne: "pending" };
+            }
+        }
+
         const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
         const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
         const skip = (pageNumber - 1) * limitNumber;
 
         // Orden por fecha: ascendente por defecto, descendente si se pide.
-        const dateDirection = sortOrder === "desc" ? -1 : 1;
+        const dateDirection = sortOrder === "asc" ? 1 : -1;
 
         const [appointments, total] = await Promise.all([
             appointmentsModel
                 .find(filters)
                 .populate("doctor_id", "name last_name specialty img_url")
                 .populate({ path: "patient_id", model: "Patients", select: "name last_name" })
-                .populate({ path: "procedure_id", model: "procedure", select: "name" })
+                .populate({ path: "procedure_id", model: "procedure", select: "name requires_nurse" })
                 .sort({ date: dateDirection, start_time: dateDirection })
                 .skip(skip)
                 .limit(limitNumber),
@@ -151,7 +229,7 @@ appointmentsController.getAppointments = async (req, res) => {
 
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -163,6 +241,10 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         const { start, end } = getDayRange(date || new Date());
 
         const dayFilter = { date: { $gte: start, $lte: end } };
+        // El doctor solo ve estadísticas de sus propias citas.
+        if (req.user.role === "doctor") {
+            dayFilter.doctor_id = req.user.id;
+        }
 
         const [scheduled, waiting, completed] = await Promise.all([
             appointmentsModel.countDocuments({ ...dayFilter, status: { $in: ["scheduled", "completed"] } }),
@@ -170,7 +252,7 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
             appointmentsModel.countDocuments({ ...dayFilter, status: "completed" }),
         ]);
 
-        // Busca la próxima cita agendada ("scheduled" = en espera) de hoy con hora igual o mayor a la actual.
+        // Busca la próxima cita "scheduled" de hoy con hora igual o mayor a la actual.
         let nextAppointment = await appointmentsModel
             .findOne({ ...dayFilter, status: "scheduled", start_time: { $gte: currentTimeString() } })
             .sort({ start_time: 1 })
@@ -180,7 +262,11 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         // Si no hay ninguna hoy, busca la siguiente en días futuros.
         if (!nextAppointment) {
             nextAppointment = await appointmentsModel
-                .findOne({ date: { $gt: end }, status: "scheduled" })
+                .findOne({
+                    date: { $gt: end },
+                    status: "scheduled",
+                    ...(req.user.role === "doctor" ? { doctor_id: req.user.id } : {}),
+                })
                 .sort({ date: 1, start_time: 1 })
                 .populate("doctor_id", "name last_name specialty img_url")
                 .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
@@ -194,7 +280,7 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         });
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -219,13 +305,18 @@ appointmentsController.getAppointmentById = async (req, res) => {
             .populate("nurse_id", "name last_name");
 
         if (!appointment) {
-            return res.status(404).json({ message: "Appointment not found" });
+            return res.status(404).json({ message: "Cita no encontrada" });
+        }
+
+        // El doctor solo puede ver el detalle de sus propias citas.
+        if (req.user.role === "doctor" && appointment.doctor_id?._id?.toString() !== req.user.id && appointment.doctor_id?.toString() !== req.user.id) {
+            return res.status(403).json({ message: "No tienes acceso a esta cita." });
         }
 
         return res.status(200).json(appointment);
     } catch (error) {
         console.log("error " + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -298,7 +389,7 @@ appointmentsController.getAvailableSlots = async (req, res) => {
     } catch (error) {
         console.log(error);
         res.status(500).json({
-            message: "Internal Server Error"
+            message: "Error interno del servidor"
         });
     }
 };
@@ -313,6 +404,7 @@ appointmentsController.insertAppointment = async (req, res) => {
             procedure_id,
             schedule_id,
             type,
+            appointment_type,
             date,
             start_time,
             end_time,
@@ -328,16 +420,51 @@ appointmentsController.insertAppointment = async (req, res) => {
         description = description?.trim();
         cancellation_reason = cancellation_reason?.trim();
 
+        // La recepcionista no pasa por aceptación del doctor: la cita queda
+        // directamente programada (se ignora el status que haya mandado).
+        if (req.user.role === "receptionist") {
+            status = "scheduled";
+        }
+
+        // Un doctor que crea una cita solo puede asignársela a sí mismo, sin
+        // importar el payload; admin y recepción sí eligen doctor.
+        if (req.user.role === "doctor") {
+            doctor_id = req.user.id;
+        }
+        if (req.user.role === "patient") {
+            patient_id = req.user.id;
+            doctor_id = null;
+            status = "pending";
+            if (!isWithinCurrentWeek(date)) {
+                return res.status(400).json({ message: "Solo puedes solicitar citas durante la semana actual." });
+            }
+
+            // La fecha se persiste como inicio del día local del paciente:
+            // guardarla en UTC la corre al día anterior y dispara el no_show.
+            date = getDayRange(date).start;
+
+            // El precio, duración y tipo salen del catálogo del servidor; el
+            // paciente solo elige el servicio, nunca esos valores.
+            const service = await resolvePatientService(procedure_id);
+            if (!service) {
+                return res.status(400).json({ message: "El procedimiento seleccionado no está disponible." });
+            }
+            procedure_id = service.procedure_id;
+            type = service.type;
+            duration_minutes = service.duration_minutes;
+            total = service.total;
+        }
+
         // Valida que estén los campos obligatorios.
-        if (!doctor_id || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
-            return res.status(400).json({ message: "Please fill all the required fields." });
+        if ((!doctor_id && req.user.role !== "patient") || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
+            return res.status(400).json({ message: "Completa todos los campos requeridos." });
         }
 
         // Valida la longitud de la descripción si se envió.
         if (description && (description.length < 3 || description.length > 500)) {
             return res
                 .status(400)
-                .json({ message: "Description must be between 3 and 500 characters." });
+                .json({ message: "La descripción debe tener entre 3 y 500 caracteres." });
         }
 
         const validStatus = [
@@ -345,12 +472,19 @@ appointmentsController.insertAppointment = async (req, res) => {
             "scheduled",
             "completed",
             "cancelled",
-            "no_show"
+            "no_show",
+            "expired"
         ];
 
         // Valida que el status sea uno de los permitidos.
         if (!validStatus.includes(status)) {
-            return res.status(400).json({ message: "Invalid appointment status" });
+            return res.status(400).json({ message: "Estado de la cita inválido" });
+        }
+
+        const numberError = getNonNegativeError(total, "El costo total")
+            || getNonNegativeError(duration_minutes, "La duración");
+        if (numberError) {
+            return res.status(400).json({ message: numberError });
         }
 
         const newAppointment = new appointmentsModel({
@@ -360,6 +494,7 @@ appointmentsController.insertAppointment = async (req, res) => {
             procedure_id,
             schedule_id,
             type,
+            appointment_type,
             date,
             start_time,
             end_time,
@@ -371,10 +506,21 @@ appointmentsController.insertAppointment = async (req, res) => {
         });
 
         await newAppointment.save();
-        return res.status(201).json({ message: "Appointment created successfully" });
+
+        // Informa al profesional y al paciente sin incluir diagnósticos ni
+        // otros datos clínicos en la campana.
+        await notifyAppointmentRecipients(newAppointment, {
+            doctorMessage: req.user.role === "receptionist"
+                ? "Recepción te asignó una nueva cita."
+                : "Se te asignó una nueva cita.",
+            patientMessage: "La clínica registró una cita para ti.",
+            actor: req.user,
+        }).catch((error) => console.log("Error notificando nueva cita:", error));
+
+        return res.status(201).json({ message: "Cita creada correctamente" });
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -387,6 +533,7 @@ appointmentsController.updateAppointment = async (req, res) => {
             nurse_id,
             procedure_id,
             type,
+            appointment_type,
             date,
             start_time,
             end_time,
@@ -404,14 +551,14 @@ appointmentsController.updateAppointment = async (req, res) => {
 
         // Valida que estén los campos obligatorios.
         if (!doctor_id || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
-            return res.status(400).json({ message: "Please fill all the required fields." });
+            return res.status(400).json({ message: "Completa todos los campos requeridos." });
         }
 
         // Valida la longitud de la descripción si se envió.
         if (description && (description.length < 3 || description.length > 500)) {
             return res
                 .status(400)
-                .json({ message: "Description must be between 3 and 500 characters." });
+                .json({ message: "La descripción debe tener entre 3 y 500 caracteres." });
         }
 
         const validStatus = [
@@ -419,12 +566,19 @@ appointmentsController.updateAppointment = async (req, res) => {
             "scheduled",
             "completed",
             "cancelled",
-            "no_show"
+            "no_show",
+            "expired"
         ];
 
         // Valida que el status sea uno de los permitidos.
         if (!validStatus.includes(status)) {
-            return res.status(400).json({ message: "Invalid appointment status" });
+            return res.status(400).json({ message: "Estado de la cita inválido" });
+        }
+
+        const numberError = getNonNegativeError(total, "El costo total")
+            || getNonNegativeError(duration_minutes, "La duración");
+        if (numberError) {
+            return res.status(400).json({ message: numberError });
         }
 
         const appointmentUpdated = await appointmentsModel.findByIdAndUpdate(
@@ -435,6 +589,7 @@ appointmentsController.updateAppointment = async (req, res) => {
                 nurse_id,
                 procedure_id,
                 type,
+                appointment_type,
                 date,
                 start_time,
                 end_time,
@@ -448,18 +603,104 @@ appointmentsController.updateAppointment = async (req, res) => {
         );
 
         if (!appointmentUpdated) {
-            return res.status(404).json({ message: "Appointment not found" });
+            return res.status(404).json({ message: "Cita no encontrada" });
         }
 
+        await notifyAppointmentRecipients(appointmentUpdated, {
+            doctorMessage: "Una cita asignada a ti fue actualizada.",
+            patientMessage: "La información de tu cita fue actualizada.",
+            actor: req.user,
+        }).catch((error) => console.log("Error notificando actualización de cita:", error));
+
         return res.status(200).json({
-            message: "Appointment updated successfully"
+            message: "Cita actualizada correctamente"
         });
 
     } catch (error) {
         console.log("error" + error);
         return res.status(500).json({
-            message: "Internal server error"
+            message: "Error interno del servidor"
         });
+    }
+};
+
+// Edición desde el portal: el paciente solo edita una cita propia y nunca
+// puede cambiar la fecha, el paciente ni el doctor asignado.
+appointmentsController.updatePatientAppointment = async (req, res) => {
+    try {
+        if (req.user.role !== "patient") {
+            return res.status(403).json({ message: "Acceso denegado." });
+        }
+        const appointment = await appointmentsModel.findOne({ _id: req.params.id, patient_id: req.user.id });
+        if (!appointment) return res.status(404).json({ message: "Cita no encontrada." });
+        if (["completed", "cancelled", "no_show", "expired"].includes(appointment.status)) {
+            return res.status(400).json({ message: "Esta cita ya no puede modificarse." });
+        }
+
+        const { procedure_id, description } = req.body;
+        if (procedure_id !== undefined) {
+            const service = await resolvePatientService(procedure_id);
+            if (!service) {
+                return res.status(400).json({ message: "El procedimiento seleccionado no está disponible." });
+            }
+            appointment.procedure_id = service.procedure_id;
+            appointment.type = service.type;
+            appointment.duration_minutes = service.duration_minutes;
+            appointment.total = service.total;
+        }
+        if (description !== undefined) appointment.description = String(description).trim();
+        await appointment.save();
+
+        if (appointment.doctor_id) {
+            await notifyAppointmentRecipients(appointment, {
+                doctorMessage: "El paciente actualizó los datos de una cita asignada a ti.",
+                actor: req.user,
+            }).catch((error) => console.log("Error notificando edición del paciente:", error));
+        }
+        return res.json({ message: "Cita actualizada.", data: appointment });
+    } catch (error) {
+        return res.status(500).json({ message: "Error al actualizar la cita." });
+    }
+};
+
+// El paciente cancela una cita propia con motivo obligatorio; no aplica si
+// ya está completada, cancelada, marcada como no_show o vencida.
+appointmentsController.cancelPatientAppointment = async (req, res) => {
+    try {
+        if (req.user.role !== "patient") {
+            return res.status(403).json({ message: "Acceso denegado." });
+        }
+
+        const reason = String(req.body.cancellation_reason || "").trim();
+        if (!reason) {
+            return res.status(400).json({ message: "Debes indicar el motivo de la cancelación." });
+        }
+        if (reason.length < 3 || reason.length > 500) {
+            return res.status(400).json({ message: "El motivo debe tener entre 3 y 500 caracteres." });
+        }
+
+        const appointment = await appointmentsModel.findOne({ _id: req.params.id, patient_id: req.user.id });
+        if (!appointment) {
+            return res.status(404).json({ message: "Cita no encontrada." });
+        }
+        if (["completed", "cancelled", "no_show", "expired"].includes(appointment.status)) {
+            return res.status(400).json({ message: "Esta cita ya no puede cancelarse." });
+        }
+
+        appointment.status = "cancelled";
+        appointment.cancellation_reason = reason;
+        await appointment.save();
+
+        if (appointment.doctor_id) {
+            await notifyAppointmentRecipients(appointment, {
+                doctorMessage: "El paciente canceló una cita asignada a ti.",
+                actor: req.user,
+            }).catch((error) => console.log("Error notificando cancelación del paciente:", error));
+        }
+
+        return res.json({ message: "Cita cancelada.", data: appointment });
+    } catch (error) {
+        return res.status(500).json({ message: "Error al cancelar la cita." });
     }
 };
 
@@ -468,12 +709,17 @@ appointmentsController.deleteAppointment = async (req, res) => {
     try {
         const appointment = await appointmentsModel.findByIdAndDelete(req.params.id);
         if (!appointment) {
-            return res.status(404).json({ message: "Appointment not found" });
+            return res.status(404).json({ message: "Cita no encontrada" });
         }
-        return res.status(200).json({ message: "Appointment deleted successfully" });
+        await notifyAppointmentRecipients(appointment, {
+            doctorMessage: "Una cita asignada a ti fue eliminada.",
+            patientMessage: "Una cita registrada para ti fue eliminada.",
+            actor: req.user,
+        }).catch((error) => console.log("Error notificando eliminación de cita:", error));
+        return res.status(200).json({ message: "Cita eliminada correctamente" });
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -483,7 +729,7 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
         const { status, cancellation_reason } = req.body;
 
         if (!status) {
-            return res.status(400).json({ message: "Status is required." });
+            return res.status(400).json({ message: "El estado es requerido." });
         }
 
         const update = { status };
@@ -498,13 +744,223 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
         );
 
         if (!appointmentUpdated) {
+            return res.status(404).json({ message: "Cita no encontrada" });
+        }
+
+        await notifyAppointmentRecipients(appointmentUpdated, {
+            doctorMessage: `El estado de una cita asignada a ti cambió a: ${status}.`,
+            patientMessage: `El estado de tu cita cambió a: ${status}.`,
+            actor: req.user,
+        }).catch((error) => console.log("Error notificando cambio de estado:", error));
+
+        return res.status(200).json({ message: "Estado actualizado correctamente", data: appointmentUpdated });
+    } catch (error) {
+        console.log("error" + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// El doctor acepta una cita "pending" propia, revalidando antes que el
+// horario siga libre desde que se creó la cita.
+appointmentsController.acceptAppointment = async (req, res) => {
+    try {
+        if (req.user.role !== "doctor") {
+            return res.status(403).json({ message: "Solo un doctor puede aceptar una cita." });
+        }
+
+        const { nurse_id } = req.body;
+        const appointment = await appointmentsModel.findById(req.params.id);
+        if (!appointment) {
             return res.status(404).json({ message: "Appointment not found" });
         }
 
-        return res.status(200).json({ message: "Status updated successfully", data: appointmentUpdated });
+        if (appointment.doctor_id && appointment.doctor_id.toString() !== req.user.id) {
+            return res.status(403).json({ message: "No puedes aceptar una cita asignada a otro doctor." });
+        }
+
+        if (appointment.status !== "pending") {
+            return res.status(400).json({ message: "Esta cita ya no está pendiente de aceptación." });
+        }
+
+        const d = appointment.date;
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+        const { free, reason } = await isSlotFreeForDoctor(
+            req.user.id,
+            dateStr,
+            appointment.start_time,
+            appointment.end_time,
+            appointment._id
+        );
+
+        if (!free) {
+            return res.status(409).json({ message: reason || "Ese horario ya no está disponible." });
+        }
+
+        let assignedNurse = null;
+        if (appointment.procedure_id) {
+            const procedure = await proceduresModel.findById(appointment.procedure_id)
+                .select("requires_nurse");
+            if (procedure?.requires_nurse && !nurse_id) {
+                return res.status(400).json({ message: "Este procedimiento requiere seleccionar una enfermera." });
+            }
+        }
+        if (nurse_id) {
+            assignedNurse = await nursesModel.findById(nurse_id).select("_id");
+            if (!assignedNurse) {
+                return res.status(400).json({ message: "La enfermera seleccionada no existe." });
+            }
+        }
+
+        // La condición exige que siga sin asignar (o asignada a este mismo
+        // doctor en citas anteriores), para que dos doctores no puedan tomarla.
+        const accepted = await appointmentsModel.findOneAndUpdate(
+            {
+                _id: appointment._id,
+                status: "pending",
+                doctor_id: appointment.doctor_id ? req.user.id : null,
+            },
+            { $set: { doctor_id: req.user.id, nurse_id: assignedNurse?._id || null, status: "scheduled" } },
+            { new: true }
+        );
+        if (!accepted) {
+            return res.status(409).json({ message: "Esta cita ya fue tomada por otro doctor." });
+        }
+
+        await notifyAppointmentRecipients(accepted, {
+            patientMessage: "Tu cita fue aceptada por el doctor.",
+            actor: req.user,
+        }).catch((error) => console.log("Error notificando aceptación de cita:", error));
+
+        return res.status(200).json({ message: "Cita aceptada correctamente", data: accepted });
     } catch (error) {
         console.log("error" + error);
         return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// El admin asigna un doctor a una cita "pending", dejándola programada de
+// una vez, con la misma revalidación de horario y enfermera que aceptar.
+appointmentsController.assignDoctor = async (req, res) => {
+    try {
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Solo un administrador puede asignar una cita a un doctor." });
+        }
+
+        const { doctor_id, nurse_id } = req.body;
+        if (!doctor_id) {
+            return res.status(400).json({ message: "Debes seleccionar un doctor." });
+        }
+
+        const appointment = await appointmentsModel.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({ message: "Appointment not found" });
+        }
+
+        if (appointment.status !== "pending") {
+            return res.status(400).json({ message: "Esta cita ya no está pendiente de asignación." });
+        }
+
+        const doctor = await doctorsModel.findById(doctor_id).select("_id");
+        if (!doctor) {
+            return res.status(400).json({ message: "El doctor seleccionado no existe." });
+        }
+
+        const d = appointment.date;
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+        const { free, reason } = await isSlotFreeForDoctor(
+            doctor_id,
+            dateStr,
+            appointment.start_time,
+            appointment.end_time,
+            appointment._id
+        );
+
+        if (!free) {
+            return res.status(409).json({ message: reason || "Ese horario ya no está disponible para el doctor seleccionado." });
+        }
+
+        let assignedNurse = null;
+        if (appointment.procedure_id) {
+            const procedure = await proceduresModel.findById(appointment.procedure_id)
+                .select("requires_nurse");
+            if (procedure?.requires_nurse && !nurse_id) {
+                return res.status(400).json({ message: "Este procedimiento requiere seleccionar una enfermera." });
+            }
+        }
+        if (nurse_id) {
+            assignedNurse = await nursesModel.findById(nurse_id).select("_id");
+            if (!assignedNurse) {
+                return res.status(400).json({ message: "La enfermera seleccionada no existe." });
+            }
+        }
+
+        const assigned = await appointmentsModel.findOneAndUpdate(
+            { _id: appointment._id, status: "pending" },
+            { $set: { doctor_id, nurse_id: assignedNurse?._id || null, status: "scheduled" } },
+            { new: true }
+        );
+        if (!assigned) {
+            return res.status(409).json({ message: "Esta cita ya fue tomada por un doctor." });
+        }
+
+        await notifyAppointmentRecipients(assigned, {
+            doctorMessage: "Se te asignó una nueva cita.",
+            patientMessage: "Tu cita fue asignada a un doctor.",
+            actor: req.user,
+        }).catch((error) => console.log("Error notificando asignación de cita:", error));
+
+        return res.status(200).json({ message: "Cita asignada correctamente", data: assigned });
+    } catch (error) {
+        console.log("error" + error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// Catálogo seguro del portal: solo procedimientos activos y los campos que
+// el paciente necesita para elegir y conocer su precio/duración.
+appointmentsController.getPatientProcedures = async (req, res) => {
+    try {
+        if (req.user.role !== "patient") {
+            return res.status(403).json({ message: "Acceso denegado." });
+        }
+        const procedures = await proceduresModel.find({ is_active: true })
+            .select("name description estimated_duration price")
+            .sort({ name: 1 })
+            .lean();
+        return res.json({ data: procedures });
+    } catch (error) {
+        return res.status(500).json({ message: "No se pudieron cargar los procedimientos." });
+    }
+};
+
+// Catálogo mínimo para asignar una enfermera al crear/editar/aceptar una cita — usado tanto por
+// AppointmentsForm.jsx (crear/editar) como por AppointmentsGrid.jsx (aceptar/asignar). Se monta
+// con authorize("calendar.appointments","view") en las rutas, así que cualquier rol que pueda
+// gestionar citas (admin, doctor, recepción, enfermería) llega aquí, sin depender del permiso
+// de administración de enfermeras (users.nurses), que es un tema aparte.
+// Si se envían date/start_time/end_time (los de la cita a crear/editar/aceptar), el catálogo se
+// filtra a solo las enfermeras que tienen ese horario configurado como disponible — igual
+// que un doctor solo puede recibir citas dentro de su propio horario. appointment_id se envía
+// al editar una cita existente, para no filtrar a la enfermera ya asignada por "chocar" con
+// la misma cita que se está editando.
+appointmentsController.getNursesForAcceptance = async (req, res) => {
+    try {
+        const { date, start_time, end_time, appointment_id } = req.query;
+        const nurses = await nursesModel.find({ is_active: true }).select("name last_name").sort({ name: 1 }).lean();
+
+        if (!date || !start_time || !end_time) {
+            return res.json({ data: nurses });
+        }
+
+        const availability = await Promise.all(
+            nurses.map((n) => isNurseAvailable(n._id, date, start_time, end_time, appointmentsModel, appointment_id))
+        );
+        const availableNurses = nurses.filter((_, i) => availability[i]);
+        return res.json({ data: availableNurses });
+    } catch (error) {
+        return res.status(500).json({ message: "No se pudieron cargar las enfermeras." });
     }
 };
 
@@ -524,29 +980,8 @@ appointmentsController.getAppointmentsHistory = async (req, res) => {
         return res.status(200).json(history);
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
-
-/*
-const doctors = await doctorsModel.find({
-  name: { $regex: search, $options: "i" }
-});
-
-const patients = await patientsModel.find({
-  name: { $regex: search, $options: "i" }
-});
-
-const doctorIds = doctors.map(doc => doc._id);
-const patientIds = patients.map(pat => pat._id);
-
-const appointments = await appointmentsModel.find({
-  $or: [
-    { doctor: { $in: doctorIds } },
-    { patient: { $in: patientIds } },
-    { appointmentName: { $regex: search, $options: "i" } }
-  ]
-}).populate("doctor patient");
-*/
 
 export default appointmentsController;

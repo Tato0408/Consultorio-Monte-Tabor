@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { CheckCircle2, X, Edit2, Save, AlertCircle, Clock, Loader2, User, Stethoscope, CalendarDays, DollarSign } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
@@ -6,9 +6,11 @@ import { es } from "date-fns/locale"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import useAppointments from "../hooks/useAppointments"
 import useMedicalData from "../hooks/useMedicalData";
+import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import { showSuccess, showError } from "@/lib/alerts";
 import useSchedule from "../hooks/useSchedule";
 import { useAuth } from "@/context/AuthContext";
+import apiClient from "@/lib/apiClient";
 
 
 const fmt12 = (t) => {
@@ -65,8 +67,16 @@ export default function AppointmentsForm() {
   const canUpdateAppt = hasPermission("calendar.appointments", "update");
 
   const { getAppointmentById, createAppointment, updateAppointment, submitting } = useAppointments();
-  const { patients, doctors, nurses } = useMedicalData();
+  const { patients, doctors } = useMedicalData();
   const { getAvailableSlots, getSchedule } = useSchedule();
+
+  // Catálogo global de tipos de cita (nombre + color), administrado por el rol admin desde
+  // Horarios — son los mismos que aparecen en la leyenda del calendario.
+  const { getAppointmentTypes } = useAppointmentTypes();
+  const [appointmentTypes, setAppointmentTypes] = useState([]);
+  useEffect(() => {
+    getAppointmentTypes().then(setAppointmentTypes).catch(() => setAppointmentTypes([]));
+  }, []);
 
   // El modo edición inicial respeta el permiso: sin create no arranca en modo
   // creación habilitado, y sin update no arranca en modo edición habilitado
@@ -98,6 +108,15 @@ export default function AppointmentsForm() {
   const [selectedSlot, setSelectedSlot]       = useState(null);
   const [scheduleData, setScheduleData]       = useState(null);
   const scheduleId = scheduleData?._id || null;
+  // Enfermeras con horario disponible para el doctor/fecha/horario ya elegidos — no el
+  // catálogo completo (ver efecto más abajo, mismo endpoint que AppointmentsForm.jsx).
+  const [availableNurses, setAvailableNurses] = useState([]);
+  const [loadingNurses, setLoadingNurses]     = useState(false);
+  // Recuerda el horario original de la cita que se está editando (fecha + doctor + slot), para
+  // no perderlo cuando el efecto de abajo vuelve a pedir los horarios disponibles: el backend no
+  // excluye la propia cita de "ya ocupado", así que sin esto su horario desaparecería de la
+  // lista apenas se carga el formulario. Mismo patrón que AppointmentsForm.jsx.
+  const originalSlotRef = useRef(null);
 
   // Si el usuario es doctor, pre-rellenar su propio ID en citas nuevas
   useEffect(() => {
@@ -113,20 +132,33 @@ export default function AppointmentsForm() {
     setLoading(true);
     getAppointmentById(id).then(cita => {
       if (!cita) return;
+      const doctorId = cita.doctor_id?._id || cita.doctor_id || "";
       setFormData({
         patient_id: cita.patient_id?._id || "",
-        doctor_id:  cita.doctor_id?._id  || cita.doctor_id || "",
+        doctor_id:  doctorId,
         nurse_id:   cita.nurse_id?._id   || cita.nurse_id  || "",
       });
-      setProcedure(cita.type || "Consulta");
-      setDate(cita.date ? new Date(cita.date) : new Date());
+      // "appointment_type" (el catálogo del admin) es lo que se muestra/edita aquí; se cae a
+      // "type" solo como respaldo para citas creadas antes de que existiera ese campo.
+      setProcedure(cita.appointment_type || cita.type || "");
+      const loadedDate = cita.date ? new Date(cita.date) : new Date();
+      setDate(loadedDate);
       setStatus(cita.status || "pending");
       setNotes(cita.description || "");
       setCancellationReason(cita.cancellation_reason || "");
       setTotal(String(cita.total || ""));
+      // Antes no se restauraba: al editar, siempre volvía a caer en el valor por defecto (30
+      // min) sin importar la duración real con la que se agendó la cita.
+      setDuration(cita.duration_minutes || 30);
       setScheduleData(cita.schedule_id ? { _id: cita.schedule_id } : null);
       if (cita.start_time && cita.end_time) {
-        setSelectedSlot({ start_time: cita.start_time, end_time: cita.end_time });
+        const slot = { start_time: cita.start_time, end_time: cita.end_time };
+        setSelectedSlot(slot);
+        originalSlotRef.current = {
+          date: `${loadedDate.getFullYear()}-${String(loadedDate.getMonth() + 1).padStart(2, "0")}-${String(loadedDate.getDate()).padStart(2, "0")}`,
+          doctor_id: doctorId,
+          ...slot,
+        };
       }
     }).catch(() => showError("No se pudo recuperar la información de la cita."))
       .finally(() => setLoading(false));
@@ -144,17 +176,68 @@ export default function AppointmentsForm() {
   useEffect(() => {
     if (!formData.doctor_id || !date) { setAvailableSlots([]); setSelectedSlot(null); return; }
     setSlotsLoading(true);
-    setSelectedSlot(null);
     // Usar fecha LOCAL para que no cambie de día en zonas UTC+
     const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
     getAvailableSlots(formData.doctor_id, dateStr, duration)
-      .then(res => setAvailableSlots(res.slots || []))
+      .then(res => {
+        let slots = res.slots || [];
+        // Si estamos editando y el horario original de ESTA cita no aparece en la lista (el
+        // backend no excluye a la propia cita al calcular "ya ocupado"), se reinyecta para no
+        // perder la selección ya guardada — mismo criterio que AppointmentsForm.jsx.
+        const original = originalSlotRef.current;
+        if (original && original.date === dateStr && original.doctor_id === formData.doctor_id) {
+          const yaIncluido = slots.some(s => s.start_time === original.start_time);
+          if (!yaIncluido) {
+            slots = [{ start_time: original.start_time, end_time: original.end_time }, ...slots];
+          }
+        }
+        setAvailableSlots(slots);
+        // Conserva la selección actual si sigue siendo válida en la nueva lista; si no, mantiene
+        // el horario original de la cita (mismo doctor/fecha) en vez de dejarla en blanco.
+        setSelectedSlot(prev => {
+          if (prev && slots.some(s => s.start_time === prev.start_time)) return prev;
+          if (original && original.date === dateStr && original.doctor_id === formData.doctor_id) {
+            return { start_time: original.start_time, end_time: original.end_time };
+          }
+          return null;
+        });
+      })
       .catch(() => setAvailableSlots([]))
       .finally(() => setSlotsLoading(false));
   }, [formData.doctor_id, date, duration]);
 
+  // Enfermeras disponibles para el horario ya elegido — mismo endpoint que usa
+  // AppointmentsGrid.jsx al aceptar/asignar una cita.
+  useEffect(() => {
+    if (!formData.doctor_id || !selectedSlot || !date) { setAvailableNurses([]); return; }
+    let cancelled = false;
+    setLoadingNurses(true);
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+    apiClient("/appointments/nurses-for-acceptance", {
+      params: {
+        date: dateStr,
+        start_time: selectedSlot.start_time,
+        end_time: selectedSlot.end_time,
+        appointment_id: id,
+      },
+    }).then((response) => {
+      if (cancelled) return;
+      const list = Array.isArray(response) ? response : response.data || [];
+      setAvailableNurses(list);
+      // Si la enfermera ya elegida (ej. cargada al editar una cita) no está en la lista
+      // recién obtenida, se limpia en vez de dejar una asignación inválida.
+      setFormData(p => (p.nurse_id && !list.some(n => n._id === p.nurse_id) ? { ...p, nurse_id: "" } : p));
+    }).catch(() => {
+      if (!cancelled) setAvailableNurses([]);
+    }).finally(() => {
+      if (!cancelled) setLoadingNurses(false);
+    });
+    return () => { cancelled = true; };
+  }, [formData.doctor_id, date, selectedSlot, id]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     if (!formData.patient_id || !formData.doctor_id) {
       showError("Debe seleccionar un paciente y un doctor."); return;
     }
@@ -176,6 +259,10 @@ export default function AppointmentsForm() {
       procedure_id:      null,
       schedule_id:       scheduleId,
       type:              procedure,
+      // Este formulario no distingue "Consulta Médica General" vs. un procedimiento real del
+      // catálogo (no usa procedure_id) — "type" y "appointment_type" quedan con el mismo valor
+      // elegido del catálogo del admin, así la cita sí colorea bien en la leyenda del calendario.
+      appointment_type:  procedure || undefined,
       date:              date.toISOString(),
       start_time:        selectedSlot.start_time,
       end_time:          selectedSlot.end_time,
@@ -202,7 +289,7 @@ export default function AppointmentsForm() {
 
   const selectedPatient = patients.find(p => p._id === formData.patient_id);
   const selectedDoctor  = doctors.find(d => d._id === formData.doctor_id);
-  const selectedNurse   = nurses.find(n => n._id === formData.nurse_id);
+  const selectedNurse   = availableNurses.find(n => n._id === formData.nurse_id);
 
   // Filtra slots ya pasados cuando la fecha seleccionada es hoy
   const now = new Date();
@@ -270,13 +357,13 @@ export default function AppointmentsForm() {
         </div>
         <div className="flex items-center gap-2">
           {id && !isEditing && canUpdateAppt && (
-            <button onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors">
+            <button onClick={() => setIsEditing(true)} disabled={submitting}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
               <Edit2 className="w-3.5 h-3.5" /> Editar
             </button>
           )}
-          <button onClick={() => navigate("/calendar/appointments")}
-            className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+          <button onClick={() => navigate("/calendar/appointments")} disabled={submitting}
+            className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -284,6 +371,9 @@ export default function AppointmentsForm() {
 
       <form onSubmit={handleSubmit} className="max-w-5xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-5">
 
+        {/* fieldset con display:contents — además del gating existente por !isEditing, esto
+            desactiva TODO durante el envío (submitting), sin alterar el layout de grid */}
+        <fieldset disabled={submitting} className="contents">
 
         <div className="lg:col-span-2 flex flex-col gap-5">
 
@@ -302,12 +392,8 @@ export default function AppointmentsForm() {
                 label="Tipo de cita"
                 value={procedure}
                 onChange={setProcedure}
-                options={[
-                  { value: "Consulta", label: "Consulta" },
-                  { value: "Control/Seguimiento", label: "Control / Seguimiento" },
-                  { value: "Procedimiento", label: "Procedimiento" },
-                ]}
-                placeholder="Selecciona tipo"
+                options={appointmentTypes.map(t => ({ value: t.name, label: t.name }))}
+                placeholder={appointmentTypes.length === 0 ? "Sin tipos de cita configurados" : "Selecciona tipo"}
                 disabled={!isEditing}
               />
               <SelectField
@@ -322,9 +408,17 @@ export default function AppointmentsForm() {
                 label="Enfermera asignada"
                 value={formData.nurse_id}
                 onChange={v => setFormData(p => ({ ...p, nurse_id: v }))}
-                options={nurses.map(n => ({ value: n._id, label: `${n.name} ${n.last_name}` }))}
-                placeholder="Opcional"
-                disabled={!isEditing}
+                options={availableNurses.map(n => ({ value: n._id, label: `${n.name} ${n.last_name}` }))}
+                placeholder={
+                  !selectedSlot
+                    ? "Elija primero doctor, fecha y horario"
+                    : loadingNurses
+                      ? "Buscando enfermeras disponibles..."
+                      : availableNurses.length === 0
+                        ? "Sin enfermeras disponibles en ese horario"
+                        : "Opcional"
+                }
+                disabled={!isEditing || !selectedSlot || loadingNurses}
               />
             </div>
 
@@ -359,13 +453,13 @@ export default function AppointmentsForm() {
           <SectionCard title="Fecha y horario" icon={CalendarDays}>
             <div className="flex flex-col lg:flex-row gap-5">
 
-              <div className={`flex-shrink-0 ${!isEditing ? "pointer-events-none opacity-70" : ""}`}>
+              <div className={`flex-shrink-0 ${!isEditing || submitting ? "pointer-events-none opacity-70" : ""}`}>
                 <Calendar
                   mode="single"
                   locale={es}
                   selected={date}
                   defaultMonth={date}
-                  onSelect={isEditing ? setDate : undefined}
+                  onSelect={isEditing && !submitting ? setDate : undefined}
                   fromDate={today}
                   disabled={isDateDisabled}
                   modifiers={{
@@ -522,6 +616,7 @@ export default function AppointmentsForm() {
                 <Textarea disabled={!isEditing} value={cancellationReason}
                   onChange={e => setCancellationReason(e.target.value)}
                   placeholder="¿Por qué se canceló la cita?"
+                  maxLength={300}
                   className="min-h-[80px] border-red-200 focus-visible:ring-red-300 bg-red-50/30 rounded-xl resize-none text-sm" />
               </div>
             )}
@@ -530,8 +625,9 @@ export default function AppointmentsForm() {
           <SectionCard title="Costo total" icon={DollarSign}>
             <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-blue-200 focus-within:border-blue-400 transition-all bg-white">
               <span className="text-slate-400 text-sm font-medium">$</span>
-              <input type="number" min="0" step="0.01" disabled={!isEditing}
+              <input type="number" min="0" max="999999" step="0.01" disabled={!isEditing}
                 value={total} onChange={e => setTotal(e.target.value)}
+                onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                 placeholder="0.00"
                 className="flex-1 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-300 disabled:text-slate-400" />
             </div>
@@ -542,6 +638,7 @@ export default function AppointmentsForm() {
             <Textarea disabled={!isEditing} value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Ingrese detalles adicionales de la cita..."
+              maxLength={1000}
               className="min-h-[120px] border-slate-200 focus-visible:ring-blue-200 rounded-xl text-sm resize-none disabled:bg-slate-50" />
           </SectionCard>
 
@@ -554,6 +651,7 @@ export default function AppointmentsForm() {
             </button>
           )}
         </div>
+        </fieldset>
       </form>
     </div>
   );

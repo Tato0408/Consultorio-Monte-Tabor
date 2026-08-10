@@ -13,6 +13,8 @@ import {
   Menu 
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import PatientAppointments from "@/modules/appointments/pages/PatientAppointments";
+import NotificationsMenu from "@/components/NotificationsMenu";
 
 // ── Mock Data Estático para el Dashboard ────────────────────────────────────
 const MOCK_DOCTORS = [
@@ -487,6 +489,7 @@ const Dashboard = () => {
   const [filterType, setFilterType] = useState("");
   const [filterDoctor, setFilterDoctor] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("calendar");
 
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
   const weekEnd  = useMemo(() => {
@@ -556,7 +559,8 @@ const Dashboard = () => {
             </div>
 
             {/* Menú de Usuario / Perfil / Logout */}
-            <div className="flex items-center relative">
+            <div className="flex items-center gap-2 relative">
+              <NotificationsMenu />
               <button 
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-600 focus:outline-none"
@@ -598,6 +602,11 @@ const Dashboard = () => {
 
       {/* ── CAMBIO 2: Contenedor principal ahora a todo el ancho (sin max-w-7xl mx-auto) ── */}
       <div className="w-full px-4 sm:px-6 lg:px-8 flex-1 flex flex-col">
+        <div className="flex gap-1 border-b border-slate-200 mb-5">
+          <button onClick={() => setActiveTab("calendar")} className={`px-4 py-2 text-sm font-semibold ${activeTab === "calendar" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500"}`}>Calendario</button>
+          <button onClick={() => setActiveTab("appointments")} className={`px-4 py-2 text-sm font-semibold ${activeTab === "appointments" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500"}`}>Citas</button>
+        </div>
+        {activeTab === "appointments" ? <PatientAppointments embedded /> : <>
         
         {/* Encabezado e Información del Calendario */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-5 mb-6 flex-shrink-0">
@@ -605,9 +614,10 @@ const Dashboard = () => {
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-slate-900">Agenda de Citas Médicas</h1>
               <p className="text-[11px] sm:text-xs text-slate-400">Selecciona un espacio disponible en la cuadrícula para programar tu atención</p>
+              <Link to="/appointments" className="inline-block mt-2 text-xs font-semibold text-blue-600 hover:text-blue-800">Ver mis citas</Link>
             </div>
             <button
-              onClick={() => navigate("/calendar/appointments/new")}
+              onClick={() => navigate("/appointments")}
               className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl whitespace-nowrap transition-colors shadow-sm self-start md:self-auto"
             >
               <Plus className="w-4 h-4" />
@@ -799,7 +809,7 @@ const Dashboard = () => {
                   return (
                     <div key={di} className={`absolute top-0 bottom-0 ${isPast ? "cursor-not-allowed" : "cursor-pointer"}`}
                       style={{ left: `calc(48px + ${di} * (100% - 48px) / 7)`, width: `calc((100% - 48px) / 7)` }}
-                      onClick={() => { if (isPast) return; navigate(`/calendar/appointments/new?date=${toISO(day)}`); }}
+                      onClick={() => { if (isPast) return; navigate("/appointments"); }}
                     >
                       {(isDayOff || isPast) && (
                         <div className="absolute inset-0 pointer-events-none z-10" style={{ backgroundColor: "rgba(241,245,249,0.65)" }} />
@@ -830,6 +840,7 @@ const Dashboard = () => {
             <DetailPanel appt={selected} isDoctor={isDoctor} onClose={() => setSelected(null)} navigate={navigate} />
           )}
         </div>
+        </>}
       </div>
     </div>
   );

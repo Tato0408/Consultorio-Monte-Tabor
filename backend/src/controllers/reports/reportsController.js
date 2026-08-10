@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import patientsModel from "../../models/patients/patients.js";
 import doctorsModel from "../../models/doctors/doctors.js";
@@ -19,9 +20,8 @@ import {
 
 const reportsController = {};
 
-// Las citas solo tienen 2 valores reales de "type" (ver AppointmentsForm.jsx) — no existe un
-// campo de especialidad médica en el sistema, así que estos 2 tipos son la agrupación de
-// "servicio" más fiel a los datos reales disponibles.
+// Las citas solo tienen 2 valores reales de "type" (no existe un campo de
+// especialidad médica), así que son la agrupación de "servicio" más fiel a los datos.
 const TYPE_GENERAL = "Consulta Médica General";
 const TYPE_PROCEDURE = "Procedimiento";
 
@@ -33,8 +33,12 @@ reportsController.getAppointmentsReport = async (req, res) => {
         const range = resolveRange(req.query);
         const { isGeneral, start, end, prevStart, prevEnd } = range;
 
-        const curFilter = dateFilter("date", start, end);
-        const prevFilter = isGeneral ? {} : dateFilter("date", prevStart, prevEnd);
+        // El doctor solo ve el reporte de sus propias citas, admin ve toda la
+        // clínica. Se castea a ObjectId a mano porque aggregate() no lo hace solo.
+        const doctorScope = req.user.role === "doctor" ? { doctor_id: new mongoose.Types.ObjectId(req.user.id) } : {};
+
+        const curFilter = { ...dateFilter("date", start, end), ...doctorScope };
+        const prevFilter = isGeneral ? { ...doctorScope } : { ...dateFilter("date", prevStart, prevEnd), ...doctorScope };
         const countCur = (extra = {}) => appointmentsModel.countDocuments({ ...curFilter, ...extra });
         const countPrev = (extra = {}) =>
             isGeneral ? Promise.resolve(0) : appointmentsModel.countDocuments({ ...prevFilter, ...extra });
@@ -68,10 +72,8 @@ reportsController.getAppointmentsReport = async (req, res) => {
             countCur({ status: "pending" }), countPrev({ status: "pending" }),
             countCur({ type: TYPE_GENERAL }), countPrev({ type: TYPE_GENERAL }),
             countCur({ type: TYPE_PROCEDURE }), countPrev({ type: TYPE_PROCEDURE }),
-            // Conteos SOLO de citas completadas por tipo — para el gráfico/tabla del PDF, que
-            // muestra "visitas reales" junto a los ingresos (también completadas-only). La
-            // sección en pantalla "Tipo de atención" sigue usando el conteo de todas las citas
-            // (generalCur/procedureCur arriba), porque ahí el foco es volumen de reservas.
+            // Conteos SOLO de completadas por tipo, para el gráfico/tabla del PDF; la sección
+            // en pantalla "Tipo de atención" usa el conteo total porque mide volumen de reservas.
             countCur({ type: TYPE_GENERAL, status: "completed" }), countPrev({ type: TYPE_GENERAL, status: "completed" }),
             countCur({ type: TYPE_PROCEDURE, status: "completed" }), countPrev({ type: TYPE_PROCEDURE, status: "completed" }),
             // Los ingresos solo cuentan citas COMPLETADAS — una cancelada o no-show no generó
@@ -83,8 +85,8 @@ reportsController.getAppointmentsReport = async (req, res) => {
             isGeneral ? Promise.resolve([]) : appointmentsModel.distinct("doctor_id", prevFilter),
             appointmentsModel.aggregate([{ $match: curFilter }, { $group: { _id: null, avg: { $avg: "$duration_minutes" } } }]),
             isGeneral ? Promise.resolve([]) : appointmentsModel.aggregate([{ $match: prevFilter }, { $group: { _id: null, avg: { $avg: "$duration_minutes" } } }]),
-            buildTimeSeries(appointmentsModel, "date", {}, range),
-            buildTimeSeries(appointmentsModel, "date", { status: "completed" }, range),
+            buildTimeSeries(appointmentsModel, "date", doctorScope, range),
+            buildTimeSeries(appointmentsModel, "date", { ...doctorScope, status: "completed" }, range),
             appointmentsModel.aggregate([
                 { $match: { ...curFilter, status: "completed" } },
                 { $group: { _id: "$patient_id", count: { $sum: 1 } } },
@@ -165,21 +167,22 @@ reportsController.getAppointmentsReport = async (req, res) => {
                 key: "medicos",
                 title: "Médicos y duración de consultas",
                 icon: "user",
+                // El doctor solo ve las suyas, así que "doctores con citas asignadas"
+                // siempre daría 1: la fila no aporta nada para ese rol.
                 rows: [
-                    buildRow("Doctores con citas asignadas", doctorsCur.length, doctorsPrev.length, isGeneral),
+                    req.user.role !== "doctor" && buildRow("Doctores con citas asignadas", doctorsCur.length, doctorsPrev.length, isGeneral),
                     {
                         proceso: "Duración promedio de las citas",
                         actual: `${avgDuration} min`,
                         anterior: isGeneral ? "—" : `${avgDurationPrev} min`,
                         variacion: isGeneral ? "—" : formatVariation(growthPct(avgDuration, avgDurationPrev)),
                     },
-                ],
+                ].filter(Boolean),
             },
         ];
 
-        // cur/prev aquí son conteos de citas COMPLETADAS por tipo (generalCompletedCur, etc.) —
-        // así "Consultas" e "Ingresos" quedan consistentes en la misma fila: ambas reflejan
-        // solo visitas que sí se atendieron, no todo lo agendado.
+        // cur/prev son conteos de citas COMPLETADAS por tipo, así "Consultas" e "Ingresos"
+        // quedan consistentes en la misma fila: ambas reflejan solo lo atendido.
         const serviceRow = (servicio, cur, prev, revCur, revPrev) => ({
             servicio,
             consultas: cur,
@@ -233,7 +236,7 @@ reportsController.getAppointmentsReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getAppointmentsReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -266,6 +269,10 @@ reportsController.getPatientsReport = async (req, res) => {
         const distinctAttended = (filter, type) =>
             appointmentsModel.distinct("patient_id", { ...filter, status: "completed", ...(type ? { type } : {}) });
 
+        // Pacientes atendidos dentro del rango elegido — se usa para acotar pathologicalCount
+        // (más abajo) al mismo período que el resto del reporte, en vez de a toda la historia.
+        const attendedPatientIdsCur = isGeneral ? null : await distinctAttended(curFilter);
+
         const [
             totalPatientsNow, totalPatientsPrevEnd,
             newPatientsCur, newPatientsPrev,
@@ -292,13 +299,21 @@ reportsController.getPatientsReport = async (req, res) => {
             // ingreso real aunque tenga un "total" (precio) guardado desde que se agendó.
             appointmentsModel.aggregate([{ $match: { ...curFilter, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" } } }]).then((r) => r[0]?.total || 0),
             isGeneral ? Promise.resolve(0) : appointmentsModel.aggregate([{ $match: { ...prevFilter, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" } } }]).then((r) => r[0]?.total || 0),
+            // Antes contaba sobre TODA la base histórica, sin importar el rango de fechas elegido
+            // — ahora, igual que el resto de cifras de esta sección, se acota al período.
             appointmentsModel.aggregate([
-                { $match: { status: "completed" } },
+                { $match: { ...curFilter, status: "completed" } },
                 { $group: { _id: "$patient_id", count: { $sum: 1 } } },
                 { $match: { count: { $gte: 2 } } },
                 { $count: "total" },
             ]).then((r) => r[0]?.total || 0),
-            patientsModel.countDocuments({ "clinical_history.pathological.0": { $exists: true } }),
+            // Mismo problema: no hay fecha propia en cada antecedente patológico, así que se acota
+            // a los pacientes efectivamente atendidos dentro del período elegido (en vez de a
+            // todos los pacientes que alguna vez tuvieron un antecedente registrado).
+            patientsModel.countDocuments({
+                ...(isGeneral ? {} : { _id: { $in: attendedPatientIdsCur } }),
+                "clinical_history.pathological.0": { $exists: true },
+            }),
             buildTimeSeries(appointmentsModel, "date", { status: "completed" }, range),
             prescriptionModel.aggregate([
                 ...(isGeneral ? [] : [{ $match: { issued_at: { $gte: start, $lte: end } } }]),
@@ -449,7 +464,7 @@ reportsController.getPatientsReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getPatientsReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -627,7 +642,7 @@ reportsController.getDoctorsReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getDoctorsReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -802,7 +817,7 @@ reportsController.getInventoryReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getInventoryReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

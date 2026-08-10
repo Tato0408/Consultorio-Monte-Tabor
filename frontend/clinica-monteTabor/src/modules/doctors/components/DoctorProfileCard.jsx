@@ -1,4 +1,5 @@
 import React from "react";
+import { User } from "lucide-react";
 
 const DoctorProfileCard = ({ doctor }) => {
   //Evalua si no hay ningun doctor seleccionado y muestra un mensaje de aviso
@@ -16,11 +17,18 @@ const DoctorProfileCard = ({ doctor }) => {
     <div className="border rounded-xl overflow-hidden shadow-sm bg-white">
       {/*Encabezado de tarjeta */}
       <div className="bg-blue-600 text-white p-6 flex flex-col items-center">
-        <img
-          src={doctor.img_url}
-          alt={`${doctor.name} ${doctor.last_name}`}
-          className="w-24 h-24 rounded-full bg-white object-cover"
-        />
+        <div className="w-24 h-24 rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
+          {doctor.img_url ? (
+            <img
+              src={doctor.img_url}
+              alt={`${doctor.name} ${doctor.last_name}`}
+              className="w-full h-full object-cover"
+              onError={(e) => { e.target.style.display = "none"; }}
+            />
+          ) : (
+            <User className="w-10 h-10 text-blue-600" strokeWidth={1.5} />
+          )}
+        </div>
 
         <h3 className="font-semibold mt-3 text-center">
           {doctor.name} {doctor.last_name}

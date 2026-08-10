@@ -22,6 +22,7 @@ const AntecedentsCard = ({ title, name, fields, readOnly }) => {
                                 key={field.key}
                                 type="text"
                                 placeholder={field.label}
+                                maxLength={field.maxLength || 100}
                                 disabled={readOnly}
                                 {...register(`${name}.${index}.${field.key}`)}
                                 className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"

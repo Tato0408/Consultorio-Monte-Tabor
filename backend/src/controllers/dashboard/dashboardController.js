@@ -82,7 +82,7 @@ dashboardController.getStats = async (req, res) => {
         });
     } catch (error) {
         console.error("dashboard.getStats:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -145,7 +145,7 @@ dashboardController.getDoctorStatus = async (req, res) => {
         });
     } catch (error) {
         console.error("dashboard.getDoctorStatus:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -186,7 +186,7 @@ dashboardController.getUserStats = async (req, res) => {
         });
     } catch (error) {
         console.error("dashboard.getUserStats:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -245,7 +245,7 @@ dashboardController.getReportStats = async (req, res) => {
         });
     } catch (error) {
         console.error("dashboard.getReportStats:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

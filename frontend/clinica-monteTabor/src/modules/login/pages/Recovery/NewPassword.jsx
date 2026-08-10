@@ -48,8 +48,8 @@ const NewPassword = () => {
   const passwordRules = [
     {
       id: "length",
-      label: "La contraseña tiene más de 8 dígitos",
-      test: (p) => p.length > 8,
+      label: "La contraseña tiene al menos 8 caracteres",
+      test: (p) => p.length >= 8,
     },
     {
       id: "uppercase",
@@ -81,6 +81,7 @@ const NewPassword = () => {
   //Manejador para procesar el cambio de credenciales al enviar el formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setError("");
 
     //Doble validacion por si acaso se intenta saltar el disabled del boton
@@ -127,64 +128,71 @@ const NewPassword = () => {
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-              <InputField
-                label="Contraseña"
-                id="password"
-                type="password"
-                placeholder="Ingresa tu contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                icon={<Lock className="w-4 h-4" />}
-                disabled={loading}
-              />
+              {/* fieldset nativo: desactiva de un solo golpe todos los inputs y botones que
+                  contiene mientras se guarda la nueva contraseña */}
+              <fieldset disabled={loading} className="flex flex-col gap-5 border-0 p-0 m-0 min-w-0">
+                <InputField
+                  label="Contraseña"
+                  id="password"
+                  type="password"
+                  placeholder="Ingresa tu contraseña"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  maxLength={100}
+                  icon={<Lock className="w-4 h-4" />}
+                  disabled={loading}
+                />
 
-              <InputField
-                label="Confirmación"
-                id="confirmPassword"
-                type="password"
-                placeholder="Ingresa tu contraseña de nuevo"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                icon={<Lock className="w-4 h-4" />}
-                disabled={loading}
-              />
+                <InputField
+                  label="Confirmación"
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Ingresa tu contraseña de nuevo"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  maxLength={100}
+                  icon={<Lock className="w-4 h-4" />}
+                  disabled={loading}
+                />
 
-              {/* Validaciones */}
-              <div className="flex flex-col gap-2 px-1">
-                {/* Mapea las reglas para pintar los checks de forma dinamica en tiempo real */}
-                {passwordRules.map((rule) => {
-                  const passed = rule.test(password, confirmPassword);
-                  return (
-                    <div key={rule.id} className="flex items-center gap-2">
-                      {/* Si paso la validacion muestra el icono verde, si no el circulo gris */}
-                      {passed ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                      )}
-                      {/* Cambia el color del texto dependiendo de si cumple la validacion o no */}
-                      <span className={`text-xs transition-colors duration-200 ${passed ? "text-emerald-600" : "text-gray-400"}`}>
-                        {rule.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+                {/* Validaciones */}
+                <div className="flex flex-col gap-2 px-1">
+                  {/* Mapea las reglas para pintar los checks de forma dinamica en tiempo real */}
+                  {passwordRules.map((rule) => {
+                    const passed = rule.test(password, confirmPassword);
+                    return (
+                      <div key={rule.id} className="flex items-center gap-2">
+                        {/* Si paso la validacion muestra el icono verde, si no el circulo gris */}
+                        {passed ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        ) : (
+                          <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                        )}
+                        {/* Cambia el color del texto dependiendo de si cumple la validacion o no */}
+                        <span className={`text-xs transition-colors duration-200 ${passed ? "text-emerald-600" : "text-gray-400"}`}>
+                          {rule.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
 
-              {error && (
-                <p className="text-red-500 text-sm text-center">{error}</p>
-              )}
+                {error && (
+                  <p className="text-red-500 text-sm text-center">{error}</p>
+                )}
 
-              <PrimaryButton
-                loading={loading}
-                type="submit"
-                //Se bloquea si el loading esta activo o si falta alguna regla por cumplir
-                disabled={!allRulesPassed || loading}
-              >
-                Reestablecer contraseña
-              </PrimaryButton>
+                <PrimaryButton
+                  loading={loading}
+                  type="submit"
+                  //Se bloquea si el loading esta activo o si falta alguna regla por cumplir
+                  disabled={!allRulesPassed || loading}
+                >
+                  Reestablecer contraseña
+                </PrimaryButton>
+              </fieldset>
 
-              <SecondaryButton to="/login">
+              {/* Un <Link> no es un control de formulario: fieldset no lo alcanza, se desactiva aparte */}
+              <SecondaryButton to="/login" disabled={loading}>
                 Volver al inicio de sesión
               </SecondaryButton>
 

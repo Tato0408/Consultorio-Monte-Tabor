@@ -7,7 +7,14 @@ import { confirmResetPermissions } from "@/lib/alerts";
 import RoleCard from "../components/RoleCard";
 import PermissionSection from "../components/PermissionSection";
 import PermissionsHeader from "../components/PermissionsHeader";
-import { SIDEBAR_MODULES, ROLE_COLOR_TOKENS, ROLE_COLOR_BY_KEY, DEFAULT_ROLE_PERMISSIONS } from "../rolesConfig.js";
+import {
+  SIDEBAR_MODULES,
+  ROLE_COLOR_TOKENS,
+  ROLE_COLOR_BY_KEY,
+  DEFAULT_ROLE_PERMISSIONS,
+  MODULE_VIEW_DEPENDENCIES,
+  MODULE_LABEL_BY_KEY,
+} from "../rolesConfig.js";
 
 // Iconos de respaldo si el campo "icon" del rol (guardado en la base de datos) no coincide con ningún ícono de lucide-react
 const ROLE_ICON_FALLBACK = {
@@ -105,9 +112,38 @@ const RolesPage = () => {
 
   const handleDiscardChanges = () => setPendingChanges({});
 
+  // Revisa, contra el estado combinado (guardado + pendiente), si algún módulo con "Ver"
+  // activado le falta el "Ver" de algún módulo del que depende su pantalla (ver
+  // MODULE_VIEW_DEPENDENCIES) — devuelve un mensaje listo para mostrar, o null si todo está bien.
+  const findMissingDependenciesMessage = (permissions) => {
+    const problems = Object.entries(MODULE_VIEW_DEPENDENCIES)
+      .filter(([moduleKey]) => permissions[moduleKey]?.view)
+      .map(([moduleKey, deps]) => ({
+        moduleLabel: MODULE_LABEL_BY_KEY[moduleKey] || moduleKey,
+        missingLabels: deps.filter((dep) => !permissions[dep.moduleKey]?.view).map((dep) => dep.label),
+      }))
+      .filter((entry) => entry.missingLabels.length > 0);
+
+    if (problems.length === 0) return null;
+
+    return problems
+      .map((p) => `Para ${p.moduleLabel} es necesario activar "Ver" en estos apartados: ${p.missingLabels.join(", ")}.`)
+      .join(" ");
+  };
+
   // agrupa todos los toggles pendientes en un solo PATCH (un batchId por guardado)
   const handleSaveChanges = async () => {
+    if (isSaving) return;
     if (!selectedRoleRaw || !hasPendingChanges) return;
+
+    // Bloquea el guardado (sin tocar nada) si la combinación resultante le rompería la
+    // pantalla a este rol — más vale avisar aquí que dejarlo descubrirlo con la app ya rota.
+    const dependencyMessage = findMissingDependenciesMessage(effectivePermissions);
+    if (dependencyMessage) {
+      toast.error(dependencyMessage);
+      return;
+    }
+
     const changes = Object.entries(pendingChanges).flatMap(([moduleKey, actions]) =>
       Object.entries(actions).map(([action, value]) => ({ moduleKey, action, value }))
     );
@@ -131,6 +167,7 @@ const RolesPage = () => {
   // Restablece un rol completo a los valores predeterminados (botón en la card del rol).
   // Compara contra lo guardado en la API y envía solo lo que realmente cambia, en un solo PATCH.
   const handleResetToDefaults = async (roleKey) => {
+    if (isSaving) return;
     const role = roles.find((r) => r.roleKey === roleKey);
     const defaults = DEFAULT_ROLE_PERMISSIONS[roleKey];
     if (!role || role.isProtected || !defaults) return;
@@ -227,6 +264,9 @@ const RolesPage = () => {
         {mobileView === "list" ? (
           <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <h3 className="font-bold text-blue-900 text-xs uppercase tracking-wider mb-4 px-1">Roles</h3>
+            {/* fieldset con display:contents — evita cambiar de rol o resetear permisos
+                mientras hay un guardado en curso, sin alterar el layout */}
+            <fieldset disabled={isSaving} className="contents">
             <div className="space-y-3">
               {roles.map((role) => {
                 const Icon = getRoleIcon(role.roleKey, role.icon);
@@ -248,13 +288,15 @@ const RolesPage = () => {
                 );
               })}
             </div>
+            </fieldset>
           </div>
         ) : (
           <div className="space-y-4">
             <button
               type="button"
               onClick={() => setMobileView("list")}
-              className="flex items-center gap-1.5 text-sm text-blue-600 font-semibold hover:text-blue-700"
+              disabled={isSaving}
+              className="flex items-center gap-1.5 text-sm text-blue-600 font-semibold hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronRight className="w-4 h-4 rotate-180" />
               Volver a roles
@@ -270,8 +312,9 @@ const RolesPage = () => {
                     permissionsState={selectedRole.permissions}
                     onModuleChange={handleModuleChange}
                     accentSolidClass={ROLE_COLOR_TOKENS[selectedRole.color].solidBg}
-                    readOnly={selectedRole.locked}
+                    readOnly={selectedRole.locked || isSaving}
                     defaultOpen={false}
+                    roleKey={selectedRole.key}
                   />
                 ))}
               </div>
@@ -285,6 +328,9 @@ const RolesPage = () => {
       <div className="hidden lg:grid lg:grid-cols-[300px_1fr] xl:grid-cols-[340px_1fr] gap-6 items-start">
         <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
           <h3 className="font-bold text-blue-900 text-xs uppercase tracking-wider mb-4 px-1">Roles</h3>
+          {/* fieldset con display:contents — evita cambiar de rol o resetear permisos
+              mientras hay un guardado en curso, sin alterar el layout */}
+          <fieldset disabled={isSaving} className="contents">
           <div className="space-y-3">
             {roles.map((role) => {
               const Icon = getRoleIcon(role.roleKey, role.icon);
@@ -306,6 +352,7 @@ const RolesPage = () => {
               );
             })}
           </div>
+          </fieldset>
         </div>
 
         <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
@@ -318,8 +365,9 @@ const RolesPage = () => {
                 permissionsState={selectedRole.permissions}
                 onModuleChange={handleModuleChange}
                 accentSolidClass={ROLE_COLOR_TOKENS[selectedRole.color].solidBg}
-                readOnly={selectedRole.locked}
+                readOnly={selectedRole.locked || isSaving}
                 defaultOpen={section.section === "Calendario"}
+                roleKey={selectedRole.key}
               />
             ))}
           </div>

@@ -31,6 +31,8 @@ import AppointmentsForm from './modules/schedule/appointments/components/Appoint
 import AppointmentsFormCalendar from './modules/schedule/appointments/components/AppointmentsFormCalendar';
 import RecordsPage from './modules/reports/records/page/RecordsPage'
 import NotFound from './modules/notFound/pages/NotFound';
+import RequirePermission from './components/layouts/RequirePermission';
+import RequireRole from './components/layouts/RequireRole';
 function AppRoutes() {
   const { isLoading, hasAdmins } = useAuth();
 
@@ -68,30 +70,35 @@ function AppRoutes() {
       <Route path="/password-updated" element={<PasswordUpdated />} />
 
       <Route element={<MainLayout />}>
+        {/* "/home" y "/system/profile" quedan sin RequirePermission a propósito: su acceso
+            está sembrado en TRUE para los 4 roles (dashboard/system.profile en seedRoles.js) y
+            documentado como "siempre disponible, no depende de authorize()" — no hay permiso
+            real que se les pueda quitar, así que envolverlas no protegería nada y sí arriesgaría
+            dejar a alguien fuera de su propio panel/perfil por un dato inconsistente. */}
         <Route path="/home" element={<Home />} />
-        <Route path="/users/patients" element={<PatientsList />} />
-        <Route path="/users/doctors" element={<DoctorsList />} />
-        <Route path="/users/recepcionist" element={<RecepcionistList />} />
-        <Route path="/calendar/appointments" element={<Appointments />} />
-        <Route path="/calendar/appointments/new" element={<AppointmentsForm />} />
-        <Route path="/calendar/appointments/:id" element={<AppointmentsForm />} />
-        <Route path="/calendar/appointments/calendar/new" element={<AppointmentsFormCalendar />} />
-        <Route path="/calendar/appointments/calendar/:id" element={<AppointmentsFormCalendar />} />
-        <Route path="/calendar/consultations" element={<Consultations />} />
-        <Route path="/calendar/consultations/:appointmentId" element={<ConsultationForm />} />
-        <Route path="/calendar/schedule-config" element={<ScheduleConfig />} />
-        <Route path="/inventory/products" element={<InventoryDashboard />} />
-        <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
-        <Route path="/inventory/treatments" element={<TreatmentsPage />} />
-        <Route path="/procedures" element={<Procedures />} />
+        <Route path="/users/patients" element={<RequirePermission moduleKey="users.patients"><PatientsList /></RequirePermission>} />
+        <Route path="/users/doctors" element={<RequirePermission moduleKey="users.doctors"><DoctorsList /></RequirePermission>} />
+        <Route path="/users/recepcionist" element={<RequirePermission moduleKey="users.receptionist"><RecepcionistList /></RequirePermission>} />
+        <Route path="/calendar/appointments" element={<RequirePermission moduleKey="calendar.appointments"><Appointments /></RequirePermission>} />
+        <Route path="/calendar/appointments/new" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsForm /></RequirePermission>} />
+        <Route path="/calendar/appointments/:id" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsForm /></RequirePermission>} />
+        <Route path="/calendar/appointments/calendar/new" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsFormCalendar /></RequirePermission>} />
+        <Route path="/calendar/appointments/calendar/:id" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsFormCalendar /></RequirePermission>} />
+        <Route path="/calendar/consultations" element={<RequirePermission moduleKey="calendar.consultations"><Consultations /></RequirePermission>} />
+        <Route path="/calendar/consultations/:appointmentId" element={<RequirePermission moduleKey="calendar.consultations"><ConsultationForm /></RequirePermission>} />
+        <Route path="/calendar/schedule-config" element={<RequirePermission moduleKey="calendar.schedule"><RequireRole roles={["doctor", "nurse", "admin"]}><ScheduleConfig /></RequireRole></RequirePermission>} />
+        <Route path="/inventory/products" element={<RequirePermission moduleKey="inventory.products"><InventoryDashboard /></RequirePermission>} />
+        <Route path="/inventory/movements" element={<RequirePermission moduleKey="inventory.movements"><InventoryMovementsPage /></RequirePermission>} />
+        <Route path="/inventory/treatments" element={<RequirePermission moduleKey="inventory.treatments"><TreatmentsPage /></RequirePermission>} />
+        <Route path="/procedures" element={<RequirePermission moduleKey="procedures"><Procedures /></RequirePermission>} />
         <Route path="/system/profile" element={<ProfilePage />} />
-        <Route path="/system/privileges" element={<RolesPage />} />
-        <Route path="/reports/appointments" element={<ReportAppointmentPage />} />
-        <Route path="/reports/patients" element={<ReportsPatientsPage />} />
-        <Route path="/reports/doctors" element={<ReportsDoctorsPage />} />
-        <Route path="/users/nurses" element={<NursesPage />} />
-        <Route path="/reports/records" element={<RecordsPage/>}/>
-        <Route path="/inventory/reports" element={<InventoryReportsPage />} />
+        <Route path="/system/privileges" element={<RequirePermission moduleKey="system.roles"><RolesPage /></RequirePermission>} />
+        <Route path="/reports/appointments" element={<RequirePermission moduleKey="reports.appointments"><ReportAppointmentPage /></RequirePermission>} />
+        <Route path="/reports/patients" element={<RequirePermission moduleKey="reports.patients"><ReportsPatientsPage /></RequirePermission>} />
+        <Route path="/reports/doctors" element={<RequirePermission moduleKey="reports.doctors"><ReportsDoctorsPage /></RequirePermission>} />
+        <Route path="/users/nurses" element={<RequirePermission moduleKey="users.nurses"><NursesPage /></RequirePermission>} />
+        <Route path="/reports/records" element={<RequirePermission moduleKey="reports.records"><RecordsPage /></RequirePermission>} />
+        <Route path="/inventory/reports" element={<RequirePermission moduleKey="inventory.reports"><InventoryReportsPage /></RequirePermission>} />
       </Route>
       <Route path="/system/profile" element={<ProfilePage />} />
 

@@ -93,6 +93,9 @@ const toRecordDetail = (patient) => {
     apellido: patient.last_name,
     dui: patient.dui,
     edad: age != null ? `${age} años` : "—",
+    // Fecha de nacimiento cruda (además de "edad" ya formateada) — la necesita
+    // EditPatientModal para precargar el campo de fecha al editar.
+    birthDate: patient.birth_date || null,
     sexo,
     sexoCorto,
     telefono: patient.phone,
@@ -120,8 +123,12 @@ const toRecordDetail = (patient) => {
         }
       : {},
     // Historial completo de tomas, más reciente primero (para la tabla de la
-    // pestaña "Signos vitales")
+    // pestaña "Signos vitales"). "id" es el _id real del subdocumento (Mongoose lo autogenera
+    // en cada elemento del array) — lo necesita el botón de editar/eliminar una toma puntual.
+    // Todos los valores van crudos (sin unidad pegada al string) para poder precargarlos tal
+    // cual en el modal de edición; la tabla le agrega la unidad solo al mostrarlos.
     signosVitalesHistorial: vitalSignsHistory.map((v) => ({
+      id: String(v._id),
       fecha: formatFecha(v.last_date_taken) || "—",
       presion: v.blood_pressure || "—",
       glucosa: v.glucosa_mgdl ?? "—",
@@ -129,7 +136,7 @@ const toRecordDetail = (patient) => {
       altura: v.height ?? "—",
       imc: v.imc ?? "—",
       temp: v.temperature ?? "—",
-      spo2: v.spo2 != null ? `${v.spo2}%` : "—",
+      spo2: v.spo2 ?? "—",
     })),
     // El modelo no tiene una duración registrada por procedimiento; se deja
     // como dato predeterminado hasta que exista ese campo.
@@ -143,15 +150,19 @@ const toRecordDetail = (patient) => {
     // El modelo no clasifica el "tipo" (crónico/cardio/respiratorio/psicológico)
     // de cada antecedente, así que se deja una categoría genérica por defecto.
     historiaClinica: {
+      // "id" es el _id real del subdocumento (Mongoose lo autogenera en cada elemento del
+      // arreglo) — lo necesitan los botones de editar/eliminar un antecedente puntual.
       hereditarios: (patient?.clinical_history?.hereditary || []).map((h) => ({
+        id: String(h._id),
         a: h.relationship || "—",
         b: h.condition || "—",
-        tipo: "Crónico",
+        tipo: h.type || "—",
       })),
       patologicos: (patient?.clinical_history?.pathological || []).map((p) => ({
+        id: String(p._id),
         a: p.disease || "—",
         b: p.diagnosis || "—",
-        tipo: "Crónico",
+        tipo: p.type || "—",
       })),
       noPatologicos:
         patient?.clinical_history?.non_pathological ||

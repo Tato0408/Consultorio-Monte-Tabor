@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { User, Plus, Loader2, Lock, Eye, EyeOff, CheckCircle2, Circle, X } from "lucide-react";
 import { showSuccess, showError } from "@/lib/alerts";
 import { getMaxAdultBirthDate, validateAdultBirthDate } from "@/lib/validators";
+import { maskLettersOnly } from "@/lib/inputMasks";
 
 // Nombres legibles de cada campo, para el aviso que identifica qué campo falló al enviar
 const FIELD_LABELS = {
@@ -50,7 +51,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
   const isActiveValue = watch("is_active");
 
   const passwordValidations = {
-    hasMinLength: passwordValue.length > 8,
+    hasMinLength: passwordValue.length >= 8,
     hasMixedCase: /[a-z]/.test(passwordValue) && /[A-Z]/.test(passwordValue),
     hasNumbers: /\d/.test(passwordValue),
     hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(passwordValue),
@@ -94,6 +95,11 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
     }
   };
 
+  // Mascara de solo-letras (nombres/apellidos) — mismo patron que handlePhoneMask/handleDuiMask:
+  // el onChange sobreescribe el del register y dispara la validacion manualmente.
+  const makeLettersMaskHandler = (field, max) => (e) =>
+    setValue(field, maskLettersOnly(e.target.value, max), { shouldValidate: true });
+
   const handlePhoneMask = (e) => {
     let digits = e.target.value.replace(/\D/g, "");
     if (digits.length > 8) digits = digits.slice(0, 8);
@@ -109,6 +115,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
   };
 
   const onSubmit = async (data) => {
+    if (loading) return;
     if (!isEditMode && !isPasswordValid) return;
 
     // Al crear, la foto de perfil es obligatoria (el backend también lo exige); se avisa
@@ -184,7 +191,8 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          disabled={loading}
+          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           <X className="w-5 h-5" />
         </button>
@@ -192,8 +200,8 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
         <input type="file" ref={fileInputRef} onChange={handleImageChange} accept="image/*" className="hidden" />
 
         <div
-          className="relative mb-1.5 group cursor-pointer"
-          onClick={() => fileInputRef.current?.click()}
+          className={`relative mb-1.5 group ${loading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
+          onClick={() => !loading && fileInputRef.current?.click()}
         >
           <div className={`w-24 h-24 rounded-full bg-[#F3F4F6] border flex items-center justify-center overflow-hidden ${imageError ? "border-red-400" : "border-gray-100"}`}>
             {imagePreview
@@ -211,6 +219,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
         </h2>
 
         <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="w-full flex flex-col gap-4">
+          {/* fieldset con display:contents — desactiva todos los inputs/botones que contiene
+              de un solo golpe durante el envío, sin alterar el layout */}
+          <fieldset disabled={loading} className="contents">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             <div className="flex flex-col gap-1.5">
@@ -218,7 +229,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <input
                 type="text"
                 placeholder="Ingrese los nombres"
+                maxLength={50}
                 {...register("name", { required: "El nombre es requerido" })}
+                onChange={makeLettersMaskHandler("name", 50)}
                 className={inputClass(errors.name)}
               />
               {errors.name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.name.message}</span>}
@@ -229,7 +242,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <input
                 type="text"
                 placeholder="Ingrese los apellidos"
+                maxLength={50}
                 {...register("last_name", { required: "El apellido es requerido" })}
+                onChange={makeLettersMaskHandler("last_name", 50)}
                 className={inputClass(errors.last_name)}
               />
               {errors.last_name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.last_name.message}</span>}
@@ -239,7 +254,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <label className="text-xs font-semibold text-gray-400">Teléfono</label>
               <input
                 type="text"
+                inputMode="numeric"
                 placeholder="0000-0000"
+                maxLength={9}
                 {...register("phone", {
                   required: "El teléfono es requerido",
                   pattern: {
@@ -258,6 +275,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <input
                 type="email"
                 placeholder="Correo@gmail.com"
+                maxLength={100}
                 {...register("email", {
                   required: "El correo es requerido",
                   pattern: {
@@ -274,7 +292,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <label className="text-xs font-semibold text-gray-400">DUI</label>
               <input
                 type="text"
+                inputMode="numeric"
                 placeholder="00000000-0"
+                maxLength={10}
                 {...register("dui", {
                   required: "El DUI es requerido",
                   pattern: {
@@ -344,6 +364,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Ingresa tu contraseña"
+                    maxLength={100}
                     {...register("password", {
                       required: "La contraseña es requerida",
                       // La validación visual la manejan los ValidationRow,
@@ -368,7 +389,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
 
               {/* Validaciones visuales en tiempo real */}
               <div className="flex flex-col gap-2 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-                <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene más de 8 dígitos" />
+                <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene al menos 8 caracteres" />
                 <ValidationRow checked={passwordValidations.hasMixedCase} label="La contraseña contiene mayúsculas y minúsculas" />
                 <ValidationRow checked={passwordValidations.hasNumbers} label="La contraseña incluye números" />
                 <ValidationRow checked={passwordValidations.hasSpecialChar} label="Las contraseñas incluyen caracteres especiales" />
@@ -386,6 +407,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               Guardar
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
     </div>

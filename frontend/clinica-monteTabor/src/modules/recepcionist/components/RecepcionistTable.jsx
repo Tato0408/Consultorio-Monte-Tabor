@@ -6,6 +6,7 @@ const ReceptionistsTable = ({
   receptionists,
   loading,
   error,
+  onSelect,
   onOpenForm,
   onEdit,
   onDelete,
@@ -161,6 +162,7 @@ const ReceptionistsTable = ({
       searchFields={["name", "last_name", "dui", "email"]}
       onAdd={onOpenForm}
       addLabel="Agregar Recepcionista"
+      onRowClick={onSelect}
     />
   );
 };

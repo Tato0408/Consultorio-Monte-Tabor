@@ -13,6 +13,21 @@ router.route("/history")
 router
     .get("/available-slots", authorize("calendar.appointments", "view"), appointmentsController.getAvailableSlots);
 
+// Flujo de portal público: el controller limita los datos al paciente de la
+// sesión. No usa la matriz interna de permisos destinada al personal.
+router.route("/patient")
+    .get(appointmentsController.getAppointments)
+    .post(appointmentsController.insertAppointment);
+
+router.get("/patient/procedures", appointmentsController.getPatientProcedures);
+router.get("/nurses-for-acceptance", authorize("calendar.appointments", "view"), appointmentsController.getNursesForAcceptance);
+
+router.route("/patient/:id")
+    .put(appointmentsController.updatePatientAppointment);
+
+router.route("/patient/:id/cancel")
+    .patch(appointmentsController.cancelPatientAppointment);
+
 router.route("/")
     .get(authorize("calendar.appointments", "view"), appointmentsController.getAppointments)
     .post(authorize("calendar.appointments", "create"), appointmentsController.insertAppointment);
@@ -24,5 +39,11 @@ router.route("/:id")
 
 router.route("/:id/status")
     .patch(authorize("calendar.appointments", "update"), appointmentsController.updateAppointmentStatus);
+
+router.route("/:id/accept")
+    .patch(authorize("calendar.appointments", "update"), appointmentsController.acceptAppointment);
+
+router.route("/:id/assign")
+    .patch(authorize("calendar.appointments", "update"), appointmentsController.assignDoctor);
 
 export default router;

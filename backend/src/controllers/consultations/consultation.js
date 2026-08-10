@@ -2,7 +2,168 @@ import mongoose from "mongoose";
 import consultationsModel from "../../models/consultations/consultation.js";
 import prescriptionsModel from "../../models/consultations/prescription.js"
 import patientsModel from "../../models/patients/patients.js";
+import doctorsModel from "../../models/doctors/doctors.js";
+import proceduresModel from "../../models/procedures/procedures.js";
+import inventoryController from "../inventory/inventoryController.js";
+import { getVitalSignsError } from "../../utils/validators.js";
 const consultationController = {};
+
+// Convierte el triage de la consulta al shape de Patients.clinical_history.vital_signs — null si
+// no se capturó ningún signo vital (para no empujar un registro vacío al historial).
+// El triage se captura en cm (así lo tipea el doctor, ver TriageCard.jsx); el expediente lo
+// muestra en metros, por eso se convierte aquí.
+const buildVitalSignsEntry = (triage, consultationDate) => {
+  if (!triage) return null;
+  const { blood_pressure, glucose, weight, height, temperature, oxygen_saturation } = triage;
+  const hasAny = [blood_pressure, glucose, weight, height, temperature, oxygen_saturation]
+    .some((v) => v !== undefined && v !== null && v !== "");
+  if (!hasAny) return null;
+
+  const weightNum = weight !== undefined && weight !== null && weight !== "" ? Number(weight) : null;
+  const heightM = height !== undefined && height !== null && height !== "" ? Number(height) / 100 : null;
+  const imc = weightNum && heightM ? Math.round((weightNum / (heightM * heightM)) * 10) / 10 : undefined;
+
+  return {
+    blood_pressure: blood_pressure || undefined,
+    glucosa_mgdl: glucose !== undefined && glucose !== null && glucose !== "" ? Number(glucose) : undefined,
+    weight: weightNum ?? undefined,
+    height: heightM ?? undefined,
+    imc,
+    temperature: temperature !== undefined && temperature !== null && temperature !== "" ? Number(temperature) : undefined,
+    spo2: oxygen_saturation !== undefined && oxygen_saturation !== null && oxygen_saturation !== "" ? Number(oxygen_saturation) : undefined,
+    last_date_taken: consultationDate || new Date(),
+  };
+};
+
+// Descarta filas de antecedentes completamente vacías (el doctor dejó la fila sin llenar).
+const nonEmptyRows = (rows, keys) =>
+  (Array.isArray(rows) ? rows : []).filter((row) => keys.some((k) => String(row?.[k] || "").trim() !== ""));
+
+// Descarta materiales sin insumo elegido (el doctor le dio "Agregar material" pero dejó el
+// selector en blanco) — si no se limpia aquí, Mongoose revienta al intentar castear "" como
+// ObjectId al guardar la consulta, y de paso evita que se descuente inventario con cantidad 0.
+const sanitizeProcedureRows = (procedure) =>
+  (Array.isArray(procedure) ? procedure : []).map((p) => ({
+    ...p,
+    material_used: (Array.isArray(p?.material_used) ? p.material_used : [])
+      .filter((m) => m?.inventory_id && Number(m.quantity) > 0),
+  }));
+
+// Arma el update ($set + $push) de Patients.clinical_history a partir de lo que el doctor cargó
+// en esta consulta. hereditary/pathological/antecedentes de texto se REEMPLAZAN por completo: el
+// formulario de consulta ya precarga lo que el paciente tenía registrado (ver
+// useConsultation.js -> getPatientAntecedents), así que lo que llega aquí YA es la versión
+// editada por el doctor, no una lista parcial. Signos vitales y procedimientos en cambio se
+// ACUMULAN como historial (cada consulta agrega una toma/entrada nueva, no reemplaza la anterior).
+const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedure, consultationId, consultationDate, followUpDate }) => {
+  const set = {};
+  const push = {};
+
+  if (antecedents) {
+    set["clinical_history.hereditary"] = nonEmptyRows(antecedents.hereditary, ["relative", "condition"])
+      .map((h) => ({ relationship: h.relative, condition: h.condition }));
+    set["clinical_history.pathological"] = nonEmptyRows(antecedents.pathological, ["disease", "type"])
+      .map((p) => ({ disease: p.disease, diagnosis: p.type }));
+    set["clinical_history.non_pathological"] = nonEmptyRows(antecedents.non_pathological, ["description"])
+      .map((r) => r.description).join("\n");
+    set["clinical_history.ecologycal_social"] = nonEmptyRows(antecedents.socio_ecological, ["description"])
+      .map((r) => r.description).join("\n");
+  }
+
+  const vitalSignsEntry = buildVitalSignsEntry(clinical_data?.triage, consultationDate);
+  if (vitalSignsEntry) {
+    push["clinical_history.vital_signs"] = vitalSignsEntry;
+  }
+
+  // Se resuelven los nombres reales (no solo los ids) para poder etiquetar con algo legible el
+  // movimiento de inventario que descuenta los materiales usados (ver applyMaterialUsageDelta
+  // más abajo), y se devuelven junto con los mapas para que syncProcedureHistory (justo debajo)
+  // los reutilice sin tener que volver a consultar la colección.
+  let procedureNames = [];
+  let doctorName = "";
+  let procedureNameById = new Map();
+  let doctorNameById = new Map();
+
+  const procedureRows = (procedure || []).filter((p) => p?.procedure_id);
+  if (procedureRows.length) {
+    const procedureIds = [...new Set(procedureRows.map((p) => p.procedure_id))];
+    const doctorIds = [...new Set(procedureRows.map((p) => p.doctor_id).filter(Boolean))];
+    const [procedureDocs, doctorDocs] = await Promise.all([
+      proceduresModel.find({ _id: { $in: procedureIds } }).select("name").lean(),
+      doctorsModel.find({ _id: { $in: doctorIds } }).select("name last_name").lean(),
+    ]);
+    procedureNameById = new Map(procedureDocs.map((p) => [String(p._id), p.name]));
+    doctorNameById = new Map(doctorDocs.map((d) => [String(d._id), `${d.name} ${d.last_name}`]));
+
+    procedureNames = procedureRows.map((p) => procedureNameById.get(String(p.procedure_id)) || "Procedimiento");
+    doctorName = procedureRows.map((p) => p.doctor_id && doctorNameById.get(String(p.doctor_id))).find(Boolean) || "";
+  }
+
+  const update = {};
+  if (Object.keys(set).length) update.$set = set;
+  if (Object.keys(push).length) update.$push = push;
+  return { update: Object.keys(update).length ? update : null, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById };
+};
+
+// Sincroniza Patients.clinical_history.procedures fila por fila, en vez de simplemente empujar
+// (`$push`) lo que traiga la consulta cada vez que se guarda. Antes, tanto insertConsultation
+// como updateConsultation usaban $push sin condición: guardar/editar la MISMA consulta dos veces
+// duplicaba su procedimiento en el expediente del paciente y en el seguimiento de Tratamientos
+// (cada guardado agregaba una copia más). Ahora, si ya existe una entrada para este
+// (consultation_id, procedure_id) — porque esta consulta ya se había guardado antes — se
+// actualiza en su lugar, SIN tocar result/resultAuthor/resultUpdatedAt/notes/documents (esos son
+// datos que Tratamientos pudo haber agregado después y no deben perderse solo porque el doctor
+// volvió a guardar la consulta). Si no existe todavía, se agrega nueva.
+const syncProcedureHistory = async ({ patientId, consultationId, procedureRows, procedureNameById, doctorNameById, consultationDate, diagnosisText, followUpDate, session }) => {
+  for (const row of procedureRows) {
+    const procedureName = procedureNameById.get(String(row.procedure_id)) || "Procedimiento";
+    const doctorNm = row.doctor_id ? doctorNameById.get(String(row.doctor_id)) || "" : "";
+    const entryFields = {
+      procedure_name: procedureName,
+      doctor_id: row.doctor_id || undefined,
+      doctor_name: doctorNm,
+      date: consultationDate || new Date(),
+      diagnosis: diagnosisText,
+      follow_up_date: followUpDate || undefined,
+    };
+
+    const setResult = await patientsModel.updateOne(
+      {
+        _id: patientId,
+        "clinical_history.procedures": { $elemMatch: { consultation_id: consultationId, procedure_id: row.procedure_id } },
+      },
+      {
+        $set: {
+          "clinical_history.procedures.$.procedure_name": entryFields.procedure_name,
+          "clinical_history.procedures.$.doctor_id": entryFields.doctor_id,
+          "clinical_history.procedures.$.doctor_name": entryFields.doctor_name,
+          "clinical_history.procedures.$.date": entryFields.date,
+          "clinical_history.procedures.$.diagnosis": entryFields.diagnosis,
+          "clinical_history.procedures.$.follow_up_date": entryFields.follow_up_date,
+        },
+      },
+      { session, runValidators: true }
+    );
+
+    // matchedCount === 0 significa que esta fila (procedure_id) todavía no existía para esta
+    // consulta — o es la primera vez que se guarda, o el doctor la agregó en esta edición.
+    if (!setResult.matchedCount) {
+      await patientsModel.updateOne(
+        { _id: patientId },
+        {
+          $push: {
+            "clinical_history.procedures": {
+              procedure_id: row.procedure_id,
+              consultation_id: consultationId,
+              ...entryFields,
+            },
+          },
+        },
+        { session, runValidators: true }
+      );
+    }
+  }
+};
 
 //Select
 consultationController.getConsultations = async (req, res) => {
@@ -39,7 +200,7 @@ consultationController.getConsultations = async (req, res) => {
     return res.status(200).json(responseData);
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -59,16 +220,32 @@ consultationController.insertConsultation = async (req, res) => {
       procedure,
       follow_up_date,
       referral,
-      clinical_history,
+      antecedents,
       prescription,
     } = req.body;
+
+    // El frontend (TriageCard.jsx) ya bloquea el signo "-" al escribir, pero el backend nunca
+    // debe confiar solo en eso (ej. una llamada directa por Swagger) — mismas reglas que ya
+    // exige el expediente clínico para signos vitales (buildVitalSignsEntry hace la misma
+    // conversión cm→m que usa Patients.clinical_history.vital_signs).
+    const vitalSignsCheck = buildVitalSignsEntry(clinical_data?.triage, null);
+    if (vitalSignsCheck) {
+      const vitalsError = getVitalSignsError(vitalSignsCheck);
+      if (vitalsError) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: vitalsError });
+      }
+    }
+
+    const sanitizedProcedure = sanitizeProcedureRows(procedure);
 
     const newConsultation = new consultationsModel({
       appointment_id,
       patient_id,
       clinical_data,
       physical_exam,
-      procedure,
+      procedure: sanitizedProcedure,
       follow_up_date,
       referral,
     });
@@ -92,30 +269,63 @@ consultationController.insertConsultation = async (req, res) => {
       await newPrescription.save({ session });
     }
 
-
-    if (clinical_history) {
-      //Si viene con datos de la coleccion del paciente actualiza la informacion
-      await patientsModel.findByIdAndUpdate(
-        patient_id,
-        {
-          $set: { clinical_history: clinical_history },
-        },
-        //Actualiza al mismo tiempo que hace la insercion
-        { session, new: true, runValidators: true } // Verifica que concuerde con el esquema de pacientes
-      );
+    // Sincroniza el expediente del paciente (signos vitales, antecedentes, procedimientos) con
+    // lo que el doctor acaba de registrar en esta consulta — así el Expediente Clínico deja de
+    // depender de un flujo aparte que nunca existió.
+    const { update: patientUpdate, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById } = await buildClinicalHistoryUpdate({
+      clinical_data,
+      antecedents,
+      procedure: sanitizedProcedure,
+      consultationId: savedConsultation._id,
+      consultationDate: savedConsultation.date,
+      followUpDate: follow_up_date,
+    });
+    if (patientUpdate) {
+      await patientsModel.findByIdAndUpdate(patient_id, patientUpdate, {
+        session,
+        new: true,
+        runValidators: true,
+      });
     }
+    if (procedureRows.length) {
+      await syncProcedureHistory({
+        patientId: patient_id,
+        consultationId: savedConsultation._id,
+        procedureRows,
+        procedureNameById,
+        doctorNameById,
+        consultationDate: savedConsultation.date,
+        diagnosisText: clinical_data?.diagnosis_description || clinical_data?.diagnosis || undefined,
+        followUpDate: follow_up_date,
+        session,
+      });
+    }
+
+    // Descuenta del inventario real los materiales que el doctor marcó como usados en cada
+    // procedimiento de esta consulta (antes se guardaban en material_used pero nunca tocaban
+    // el stock). Como es una consulta nueva, "lo anterior" está vacío: se descuenta todo.
+    const patientForMovement = await patientsModel.findById(patient_id).select("name last_name").session(session).lean();
+    await inventoryController.applyMaterialUsageDelta({
+      previousProcedureRows: [],
+      procedureRows: sanitizedProcedure,
+      patientName: patientForMovement ? `${patientForMovement.name} ${patientForMovement.last_name}`.trim() : undefined,
+      responsible: doctorName || undefined,
+      procedureType: procedureNames.join(", ") || undefined,
+      session,
+    });
+
     //Ahora que todos los cambios temporales son confirmados los guarda en la base de datos
     await session.commitTransaction();
     //Cerramos el canal de la session
     session.endSession();
 
-    return res.status(200).json({ message: "Consultation saved" });
+    return res.status(200).json({ message: "Consulta guardada" });
   } catch (error) {
     //Si algo ocurre mal, no inserta ningun dato
     await session.abortTransaction();
     session.endSession();
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -127,12 +337,23 @@ consultationController.deleteConsultation = async (req, res) => {
     );
 
     if (!consultationDeleted) {
-      return res.status(404).json({ message: "Consultation not found" });
+      return res.status(404).json({ message: "Consulta no encontrada" });
     }
-    return res.status(200).json({ message: "Consultation deleted" });
+
+    // Si esta consulta había empujado algún procedimiento al expediente del paciente (ver
+    // syncProcedureHistory), se limpia también — si no, queda un "tratamiento fantasma" en
+    // Tratamientos (/inventory/treatments) apuntando a una consulta que ya no existe.
+    if (consultationDeleted.patient_id) {
+      await patientsModel.updateOne(
+        { _id: consultationDeleted.patient_id },
+        { $pull: { "clinical_history.procedures": { consultation_id: consultationDeleted._id } } }
+      );
+    }
+
+    return res.status(200).json({ message: "Consulta eliminada" });
   } catch (error) {
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -152,9 +373,29 @@ consultationController.updateConsultation = async (req, res) => {
       procedure,
       follow_up_date,
       referral,
-      clinical_history,
+      antecedents,
       prescription,
     } = req.body;
+
+    const vitalSignsCheck = buildVitalSignsEntry(clinical_data?.triage, null);
+    if (vitalSignsCheck) {
+      const vitalsError = getVitalSignsError(vitalSignsCheck);
+      if (vitalsError) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: vitalsError });
+      }
+    }
+
+    // Se guarda "lo anterior" ANTES de sobreescribir, para poder descontar solo la diferencia
+    // de material_used (ver applyMaterialUsageDelta) y no el total de nuevo en cada edición.
+    const previousConsultation = await consultationsModel
+      .findById(req.params.id)
+      .select("procedure")
+      .session(session)
+      .lean();
+
+    const sanitizedProcedure = sanitizeProcedureRows(procedure);
 
     const consultationUpdated = await consultationsModel.findByIdAndUpdate(
       req.params.id,
@@ -163,7 +404,7 @@ consultationController.updateConsultation = async (req, res) => {
         patient_id,
         clinical_data,
         physical_exam,
-        procedure,
+        procedure: sanitizedProcedure,
         follow_up_date,
         referral,
       },
@@ -176,7 +417,7 @@ consultationController.updateConsultation = async (req, res) => {
     if (!consultationUpdated) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ message: "Consultation not found" });
+      return res.status(404).json({ message: "Consulta no encontrada" });
     }
     if (prescription) {
       await prescriptionsModel.findOneAndUpdate(
@@ -190,26 +431,64 @@ consultationController.updateConsultation = async (req, res) => {
         { session, upsert: true, new: true, runValidators: true }
       );
     }
-    if (clinical_history) {
-      await patientsModel.findByIdAndUpdate(
-        patient_id,
-        {
-          $set: { clinical_history: clinical_history },
-        },
-        { session, new: true, runValidators: true }
-      );
+    // Misma sincronización que insertConsultation — al editar una consulta ya existente
+    // (ej. completar el registro de una cita en curso) el expediente del paciente también
+    // debe quedar al día.
+    const { update: patientUpdate, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById } = await buildClinicalHistoryUpdate({
+      clinical_data,
+      antecedents,
+      procedure: sanitizedProcedure,
+      consultationId: consultationUpdated._id,
+      consultationDate: consultationUpdated.date,
+      followUpDate: follow_up_date,
+    });
+    if (patientUpdate) {
+      await patientsModel.findByIdAndUpdate(patient_id, patientUpdate, {
+        session,
+        new: true,
+        runValidators: true,
+      });
     }
+    // syncProcedureHistory (no un $push directo): esta consulta puede que ya se haya guardado
+    // antes, así que hay que actualizar en su lugar la entrada existente en vez de duplicarla —
+    // ver el comentario junto a la función para el detalle del bug que esto evita.
+    if (procedureRows.length) {
+      await syncProcedureHistory({
+        patientId: patient_id,
+        consultationId: consultationUpdated._id,
+        procedureRows,
+        procedureNameById,
+        doctorNameById,
+        consultationDate: consultationUpdated.date,
+        diagnosisText: clinical_data?.diagnosis_description || clinical_data?.diagnosis || undefined,
+        followUpDate: follow_up_date,
+        session,
+      });
+    }
+
+    // Solo mueve la DIFERENCIA entre lo que la consulta usaba antes de esta edición y lo que
+    // usa ahora — si no cambió nada en material_used, no se genera ningún movimiento.
+    const patientForMovement = await patientsModel.findById(patient_id).select("name last_name").session(session).lean();
+    await inventoryController.applyMaterialUsageDelta({
+      previousProcedureRows: previousConsultation?.procedure || [],
+      procedureRows: sanitizedProcedure,
+      patientName: patientForMovement ? `${patientForMovement.name} ${patientForMovement.last_name}`.trim() : undefined,
+      responsible: doctorName || undefined,
+      procedureType: procedureNames.join(", ") || undefined,
+      session,
+    });
+
     await session.commitTransaction();
     session.endSession();
 
-    return res.status(200).json({ message: "Consultation updated" });
+    return res.status(200).json({ message: "Consulta actualizada" });
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
     session.endSession();
     console.log("error" + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -221,7 +500,7 @@ consultationController.getConsultationById = async (req, res) => {
     const consultation = await consultationsModel.findById(id).populate("patient_id").populate("appointment_id");
 
     if (!consultation) {
-      return res.status(404).json({ message: "Consultation not found" });
+      return res.status(404).json({ message: "Consulta no encontrada" });
     }
 
     //Buscamos si hay alguna prescripcion asociada a la consulta
@@ -238,7 +517,7 @@ consultationController.getConsultationById = async (req, res) => {
   } catch (error) {
 
     console.log("error " + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 }
 
@@ -271,7 +550,7 @@ consultationController.getConsultationByAppointmentId = async (req, res) => {
     return res.status(200).json(responseData);
   } catch (error) {
     console.log("error " + error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
