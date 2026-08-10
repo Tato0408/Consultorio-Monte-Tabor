@@ -10,7 +10,8 @@ import ListDetailScreen from './src/screens/profile/listDetailScreen';
 import BloodTypeScreen from './src/screens/profile/bloodTypeScreen';
 import OrganDonationScreen from './src/screens/profile/organDonationScreen';
 import LifestyleScreen from './src/screens/profile/lifeStyleScreen';
-
+import MedicationsScreen from './src/screens/medications/medicationsScreen';
+import AddMedicationScreen from './src/screens/medications/addMedicationScreen';
 
 
 const Stack = createNativeStackNavigator();
@@ -29,6 +30,9 @@ export default function App() {
             contentStyle: { backgroundColor: '#F4F6FA' },
           }}
         >
+          <Stack.Screen name="Medications" component={MedicationsScreen} />
+<Stack.Screen name="AddMedication" component={AddMedicationScreen} />
+
           <Stack.Screen name="ListDetail" component={ListDetailScreen} />
 <Stack.Screen name="BloodType" component={BloodTypeScreen} />
 <Stack.Screen name="OrganDonation" component={OrganDonationScreen} />

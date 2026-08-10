@@ -13,7 +13,8 @@ const EMPTY = "Sin registrar";
 const shortcuts = [
   { icon: "person-outline", title: "Mis datos" },
   { icon: "calendar-outline", title: "Mis consultas" },
-  { icon: "document-text-outline", title: "Mis documentos" },
+  //temporal
+{ icon: "medkit-outline", title: "Medicamentos", screen: "Medications" },
   { icon: "notifications-outline", title: "Recordatorios" },
 ];
 
