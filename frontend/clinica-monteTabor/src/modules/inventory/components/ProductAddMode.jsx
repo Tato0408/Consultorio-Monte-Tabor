@@ -136,6 +136,7 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           <div className="grid grid-cols-2 gap-4">
             <InputField label="Nombre del producto *" id="name"
               placeholder="Ej. Gasas estériles 10x10"
+              maxLength={100}
               value={form.name} onChange={set("name")} error={errors.name} />
 
             <SelectField label="Categoría" required
@@ -158,7 +159,7 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           <SectionTitle>Inventario inicial</SectionTitle>
           <div className="grid grid-cols-3 gap-4">
             <InputField label={isEdit ? "Stock actual *" : "Stock inicial *"} id="stock"
-              type="number" min={0} placeholder="Ej. 100"
+              type="number" min={0} max={1000000} placeholder="Ej. 100"
               value={form.stock} onChange={set("stock")}
               onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
               error={errors.stock} />
@@ -170,7 +171,7 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
 
             <div>
               <InputField label="Stock mínimo *" id="min_stock"
-                type="number" min={0} placeholder="Ej. 10"
+                type="number" min={0} max={1000000} placeholder="Ej. 10"
                 value={form.min_stock} onChange={set("min_stock")}
                 onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                 error={errors.min_stock} />
@@ -184,17 +185,20 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           <div className="grid grid-cols-2 gap-4">
             <InputField label="Proveedor (opcional)" id="supplier"
               placeholder="Nombre del proveedor"
+              maxLength={100}
               value={form.supplier} onChange={set("supplier")} />
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-600">Fecha de vencimiento (opcional)</label>
               <input type="date"
+                min="2000-01-01"
+                max={`${new Date().getFullYear() + 20}-12-31`}
                 className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={form.expiration_date} onChange={set("expiration_date")} />
             </div>
 
             <InputField label="Precio unitario (opcional)" id="price"
-              type="number" min={0} placeholder="$0.00"
+              type="number" min={0} max={999999} step="0.01" placeholder="$0.00"
               value={form.price} onChange={set("price")}
               onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }} />
           </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Loader2, UserPen } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
+import { maskLettersOnly, isValidCalendarDate } from "@/lib/inputMasks";
 
 // Máscaras de teléfono/DUI: mismo criterio ya usado en Doctors/Nurses/Receptionist/Patients Form
 // (solo dígitos, formato fijo con guión).
@@ -15,7 +16,7 @@ const maskDui = (raw) => {
 };
 // Solo letras (con acentos/ñ), espacios, apóstrofes y guiones — igual que el resto de los
 // formularios de personas del sistema (Doctors/Nurses/Receptionist/Patients Form).
-const maskName = (raw) => raw.replace(/[^A-Za-zÀ-ÿ\s'-]/g, "").slice(0, 60);
+const maskName = (raw) => maskLettersOnly(raw, 50);
 
 const TODAY_STR = new Date().toISOString().split("T")[0];
 const MIN_BIRTH_YEAR = 1900;
@@ -56,7 +57,9 @@ const EditPatientModal = ({ isOpen, onClose, patient, onSaved }) => {
     if (val && val.length !== 10) return; // "YYYY-MM-DD" tiene que medir exactamente 10
     if (val) {
       const year = Number(val.slice(0, 4));
-      if (year < MIN_BIRTH_YEAR || val > TODAY_STR) return;
+      // isValidCalendarDate rechaza días de calendario inexistentes (ej. 30 de febrero), que el
+      // chequeo de longitud/rango de año por sí solo no detecta.
+      if (year < MIN_BIRTH_YEAR || val > TODAY_STR || !isValidCalendarDate(val)) return;
     }
     set("birth_date", val);
   };
@@ -67,11 +70,11 @@ const EditPatientModal = ({ isOpen, onClose, patient, onSaved }) => {
     const nextErrors = {};
     const name = form.name.trim();
     const lastName = form.last_name.trim();
-    if (name && (name.length < 2 || name.length > 60)) {
-      nextErrors.name = "Debe tener entre 2 y 60 caracteres";
+    if (name && (name.length < 2 || name.length > 50)) {
+      nextErrors.name = "Debe tener entre 2 y 50 caracteres";
     }
-    if (lastName && (lastName.length < 2 || lastName.length > 60)) {
-      nextErrors.last_name = "Debe tener entre 2 y 60 caracteres";
+    if (lastName && (lastName.length < 2 || lastName.length > 50)) {
+      nextErrors.last_name = "Debe tener entre 2 y 50 caracteres";
     }
     if (form.dui && !/^\d{8}-\d$/.test(form.dui)) {
       nextErrors.dui = "Formato incompleto, debe ser 00000000-0";
@@ -84,7 +87,12 @@ const EditPatientModal = ({ isOpen, onClose, patient, onSaved }) => {
     }
     if (form.birth_date) {
       const year = Number(form.birth_date.slice(0, 4));
-      if (form.birth_date.length !== 10 || year < MIN_BIRTH_YEAR || form.birth_date > TODAY_STR) {
+      if (
+        form.birth_date.length !== 10 ||
+        year < MIN_BIRTH_YEAR ||
+        form.birth_date > TODAY_STR ||
+        !isValidCalendarDate(form.birth_date)
+      ) {
         nextErrors.birth_date = `Debe ser una fecha real entre ${MIN_BIRTH_YEAR} y hoy`;
       }
     }
@@ -139,22 +147,22 @@ const EditPatientModal = ({ isOpen, onClose, patient, onSaved }) => {
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">Nombres</label>
-              <input type="text" maxLength={60} value={form.name} onChange={(e) => set("name", maskName(e.target.value))} className={inputClass(errors.name)} />
+              <input type="text" maxLength={50} value={form.name} onChange={(e) => set("name", maskName(e.target.value))} className={inputClass(errors.name)} />
               {errors.name && <p className="text-[11px] text-red-500">{errors.name}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">Apellidos</label>
-              <input type="text" maxLength={60} value={form.last_name} onChange={(e) => set("last_name", maskName(e.target.value))} className={inputClass(errors.last_name)} />
+              <input type="text" maxLength={50} value={form.last_name} onChange={(e) => set("last_name", maskName(e.target.value))} className={inputClass(errors.last_name)} />
               {errors.last_name && <p className="text-[11px] text-red-500">{errors.last_name}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">DUI</label>
-              <input type="text" inputMode="numeric" placeholder="00000000-0" value={form.dui} onChange={(e) => set("dui", maskDui(e.target.value))} className={inputClass(errors.dui)} />
+              <input type="text" inputMode="numeric" placeholder="00000000-0" maxLength={10} value={form.dui} onChange={(e) => set("dui", maskDui(e.target.value))} className={inputClass(errors.dui)} />
               {errors.dui && <p className="text-[11px] text-red-500">{errors.dui}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">Teléfono</label>
-              <input type="text" inputMode="numeric" placeholder="0000-0000" value={form.phone} onChange={(e) => set("phone", maskPhone(e.target.value))} className={inputClass(errors.phone)} />
+              <input type="text" inputMode="numeric" placeholder="0000-0000" maxLength={9} value={form.phone} onChange={(e) => set("phone", maskPhone(e.target.value))} className={inputClass(errors.phone)} />
               {errors.phone && <p className="text-[11px] text-red-500">{errors.phone}</p>}
             </div>
             <div className="flex flex-col gap-1.5 col-span-2">

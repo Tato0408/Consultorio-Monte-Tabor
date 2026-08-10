@@ -137,6 +137,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
             placeholder="Ingresa tu contraseña"
             value={formData.contrasena}
             onChange={handleChange("contrasena")}
+            maxLength={100}
             icon={<Lock className="w-4 h-4" />}
             disabled={submitting}
           />
@@ -148,6 +149,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
             placeholder="Confirma tu contraseña"
             value={formData.confirmContrasena}
             onChange={handleChange("confirmContrasena")}
+            maxLength={100}
             icon={<Lock className="w-4 h-4" />}
             disabled={submitting}
           />

@@ -1,5 +1,10 @@
 import { Calendar, Filter, X } from "lucide-react";
 
+// Límite amplio pero real: evita años absurdos (5+ dígitos) al escribir a mano en el filtro de
+// fechas, sin restringir la búsqueda a un rango demasiado corto.
+const MIN_DATE_STR = "2000-01-01";
+const MAX_DATE_STR = `${new Date().getFullYear() + 5}-12-31`;
+
 const STATUS_OPTIONS = [
     { value: "pending, scheduled", label: "Agendados" },
     { value: "", label: "Todos los estados" },
@@ -24,6 +29,8 @@ const AppointmentFilters = ({ filters, onChange }) => {
                         <label className="block text-xs text-slate-500 mb-1">Desde</label>
                         <input
                             type="date"
+                            min={MIN_DATE_STR}
+                            max={MAX_DATE_STR}
                             value={filters.dateFrom || ""}
                             onChange={(e) => onChange({ dateFrom: e.target.value })}
                             className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#0b66d6]"
@@ -33,6 +40,8 @@ const AppointmentFilters = ({ filters, onChange }) => {
                         <label className="block text-xs text-slate-500 mb-1">Hasta</label>
                         <input
                             type="date"
+                            min={MIN_DATE_STR}
+                            max={MAX_DATE_STR}
                             value={filters.dateTo || ""}
                             onChange={(e) => onChange({ dateTo: e.target.value })}
                             className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#0b66d6]"

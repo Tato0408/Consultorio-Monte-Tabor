@@ -56,6 +56,7 @@ const ProductCombobox = ({ value, onSelect, error }) => {
           className={`w-full border rounded-lg px-3 py-2.5 pr-9 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500
             ${error ? "border-red-400" : "border-gray-200"}`}
           placeholder="Buscar producto registrado..."
+          maxLength={100}
           value={query}
           onChange={(e) => search(e.target.value)}
           autoComplete="off"
@@ -240,7 +241,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <InputField
-                label="Cantidad *" id="quantity" type="number" min={0}
+                label="Cantidad *" id="quantity" type="number" min={0} max={100000}
                 placeholder="Ej. 10"
                 value={quantity}
                 onChange={(e) => { setQuantity(e.target.value); setErrors((p) => ({ ...p, quantity: "" })); }}
@@ -270,6 +271,7 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
             <InputField
               label="Responsable *" id="responsible"
               placeholder="Nombre de quien realiza el ajuste"
+              maxLength={100}
               value={responsible}
               onChange={(e) => { setResp(e.target.value); setErrors((p) => ({ ...p, responsible: "" })); }}
               error={errors.responsible}

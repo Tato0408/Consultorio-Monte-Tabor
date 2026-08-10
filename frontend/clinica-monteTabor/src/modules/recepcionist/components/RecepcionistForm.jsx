@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { User, Plus, X, Loader2, Lock, Eye, EyeOff, CheckCircle2, Circle } from "lucide-react";
 import { showError } from "../../../lib/alerts";
 import { getMaxAdultBirthDate, validateAdultBirthDate } from "../../../lib/validators";
+import { maskLettersOnly } from "../../../lib/inputMasks";
 import { useReceptionist } from "../hooks/useRecepcionist";
 
 // Nombres legibles de cada campo, para el aviso que identifica qué campo falló al enviar
@@ -127,6 +128,11 @@ const ReceptionistForm = ({
     setImageFile(file);
     setImageError("");
   };
+
+  // Mascara de solo-letras (nombres/apellidos) — mismo patron que handlePhoneMask/handleDuiMask:
+  // el onChange sobreescribe el del register y dispara la validacion manualmente.
+  const makeLettersMaskHandler = (field, max) => (e) =>
+    setValue(field, maskLettersOnly(e.target.value, max), { shouldValidate: true });
 
   // Mascara de telefono: solo digitos, formato XXXX-XXXX (misma logica que Pacientes/Enfermeras)
   const handlePhoneMask = (e) => {
@@ -276,7 +282,9 @@ const ReceptionistForm = ({
               <input
                 type="text"
                 placeholder="Ingrese los nombres"
+                maxLength={50}
                 {...register("name", { required: "El nombre es requerido" })}
+                onChange={makeLettersMaskHandler("name", 50)}
                 className={inputClass(errors.name)}
               />
               {errors.name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.name.message}</span>}
@@ -287,7 +295,9 @@ const ReceptionistForm = ({
               <input
                 type="text"
                 placeholder="Ingrese los apellidos"
+                maxLength={50}
                 {...register("last_name", { required: "El apellido es requerido" })}
+                onChange={makeLettersMaskHandler("last_name", 50)}
                 className={inputClass(errors.last_name)}
               />
               {errors.last_name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.last_name.message}</span>}
@@ -297,7 +307,9 @@ const ReceptionistForm = ({
               <label className="text-xs font-semibold text-gray-400">Teléfono</label>
               <input
                 type="text"
+                inputMode="numeric"
                 placeholder="0000-0000"
+                maxLength={9}
                 {...register("phone", {
                   required: "El teléfono es requerido",
                   pattern: {
@@ -316,6 +328,7 @@ const ReceptionistForm = ({
               <input
                 type="email"
                 placeholder="correo@gmail.com"
+                maxLength={100}
                 {...register("email", {
                   required: "El correo es requerido",
                   pattern: {
@@ -332,7 +345,9 @@ const ReceptionistForm = ({
               <label className="text-xs font-semibold text-gray-400">DUI</label>
               <input
                 type="text"
+                inputMode="numeric"
                 placeholder="00000000-0"
+                maxLength={10}
                 {...register("dui", {
                   required: "El DUI es requerido",
                   pattern: {
@@ -402,6 +417,7 @@ const ReceptionistForm = ({
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Ingresa la contraseña"
+                    maxLength={100}
                     {...register("password", {
                       required: "La contraseña es requerida",
                       validate: () =>

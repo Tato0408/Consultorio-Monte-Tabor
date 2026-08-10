@@ -150,15 +150,19 @@ const toRecordDetail = (patient) => {
     // El modelo no clasifica el "tipo" (crónico/cardio/respiratorio/psicológico)
     // de cada antecedente, así que se deja una categoría genérica por defecto.
     historiaClinica: {
+      // "id" es el _id real del subdocumento (Mongoose lo autogenera en cada elemento del
+      // arreglo) — lo necesitan los botones de editar/eliminar un antecedente puntual.
       hereditarios: (patient?.clinical_history?.hereditary || []).map((h) => ({
+        id: String(h._id),
         a: h.relationship || "—",
         b: h.condition || "—",
-        tipo: "Crónico",
+        tipo: h.type || "—",
       })),
       patologicos: (patient?.clinical_history?.pathological || []).map((p) => ({
+        id: String(p._id),
         a: p.disease || "—",
         b: p.diagnosis || "—",
-        tipo: "Crónico",
+        tipo: p.type || "—",
       })),
       noPatologicos:
         patient?.clinical_history?.non_pathological ||

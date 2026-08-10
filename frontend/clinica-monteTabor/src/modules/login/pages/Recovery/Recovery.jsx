@@ -142,6 +142,7 @@ const RecoveryPassword = () => {
                   placeholder="Ingresa tu correo electrónico"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  maxLength={100}
                   icon={<Mail className="w-4 h-4" />}
                   error={error}
                   disabled={isSubmitting}

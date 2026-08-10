@@ -1,5 +1,9 @@
 import { Download, Calendar, Loader2 } from "lucide-react";
 
+// Límite amplio pero real: evita años absurdos (5+ dígitos) al escribir la fecha a mano.
+const MIN_DATE_STR = "2000-01-01";
+const MAX_DATE_STR = `${new Date().getFullYear() + 1}-12-31`;
+
 // dateFrom/dateTo: strings "YYYY-MM-DD" (formato nativo de <input type="date">)
 // isGeneral: si true, el rango de fechas se ignora y se piden TODOS los datos históricos
 // onChangeFrom/onChangeTo/onToggleGeneral: setters controlados por el hook de cada página
@@ -51,6 +55,8 @@ const ReportHeader = ({
           <Calendar className="w-3.5 h-3.5 text-slate-400" />
           <input
             type="date"
+            min={MIN_DATE_STR}
+            max={MAX_DATE_STR}
             value={dateFrom || ""}
             onChange={(e) => onChangeFrom(e.target.value)}
             disabled={isGeneral}
@@ -59,6 +65,8 @@ const ReportHeader = ({
           <span className="text-xs text-slate-400">–</span>
           <input
             type="date"
+            min={MIN_DATE_STR}
+            max={MAX_DATE_STR}
             value={dateTo || ""}
             onChange={(e) => onChangeTo(e.target.value)}
             disabled={isGeneral}

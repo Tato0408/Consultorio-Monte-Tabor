@@ -118,8 +118,8 @@ const ConsultationForm = () => {
                             title="Antecedentes heredofamiliarios"
                             name="antecedents.hereditary"
                             fields={[
-                                { key: "relative", label: "Parentesco" },
-                                { key: "condition", label: "Condición" },
+                                { key: "relative", label: "Parentesco", maxLength: 50 },
+                                { key: "condition", label: "Condición", maxLength: 50 },
                             ]}
                             readOnly={readOnly}
                         />
@@ -128,8 +128,8 @@ const ConsultationForm = () => {
                             title="Antecedentes patológicos"
                             name="antecedents.pathological"
                             fields={[
-                                { key: "disease", label: "Enfermedad" },
-                                { key: "type", label: "Tipo" },
+                                { key: "disease", label: "Enfermedad", maxLength: 50 },
+                                { key: "type", label: "Tipo", maxLength: 30 },
                             ]}
                             readOnly={readOnly}
                         />
@@ -150,14 +150,14 @@ const ConsultationForm = () => {
                         <AntecedentsCard
                             title="Antecedentes no patológicos"
                             name="antecedents.non_pathological"
-                            fields={[{ key: "description", label: "Descripción" }]}
+                            fields={[{ key: "description", label: "Descripción", maxLength: 300 }]}
                             readOnly={readOnly}
                         />
 
                         <AntecedentsCard
                             title="Antecedentes ecológico-sociales"
                             name="antecedents.socio_ecological"
-                            fields={[{ key: "description", label: "Descripción" }]}
+                            fields={[{ key: "description", label: "Descripción", maxLength: 300 }]}
                             readOnly={readOnly}
                         />
 

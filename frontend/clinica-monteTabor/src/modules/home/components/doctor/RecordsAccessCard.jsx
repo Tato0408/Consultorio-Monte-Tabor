@@ -35,6 +35,7 @@ const RecordsAccessCard = ({ records = [] }) => {
                 <input
                     type="text"
                     placeholder="Buscar expediente..."
+                    maxLength={100}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     className="w-full pl-8 pr-4 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"

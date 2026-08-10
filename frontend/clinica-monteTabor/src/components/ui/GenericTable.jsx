@@ -68,6 +68,7 @@ const GenericTable = ({
               <input
                 type="text"
                 placeholder={placeholderSearch}
+                maxLength={100}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-gray-700"

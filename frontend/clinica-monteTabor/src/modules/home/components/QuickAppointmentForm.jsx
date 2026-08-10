@@ -146,6 +146,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                             <input
                                 type="text"
                                 placeholder="Buscar paciente..."
+                                maxLength={100}
                                 value={selectedPatient ? `${selectedPatient.name} ${selectedPatient.last_name}` : patientSearch}
                                 onChange={(e) => {
                                     setPatientSearch(e.target.value);
@@ -219,6 +220,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                             <input
                                 type="date"
                                 min={todayStr()}
+                                max={`${new Date().getFullYear() + 1}-12-31`}
                                 value={form.date}
                                 onChange={(e) => {
                                     const value = e.target.value < todayStr() ? todayStr() : e.target.value;
@@ -248,6 +250,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                         <textarea
                             rows={2}
                             placeholder="Ej. Control, revisión, síntomas..."
+                            maxLength={300}
                             value={form.description}
                             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                             className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 resize-none"

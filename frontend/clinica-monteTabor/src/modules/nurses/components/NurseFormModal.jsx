@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { User, Plus, Loader2, Lock, Eye, EyeOff, CheckCircle2, Circle, X } from "lucide-react";
 import { showSuccess, showError } from "@/lib/alerts";
 import { getMaxAdultBirthDate, validateAdultBirthDate } from "@/lib/validators";
+import { maskLettersOnly } from "@/lib/inputMasks";
 
 // Nombres legibles de cada campo, para el aviso que identifica qué campo falló al enviar
 const FIELD_LABELS = {
@@ -93,6 +94,11 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
       setImageError("");
     }
   };
+
+  // Mascara de solo-letras (nombres/apellidos) — mismo patron que handlePhoneMask/handleDuiMask:
+  // el onChange sobreescribe el del register y dispara la validacion manualmente.
+  const makeLettersMaskHandler = (field, max) => (e) =>
+    setValue(field, maskLettersOnly(e.target.value, max), { shouldValidate: true });
 
   const handlePhoneMask = (e) => {
     let digits = e.target.value.replace(/\D/g, "");
@@ -223,7 +229,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <input
                 type="text"
                 placeholder="Ingrese los nombres"
+                maxLength={50}
                 {...register("name", { required: "El nombre es requerido" })}
+                onChange={makeLettersMaskHandler("name", 50)}
                 className={inputClass(errors.name)}
               />
               {errors.name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.name.message}</span>}
@@ -234,7 +242,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <input
                 type="text"
                 placeholder="Ingrese los apellidos"
+                maxLength={50}
                 {...register("last_name", { required: "El apellido es requerido" })}
+                onChange={makeLettersMaskHandler("last_name", 50)}
                 className={inputClass(errors.last_name)}
               />
               {errors.last_name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.last_name.message}</span>}
@@ -244,7 +254,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <label className="text-xs font-semibold text-gray-400">Teléfono</label>
               <input
                 type="text"
+                inputMode="numeric"
                 placeholder="0000-0000"
+                maxLength={9}
                 {...register("phone", {
                   required: "El teléfono es requerido",
                   pattern: {
@@ -263,6 +275,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <input
                 type="email"
                 placeholder="Correo@gmail.com"
+                maxLength={100}
                 {...register("email", {
                   required: "El correo es requerido",
                   pattern: {
@@ -279,7 +292,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <label className="text-xs font-semibold text-gray-400">DUI</label>
               <input
                 type="text"
+                inputMode="numeric"
                 placeholder="00000000-0"
+                maxLength={10}
                 {...register("dui", {
                   required: "El DUI es requerido",
                   pattern: {
@@ -349,6 +364,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Ingresa tu contraseña"
+                    maxLength={100}
                     {...register("password", {
                       required: "La contraseña es requerida",
                       // La validación visual la manejan los ValidationRow,

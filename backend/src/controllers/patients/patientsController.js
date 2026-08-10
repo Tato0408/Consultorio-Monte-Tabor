@@ -284,6 +284,7 @@ patientsController.updatePatient = async (req, res) => {
       fieldsToPush["clinical_history.pathological"] = {
         disease: new_pathological.disease,
         diagnosis: new_pathological.diagnosis,
+        type: new_pathological.type,
       };
     }
 
@@ -293,6 +294,7 @@ patientsController.updatePatient = async (req, res) => {
       fieldsToPush["clinical_history.hereditary"] = {
         relationship: new_hereditary.relationship,
         condition: new_hereditary.condition,
+        type: new_hereditary.type,
       };
     }
 
@@ -432,6 +434,116 @@ patientsController.deleteVitalSign = async (req, res) => {
     await patient.save();
 
     return res.status(200).json({ message: "Registro de signos vitales eliminado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// UPDATE de un antecedente hereditario puntual (no reemplaza todo el arreglo, solo esa entrada)
+// — botón de editar en la tabla "Antecedentes hereditarios" de la pestaña Historia clínica.
+patientsController.updateHereditary = async (req, res) => {
+  try {
+    const { patientId, hereditaryId } = req.params;
+    const { relationship, condition, type } = req.body;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.hereditary?.id(hereditaryId);
+    if (!entry) {
+      return res.status(404).json({ message: "Antecedente hereditario no encontrado" });
+    }
+
+    if (relationship !== undefined) entry.relationship = relationship;
+    if (condition !== undefined) entry.condition = condition;
+    if (type !== undefined) entry.type = type;
+
+    await patient.save();
+
+    return res.status(200).json({ message: "Antecedente hereditario actualizado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE de un antecedente hereditario puntual — botón de eliminar en la misma tabla.
+patientsController.deleteHereditary = async (req, res) => {
+  try {
+    const { patientId, hereditaryId } = req.params;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.hereditary?.id(hereditaryId);
+    if (!entry) {
+      return res.status(404).json({ message: "Antecedente hereditario no encontrado" });
+    }
+
+    patient.clinical_history.hereditary.pull(hereditaryId);
+    await patient.save();
+
+    return res.status(200).json({ message: "Antecedente hereditario eliminado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// UPDATE de un antecedente patológico puntual — botón de editar en la tabla "Antecedentes
+// patológicos" de la pestaña Historia clínica.
+patientsController.updatePathological = async (req, res) => {
+  try {
+    const { patientId, pathologicalId } = req.params;
+    const { disease, diagnosis, type } = req.body;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.pathological?.id(pathologicalId);
+    if (!entry) {
+      return res.status(404).json({ message: "Antecedente patológico no encontrado" });
+    }
+
+    if (disease !== undefined) entry.disease = disease;
+    if (diagnosis !== undefined) entry.diagnosis = diagnosis;
+    if (type !== undefined) entry.type = type;
+
+    await patient.save();
+
+    return res.status(200).json({ message: "Antecedente patológico actualizado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE de un antecedente patológico puntual — botón de eliminar en la misma tabla.
+patientsController.deletePathological = async (req, res) => {
+  try {
+    const { patientId, pathologicalId } = req.params;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.pathological?.id(pathologicalId);
+    if (!entry) {
+      return res.status(404).json({ message: "Antecedente patológico no encontrado" });
+    }
+
+    patient.clinical_history.pathological.pull(pathologicalId);
+    await patient.save();
+
+    return res.status(200).json({ message: "Antecedente patológico eliminado" });
   } catch (error) {
     console.log("error" + error);
     return res.status(500).json({ message: "Error interno del servidor" });

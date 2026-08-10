@@ -62,11 +62,13 @@ const TreatmentTextModal = ({ isOpen, onClose, icon: Icon, iconBg, title, placeh
           <textarea
             rows={5}
             autoFocus
+            maxLength={1000}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={placeholder}
             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors resize-none"
           />
+          <p className="text-[11px] text-slate-400 text-right mt-1">{value.length}/1000</p>
 
           <button
             type="button"

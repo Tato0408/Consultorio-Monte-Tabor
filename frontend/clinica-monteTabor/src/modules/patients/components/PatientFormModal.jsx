@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { User, Loader2, Lock, Eye, EyeOff, CheckCircle2, Circle, X } from "lucide-react";
 import { showSuccess, showError } from "@/lib/alerts";
+import { maskLettersOnly } from "@/lib/inputMasks";
+
+// Un paciente no puede haber nacido en el futuro (a diferencia del personal, no hay edad mínima).
+const TODAY_STR = new Date().toISOString().split("T")[0];
 
 // Nombres legibles de cada campo, para el aviso que identifica qué campo falló al enviar
 const FIELD_LABELS = {
@@ -81,6 +85,12 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
 
     setShowPassword(false);
   }, [patient, isOpen, reset]);
+
+  // Mascara de solo-letras (nombres/apellidos/referido) — mismo patron que
+  // handlePhoneMask/handleDuiMask: el onChange sobreescribe el del register y dispara la
+  // validacion manualmente.
+  const makeLettersMaskHandler = (field, max) => (e) =>
+    setValue(field, maskLettersOnly(e.target.value, max), { shouldValidate: true });
 
   const handlePhoneMask = (e) => {
     let digits = e.target.value.replace(/\D/g, "");
@@ -189,7 +199,9 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
               <input
                 type="text"
                 placeholder="Ingrese los nombres"
+                maxLength={50}
                 {...register("name", { required: "El nombre es requerido" })}
+                onChange={makeLettersMaskHandler("name", 50)}
                 className={inputClass(errors.name)}
               />
               {errors.name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.name.message}</span>}
@@ -200,7 +212,9 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
               <input
                 type="text"
                 placeholder="Ingrese los apellidos"
+                maxLength={50}
                 {...register("last_name", { required: "El apellido es requerido" })}
+                onChange={makeLettersMaskHandler("last_name", 50)}
                 className={inputClass(errors.last_name)}
               />
               {errors.last_name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.last_name.message}</span>}
@@ -210,7 +224,9 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
               <label className="text-xs font-semibold text-gray-400">Teléfono</label>
               <input
                 type="text"
+                inputMode="numeric"
                 placeholder="0000-0000"
+                maxLength={9}
                 {...register("phone", {
                   required: "El teléfono es requerido",
                   pattern: {
@@ -229,6 +245,7 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
               <input
                 type="email"
                 placeholder="correo@gmail.com"
+                maxLength={100}
                 {...register("email", {
                   required: "El correo es requerido",
                   pattern: {
@@ -245,7 +262,9 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
               <label className="text-xs font-semibold text-gray-400">DUI</label>
               <input
                 type="text"
+                inputMode="numeric"
                 placeholder="00000000-0"
+                maxLength={10}
                 {...register("dui", {
                   required: "El DUI es requerido",
                   pattern: {
@@ -263,7 +282,11 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
               <label className="text-xs font-semibold text-gray-400">Fecha de nacimiento</label>
               <input
                 type="date"
-                {...register("birth_date", { required: "La fecha de nacimiento es requerida" })}
+                max={TODAY_STR}
+                {...register("birth_date", {
+                  required: "La fecha de nacimiento es requerida",
+                  validate: (value) => !value || value <= TODAY_STR || "La fecha de nacimiento no puede ser futura",
+                })}
                 className={inputClass(errors.birth_date)}
               />
               {errors.birth_date && <span className="text-[10px] text-red-500 font-medium px-1">{errors.birth_date.message}</span>}
@@ -285,7 +308,9 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
               <input
                 type="text"
                 placeholder="Opcional"
+                maxLength={50}
                 {...register("referred_by")}
+                onChange={makeLettersMaskHandler("referred_by", 50)}
                 className={inputClass(errors.referred_by)}
               />
             </div>
@@ -332,6 +357,7 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Ingresa la contraseña"
+                    maxLength={100}
                     {...register("password", {
                       required: "La contraseña es requerida",
                       validate: () =>

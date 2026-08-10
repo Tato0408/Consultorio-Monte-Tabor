@@ -75,6 +75,7 @@ const ProductCombobox = ({ value, onChange, onSelect, error }) => {
           className={`w-full border rounded-lg px-3 py-2.5 pr-9 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500
             ${error ? "border-red-400" : "border-gray-200"}`}
           placeholder="Buscar o escribir nombre de producto..."
+          maxLength={100}
           value={value}
           onChange={(e) => search(e.target.value)}
           onFocus={() => { if (suggestions.length) setOpen(true); }}
@@ -236,6 +237,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
 
             <InputField label="Proveedor (opcional)" id="supplier"
               placeholder="Nombre del proveedor"
+              maxLength={100}
               value={form.supplier} onChange={set("supplier")} />
           </div>
         </section>
@@ -244,13 +246,13 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
         <section>
           <SectionTitle>Cantidad y costo</SectionTitle>
           <div className="grid grid-cols-2 gap-4">
-            <InputField label="Cantidad recibida *" id="quantity" type="number" min={0}
+            <InputField label="Cantidad recibida *" id="quantity" type="number" min={0} max={100000}
               placeholder="Ej. 100"
               value={form.quantity} onChange={set("quantity")}
               onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
               error={errors.quantity} />
 
-            <InputField label="Costo unitario (opcional)" id="unit_cost" type="number" min={0}
+            <InputField label="Costo unitario (opcional)" id="unit_cost" type="number" min={0} max={999999} step="0.01"
               placeholder="$0.00"
               value={form.unit_cost} onChange={set("unit_cost")}
               onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }} />

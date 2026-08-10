@@ -5,6 +5,7 @@ import InputField from "../../../../components/ui/InputField";
 import FooterLogin from "../../components/Footer";
 import useRegisterAdmin from "../../hooks/useRegisterAdmin";
 import { getMaxAdultBirthDate, validateAdultBirthDate, calculateAge } from "../../../../lib/validators";
+import { maskLettersOnly } from "../../../../lib/inputMasks";
 
 const Register = () => {
   const { loading, error: apiError, register } = useRegisterAdmin();
@@ -36,6 +37,13 @@ const Register = () => {
    */
   const handleChange = (field) => (e) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
+
+  // Igual que handleChange pero pasando el valor por una máscara (solo letras) antes de
+  // guardarlo — mismo criterio que el resto de los formularios de personas del sistema.
+  const handleLettersChange = (field, max) => (e) => {
+    setFormData((prev) => ({ ...prev, [field]: maskLettersOnly(e.target.value, max) }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
@@ -211,10 +219,10 @@ const Register = () => {
               {/* Nombre + Apellido */}
               <div className="grid grid-cols-2 gap-4">
                 <InputField label="Nombre" id="nombre" type="text" placeholder="Ingresa tu/s nombre/s"
-                  value={formData.nombre} onChange={handleChange("nombre")}
+                  value={formData.nombre} onChange={handleLettersChange("nombre", 50)} maxLength={50}
                   icon={<User className="w-4 h-4" />} error={errors.nombre} disabled={loading} />
                 <InputField label="Apellido" id="apellido" type="text" placeholder="Ingresa tu/s apellido/s"
-                  value={formData.apellido} onChange={handleChange("apellido")}
+                  value={formData.apellido} onChange={handleLettersChange("apellido", 50)} maxLength={50}
                   icon={<User className="w-4 h-4" />} error={errors.apellido} disabled={loading} />
               </div>
 
@@ -247,22 +255,22 @@ const Register = () => {
 
               {/* Género */}
               <InputField label="Género" id="genero" type="text" placeholder="Ingresa tu género"
-                value={formData.genero} onChange={handleChange("genero")}
+                value={formData.genero} onChange={handleLettersChange("genero", 20)} maxLength={20}
                 icon={<Venus className="w-4 h-4" />} error={errors.genero} disabled={loading} />
 
               {/* Correo */}
               <InputField label="Correo electrónico" id="correo" type="email" placeholder="Ingresa tu correo electrónico"
-                value={formData.correo} onChange={handleChange("correo")}
+                value={formData.correo} onChange={handleChange("correo")} maxLength={100}
                 icon={<Mail className="w-4 h-4" />} error={errors.correo} disabled={loading} />
 
               {/* Contraseña */}
               <InputField label="Contraseña" id="contrasena" type="password" placeholder="Ingresa tu contraseña"
-                value={formData.contrasena} onChange={handleChange("contrasena")}
+                value={formData.contrasena} onChange={handleChange("contrasena")} maxLength={100}
                 icon={<Lock className="w-4 h-4" />} error={errors.contrasena} disabled={loading} />
 
               {/* Confirmación */}
               <InputField label="Confirmación de Contraseña" id="confirmContrasena" type="password" placeholder="Confirma tu contraseña"
-                value={formData.confirmContrasena} onChange={handleChange("confirmContrasena")}
+                value={formData.confirmContrasena} onChange={handleChange("confirmContrasena")} maxLength={100}
                 icon={<Lock className="w-4 h-4" />} error={errors.confirmContrasena} disabled={loading} />
 
               {/* Reglas de contraseña */}

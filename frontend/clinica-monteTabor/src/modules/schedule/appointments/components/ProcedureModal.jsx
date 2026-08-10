@@ -87,6 +87,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                     value={field.value}
                                     onChange={field.onChange}
                                     placeholder="Ej. Limpieza Dental Profunda"
+                                    maxLength={100}
                                     className="bg-gray-50 border-gray-200 rounded-lg h-10 focus-visible:ring-[#0b66d6]"
                                 />
                             )}
@@ -109,6 +110,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                         validate: (value) => {
                                             const num = Number(value);
                                             if (Number.isNaN(num) || num <= 0) return "La duración debe ser mayor a 0.";
+                                            if (num > 480) return "La duración no puede superar 480 minutos (8 horas).";
                                             return true;
                                         },
                                     }}
@@ -116,7 +118,8 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                         <Input
                                             type="number"
                                             min={1}
-                                            onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
+                                            max={480}
+                                            onKeyDown={(e) => { if (["-", "e", "E", "+", "."].includes(e.key)) e.preventDefault(); }}
                                             value={field.value}
                                             onChange={field.onChange}
                                             className="bg-gray-50 border-gray-200 rounded-lg h-10 pl-9 focus-visible:ring-[#0b66d6]"
@@ -147,6 +150,8 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                         <Input
                                             type="number"
                                             min={0}
+                                            max={999999}
+                                            step="0.01"
                                             onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                                             value={field.value}
                                             onChange={field.onChange}
@@ -198,6 +203,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                     value={field.value}
                                     onChange={field.onChange}
                                     placeholder="Objetivos o notas del procedimiento..."
+                                    maxLength={500}
                                     className="bg-gray-50 border-gray-200 rounded-lg min-h-[50px] resize-none focus-visible:ring-[#0b66d6]"
                                 />
                             )}
@@ -215,6 +221,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                     value={field.value}
                                     onChange={field.onChange}
                                     placeholder="Ej. No ingerir alimentos sólidos por 2 horas..."
+                                    maxLength={500}
                                     className="bg-gray-50 border-gray-200 rounded-lg min-h-[50px] resize-none focus-visible:ring-[#0b66d6]"
                                 />
                             )}

@@ -1,8 +1,12 @@
 import { useState, forwardRef } from "react";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { showSuccess, showError } from "@/lib/alerts";
+import { maskLettersOnly, isValidCalendarDate } from "@/lib/inputMasks";
 
 const EMPTY = { name: "", last_name: "", dui: "", birth_date: "", gender: "Masculino", phone: "", email: "", password: "", referred_by: "" };
+
+// Un paciente no puede haber nacido en el futuro.
+const TODAY_STR = new Date().toISOString().split("T")[0];
 
 const maskPhone = (text) => {
     const digits = text.replace(/\D/g, "").slice(0, 8);
@@ -26,6 +30,12 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
         setForm((f) => ({ ...f, [field]: e.target.value }));
         if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
     };
+    // Igual que "set" pero pasando el valor por una máscara (letras, teléfono, DUI) antes de
+    // guardarlo — el resto de los formularios de personas del sistema hacen exactamente esto.
+    const setMasked = (field, maskFn) => (e) => {
+        setForm((f) => ({ ...f, [field]: maskFn(e.target.value) }));
+        if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
+    };
 
     const validate = () => {
         const e = {};
@@ -34,6 +44,7 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
         if (!form.dui.trim()) e.dui = "Requerido";
         else if (!/^\d{8}-\d$/.test(form.dui)) e.dui = "Formato: 00000000-0";
         if (!form.birth_date) e.birth_date = "Requerido";
+        else if (!isValidCalendarDate(form.birth_date) || form.birth_date > TODAY_STR) e.birth_date = "Fecha inválida";
         if (!form.phone.trim()) e.phone = "Requerido";
         else if (!/^\d{4}-\d{4}$/.test(form.phone)) e.phone = "Formato: 0000-0000";
         if (!form.email.trim()) e.email = "Requerido";
@@ -88,34 +99,34 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
                 <fieldset disabled={submitting} className="contents">
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Nombre(s)</label>
-                        <input value={form.name} onChange={set("name")} placeholder="Nombre(s)" className={inputClass(errors.name)} />
+                        <input value={form.name} maxLength={50} onChange={setMasked("name", (v) => maskLettersOnly(v, 50))} placeholder="Nombre(s)" className={inputClass(errors.name)} />
                         {errors.name && <span className="text-[10px] text-red-500">{errors.name}</span>}
                     </div>
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Correo electrónico</label>
-                        <input value={form.email} onChange={set("email")} placeholder="correo@ejemplo.com" className={inputClass(errors.email)} />
+                        <input type="email" value={form.email} maxLength={100} onChange={set("email")} placeholder="correo@ejemplo.com" className={inputClass(errors.email)} />
                         {errors.email && <span className="text-[10px] text-red-500">{errors.email}</span>}
                     </div>
 
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Apellido(s)</label>
-                        <input value={form.last_name} onChange={set("last_name")} placeholder="Apellido(s)" className={inputClass(errors.last_name)} />
+                        <input value={form.last_name} maxLength={50} onChange={setMasked("last_name", (v) => maskLettersOnly(v, 50))} placeholder="Apellido(s)" className={inputClass(errors.last_name)} />
                         {errors.last_name && <span className="text-[10px] text-red-500">{errors.last_name}</span>}
                     </div>
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">DUI</label>
-                        <input value={form.dui} onChange={(e) => setForm((f) => ({ ...f, dui: maskDui(e.target.value) }))} placeholder="12345678-9" className={inputClass(errors.dui)} />
+                        <input value={form.dui} inputMode="numeric" maxLength={10} onChange={setMasked("dui", maskDui)} placeholder="12345678-9" className={inputClass(errors.dui)} />
                         {errors.dui && <span className="text-[10px] text-red-500">{errors.dui}</span>}
                     </div>
 
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Fecha de nacimiento</label>
-                        <input type="date" value={form.birth_date} onChange={set("birth_date")} className={inputClass(errors.birth_date)} />
+                        <input type="date" max={TODAY_STR} value={form.birth_date} onChange={set("birth_date")} className={inputClass(errors.birth_date)} />
                         {errors.birth_date && <span className="text-[10px] text-red-500">{errors.birth_date}</span>}
                     </div>
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Teléfono</label>
-                        <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))} placeholder="7890-1234" className={inputClass(errors.phone)} />
+                        <input value={form.phone} inputMode="numeric" maxLength={9} onChange={setMasked("phone", maskPhone)} placeholder="7890-1234" className={inputClass(errors.phone)} />
                         {errors.phone && <span className="text-[10px] text-red-500">{errors.phone}</span>}
                     </div>
 
@@ -132,6 +143,7 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
                             <input
                                 type={showPassword ? "text" : "password"}
                                 value={form.password}
+                                maxLength={100}
                                 onChange={set("password")}
                                 placeholder="Contraseña inicial"
                                 className={`${inputClass(errors.password)} pr-8`}
@@ -145,7 +157,7 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
 
                     <div className="sm:col-span-2">
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Notas (opcional)</label>
-                        <input value={form.referred_by} onChange={set("referred_by")} placeholder="Referido por, información adicional..." className={inputClass(false)} />
+                        <input value={form.referred_by} maxLength={150} onChange={set("referred_by")} placeholder="Referido por, información adicional..." className={inputClass(false)} />
                     </div>
 
                     <div className="sm:col-span-2 flex items-center justify-end gap-2 mt-1">

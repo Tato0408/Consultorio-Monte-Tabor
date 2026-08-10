@@ -21,6 +21,7 @@ const PhysicalExamCard = ({ readOnly }) => {
                         <label className="text-xs text-slate-500 block mb-1">{field.label}</label>
                         <input
                             type="text"
+                            maxLength={150}
                             disabled={readOnly}
                             {...register(`physical_exam.${field.key}`)}
                             className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
@@ -32,6 +33,7 @@ const PhysicalExamCard = ({ readOnly }) => {
             <label className="text-xs text-slate-500 block mb-1">Notas adicionales</label>
             <textarea
                 rows={2}
+                maxLength={500}
                 disabled={readOnly}
                 {...register("physical_exam.notes")}
                 className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"

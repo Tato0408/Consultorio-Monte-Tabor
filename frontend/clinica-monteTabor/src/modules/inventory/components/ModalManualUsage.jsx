@@ -114,12 +114,14 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
           <div className="grid grid-cols-2 gap-4">
             <InputField label="Responsable *" id="responsible"
               placeholder="Dr. / Enf. nombre"
+              maxLength={100}
               value={responsible}
               onChange={(e) => { setResp(e.target.value); setErrors((p) => ({ ...p, responsible: "" })); }}
               error={errors.responsible} />
 
             <InputField label="Paciente (opcional)" id="patient"
               placeholder="Nombre del paciente"
+              maxLength={100}
               value={patient} onChange={(e) => setPatient(e.target.value)} />
           </div>
 
@@ -178,6 +180,7 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
                       <input
                         className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Buscar insumo..."
+                        maxLength={100}
                         value={row.search}
                         onChange={(e) => searchInsumo(e.target.value, idx)}
                       />
@@ -208,10 +211,10 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
                     className="px-2.5 py-2 hover:bg-gray-100 text-gray-600 transition-colors">
                     <Minus className="w-3.5 h-3.5" />
                   </button>
-                  <input type="number" min={1}
+                  <input type="number" min={1} max={10000}
                     className="w-10 text-center text-sm font-medium text-gray-800 outline-none bg-transparent"
                     value={row.quantity}
-                    onChange={(e) => updateRow(idx, { quantity: Math.max(1, Number(e.target.value)) })}
+                    onChange={(e) => updateRow(idx, { quantity: Math.min(10000, Math.max(1, Number(e.target.value))) })}
                     onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }} />
                   <button type="button" onClick={() => changeQty(idx, 1)}
                     className="px-2.5 py-2 hover:bg-gray-100 text-gray-600 transition-colors">

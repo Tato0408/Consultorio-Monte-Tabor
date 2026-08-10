@@ -347,6 +347,7 @@ export default function AppointmentsGrid() {
                         onChange={(e) => setSearchInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearch(); } }}
                         placeholder="Buscar por paciente, doctor o descripción..."
+                        maxLength={100}
                         className="pr-10 border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl h-10"
                     />
                     <button

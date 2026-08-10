@@ -1,27 +1,53 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Loader2, Info } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
 
-// Modal genérico y compacto para agregar UN antecedente hereditario o patológico — mismo tamaño
-// que IncapacidadFormModal/ProcedureModal (2 campos, sin scroll). `bodyKey` es "new_hereditary" o
-// "new_pathological" (lo que ya acepta PUT /patients/:id), `fields` = [{key,label}] de ese tipo.
-// Máximo razonable para un campo corto de una sola línea (parentesco, condición, enfermedad,
-// tipo) — evita que alguien pegue un párrafo entero en un campo pensado para 2-3 palabras.
-const MAX_FIELD_LENGTH = 100;
+// Modal genérico y compacto para agregar o editar UN antecedente hereditario o patológico —
+// mismo tamaño que IncapacidadFormModal/ProcedureModal (3 campos: a, b y tipo; sin scroll).
+// `bodyKey` es "new_hereditary" o "new_pathological" (lo que acepta PUT /patients/:id para
+// crear); `fields` = [{key,label,placeholder}] de ese tipo, en el mismo orden que las columnas
+// a/b/tipo de AntecedentesTable (el tercer campo siempre corresponde a "Tipo").
+// Sin `editEntry`: agrega uno nuevo (PUT /patients/:id, $push). Con `editEntry` ({id, a, b, tipo},
+// la fila ya formateada que arma useRecords.js): edita ese antecedente puntual, vía
+// PUT /patients/:patientId/<hereditary|pathological>/:entryId — mismo patrón que
+// VitalSignsFormModal.jsx, el segmento de la URL sale de bodyKey quitándole el prefijo "new_".
+// Máximo de 30 caracteres por campo (parentesco, condición, enfermedad, diagnóstico, tipo) —
+// evita que alguien pegue un párrafo entero en un campo pensado para 2-3 palabras cortas.
+const MAX_FIELD_LENGTH = 30;
 
-const AntecedentFormModal = ({ isOpen, onClose, patientId, title, bodyKey, fields, onSaved }) => {
+// Solo letras (con acentos/ñ), espacios, apóstrofes y guiones — mismo criterio que el resto de
+// los formularios de personas/datos del sistema (Doctors/Nurses/Receptionist/Patients Form,
+// EditPatientModal).
+const maskText = (raw) => raw.replace(/[^A-Za-zÀ-ÿ\s'-]/g, "").slice(0, MAX_FIELD_LENGTH);
+
+const AntecedentFormModal = ({ isOpen, onClose, patientId, title, editTitle, bodyKey, fields, editEntry, onSaved }) => {
   const emptyValues = Object.fromEntries(fields.map((f) => [f.key, ""]));
   const [values, setValues] = useState(emptyValues);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
+  // El componente se queda montado entre aperturas (el padre solo cambia "isOpen"), así que sin
+  // esto el formulario conservaría lo último escrito, o no se precargaría con el antecedente a editar.
+  useEffect(() => {
+    if (!isOpen) return;
+    setErrors({});
+    if (editEntry) {
+      setValues({
+        [fields[0].key]: editEntry.a !== "—" ? editEntry.a : "",
+        [fields[1].key]: editEntry.b !== "—" ? editEntry.b : "",
+        [fields[2].key]: editEntry.tipo !== "—" ? editEntry.tipo : "",
+      });
+    } else {
+      setValues(emptyValues);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editEntry?.id]);
+
   if (!isOpen) return null;
 
   const close = () => {
     if (loading) return;
-    setValues(emptyValues);
-    setErrors({});
     onClose();
   };
 
@@ -47,15 +73,24 @@ const AntecedentFormModal = ({ isOpen, onClose, patientId, title, bodyKey, field
 
     setLoading(true);
     try {
-      await apiClient(`/patients/${patientId}`, {
-        method: "PUT",
-        body: { [bodyKey]: values },
-      });
-      showSuccess("Antecedente registrado correctamente");
+      if (editEntry) {
+        const resource = bodyKey.replace("new_", "");
+        await apiClient(`/patients/${patientId}/${resource}/${editEntry.id}`, {
+          method: "PUT",
+          body: values,
+        });
+        showSuccess("Antecedente actualizado correctamente");
+      } else {
+        await apiClient(`/patients/${patientId}`, {
+          method: "PUT",
+          body: { [bodyKey]: values },
+        });
+        showSuccess("Antecedente registrado correctamente");
+      }
       onSaved?.();
       close();
     } catch (err) {
-      showError(err.message || "No se pudo registrar el antecedente");
+      showError(err.message || "No se pudo guardar el antecedente");
     } finally {
       setLoading(false);
     }
@@ -77,7 +112,7 @@ const AntecedentFormModal = ({ isOpen, onClose, patientId, title, bodyKey, field
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
             <Info className="h-5 w-5" />
           </div>
-          <h2 className="text-base font-semibold text-slate-800">{title}</h2>
+          <h2 className="text-base font-semibold text-slate-800">{editEntry ? (editTitle || title) : title}</h2>
         </div>
 
         <fieldset disabled={loading} className="contents">
@@ -88,8 +123,9 @@ const AntecedentFormModal = ({ isOpen, onClose, patientId, title, bodyKey, field
                 <input
                   type="text"
                   maxLength={MAX_FIELD_LENGTH}
+                  placeholder={f.placeholder}
                   value={values[f.key]}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                  onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: maskText(e.target.value) }))}
                   className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none transition-colors ${
                     errors[f.key] ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-blue-500"
                   }`}
@@ -105,7 +141,7 @@ const AntecedentFormModal = ({ isOpen, onClose, patientId, title, bodyKey, field
             className="mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            Guardar
+            {editEntry ? "Guardar cambios" : "Guardar"}
           </button>
         </fieldset>
       </div>

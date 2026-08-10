@@ -95,6 +95,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
             <input
               type="text"
               placeholder="Ej. Apendicectomía laparoscópica"
+              maxLength={100}
               {...register("name", { required: "El campo tiene que llenarse" })}
               className={`w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
                 errors.name
@@ -132,12 +133,14 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
                 <input
                   type="number"
                   min="1"
+                  max="480"
                   placeholder="Ej. 45"
-                  onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
+                  onKeyDown={(e) => { if (["-", "e", "E", "+", "."].includes(e.key)) e.preventDefault(); }}
                   {...register("estimated_duration", {
                     required: "El campo tiene que llenarse",
                     valueAsNumber: true,
                     min: { value: 1, message: "Debe ser mayor a 0" },
+                    max: { value: 480, message: "No puede superar 480 minutos (8 horas)" },
                   })}
                   className={`w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
                     errors.estimated_duration
@@ -157,12 +160,14 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
                   type="number"
                   step="0.01"
                   min="0"
+                  max="999999"
                   placeholder="Ej. 120.00"
                   onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                   {...register("price", {
                     required: "El campo tiene que llenarse",
                     valueAsNumber: true,
                     min: { value: 0, message: "No puede ser negativo" },
+                    max: { value: 999999, message: "El precio es demasiado alto" },
                   })}
                   className={`w-full pl-7 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
                     errors.price
@@ -234,11 +239,13 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
                       <input
                         type="number"
                         min="1"
-                        onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
+                        max="100000"
+                        onKeyDown={(e) => { if (["-", "e", "E", "+", "."].includes(e.key)) e.preventDefault(); }}
                         {...register(`materials.${index}.quantity`, {
                           required: "Requerido",
                           valueAsNumber: true,
                           min: { value: 1, message: "Debe ser al menos 1" },
+                          max: { value: 100000, message: "Cantidad demasiado alta" },
                         })}
                         className={`w-full px-2 md:px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
                           quantityError

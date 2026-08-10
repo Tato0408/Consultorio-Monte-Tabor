@@ -77,6 +77,9 @@ const patientSchema = new Schema({
             },
             condition: {
                 type: String
+            },
+            type: {
+                type: String
             }
         }],
         pathological: [{
@@ -84,6 +87,9 @@ const patientSchema = new Schema({
                 type: String
             },
             diagnosis: {
+                type: String
+            },
+            type: {
                 type: String
             }
         }],

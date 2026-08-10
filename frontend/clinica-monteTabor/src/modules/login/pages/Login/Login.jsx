@@ -185,6 +185,7 @@ const Login = () => {
                 placeholder="Ingresa tu correo electrónico"
                 value={formData.email}
                 onChange={handleChange("email")}
+                maxLength={100}
                 icon={<Mail className="w-4 h-4" />}
                 error={errors.email}
                 disabled={isLoading}
@@ -198,6 +199,7 @@ const Login = () => {
                   placeholder="Ingresa tu contraseña"
                   value={formData.password}
                   onChange={handleChange("password")}
+                  maxLength={100}
                   icon={<Lock className="w-4 h-4" />}
                   error={errors.password}
                   disabled={isLoading}

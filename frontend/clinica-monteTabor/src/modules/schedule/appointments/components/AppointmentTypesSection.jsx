@@ -4,6 +4,7 @@ import InputField from "@/components/ui/InputField";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import { showError } from "@/lib/alerts";
+import { maskLettersOnly } from "@/lib/inputMasks";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
 
@@ -144,8 +145,9 @@ const AppointmentTypesSection = () => {
                                             <InputField
                                                 id="type-name"
                                                 placeholder="Nombre del tipo"
+                                                maxLength={30}
                                                 value={form.name}
-                                                onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                                                onChange={e => setForm(p => ({ ...p, name: maskLettersOnly(e.target.value, 30) }))}
                                                 className="flex-1"
                                             />
                                         </div>

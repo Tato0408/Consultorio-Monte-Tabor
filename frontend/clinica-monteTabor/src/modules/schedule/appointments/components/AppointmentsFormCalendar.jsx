@@ -616,6 +616,7 @@ export default function AppointmentsForm() {
                 <Textarea disabled={!isEditing} value={cancellationReason}
                   onChange={e => setCancellationReason(e.target.value)}
                   placeholder="¿Por qué se canceló la cita?"
+                  maxLength={300}
                   className="min-h-[80px] border-red-200 focus-visible:ring-red-300 bg-red-50/30 rounded-xl resize-none text-sm" />
               </div>
             )}
@@ -624,7 +625,7 @@ export default function AppointmentsForm() {
           <SectionCard title="Costo total" icon={DollarSign}>
             <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-blue-200 focus-within:border-blue-400 transition-all bg-white">
               <span className="text-slate-400 text-sm font-medium">$</span>
-              <input type="number" min="0" step="0.01" disabled={!isEditing}
+              <input type="number" min="0" max="999999" step="0.01" disabled={!isEditing}
                 value={total} onChange={e => setTotal(e.target.value)}
                 onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                 placeholder="0.00"
@@ -637,6 +638,7 @@ export default function AppointmentsForm() {
             <Textarea disabled={!isEditing} value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Ingrese detalles adicionales de la cita..."
+              maxLength={1000}
               className="min-h-[120px] border-slate-200 focus-visible:ring-blue-200 rounded-xl text-sm resize-none disabled:bg-slate-50" />
           </SectionCard>
 

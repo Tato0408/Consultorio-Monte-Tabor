@@ -138,6 +138,7 @@ const NewPassword = () => {
                   placeholder="Ingresa tu contraseña"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  maxLength={100}
                   icon={<Lock className="w-4 h-4" />}
                   disabled={loading}
                 />
@@ -149,6 +150,7 @@ const NewPassword = () => {
                   placeholder="Ingresa tu contraseña de nuevo"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  maxLength={100}
                   icon={<Lock className="w-4 h-4" />}
                   disabled={loading}
                 />
