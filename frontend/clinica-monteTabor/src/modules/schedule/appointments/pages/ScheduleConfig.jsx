@@ -24,7 +24,6 @@ const defaultWeekly = DAYS.map((_, i) => ({
 const defaultBreaks = [1,2,3,4,5].map(d => ({ day: d, start_time: "12:00", end_time: "13:00" }));
 
 const EMPTY_SCHEDULE = {
-    appointment_types:    [],
     weekly_availability:  defaultWeekly,
     breaks:               defaultBreaks,
     exceptions:           [],
@@ -36,6 +35,11 @@ const EMPTY_SCHEDULE = {
 const ScheduleConfig = () => {
     const { user, userType, isLoading: authLoading, hasPermission } = useAuth();
     const canUpdate = hasPermission("calendar.schedule", "update");
+    // El admin también ejerce como doctor (mismo correo que su propio registro en la colección
+    // de doctores), así que sí tiene y configura su propio horario igual que cualquier otro
+    // doctor — solo se le agrega, aparte, el catálogo global de "Tipos de citas" (ver más abajo),
+    // que es lo único exclusivo de admin.
+    const isAdmin = userType === "admin";
     // Horarios es doctor/enfermera/admin — cada uno guarda en una colección distinta
     // (backend/src/models/schedule/schedule.js vs nurseSchedule.js), por eso hay dos hooks.
     const isNurse = userType === "nurse";
@@ -74,7 +78,6 @@ const ScheduleConfig = () => {
         const applyConfig = (data) => {
             if (!data) return;
             setConfig({
-                appointment_types:   data.appointment_types   ?? [],
                 weekly_availability: data.weekly_availability ?? defaultWeekly,
                 breaks:              data.breaks              ?? defaultBreaks,
                 exceptions:          data.exceptions          ?? [],
@@ -106,9 +109,7 @@ const ScheduleConfig = () => {
         setSaving(true);
         setError(null);
         try {
-            // Las enfermeras no tienen tipos de cita propios (eso es exclusivo del doctor)
-            const payload = isNurse ? { ...config, appointment_types: undefined } : config;
-            await saveSchedule(ownerId, payload);
+            await saveSchedule(ownerId, config);
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
@@ -137,7 +138,9 @@ const ScheduleConfig = () => {
                     <p className="text-sm text-slate-400 mt-1">
                         {isNurse
                             ? "Define tus horarios de disponibilidad y descansos."
-                            : "Define tus horarios de atención, tipos de citas y descansos."}
+                            : isAdmin
+                            ? "Define tus horarios de atención, descansos y el catálogo global de tipos de cita."
+                            : "Define tus horarios de atención y descansos."}
                     </p>
                 </div>
                 <div className="flex gap-3 flex-shrink-0">
@@ -166,14 +169,12 @@ const ScheduleConfig = () => {
                 layout de grid. No hace falta estar dentro de un <form> para que funcione. */}
             <fieldset disabled={saving} className="contents">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                {/* Los tipos de cita son exclusivos del horario de doctor — una enfermera no
-                    ofrece "citas" propias, solo se asigna dentro de las de un doctor. */}
-                {!isNurse && (
-                    <AppointmentTypesSection
-                        types={config.appointment_types}
-                        onChange={v => patch("appointment_types", v)}
-                    />
-                )}
+                {/* Catálogo global de tipos de cita — exclusivo de admin (ver comentario en
+                    isAdmin más arriba). Autocontenido: no depende del botón "Guardar cambios"
+                    de esta página, cada acción persiste de inmediato. Son los mismos tipos que
+                    aparecen en el selector "Tipo de Cita" al agendar una cita
+                    (AppointmentsForm.jsx) y en la leyenda del calendario. */}
+                {isAdmin && <AppointmentTypesSection />}
                 <WeeklyAvailabilitySection
                     availability={config.weekly_availability}
                     onChange={v => patch("weekly_availability", v)}
@@ -194,10 +195,10 @@ const ScheduleConfig = () => {
                     onChange={(key, val) => patch(key, val)}
                 />
                 <SchedulePreview
-                    types={config.appointment_types}
                     availability={config.weekly_availability}
                     breaks={config.breaks}
                     bufferTime={config.buffer_time}
+                    minBlockDuration={config.min_block_duration}
                 />
             </div>
             </fieldset>

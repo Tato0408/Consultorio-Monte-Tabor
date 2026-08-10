@@ -18,6 +18,7 @@ import { useForm, Controller } from "react-hook-form";
 import { es } from "date-fns/locale";
 import useAppointments from "../hooks/useAppointment.js";
 import useMedicalData from "../hooks/useMedicalData";
+import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import { showSuccess, showError } from "@/lib/alerts";
 import ProcedureModal from "./ProcedureModal.jsx";
 import { useAuth } from "@/context/AuthContext";
@@ -56,6 +57,15 @@ export default function AppointmentsForm() {
     fetchMedicalData
   } = useMedicalData();
 
+  // Catálogo global de tipos de cita (nombre + color, solo lectura aquí — lo administra el rol
+  // admin desde Horarios). Es un campo aparte de "Tipo de Procedimiento": no afecta precio ni
+  // duración, solo cómo se ve la cita en la leyenda del calendario.
+  const { getAppointmentTypes } = useAppointmentTypes();
+  const [appointmentTypes, setAppointmentTypes] = useState([]);
+  useEffect(() => {
+    getAppointmentTypes().then(setAppointmentTypes).catch(() => setAppointmentTypes([]));
+  }, []);
+
   // Con id se ve/edita una cita existente; sin id, se crea una nueva. El modo
   // edición inicial respeta los permisos, aunque llegue editMode: true por state.
   const isViewOrEditMode = !!id;
@@ -84,6 +94,7 @@ export default function AppointmentsForm() {
       doctor_id: "",
       nurse_id: "",
       procedure: "general",
+      appointment_type: "",
       date: new Date(),
       selectedTime: "",
       status: "",
@@ -130,6 +141,7 @@ export default function AppointmentsForm() {
               doctor_id: appointment.doctor_id?._id || appointment.doctor_id || "",
               nurse_id: appointment.nurse_id?._id || appointment.nurse_id || "",
               procedure: procedureValue,
+              appointment_type: appointment.appointment_type || "",
               date: loadedDate,
               selectedTime: appointment.start_time || "",
               status: appointment.status || "pending",
@@ -275,6 +287,9 @@ export default function AppointmentsForm() {
       nurse_id: data.nurse_id || null,
       procedure_id: data.procedure === "general" ? null : data.procedure,
       type: data.procedure === "general" ? "Consulta Médica General" : "Procedimiento",
+      // Aparte de "type" (que sigue definiendo precio/duración vía Procedimientos): solo
+      // categoriza/colorea la cita en la leyenda del calendario.
+      appointment_type: data.appointment_type || undefined,
       start_time: selectedSlot.start_time,
       end_time: selectedSlot.end_time,
       duration_minutes: duration,
@@ -528,6 +543,50 @@ export default function AppointmentsForm() {
               <p className="text-xs text-slate-500">
                 Duración estimada: <span className="font-semibold">{procedure === "general" ? "30 minutos" : `${selectedProcedure?.estimated_duration ?? 30} minutos`}</span>
               </p>
+            </div>
+
+            {/* Tipo de cita: solo categoriza/colorea la cita en el calendario — no afecta
+                precio ni duración (eso lo define "Tipo de Procedimiento", arriba). Catálogo
+                administrado por el rol admin desde Horarios. Opcional: si no hay tipos creados
+                todavía, o no se elige ninguno, la cita simplemente no tiene color asignado. */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-400 tracking-wider uppercase">Tipo de Cita</Label>
+              <Controller
+                name="appointment_type"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value || "none"}
+                    onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+                    disabled={!isEditing}
+                  >
+                    <SelectTrigger className="w-full border-slate-200 focus:ring-[#0b66d6] h-11 rounded-xl">
+                      <SelectValue>
+                        {field.value ? (
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: appointmentTypes.find((t) => t.name === field.value)?.color || "#94a3b8" }}
+                            />
+                            {field.value}
+                          </span>
+                        ) : "Sin especificar"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin especificar</SelectItem>
+                      {appointmentTypes.map((t) => (
+                        <SelectItem key={t._id} value={t.name}>
+                          <span className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
+                            {t.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             {/* Doctor: obligatorio; también habilita fecha y horario. */}

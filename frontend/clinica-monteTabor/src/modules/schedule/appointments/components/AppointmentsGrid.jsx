@@ -54,17 +54,13 @@ export default function AppointmentsGrid() {
         goToPage
     } = useAppointments({ sortOrder: "desc" });
 
-    // Texto del buscador, separado del filtro real para no disparar una
-    // consulta en cada tecla.
+    // Texto del buscador, separado del filtro real: ya no se dispara solo al escribir, solo con
+    // el botón de buscar (o Enter) — ver handleSearch más abajo.
     const [searchInput, setSearchInput] = useState("");
 
-    // Aplica la búsqueda 400ms después de que se deja de escribir.
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            updateFilters({ search: searchInput.trim() || undefined });
-        }, 400);
-        return () => clearTimeout(timeout);
-    }, [searchInput, updateFilters]);
+    const handleSearch = () => {
+        updateFilters({ search: searchInput.trim() || undefined });
+    };
 
     // Sub-pestaña del doctor: "pending" (por aceptar) o "mine" (resueltas);
     // el backend ya limita doctor_id al propio, aquí solo se controla el status.
@@ -340,15 +336,27 @@ export default function AppointmentsGrid() {
             {/* Búsqueda, filtros de estado/tipo y orden por fecha. Todo se
                 resuelve en el backend vía updateFilters (query params). */}
             <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 mb-6 flex flex-col md:flex-row gap-3 md:items-center">
-                {/* Búsqueda por paciente, doctor o descripción. */}
+                {/* Búsqueda por paciente, doctor o descripción — ya no se dispara al escribir,
+                    solo al hacer clic en el botón (o presionar Enter). El botón vive dentro del
+                    propio input (a la derecha); "pr-10" le reserva ese espacio para que el texto
+                    escrito nunca llegue a tocarlo — un <input> nativo ya hace scroll del texto
+                    hacia la izquierda por su cuenta cuando se pasa de su ancho visible/relleno. */}
                 <div className="relative flex-1 min-w-[220px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                         value={searchInput}
                         onChange={(e) => setSearchInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearch(); } }}
                         placeholder="Buscar por paciente, doctor o descripción..."
-                        className="pl-9 border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl h-10"
+                        className="pr-10 border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl h-10"
                     />
+                    <button
+                        type="button"
+                        onClick={handleSearch}
+                        aria-label="Buscar"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#0b66d6] hover:bg-slate-100 transition-colors"
+                    >
+                        <Search className="h-4 w-4" />
+                    </button>
                 </div>
 
                 {/* Filtro por estado (lo controla la sub-pestaña para doctor/admin). */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { CheckCircle2, X, Edit2, Save, AlertCircle, Clock, Loader2, User, Stethoscope, CalendarDays, DollarSign } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
@@ -6,6 +6,7 @@ import { es } from "date-fns/locale"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import useAppointments from "../hooks/useAppointments"
 import useMedicalData from "../hooks/useMedicalData";
+import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import { showSuccess, showError } from "@/lib/alerts";
 import useSchedule from "../hooks/useSchedule";
 import { useAuth } from "@/context/AuthContext";
@@ -69,6 +70,14 @@ export default function AppointmentsForm() {
   const { patients, doctors } = useMedicalData();
   const { getAvailableSlots, getSchedule } = useSchedule();
 
+  // Catálogo global de tipos de cita (nombre + color), administrado por el rol admin desde
+  // Horarios — son los mismos que aparecen en la leyenda del calendario.
+  const { getAppointmentTypes } = useAppointmentTypes();
+  const [appointmentTypes, setAppointmentTypes] = useState([]);
+  useEffect(() => {
+    getAppointmentTypes().then(setAppointmentTypes).catch(() => setAppointmentTypes([]));
+  }, []);
+
   // El modo edición inicial respeta el permiso: sin create no arranca en modo
   // creación habilitado, y sin update no arranca en modo edición habilitado
   // (aunque hayan llegado con editMode: true).
@@ -103,6 +112,11 @@ export default function AppointmentsForm() {
   // catálogo completo (ver efecto más abajo, mismo endpoint que AppointmentsForm.jsx).
   const [availableNurses, setAvailableNurses] = useState([]);
   const [loadingNurses, setLoadingNurses]     = useState(false);
+  // Recuerda el horario original de la cita que se está editando (fecha + doctor + slot), para
+  // no perderlo cuando el efecto de abajo vuelve a pedir los horarios disponibles: el backend no
+  // excluye la propia cita de "ya ocupado", así que sin esto su horario desaparecería de la
+  // lista apenas se carga el formulario. Mismo patrón que AppointmentsForm.jsx.
+  const originalSlotRef = useRef(null);
 
   // Si el usuario es doctor, pre-rellenar su propio ID en citas nuevas
   useEffect(() => {
@@ -118,20 +132,33 @@ export default function AppointmentsForm() {
     setLoading(true);
     getAppointmentById(id).then(cita => {
       if (!cita) return;
+      const doctorId = cita.doctor_id?._id || cita.doctor_id || "";
       setFormData({
         patient_id: cita.patient_id?._id || "",
-        doctor_id:  cita.doctor_id?._id  || cita.doctor_id || "",
+        doctor_id:  doctorId,
         nurse_id:   cita.nurse_id?._id   || cita.nurse_id  || "",
       });
-      setProcedure(cita.type || "Consulta");
-      setDate(cita.date ? new Date(cita.date) : new Date());
+      // "appointment_type" (el catálogo del admin) es lo que se muestra/edita aquí; se cae a
+      // "type" solo como respaldo para citas creadas antes de que existiera ese campo.
+      setProcedure(cita.appointment_type || cita.type || "");
+      const loadedDate = cita.date ? new Date(cita.date) : new Date();
+      setDate(loadedDate);
       setStatus(cita.status || "pending");
       setNotes(cita.description || "");
       setCancellationReason(cita.cancellation_reason || "");
       setTotal(String(cita.total || ""));
+      // Antes no se restauraba: al editar, siempre volvía a caer en el valor por defecto (30
+      // min) sin importar la duración real con la que se agendó la cita.
+      setDuration(cita.duration_minutes || 30);
       setScheduleData(cita.schedule_id ? { _id: cita.schedule_id } : null);
       if (cita.start_time && cita.end_time) {
-        setSelectedSlot({ start_time: cita.start_time, end_time: cita.end_time });
+        const slot = { start_time: cita.start_time, end_time: cita.end_time };
+        setSelectedSlot(slot);
+        originalSlotRef.current = {
+          date: `${loadedDate.getFullYear()}-${String(loadedDate.getMonth() + 1).padStart(2, "0")}-${String(loadedDate.getDate()).padStart(2, "0")}`,
+          doctor_id: doctorId,
+          ...slot,
+        };
       }
     }).catch(() => showError("No se pudo recuperar la información de la cita."))
       .finally(() => setLoading(false));
@@ -149,11 +176,32 @@ export default function AppointmentsForm() {
   useEffect(() => {
     if (!formData.doctor_id || !date) { setAvailableSlots([]); setSelectedSlot(null); return; }
     setSlotsLoading(true);
-    setSelectedSlot(null);
     // Usar fecha LOCAL para que no cambie de día en zonas UTC+
     const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
     getAvailableSlots(formData.doctor_id, dateStr, duration)
-      .then(res => setAvailableSlots(res.slots || []))
+      .then(res => {
+        let slots = res.slots || [];
+        // Si estamos editando y el horario original de ESTA cita no aparece en la lista (el
+        // backend no excluye a la propia cita al calcular "ya ocupado"), se reinyecta para no
+        // perder la selección ya guardada — mismo criterio que AppointmentsForm.jsx.
+        const original = originalSlotRef.current;
+        if (original && original.date === dateStr && original.doctor_id === formData.doctor_id) {
+          const yaIncluido = slots.some(s => s.start_time === original.start_time);
+          if (!yaIncluido) {
+            slots = [{ start_time: original.start_time, end_time: original.end_time }, ...slots];
+          }
+        }
+        setAvailableSlots(slots);
+        // Conserva la selección actual si sigue siendo válida en la nueva lista; si no, mantiene
+        // el horario original de la cita (mismo doctor/fecha) en vez de dejarla en blanco.
+        setSelectedSlot(prev => {
+          if (prev && slots.some(s => s.start_time === prev.start_time)) return prev;
+          if (original && original.date === dateStr && original.doctor_id === formData.doctor_id) {
+            return { start_time: original.start_time, end_time: original.end_time };
+          }
+          return null;
+        });
+      })
       .catch(() => setAvailableSlots([]))
       .finally(() => setSlotsLoading(false));
   }, [formData.doctor_id, date, duration]);
@@ -211,6 +259,10 @@ export default function AppointmentsForm() {
       procedure_id:      null,
       schedule_id:       scheduleId,
       type:              procedure,
+      // Este formulario no distingue "Consulta Médica General" vs. un procedimiento real del
+      // catálogo (no usa procedure_id) — "type" y "appointment_type" quedan con el mismo valor
+      // elegido del catálogo del admin, así la cita sí colorea bien en la leyenda del calendario.
+      appointment_type:  procedure || undefined,
       date:              date.toISOString(),
       start_time:        selectedSlot.start_time,
       end_time:          selectedSlot.end_time,
@@ -340,12 +392,8 @@ export default function AppointmentsForm() {
                 label="Tipo de cita"
                 value={procedure}
                 onChange={setProcedure}
-                options={[
-                  { value: "Consulta", label: "Consulta" },
-                  { value: "Control/Seguimiento", label: "Control / Seguimiento" },
-                  { value: "Procedimiento", label: "Procedimiento" },
-                ]}
-                placeholder="Selecciona tipo"
+                options={appointmentTypes.map(t => ({ value: t.name, label: t.name }))}
+                placeholder={appointmentTypes.length === 0 ? "Sin tipos de cita configurados" : "Selecciona tipo"}
                 disabled={!isEditing}
               />
               <SelectField

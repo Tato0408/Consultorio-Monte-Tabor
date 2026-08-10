@@ -1,5 +1,5 @@
-// Campos: doctor_id, patient_id, nurse_id, procedure_id, type, date, start_time,
-// end_time, duration_minutes, description, status, total, cancellation_reason.
+// Campos: doctor_id, patient_id, nurse_id, procedure_id, type, appointment_type, date,
+// start_time, end_time, duration_minutes, description, status, total, cancellation_reason.
 
 import mongoose, { Schema, model } from "mongoose";
 
@@ -11,6 +11,11 @@ const appointmentsSchema = new Schema({
     nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "nurses" },
     procedure_id: { type: mongoose.Schema.Types.ObjectId, ref: "Procedure" },
     type: { type: String, required: true },
+    // Nombre (denormalizado, no ref) de un AppointmentType del catálogo global — solo para
+    // categorizar/colorear la cita en la leyenda del calendario. NO afecta precio ni duración
+    // (eso lo sigue definiendo "type" + procedure_id, como siempre). Opcional: las citas creadas
+    // antes de este campo, o sin tipo elegido, simplemente no tienen color asignado.
+    appointment_type: { type: String },
     schedule_id: { type: mongoose.Schema.Types.ObjectId, ref: "Schedules" },
     date: { type: Date, required: true },
     start_time: { type: String, required: true },

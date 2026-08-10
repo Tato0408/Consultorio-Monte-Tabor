@@ -42,6 +42,7 @@ import permissionsRoutes from './src/routes/permissions/permissions.js'
 import reportsRoutes from './src/routes/reports/reports.js'
 import sickLeavesRoutes from './src/routes/sickLeaves/sickLeaves.js'
 import notificationsRoutes from './src/routes/notifications/notifications.js'
+import appointmentTypesRoutes from './src/routes/appointmentTypes/appointmentTypes.js'
 import swaggerDocument from "./src/utils/montetabor-60e-ptc-api-1.0.0-resolved.json" with {type: "json"}
 
 const app = express();
@@ -90,6 +91,7 @@ app.use("/api/nurses", authenticate, nurseRoutes);
 
 app.use("/api/consultations", authenticate, consultationsRoutes);
 app.use("/api/appointments" , authenticate , appointmentsRoutes);
+app.use("/api/appointment-types", appointmentTypesRoutes);
 app.use("/api/inventory", authenticate, inventoryRoutes);
 app.use("/api/procedures", authenticate, proceduresRoutes);
 app.use("/api/treatments", authenticate, treatmentsRoutes);
