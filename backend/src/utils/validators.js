@@ -216,6 +216,34 @@ export const getVitalSignsError = (vitals = {}) => {
     return null;
 };
 
+// Campos mínimos para poder guardar una consulta (ver ConsultationForm.jsx): síntomas/evolución,
+// triage básico (presión arterial y temperatura) y diagnóstico completo (CIE-10, nombre y
+// descripción). El resto de la consulta (examen físico, procedimientos, receta, referencia,
+// antecedentes) queda opcional a propósito. Devuelve el mensaje del primer campo faltante, o null.
+export const getRequiredConsultationFieldsError = (clinical_data = {}) => {
+    const isBlank = (value) => value === undefined || value === null || String(value).trim() === "";
+
+    if (isBlank(clinical_data.evolution)) {
+        return "La evolución clínica (síntomas) es obligatoria";
+    }
+    if (isBlank(clinical_data.triage?.blood_pressure)) {
+        return "La presión arterial del triage es obligatoria";
+    }
+    if (isBlank(clinical_data.triage?.temperature)) {
+        return "La temperatura del triage es obligatoria";
+    }
+    if (isBlank(clinical_data.icd_diagnosis)) {
+        return "El código CIE-10 del diagnóstico es obligatorio";
+    }
+    if (isBlank(clinical_data.diagnosis)) {
+        return "El nombre del diagnóstico es obligatorio";
+    }
+    if (isBlank(clinical_data.diagnosis_description)) {
+        return "La descripción del diagnóstico es obligatoria";
+    }
+    return null;
+};
+
 // Valida que un campo numérico (precio, stock, cantidad, duración, costo, etc.) no sea negativo.
 // value === undefined/null/"" se considera "no enviado" y no es un error aquí — cada controller
 // decide aparte si el campo es obligatorio. Mismo motivo que el resto de este archivo: el

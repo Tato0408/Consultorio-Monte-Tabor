@@ -17,7 +17,8 @@ import NewPasswordScreen from './src/screens/login/RecoveryScreens/NewPasswordSc
 import PasswordUpdatedScreen from './src/screens/login/RecoveryScreens/PasswordUpdatedScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import AppointmentsScreen from './src/screens/AppointmentsScreen';
-import MedicationsScreen from './src/screens/MedicationsScreen';
+import MedicationsScreen from './src/screens/medication/medicationScreen';
+import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
 import ProfileScreen from './src/screens/profile/profileScreen';
 import HealthInfoScreen from './src/screens/profile/healthInfoScreen';
 import EditProfileScreen from './src/screens/profile/editProfileScreen';
@@ -26,6 +27,7 @@ import ListDetailScreen from './src/screens/profile/listDetailScreen';
 import BloodTypeScreen from './src/screens/profile/bloodTypeScreen';
 import OrganDonationScreen from './src/screens/profile/organDonationScreen';
 import LifestyleScreen from './src/screens/profile/lifeStyleScreen';
+
 
 const Stack = createNativeStackNavigator();
 
@@ -56,6 +58,7 @@ function RootNavigator() {
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
           <Stack.Screen name="Appointments" component={AppointmentsScreen} />
           <Stack.Screen name="Medications" component={MedicationsScreen} />
+          <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
@@ -87,7 +90,7 @@ export default function App() {
           <StatusBar style="dark" />
           <RootNavigator />
         </NavigationContainer>
-         <Toast config={toastConfig} topOffset={60} />
+        <Toast config={toastConfig} topOffset={60} />
       </SafeAreaProvider>
     </AuthProvider>
   );

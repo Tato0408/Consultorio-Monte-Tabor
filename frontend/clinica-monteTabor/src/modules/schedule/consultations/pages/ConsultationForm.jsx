@@ -70,7 +70,9 @@ const ConsultationForm = () => {
                 : "La consulta médica ha sido registrada con éxito.";
             await showSuccess("¡Guardado!", successMsg);
 
-            navigate("/calendar/consultations"); // vuelve al listado del día
+            // Vuelve a la misma consulta en modo lectura (no al listado) para que se vean
+            // reflejados de inmediato los datos que se acaban de guardar.
+            navigate(`/calendar/consultations/${appointmentId}?mode=view`);
         } catch (err) {
             showError(
                 "Error al guardar",

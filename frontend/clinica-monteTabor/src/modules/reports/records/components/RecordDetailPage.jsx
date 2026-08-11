@@ -32,7 +32,7 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const canAttend = hasPermission("calendar.consultations", "create");
-  const canDeleteConsultation = hasPermission("calendar.consultations", "delete");
+  const canEdit = hasPermission("calendar.consultations", "update");
   const [activeTab, setActiveTab] = useState(0);
 
   // Elimina una consulta médica ya atendida (documento Consultation real, no la cita). Existe
@@ -108,10 +108,12 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
         <ConsultasTab
           patient={patient}
           canAttend={canAttend}
-          canDelete={canDeleteConsultation}
+          canEdit={canEdit}
           onContinuar={(c) => c.appointmentId && navigate(`/calendar/consultations/${c.appointmentId}`)}
-          onVerRegistro={(c) => c.appointmentId && navigate(`/calendar/consultations/${c.appointmentId}?mode=view`)}
-          onEliminar={handleEliminarConsulta}
+          onVerRegistro={(c) =>
+            c.appointmentId &&
+            navigate(`/calendar/consultations/${c.appointmentId}${canEdit ? "" : "?mode=view"}`)
+          }
         />
       ),
     },

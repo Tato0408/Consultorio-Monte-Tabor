@@ -2,7 +2,7 @@ import { Controller, useFormContext } from "react-hook-form";
 import SectionCard from "./SectionCard";
 
 const EvolutionCard = ({ readOnly }) => {
-    const { control } = useFormContext();
+    const { control, formState: { errors } } = useFormContext();
 
     return (
         <SectionCard title="Evolución Clínica">
@@ -12,6 +12,7 @@ const EvolutionCard = ({ readOnly }) => {
             <Controller
                 name="clinical_data.evolution"
                 control={control}
+                rules={{ required: "Describe los síntomas o la evolución del paciente" }}
                 render={({ field }) => (
                     <textarea
                         {...field}
@@ -22,6 +23,9 @@ const EvolutionCard = ({ readOnly }) => {
                     />
                 )}
             />
+            {errors?.clinical_data?.evolution && (
+                <p className="text-[11px] text-red-500 mt-0.5">{errors.clinical_data.evolution.message}</p>
+            )}
         </SectionCard>
     );
 };
