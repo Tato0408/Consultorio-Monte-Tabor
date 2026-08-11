@@ -7,15 +7,16 @@ import { validateAuthCookie } from "../../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-// Catálogo liviano (mismos datos que GET "/", ver doctorsController.getDoctors) que solo exige
-// sesion iniciada, sin authorize("users.doctors","view"): recepcion, doctores y enfermeras
-// necesitan este catalogo para agendar citas aunque su rol no tenga permiso sobre el modulo de
-// administracion de doctores. Antes esto vivía en GET "/" y dejaba ese permiso sin ningún efecto
-// real en el backend (togglear "Ver Doctores" en Roles y Permisos no bloqueaba nada). Ahora GET
-// "/" sí exige el permiso, y este catálogo separado cubre el caso de uso de agendar citas.
+// Catálogo liviano (mismos datos que GET "/", más los doctores espejo de los admins — ver
+// doctorsController.getDoctorsCatalog) que solo exige sesion iniciada, sin
+// authorize("users.doctors","view"): recepcion, doctores y enfermeras necesitan este catalogo
+// para agendar citas aunque su rol no tenga permiso sobre el modulo de administracion de
+// doctores. Antes esto vivía en GET "/" y dejaba ese permiso sin ningún efecto real en el backend
+// (togglear "Ver Doctores" en Roles y Permisos no bloqueaba nada). Ahora GET "/" sí exige el
+// permiso, y este catálogo separado cubre el caso de uso de agendar citas.
 router
   .route("/catalog")
-  .get(authenticate, doctorsController.getDoctors);
+  .get(authenticate, doctorsController.getDoctorsCatalog);
 
 router
   .route("/")

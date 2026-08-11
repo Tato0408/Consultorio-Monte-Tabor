@@ -59,7 +59,7 @@ const ExceptionsSection = ({ exceptions, onChange }) => {
             {/* Header */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
                 <div>
-                    <h3 className="text-sm font-semibold text-slate-800">4. Excepciones y días no laborables</h3>
+                    <h3 className="text-sm font-semibold text-slate-800">3. Excepciones y días no laborables</h3>
                     <p className="text-xs text-slate-400 mt-0.5">Administra días especiales, vacaciones o cambios en tu horario habitual.</p>
                 </div>
                 <button

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Calendar, Filter, ChevronLeft, ChevronRight, ChevronDown,
+  Calendar, Filter, ChevronLeft, ChevronRight, ChevronDown, Trash2,
 } from "lucide-react";
 import { Badge, Card } from "../global/ui";
 
@@ -17,7 +17,9 @@ const ConsultasDelDia = ({
   patient = {},
   onContinuar,
   onVerRegistro,
+  onEliminar,
   canAttend = false,
+  canDelete = false,
 }) => {
   const consultas = patient.consultas ?? [];
   const enEspera = consultas.filter((c) => c.estado === "en_espera").length;
@@ -162,21 +164,34 @@ const ConsultasDelDia = ({
                     <Badge tone={est.tone}>{est.label}</Badge>
                   </td>
                   <td className="py-4 text-center">
-                    {atendido ? (
-                      <button
-                        onClick={() => onVerRegistro?.(c)}
-                        className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-1.5 rounded-lg"
-                      >
-                        Ver registro
-                      </button>
-                    ) : canAttend ? (
-                      <button
-                        onClick={() => onContinuar?.(c)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-1.5 rounded-lg"
-                      >
-                        Continuar
-                      </button>
-                    ) : null}
+                    <div className="flex items-center justify-center gap-2">
+                      {atendido ? (
+                        <button
+                          onClick={() => onVerRegistro?.(c)}
+                          className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-1.5 rounded-lg"
+                        >
+                          Ver registro
+                        </button>
+                      ) : canAttend ? (
+                        <button
+                          onClick={() => onContinuar?.(c)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-1.5 rounded-lg"
+                        >
+                          Continuar
+                        </button>
+                      ) : null}
+                      {/* Solo las filas "atendido" corresponden a un documento Consultation real
+                          (las "en_espera" son citas aún sin consulta, c.id es el id de la cita) */}
+                      {atendido && canDelete && (
+                        <button
+                          onClick={() => onEliminar?.(c)}
+                          aria-label="Eliminar consulta"
+                          className="border border-slate-200 text-red-500 hover:bg-red-50 hover:border-red-200 p-1.5 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

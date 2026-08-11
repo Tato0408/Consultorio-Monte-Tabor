@@ -10,7 +10,8 @@ Campos:
     breaks             → [{ day, start_time, end_time }]
     exceptions         → [{ date, end_date, type, description, schedule_info }]
     buffer_time
-    min_block_duration
+    buffer_time_options
+    block_durations
     allow_outside_hours
 */
 
@@ -51,7 +52,8 @@ const nurseScheduleSchema = new Schema({
     ],
 
     buffer_time:         { type: Number, default: 10 },
-    min_block_duration:  { type: Number, default: 30 },
+    buffer_time_options: { type: [Number], default: [0, 5, 10, 15, 20, 30] },
+    block_durations:     { type: [Number], default: [15, 30, 45, 60] },
     allow_outside_hours: { type: Boolean, default: false }
 
 }, {

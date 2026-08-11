@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import apiClient from "@/lib/apiClient";
+import { confirmDelete, showSuccess, showError } from "@/lib/alerts";
 import ExpedienteLayout from "./global/RecordsLayout";
 import ResumenTab from "./pages/ResumeTab";
 import HistoriaClinicaTab from "./pages/RecordsHistoricalClinical";
@@ -30,7 +32,27 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const canAttend = hasPermission("calendar.consultations", "create");
+  const canDeleteConsultation = hasPermission("calendar.consultations", "delete");
   const [activeTab, setActiveTab] = useState(0);
+
+  // Elimina una consulta médica ya atendida (documento Consultation real, no la cita). Existe
+  // sobre todo para poder limpiar consultas huérfanas: si su cita se borró por separado, la
+  // consulta sobrevive apuntando solo al paciente y bloquea "Eliminar paciente" sin dar ninguna
+  // pista de por qué — este botón es el único lugar del sistema donde se puede quitar.
+  const handleEliminarConsulta = async (c) => {
+    const ok = await confirmDelete({
+      title: "¿Eliminar esta consulta?",
+      text: "Se borrará el registro clínico (diagnóstico, notas, receta). Esta acción no se puede deshacer.",
+    });
+    if (!ok) return;
+    try {
+      await apiClient(`/consultations/${c.id}`, { method: "DELETE" });
+      showSuccess("Consulta eliminada correctamente");
+      refreshAll();
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar la consulta");
+    }
+  };
 
   // Refresca tanto el documento del paciente como las consultas/citas/incapacidades — los
   // modales del expediente solo tocan el primero, pero es más simple refrescar ambos siempre
@@ -86,8 +108,10 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
         <ConsultasTab
           patient={patient}
           canAttend={canAttend}
+          canDelete={canDeleteConsultation}
           onContinuar={(c) => c.appointmentId && navigate(`/calendar/consultations/${c.appointmentId}`)}
           onVerRegistro={(c) => c.appointmentId && navigate(`/calendar/consultations/${c.appointmentId}?mode=view`)}
+          onEliminar={handleEliminarConsulta}
         />
       ),
     },

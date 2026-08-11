@@ -3,15 +3,17 @@ import { ChevronRight, LogOut, Trash2, Loader2 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext"; // Ajusta la ruta según tu proyecto
 import useProfile from '../hooks/useProfile'
 import ChangePasswordModal from "../components/ChangePasswordModal";
+import EditProfileModal from "../components/EditProfileModal";
 import {useState} from 'react'
 import { calculateAge } from "../../../lib/validators";
 
 
 const ProfilePage = () => {
   const { user, userType, logout, isLoading: authLoading } = useAuth();
-  const { submitting, uploadAvatar, deleteAvatar } = useProfile();
+  const { submitting, uploadAvatar, deleteAvatar, updateProfile } = useProfile();
   const fileInputRef = useRef(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
 
   const roleTranslations = {
@@ -163,9 +165,17 @@ const ProfilePage = () => {
         <div className="lg:col-span-2 space-y-6">
 
           <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-            <h3 className="font-bold text-blue-900 text-xs uppercase tracking-wider mb-6">
-              Datos personales
-            </h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-blue-900 text-xs uppercase tracking-wider">
+                Datos personales
+              </h3>
+              <button
+                onClick={() => setIsEditProfileModalOpen(true)}
+                className="px-4 py-2.5 border border-blue-600 text-blue-600 text-xs font-semibold rounded-xl hover:bg-blue-50 transition-colors"
+              >
+                Editar información
+              </button>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-6">
               <div>
@@ -227,6 +237,13 @@ const ProfilePage = () => {
       <ChangePasswordModal
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
+      />
+      <EditProfileModal
+        isOpen={isEditProfileModalOpen}
+        onClose={() => setIsEditProfileModalOpen(false)}
+        user={user}
+        userType={userType}
+        onSave={updateProfile}
       />
     </div>
 

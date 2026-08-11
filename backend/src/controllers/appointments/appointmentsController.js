@@ -119,6 +119,7 @@ appointmentsController.getAppointments = async (req, res) => {
             doctor_id,
             patient_id,
             type,
+            appointment_type,
             search,
             sortOrder,
             page = 1,
@@ -158,9 +159,16 @@ appointmentsController.getAppointments = async (req, res) => {
             filters.patient_id = patient_id;
         }
 
-        // Filtro por tipo (Consulta Médica General / Procedimiento).
+        // Filtro por tipo de servicio (Consulta Médica General / Procedimiento).
         if (type) {
             filters.type = type;
+        }
+
+        // Filtro por "Tipo de cita" del catálogo global del admin (ver
+        // AppointmentTypesSection.jsx) — es un campo aparte de "type": solo
+        // categoriza/colorea la cita, no define su precio ni duración.
+        if (appointment_type) {
+            filters.appointment_type = appointment_type;
         }
 
         // Búsqueda libre por paciente, doctor, tipo o descripción; primero se
@@ -961,6 +969,23 @@ appointmentsController.getNursesForAcceptance = async (req, res) => {
         return res.json({ data: availableNurses });
     } catch (error) {
         return res.status(500).json({ message: "No se pudieron cargar las enfermeras." });
+    }
+};
+
+// Catálogo del filtro "Doctor" del listado de citas — solo doctores que efectivamente tienen al
+// menos una cita registrada (no el catálogo completo de doctores), para que el filtro no ofrezca
+// opciones que de todos modos no devolverían ningún resultado.
+appointmentsController.getDoctorsWithAppointments = async (req, res) => {
+    try {
+        const doctorIds = await appointmentsModel.distinct("doctor_id", { doctor_id: { $ne: null } });
+        const doctors = await doctorsModel
+            .find({ _id: { $in: doctorIds } })
+            .select("name last_name")
+            .sort({ name: 1, last_name: 1 });
+        return res.status(200).json(doctors);
+    } catch (error) {
+        console.log("error" + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

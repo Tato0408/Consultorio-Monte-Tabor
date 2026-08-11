@@ -1,4 +1,5 @@
 import doctorsModel from "../../models/doctors/doctors.js";
+import adminModel from "../../models/admin/admins.js";
 import patientsModel from "../../models/patients/patients.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import proceduresModel from "../../models/procedures/procedures.js";
@@ -7,11 +8,76 @@ import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js";
 
-//array de funciones, aqui agregamos las funciones y 
+//array de funciones, aqui agregamos las funciones y
 //al final del archivo este objeto lo exportaremos
 const doctorController = {};
 
-//GET ALL, obtiene todos los doctores registrados
+// Avatar genérico de respaldo cuando el admin no tiene foto propia — mismo placeholder ya usado
+// en AppointmentsGrid.jsx para doctores sin foto.
+const DEFAULT_AVATAR_URL = "https://res.cloudinary.com/dgpreaeg9/image/upload/images_gb0wco.png";
+
+// Crea o actualiza el "doctor espejo" de un admin (ver comentario en el modelo Doctors). Tanto la
+// foto como toda la información personal del espejo SIEMPRE vienen del perfil del admin — nunca
+// se editan sobre el propio doctor (bloqueado en updateDoctors/deleteDoctor más abajo), así que
+// se recalculan por completo en cada sincronización, se cree o no por primera vez.
+//
+// Primero se busca por linked_admin_id; si no existe, se busca por correo — pero solo se toma ese
+// resultado si YA es un espejo. Si el correo pertenece a un doctor real (la vieja convención
+// manual de "duplicar" al admin en Doctors, de antes de que existiera esta sincronización
+// automática), se deja intacto: nunca se sobreescriben los datos de un doctor real, y tampoco se
+// crea uno nuevo con el mismo correo (chocaría contra el índice único de email).
+const syncAdminMirrorDoctor = async (admin) => {
+  let mirror = await doctorsModel.findOne({ linked_admin_id: admin._id, is_admin_mirror: true });
+  if (!mirror) {
+    const existingByEmail = await doctorsModel.findOne({ email: admin.email });
+    if (existingByEmail) {
+      if (!existingByEmail.is_admin_mirror) return;
+      mirror = existingByEmail;
+    }
+  }
+
+  // Todo lo que el espejo muestra sale del admin, siempre — incluida la foto (si el admin no
+  // tiene una propia, se usa el avatar genérico, igual que un doctor real sin foto). Los campos
+  // que un admin no tiene (DUI, fecha de nacimiento) llevan un valor de relleno determinístico y
+  // único por admin mientras no los complete desde su propio perfil.
+  const syncedFields = {
+    name: admin.name,
+    last_name: admin.last_name,
+    email: admin.email,
+    dui: admin.dui || `ADMIN-${admin._id}`,
+    birth_date: admin.birth_date || new Date(1990, 0, 1),
+    img_url: admin.image || DEFAULT_AVATAR_URL,
+    is_active: admin.is_active !== false,
+    is_admin_mirror: true,
+    linked_admin_id: admin._id,
+  };
+
+  if (mirror) {
+    await doctorsModel.findByIdAndUpdate(mirror._id, syncedFields);
+    return;
+  }
+
+  // No hay ningún doctor con ese correo todavía: se crea el espejo completo. Los campos que un
+  // admin nunca tiene (licencia, teléfono, género) llevan un valor de relleno fijo — nunca se
+  // usan para nada real, solo satisfacen el esquema de Doctor, que no distingue entre un doctor
+  // real y uno espejo.
+  await doctorsModel.create({
+    ...syncedFields,
+    img_public_id: admin.public_id || `admin-mirror-${admin._id}`,
+    gender: "No especificado",
+    phone: "0000-0000",
+    license_number: `ADMIN-${admin._id}`,
+    license_url: DEFAULT_AVATAR_URL,
+    license_public_id: `admin-mirror-license-${admin._id}`,
+    password: admin.password,
+    is_verified: true,
+    loginAttempts: 0,
+  });
+};
+
+//GET ALL, obtiene todos los doctores registrados para la pantalla de gestión — excluye los
+//"doctores espejo" de los admins (ver is_admin_mirror en el modelo), esos solo deben verse en el
+//catálogo de agendamiento (getDoctorsCatalog), no aquí.
 doctorController.getDoctors = async (req, res) => {
   //Try sirve para capturar cualquier error que pueda ocurrir dentro
   // del bloque
@@ -19,7 +85,7 @@ doctorController.getDoctors = async (req, res) => {
     //doctorsModel.find() busca todos los documentos de la colección doctors.
     //y lo guarda en la constante doctors
     //-password: nunca se envia el hash de la contraseña al cliente
-    const doctors = await doctorsModel.find().select("-password");
+    const doctors = await doctorsModel.find({ is_admin_mirror: { $ne: true } }).select("-password");
 
     //devulve un codigo 200 indiacndo que la peticion fue exitosa
     //y envia  a todos los doctores encontrados en un json
@@ -32,6 +98,29 @@ doctorController.getDoctors = async (req, res) => {
     return res.status(500).json({
       message: "Error interno del servidor",
     });
+  }
+};
+
+// GET /doctors/catalog — catálogo liviano para agendar citas. Antes de responder, sincroniza el
+// doctor espejo de cada admin (crea el que falte, actualiza nombre/foto/estado de los que ya
+// existen), así el admin siempre aparece aquí como una opción más de doctor, con su propio
+// horario y disponibilidad, sin dejar de ser admin en el resto del sistema.
+doctorController.getDoctorsCatalog = async (req, res) => {
+  try {
+    const admins = await adminModel.find({ email: { $exists: true, $ne: "" } });
+    await Promise.all(
+      admins.map((admin) =>
+        syncAdminMirrorDoctor(admin).catch((err) =>
+          console.log(`No se pudo sincronizar el doctor espejo del admin ${admin._id}: ${err}`)
+        )
+      )
+    );
+
+    const doctors = await doctorsModel.find().select("-password");
+    return res.status(200).json(doctors);
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -190,6 +279,16 @@ doctorController.updateDoctors = async (req, res) => {
       });
     }
 
+    // El doctor espejo de un admin se sincroniza automáticamente desde su propio perfil de admin
+    // (ver syncAdminMirrorDoctor) — editarlo aquí directamente quedaría sobreescrito en la
+    // siguiente sincronización, así que se bloquea con un mensaje claro en vez de dejar que
+    // parezca que el cambio se guardó.
+    if (doctorFound.is_admin_mirror) {
+      return res.status(400).json({
+        message: "Este doctor representa a un administrador del sistema; edita su perfil de administrador en su lugar.",
+      });
+    }
+
     //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
     //romper actualizaciones parciales)
     const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
@@ -313,6 +412,15 @@ doctorController.deleteDoctor = async (req, res) => {
       });
     }
 
+    // El doctor espejo de un admin desaparece solo (o se recrea) según su cuenta de admin — no
+    // se elimina desde aquí directamente para no dejar citas/horario huérfanos mientras el admin
+    // sigue activo.
+    if (doctorFound.is_admin_mirror) {
+      return res.status(400).json({
+        message: "Este doctor representa a un administrador del sistema y no se puede eliminar directamente.",
+      });
+    }
+
     // No se permite eliminar un doctor con citas o consultas relacionadas: doctor_id es una
     // referencia obligatoria en esos registros, así que borrarlo de todos modos los dejaría
     // apuntando a un doctor fantasma (Citas, Consultas y Reportes podrían fallar o mostrar el
@@ -375,7 +483,9 @@ doctorController.searchDoctors = async (req, res) => {
     if (!search || search.trim() === "") {
       //Al no haber filtros especificos busca todos los documentos existentes en doctorsModel de manera general
       //-password: nunca se envia el hash de la contraseña al cliente
-      const doctors = await doctorsModel.find().select("-password");
+      //Excluye los doctores espejo de los admins (ver is_admin_mirror) — esta búsqueda es para la
+      //gestión de doctores, no para el catálogo de agendamiento.
+      const doctors = await doctorsModel.find({ is_admin_mirror: { $ne: true } }).select("-password");
 
       //Retorna la lista total de medicos encontrados con un codigo de estado exitoso 200
       return res.status(200).json(doctors);
@@ -384,6 +494,7 @@ doctorController.searchDoctors = async (req, res) => {
     //Si 'search' contiene texto, realiza una busqueda avanzada utilizando filtros condicionales dentro de Mongoose
     //-password: nunca se envia el hash de la contraseña al cliente
     const doctors = await doctorsModel.find({
+      is_admin_mirror: { $ne: true },
       //$or asegura que el registro sera valido con que una sola de las propiedades internas coincida con el parametro
       $or: [
         {

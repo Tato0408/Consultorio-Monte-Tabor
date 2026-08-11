@@ -34,7 +34,7 @@ const BreaksSection = ({ breaks, availability, onChange }) => {
             {/* Header */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
                 <div>
-                    <h3 className="text-sm font-semibold text-slate-800">3. Descansos</h3>
+                    <h3 className="text-sm font-semibold text-slate-800">2. Descansos</h3>
                     <p className="text-xs text-slate-400 mt-0.5">Agrega los horarios de descanso dentro de tu jornada.</p>
                 </div>
                 <button

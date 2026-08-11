@@ -15,7 +15,7 @@ const EMPTY_FORM = { patientId: "", doctorId: "", procedure: "general", date: to
 // igual que en la tabla de "Agenda de doctores".
 const isSlotInPast = (dateStr, startTime) => new Date(`${dateStr}T${startTime}:00`) <= new Date();
 
-// "Registro rápido de citas": versión condensada de AppointmentsForm.jsx para el dashboard de
+// "Registro rápido de citas": versión condensada de AppointmentsFormCalendar.jsx para el dashboard de
 // recepción. Reutiliza el mismo catálogo (useMedicalData, ya cargado por el dashboard) y el
 // mismo endpoint POST /api/appointments — no duplica lógica de negocio, solo el formulario.
 const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPatient }) => {

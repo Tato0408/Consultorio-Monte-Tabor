@@ -23,12 +23,16 @@ const defaultWeekly = DAYS.map((_, i) => ({
 
 const defaultBreaks = [1,2,3,4,5].map(d => ({ day: d, start_time: "12:00", end_time: "13:00" }));
 
+const DEFAULT_BUFFER_OPTIONS  = [0, 5, 10, 15, 20, 30];
+const DEFAULT_BLOCK_DURATIONS = [15, 30, 45, 60];
+
 const EMPTY_SCHEDULE = {
     weekly_availability:  defaultWeekly,
     breaks:               defaultBreaks,
     exceptions:           [],
     buffer_time:          10,
-    min_block_duration:   30,
+    buffer_time_options:  DEFAULT_BUFFER_OPTIONS,
+    block_durations:      DEFAULT_BLOCK_DURATIONS,
     allow_outside_hours:  false,
 };
 
@@ -51,6 +55,10 @@ const ScheduleConfig = () => {
 
     // El user.id del JWT puede diferir del _id en la colección doctors/nurses.
     // Buscamos al usuario por email en el catálogo correspondiente para obtener el _id correcto.
+    // Para admin usamos /doctors/catalog (no /doctors): ese catálogo es el que crea y mantiene su
+    // "doctor espejo" (ver doctorsController.getDoctorsCatalog), y es exactamente el mismo _id
+    // que va a aparecer seleccionable al agendar una cita — así el horario que configura aquí es
+    // el mismo que se usa para calcular su disponibilidad real.
     const [ownerId, setOwnerId] = useState(null);
 
     const [config, setConfig]   = useState(EMPTY_SCHEDULE);
@@ -61,8 +69,13 @@ const ScheduleConfig = () => {
 
     useEffect(() => {
         if (!user?.email) return;
-        const catalogUrl = isNurse ? "http://localhost:4000/api/nurses" : "http://localhost:4000/api/doctors";
-        fetch(catalogUrl)
+        const catalogUrl = isNurse ? "http://localhost:4000/api/nurses" : "http://localhost:4000/api/doctors/catalog";
+        // Sin "credentials: include" esta petición sale sin la cookie de sesión — el backend la
+        // rechaza (401/403), el catch cae al fallback de abajo, y para un admin ese fallback
+        // (user.id, el _id de Admin) NO es el mismo id que el doctor espejo con el que se agenda
+        // la cita. Resultado: el horario se guardaba bajo un id y se consultaba bajo otro, así
+        // que getAvailableSlots nunca encontraba nada para el admin.
+        fetch(catalogUrl, { credentials: "include" })
             .then(r => r.json())
             .then(list => {
                 const me = Array.isArray(list) ? list.find(d => d.email === user.email) : null;
@@ -77,12 +90,24 @@ const ScheduleConfig = () => {
 
         const applyConfig = (data) => {
             if (!data) return;
+            const bufferTime = data.buffer_time ?? 10;
+            // Horarios guardados antes de esta lista personalizable solo tenían buffer_time (un
+            // único valor) — se usa como semilla de la lista para no perder la configuración ya
+            // hecha. Mismo criterio para block_durations con el antiguo min_block_duration.
+            const bufferOptions = data.buffer_time_options?.length
+                ? data.buffer_time_options
+                : Array.from(new Set([...DEFAULT_BUFFER_OPTIONS, bufferTime])).sort((a, b) => a - b);
+            const blockDurations = data.block_durations?.length
+                ? data.block_durations
+                : (data.min_block_duration ? [data.min_block_duration] : DEFAULT_BLOCK_DURATIONS);
+
             setConfig({
                 weekly_availability: data.weekly_availability ?? defaultWeekly,
                 breaks:              data.breaks              ?? defaultBreaks,
                 exceptions:          data.exceptions          ?? [],
-                buffer_time:         data.buffer_time         ?? 10,
-                min_block_duration:  data.min_block_duration  ?? 30,
+                buffer_time:         bufferTime,
+                buffer_time_options: bufferOptions,
+                block_durations:     blockDurations,
                 allow_outside_hours: data.allow_outside_hours ?? false,
             });
         };
@@ -190,7 +215,8 @@ const ScheduleConfig = () => {
                 />
                 <ScheduleSettingsSection
                     bufferTime={config.buffer_time}
-                    minBlockDuration={config.min_block_duration}
+                    bufferOptions={config.buffer_time_options}
+                    blockDurations={config.block_durations}
                     allowOutsideHours={config.allow_outside_hours}
                     onChange={(key, val) => patch(key, val)}
                 />
@@ -198,7 +224,7 @@ const ScheduleConfig = () => {
                     availability={config.weekly_availability}
                     breaks={config.breaks}
                     bufferTime={config.buffer_time}
-                    minBlockDuration={config.min_block_duration}
+                    blockDurations={config.block_durations}
                 />
             </div>
             </fieldset>

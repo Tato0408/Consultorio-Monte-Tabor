@@ -1,14 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { Settings, Shield, ChevronRight } from "lucide-react";
+import { Shield, ChevronRight } from "lucide-react";
 
 const CARDS = [
-    {
-        icon: <Settings className="w-5 h-5" />,
-        title: "Configuración general",
-        desc: "Gestiona la configuración principal del sistema",
-        iconBg: "bg-blue-100 text-blue-600",
-        route: "/system/profile",
-    },
     {
         icon: <Shield className="w-5 h-5" />,
         title: "Roles y permisos",
@@ -24,7 +17,7 @@ const SystemControlSection = () => {
     return (
         <div>
             <h2 className="text-base font-bold text-slate-800 mb-4">Control total del sistema</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
+            <div className="grid grid-cols-1 max-w-sm gap-3">
                 {CARDS.map((card) => (
                     <button
                         key={card.title}

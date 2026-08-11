@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import AppointmentsGrid from '../components/AppointmentsGrid';
 import AppointmentsCalendar from '../components/AppointmentsCalendar';
 
@@ -12,7 +13,13 @@ const TABS = [
 ];
 
 const AdminAppointments = () => {
-    const [activeTab, setActiveTab] = useState("calendar");
+    const location = useLocation();
+    // Al volver del detalle de una cita (botón "X" de AppointmentsFormCalendar.jsx),
+    // location.state.initialView trae desde qué pestaña se abrió
+    // esa cita ("calendar" o "citas") — sin esto, este componente siempre remonta con
+    // useState("calendar") y el usuario termina de vuelta en el Calendario aunque hubiera
+    // abierto la cita desde "Citas".
+    const [activeTab, setActiveTab] = useState(location.state?.initialView || "calendar");
 
     return (
         <div className="w-full h-full flex flex-col">

@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import useAppointments from "../hooks/useAppointment.js";
+import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import {
     confirmDelete,
     confirmCancelAppointment,
@@ -28,6 +29,7 @@ import apiClient from "@/lib/apiClient";
 // filtros, orden, paginación y acciones (ver, editar, cancelar, eliminar).
 export default function AppointmentsGrid() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { hasPermission, userType } = useAuth();
     const canCreate = hasPermission("calendar.appointments", "create");
     const canUpdate = hasPermission("calendar.appointments", "update");
@@ -64,10 +66,12 @@ export default function AppointmentsGrid() {
 
     // Sub-pestaña del doctor: "pending" (por aceptar) o "mine" (resueltas);
     // el backend ya limita doctor_id al propio, aquí solo se controla el status.
-    const [doctorTab, setDoctorTab] = useState("pending");
+    // Si se volvió desde el detalle de una cita (botón "X" de AppointmentsFormCalendar.jsx),
+    // location.state.initialTab trae la pestaña desde la que se abrió esa cita, para no perderla.
+    const [doctorTab, setDoctorTab] = useState(location.state?.initialTab || "pending");
     // Misma idea para el admin: "pending" (por aceptar) o "assigned" (citas
     // asignadas). El admin ve todas, no solo las de un doctor en particular.
-    const [adminTab, setAdminTab] = useState("pending");
+    const [adminTab, setAdminTab] = useState(location.state?.initialTab || "pending");
     const [appointmentToAccept, setAppointmentToAccept] = useState(null);
     const [appointmentToAssign, setAppointmentToAssign] = useState(null);
     const [pendingAppointmentDetails, setPendingAppointmentDetails] = useState(null);
@@ -77,6 +81,26 @@ export default function AppointmentsGrid() {
     const [doctors, setDoctors] = useState([]);
     const [selectedDoctorId, setSelectedDoctorId] = useState("");
     const [loadingDoctors, setLoadingDoctors] = useState(false);
+
+    // Catálogo del filtro "Doctor": solo doctores que ya tienen al menos una cita registrada
+    // (no el catálogo completo de doctores), para que el filtro nunca ofrezca una opción que de
+    // todos modos no devolvería ningún resultado.
+    const [doctorFilterOptions, setDoctorFilterOptions] = useState([]);
+    // Catálogo del filtro "Tipo de cita": el mismo catálogo global que define el admin y que
+    // aparece en la leyenda del calendario (antes eran dos opciones fijas — "Consulta Médica
+    // General"/"Procedimiento" — que ya no reflejan los tipos reales que el admin configura).
+    const { getAppointmentTypes } = useAppointmentTypes();
+    const [appointmentTypeOptions, setAppointmentTypeOptions] = useState([]);
+
+    useEffect(() => {
+        apiClient("/appointments/doctors-with-appointments")
+            .then((response) => setDoctorFilterOptions(Array.isArray(response) ? response : []))
+            .catch(() => setDoctorFilterOptions([]));
+        getAppointmentTypes()
+            .then((types) => setAppointmentTypeOptions(Array.isArray(types) ? types : []))
+            .catch(() => setAppointmentTypeOptions([]));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Estado combinado de la sub-pestaña activa (doctor o admin), para
     // reutilizar la misma barra de pestañas y la misma lógica de filtros.
@@ -193,7 +217,7 @@ export default function AppointmentsGrid() {
     };
 
     // Indica si hay algún filtro activo, para ajustar el mensaje de "sin datos".
-    const hasActiveFilters = Boolean(filters.search || filters.status || filters.type);
+    const hasActiveFilters = Boolean(filters.search || filters.status || filters.appointment_type || filters.doctor_id);
 
     // Traducción de los status a texto legible; "no_show" y "expired" los
     // asigna el backend solo a una "pending" vencida o no aceptada a tiempo.
@@ -296,7 +320,7 @@ export default function AppointmentsGrid() {
 
                 {canCreate && (
                     <Button
-                        onClick={() => navigate("/calendar/appointments/new")}
+                        onClick={() => navigate("/calendar/appointments/new", { state: { fromView: "citas" } })}
                         className="bg-[#0b66d6] hover:bg-blue-700 text-white px-5 py-5 rounded-xl flex items-center gap-2 font-semibold shadow-md shadow-blue-100"
                     >
                         <Plus className="h-5 w-5" />
@@ -381,18 +405,46 @@ export default function AppointmentsGrid() {
                     </Select>
                 )}
 
-                {/* Filtro por tipo de procedimiento. */}
+                {/* Filtro por doctor — solo lista doctores que ya tienen alguna cita. Un doctor
+                    viendo su propio listado no necesita filtrarse a sí mismo. */}
+                {!isDoctor && (
+                    <Select
+                        value={filters.doctor_id || "all"}
+                        onValueChange={(value) => updateFilters({ doctor_id: value === "all" ? undefined : value })}
+                    >
+                        <SelectTrigger className="w-full md:w-48 border-slate-200 rounded-xl h-10">
+                            <SelectValue>
+                                {(() => {
+                                    const selected = doctorFilterOptions.find((d) => d._id === filters.doctor_id);
+                                    return selected ? `Dr. ${selected.name} ${selected.last_name}` : "Todos los doctores";
+                                })()}
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los doctores</SelectItem>
+                            {doctorFilterOptions.map((d) => (
+                                <SelectItem key={d._id} value={d._id}>Dr. {d.name} {d.last_name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
+
+                {/* Filtro por tipo de cita — el mismo catálogo global que define el admin y que
+                    aparece en la leyenda del calendario. Filtra por "appointment_type" (el campo
+                    de catálogo), no por "type" (que solo distingue Consulta Médica General de
+                    Procedimiento). */}
                 <Select
-                    value={filters.type || "all"}
-                    onValueChange={(value) => updateFilters({ type: value === "all" ? undefined : value })}
+                    value={filters.appointment_type || "all"}
+                    onValueChange={(value) => updateFilters({ appointment_type: value === "all" ? undefined : value })}
                 >
                     <SelectTrigger className="w-full md:w-56 border-slate-200 rounded-xl h-10">
-                        <SelectValue>{filters.type || "Todos los tipos"}</SelectValue>
+                        <SelectValue>{filters.appointment_type || "Todos los tipos"}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todos los tipos</SelectItem>
-                        <SelectItem value="Consulta Médica General">Consulta Médica General</SelectItem>
-                        <SelectItem value="Procedimiento">Procedimiento</SelectItem>
+                        {appointmentTypeOptions.map((t) => (
+                            <SelectItem key={t._id} value={t.name}>{t.name}</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
 
@@ -574,7 +626,9 @@ export default function AppointmentsGrid() {
                                                     </Button>
                                                 )}
 
-                                                {/* Abre el formulario en modo edición (editMode: true). */}
+                                                {/* Abre el formulario en modo edición (editMode: true). fromTab recuerda desde
+                                                    qué sub-pestaña (Por aceptar / Mis citas / Citas asignadas) se abrió, para
+                                                    que el botón "X" del formulario pueda regresar exactamente ahí. */}
                                                 {canUpdate && (
                                                     <Button
                                                         variant="ghost"
@@ -585,7 +639,9 @@ export default function AppointmentsGrid() {
                                                                 `/calendar/appointments/${cita._id}`,
                                                                 {
                                                                     state: {
-                                                                        editMode: true
+                                                                        editMode: true,
+                                                                        fromView: "citas",
+                                                                        fromTab: (isDoctor || isAdmin) ? activeTab : undefined,
                                                                     }
                                                                 }
                                                             )
@@ -611,7 +667,7 @@ export default function AppointmentsGrid() {
                                             </>
                                         )}
 
-                                        {/* Abre el formulario en modo solo-lectura. */}
+                                        {/* Abre el formulario en modo solo-lectura. fromTab: ver nota en el botón de editar. */}
                                         <Button
                                             variant="ghost"
                                             className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center"
@@ -620,7 +676,12 @@ export default function AppointmentsGrid() {
                                                     setPendingAppointmentDetails(cita);
                                                     return;
                                                 }
-                                                navigate(`/calendar/appointments/${cita._id}`);
+                                                navigate(`/calendar/appointments/${cita._id}`, {
+                                                    state: {
+                                                        fromView: "citas",
+                                                        fromTab: (isDoctor || isAdmin) ? activeTab : undefined,
+                                                    },
+                                                });
                                             }}
                                         >
                                             <Eye className="h-4 w-4" />

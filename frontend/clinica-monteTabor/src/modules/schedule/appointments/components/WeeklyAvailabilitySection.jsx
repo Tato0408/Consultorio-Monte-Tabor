@@ -11,13 +11,16 @@ const TimeInput = ({ value, onChange }) => (
     />
 );
 
+// left-0.5 explícito + translate-x-4 (en vez de depender de la posición estática por defecto y
+// translate-x-5) — mismo ajuste que ScheduleSettingsSection: el punto siempre queda dentro del
+// track de 40px, nunca se sale al activarlo.
 const Toggle = ({ checked, onChange }) => (
     <button
         type="button"
         onClick={onChange}
         className={`relative inline-flex w-10 h-5 rounded-full transition-colors flex-shrink-0 ${checked ? "bg-blue-500" : "bg-slate-200"}`}
     >
-        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`} />
+        <span className={`absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${checked ? "translate-x-4" : "translate-x-0"}`} />
     </button>
 );
 
@@ -53,7 +56,7 @@ const WeeklyAvailabilitySection = ({ availability, onChange }) => {
     return (
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
             <div className="mb-4">
-                <h3 className="text-sm font-semibold text-slate-800">2. Disponibilidad semanal</h3>
+                <h3 className="text-sm font-semibold text-slate-800">1. Disponibilidad semanal</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Configura los días y bloques de tiempo en los que estás disponible.</p>
             </div>
 
