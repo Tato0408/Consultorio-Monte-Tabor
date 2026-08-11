@@ -4,11 +4,11 @@ import SectionCard from "./SectionCard";
 // Rango fisiológico razonable por campo — evita valores absurdos (ej. SPO2 de 300%) sin
 // bloquear casos clínicos extremos reales.
 const FIELDS = [
-    { key: "blood_pressure", label: "Presión arterial", placeholder: "120/80", isBloodPressure: true },
+    { key: "blood_pressure", label: "Presión arterial", placeholder: "120/80", isBloodPressure: true, required: true },
     { key: "glucose", label: "Glucosa (mg/dL)", placeholder: "mg/dL", min: 0, max: 999 },
     { key: "weight", label: "Peso (kg)", placeholder: "kg", min: 0, max: 500 },
     { key: "height", label: "Talla (cm)", placeholder: "cm", min: 0, max: 300 },
-    { key: "temperature", label: "Temperatura (°C)", placeholder: "°C", min: 30, max: 45 },
+    { key: "temperature", label: "Temperatura (°C)", placeholder: "°C", min: 30, max: 45, required: true },
     { key: "oxygen_saturation", label: "Saturación O2 (%)", placeholder: "%", min: 0, max: 100 },
 ];
 
@@ -39,7 +39,9 @@ const TriageCard = ({ readOnly }) => {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {FIELDS.map((field) => (
                     <div key={field.key}>
-                        <label className="text-xs text-slate-500 block mb-1">{field.label}</label>
+                        <label className="text-xs text-slate-500 block mb-1">
+                            {field.label}{field.required && <span className="text-red-500"> *</span>}
+                        </label>
                         {field.isBloodPressure ? (
                             <input
                                 type="text"
@@ -47,6 +49,7 @@ const TriageCard = ({ readOnly }) => {
                                 placeholder={field.placeholder}
                                 disabled={readOnly}
                                 {...register("clinical_data.triage.blood_pressure", {
+                                    required: field.required ? "La presión arterial es obligatoria" : false,
                                     pattern: { value: /^\d{2,3}\/\d{2,3}$/, message: "Formato: sistólica/diastólica, ej. 120/80" },
                                 })}
                                 onChange={handleBloodPressureMask}
@@ -59,6 +62,7 @@ const TriageCard = ({ readOnly }) => {
                                 placeholder={field.placeholder}
                                 disabled={readOnly}
                                 {...register(`clinical_data.triage.${field.key}`, {
+                                    required: field.required ? `${field.label} es obligatoria` : false,
                                     validate: (value) => {
                                         if (!value) return true;
                                         const num = Number(value);

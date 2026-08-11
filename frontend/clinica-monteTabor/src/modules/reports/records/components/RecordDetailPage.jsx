@@ -30,6 +30,7 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const canAttend = hasPermission("calendar.consultations", "create");
+  const canEdit = hasPermission("calendar.consultations", "update");
   const [activeTab, setActiveTab] = useState(0);
 
   // Refresca tanto el documento del paciente como las consultas/citas/incapacidades — los
@@ -86,8 +87,12 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
         <ConsultasTab
           patient={patient}
           canAttend={canAttend}
+          canEdit={canEdit}
           onContinuar={(c) => c.appointmentId && navigate(`/calendar/consultations/${c.appointmentId}`)}
-          onVerRegistro={(c) => c.appointmentId && navigate(`/calendar/consultations/${c.appointmentId}?mode=view`)}
+          onVerRegistro={(c) =>
+            c.appointmentId &&
+            navigate(`/calendar/consultations/${c.appointmentId}${canEdit ? "" : "?mode=view"}`)
+          }
         />
       ),
     },

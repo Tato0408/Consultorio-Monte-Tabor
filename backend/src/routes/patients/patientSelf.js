@@ -12,5 +12,6 @@ router.post("/register", patientSelfController.register);
 router.get("/me", authenticate, patientSelfController.getMe);
 router.put("/me", authenticate, patientSelfController.updateMe);
 router.put("/changePassword", authenticate, patientSelfController.changePassword);
+router.get("/consultations", authenticate, patientSelfController.getMyConsultations);
 
 export default router;

@@ -18,6 +18,7 @@ const ConsultasDelDia = ({
   onContinuar,
   onVerRegistro,
   canAttend = false,
+  canEdit = false,
 }) => {
   const consultas = patient.consultas ?? [];
   const enEspera = consultas.filter((c) => c.estado === "en_espera").length;
@@ -167,7 +168,7 @@ const ConsultasDelDia = ({
                         onClick={() => onVerRegistro?.(c)}
                         className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-1.5 rounded-lg"
                       >
-                        Ver registro
+                        {canEdit ? "Editar" : "Ver registro"}
                       </button>
                     ) : canAttend ? (
                       <button
