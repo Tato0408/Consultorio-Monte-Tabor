@@ -49,7 +49,9 @@ const scheduleSchema = new Schema({
         {
             date:          { type: Date, required: true },
             end_date:      { type: Date },
-            type:          { type: String, enum: ["non_working", "special_hours", "vacation"], required: true },
+            type:          { type: String, enum: ["non_working", "special_hours", "vacation", "other"], required: true },
+            // Solo se usa cuando type === "other": la etiqueta que el doctor escribió a mano
+            custom_type:   { type: String },
             description:   { type: String },
             schedule_info: { type: String }
         }

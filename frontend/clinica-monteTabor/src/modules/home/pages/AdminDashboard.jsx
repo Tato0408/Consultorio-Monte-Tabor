@@ -48,6 +48,7 @@ const AdminDashboard = () => {
     const displayName = user
         ? `${user.name || ""} ${user.last_name || ""}`.trim() || user.email
         : "Administrador";
+    const initial = displayName?.[0]?.toUpperCase() || "A";
 
     if (loading) {
         return (
@@ -63,75 +64,101 @@ const AdminDashboard = () => {
     const s = stats || {};
 
     return (
-        <div className="p-4 sm:p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
-
-            <div>
-                <h1 className="text-xl font-bold text-slate-800">
-                    ¡Bienvenido, {displayName}!
-                </h1>
-                <p className="text-sm text-slate-400 mt-0.5">
-                    Aquí tienes un resumen de tus consultas
-                </p>
+        <div className="bg-slate-50 min-h-screen">
+            {/* ── Header con acento decorativo ── */}
+            <div className="relative overflow-hidden">
+                <div
+                    className="absolute -z-0 rounded-full pointer-events-none"
+                    style={{
+                        width: 420, height: 420, top: -260, left: -80,
+                        background: "radial-gradient(circle at center, #3b82f6 0%, #1d4ed8 60%, transparent 75%)",
+                        opacity: 0.08,
+                    }}
+                />
+                <div className="relative p-4 sm:p-6 pb-2 flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-blue-500/25 flex-shrink-0">
+                            {initial}
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold text-slate-800 leading-tight">
+                                ¡Bienvenido, {displayName}!
+                            </h1>
+                            <p className="text-sm text-slate-400">
+                                Aquí tienes un resumen de tus consultas
+                            </p>
+                        </div>
+                    </div>
+                    <span className="text-xs font-medium text-slate-500 bg-white border border-slate-100 shadow-sm px-3.5 py-2 rounded-full capitalize">
+                        Hoy, {todayLabel()}
+                    </span>
+                </div>
             </div>
 
-            <section>
-                <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest">
+            <div className="relative p-4 sm:p-6 pt-3 flex flex-col gap-8">
+
+                {/* ── Resumen general: ingresos como métrica principal destacada ── */}
+                <section>
+                    <h2 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest mb-3">
                         Resumen general
                     </h2>
-                    <span className="text-xs text-slate-400 hidden sm:inline">Hoy, {todayLabel()}</span>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StatCard
-                        icon={<DollarSign className="w-5 h-5 text-blue-600" />}
-                        iconBg="bg-blue-100"
-                        label="Total de ingresos"
-                        value={fmtRevenue(s.revenue?.total ?? 0)}
-                        growth={`${s.revenue?.growth ?? 0}%`}
-                        growthLabel="vs. mes pasado"
-                        sparkline={s.revenue?.sparkline ?? []}
-                        sparklineColor="#3b82f6"
-                    />
-                    <StatCard
-                        icon={<UserCheck className="w-5 h-5 text-cyan-600" />}
-                        iconBg="bg-cyan-100"
-                        label="Doctores activos"
-                        value={s.activeDoctors?.count ?? 0}
-                        growth={`+${s.activeDoctors?.vsYesterday ?? 0}`}
-                        growthLabel="vs. ayer"
-                        sparkline={s.activeDoctors?.sparkline ?? []}
-                        sparklineColor="#06b6d4"
-                    />
-                    <StatCard
-                        icon={<CalendarDays className="w-5 h-5 text-violet-600" />}
-                        iconBg="bg-violet-100"
-                        label="Citas hoy"
-                        value={s.appointmentsToday?.count ?? 0}
-                        growth={`${(s.appointmentsToday?.vsYesterday ?? 0) >= 0 ? "+" : ""}${s.appointmentsToday?.vsYesterday ?? 0}`}
-                        growthLabel="vs. ayer"
-                        sparkline={s.appointmentsToday?.sparkline ?? []}
-                        sparklineColor="#7c3aed"
-                    />
-                    <StatCard
-                        icon={<Users className="w-5 h-5 text-pink-600" />}
-                        iconBg="bg-pink-100"
-                        label="Pacientes registrados"
-                        value={(s.totalPatients?.count ?? 0).toLocaleString()}
-                        growth={`${s.totalPatients?.growth ?? 0}%`}
-                        growthLabel="vs. mes pasado"
-                        sparkline={s.totalPatients?.sparkline ?? []}
-                        sparklineColor="#ec4899"
-                    />
-                </div>
-            </section>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <StatCard
+                            featured
+                            icon={<DollarSign className="w-5 h-5 text-white" />}
+                            label="Total de ingresos"
+                            value={fmtRevenue(s.revenue?.total ?? 0)}
+                            caption="Pagos en línea confirmados"
+                            growth={`${s.revenue?.growth ?? 0}%`}
+                            growthLabel="vs. mes pasado"
+                            sparkline={s.revenue?.sparkline ?? []}
+                            sparklineColor="#3b82f6"
+                        />
+                        <StatCard
+                            icon={<UserCheck className="w-5 h-5 text-cyan-600" />}
+                            iconBg="bg-cyan-100"
+                            label="Doctores activos"
+                            value={s.activeDoctors?.count ?? 0}
+                            growth={`+${s.activeDoctors?.vsYesterday ?? 0}`}
+                            growthLabel="vs. ayer"
+                            sparkline={s.activeDoctors?.sparkline ?? []}
+                            sparklineColor="#06b6d4"
+                        />
+                        <StatCard
+                            icon={<CalendarDays className="w-5 h-5 text-violet-600" />}
+                            iconBg="bg-violet-100"
+                            label="Citas hoy"
+                            value={s.appointmentsToday?.count ?? 0}
+                            growth={`${(s.appointmentsToday?.vsYesterday ?? 0) >= 0 ? "+" : ""}${s.appointmentsToday?.vsYesterday ?? 0}`}
+                            growthLabel="vs. ayer"
+                            sparkline={s.appointmentsToday?.sparkline ?? []}
+                            sparklineColor="#7c3aed"
+                        />
+                        <StatCard
+                            icon={<Users className="w-5 h-5 text-pink-600" />}
+                            iconBg="bg-pink-100"
+                            label="Pacientes registrados"
+                            value={(s.totalPatients?.count ?? 0).toLocaleString()}
+                            growth={`${s.totalPatients?.growth ?? 0}%`}
+                            growthLabel="vs. mes pasado"
+                            sparkline={s.totalPatients?.sparkline ?? []}
+                            sparklineColor="#ec4899"
+                        />
+                    </div>
+                </section>
 
-            <DoctorStatusSection data={doctorStatus} />
+                {/* ── Equipo médico: estado + accesos del sistema, lado a lado ── */}
+                <section className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
+                    <div className="lg:col-span-2">
+                        <DoctorStatusSection data={doctorStatus} />
+                    </div>
+                    <SystemControlSection />
+                </section>
 
-            <UserManagementSection data={userStats} />
+                <UserManagementSection data={userStats} />
 
-            <ReportStatsSection data={reportStats} />
-
-            <SystemControlSection />
+                <ReportStatsSection data={reportStats} />
+            </div>
         </div>
     );
 };

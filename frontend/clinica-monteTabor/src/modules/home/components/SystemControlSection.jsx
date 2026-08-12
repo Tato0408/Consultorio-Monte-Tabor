@@ -15,14 +15,14 @@ const SystemControlSection = () => {
     const navigate = useNavigate();
 
     return (
-        <div>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 h-full flex flex-col">
             <h2 className="text-base font-bold text-slate-800 mb-4">Control total del sistema</h2>
-            <div className="grid grid-cols-1 max-w-sm gap-3">
+            <div className="flex flex-col gap-3">
                 {CARDS.map((card) => (
                     <button
                         key={card.title}
                         onClick={() => navigate(card.route)}
-                        className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4 text-left hover:shadow-md hover:border-slate-200 transition-all group"
+                        className="rounded-xl border border-slate-100 p-4 flex items-center gap-4 text-left hover:border-blue-200 hover:bg-blue-50/30 transition-all group"
                     >
                         <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${card.iconBg}`}>
                             {card.icon}
