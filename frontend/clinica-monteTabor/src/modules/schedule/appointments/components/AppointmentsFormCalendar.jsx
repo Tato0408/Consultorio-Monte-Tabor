@@ -443,7 +443,10 @@ export default function AppointmentsForm() {
   return (
     <div className="w-full bg-slate-50 min-h-screen">
 
-      <div className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+      {/* pr-16 sm:pr-20 (en vez del px-6 parejo) le da al lado derecho el espacio extra que
+          necesita la campana de notificaciones (fixed, ver MainLayout.jsx) para no quedar
+          encima del botón de la "X" — esta barra es sticky, así que siempre está a la vista. */}
+      <div className="bg-white border-b border-slate-100 pl-6 pr-16 sm:pr-20 py-4 flex items-center justify-between sticky top-0 z-10">
         <div>
           <h1 className="text-lg font-bold text-slate-900">
             {!id ? "Nueva cita" : isEditing ? "Editar cita" : "Detalle de la cita"}

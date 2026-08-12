@@ -75,16 +75,18 @@ const PatientsList = () => {
             patients={patients}
             loading={loading}
             onAdd={canCreate ? handleOpenCreate : undefined}
-            onEdit={handleOpenEdit}
-            onDelete={deletePatient}
             onSelectPatient={selectPatient}
-            canUpdate={canUpdate}
-            canDelete={canDelete}
           />
         </div>
 
         <div className="col-span-3">
-          <PatientProfileCard patient={selectedPatient} />
+          <PatientProfileCard
+            patient={selectedPatient}
+            onEdit={handleOpenEdit}
+            onDelete={deletePatient}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+          />
         </div>
       </div>
 

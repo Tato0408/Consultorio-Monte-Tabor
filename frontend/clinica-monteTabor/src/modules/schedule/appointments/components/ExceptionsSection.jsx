@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, X, CalendarDays, Tag, FileText, Clock3 } from "lucide-react";
 import InputField from "@/components/ui/InputField";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 // Fecha de hoy en "YYYY-MM-DD" (hora local): ni la fecha de inicio ni la de fin de una
 // excepción pueden quedar en el pasado.
@@ -238,12 +239,15 @@ const ExceptionModal = ({ form, setForm, errors, setErrors, onSave, onClose, isE
     );
 };
 
-const ExceptionsSection = ({ exceptions, onChange }) => {
-    const [editing, setEditing] = useState(null);
+// editing (prop): modo edición de la PÁGINA completa (ver ScheduleConfig.jsx) — controla si los
+// botones de agregar/editar/eliminar existen. rowEditing (state): qué excepción está siendo
+// editada ahora mismo ("new" | índice | null), solo alcanzable cuando editing=true.
+const ExceptionsSection = ({ exceptions, onChange, editing }) => {
+    const [rowEditing, setRowEditing] = useState(null);
     const [form, setForm]       = useState(emptyForm());
     const [errors, setErrors]   = useState({});
 
-    const startNew = () => { setForm(emptyForm()); setErrors({}); setEditing("new"); };
+    const startNew = () => { setForm(emptyForm()); setErrors({}); setRowEditing("new"); };
     const startEdit = (i) => {
         const ex = exceptions[i];
         setForm({
@@ -255,9 +259,9 @@ const ExceptionsSection = ({ exceptions, onChange }) => {
             ...parseScheduleInfo(ex.schedule_info),
         });
         setErrors({});
-        setEditing(i);
+        setRowEditing(i);
     };
-    const cancel = () => setEditing(null);
+    const cancel = () => setRowEditing(null);
 
     const save = () => {
         const validationErrors = validate(form);
@@ -274,29 +278,28 @@ const ExceptionsSection = ({ exceptions, onChange }) => {
             description:   form.description,
             schedule_info: form.allDay ? "Todo el día" : `${form.start_time} - ${form.end_time}`,
         };
-        if (editing === "new") onChange([...exceptions, entry]);
-        else onChange(exceptions.map((e, i) => i === editing ? entry : e));
-        setEditing(null);
+        if (rowEditing === "new") onChange([...exceptions, entry]);
+        else onChange(exceptions.map((e, i) => i === rowEditing ? entry : e));
+        setRowEditing(null);
     };
 
     const remove = (i) => onChange(exceptions.filter((_, idx) => idx !== i));
 
     return (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-            {/* Header */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
-                <div>
-                    <h3 className="text-sm font-semibold text-slate-800">3. Excepciones y días no laborables</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Administra días especiales, vacaciones o cambios en tu horario habitual.</p>
-                </div>
-                <button
-                    onClick={startNew}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 whitespace-nowrap self-start sm:flex-shrink-0"
-                >
-                    <Plus className="w-3.5 h-3.5" /> Agregar excepción
-                </button>
-            </div>
-
+        <CollapsibleCard
+            title="3. Excepciones y días no laborables"
+            subtitle="Administralas excepciones que tendras en días especiales, tus vacaciones o cambios a tu horario habitual"
+            actions={
+                editing && (
+                    <button
+                        onClick={startNew}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 whitespace-nowrap flex-shrink-0"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> Agregar excepción
+                    </button>
+                )
+            }
+        >
             {/* Table with horizontal scroll */}
             <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[420px]">
@@ -321,8 +324,12 @@ const ExceptionsSection = ({ exceptions, onChange }) => {
                                 <td className="py-2.5 pr-2 text-xs text-slate-500">{ex.description || "—"}</td>
                                 <td className="py-2.5 pr-2 text-xs text-slate-500">{ex.schedule_info || "—"}</td>
                                 <td className="py-2.5">
-                                    <button onClick={() => startEdit(i)} className="p-1 text-slate-400 hover:text-blue-500"><Pencil className="w-3.5 h-3.5" /></button>
-                                    <button onClick={() => remove(i)} className="p-1 text-slate-400 hover:text-red-500 ml-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                                    {editing && (
+                                        <>
+                                            <button onClick={() => startEdit(i)} className="p-1 text-slate-400 hover:text-blue-500"><Pencil className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => remove(i)} className="p-1 text-slate-400 hover:text-red-500 ml-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                                        </>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -334,7 +341,7 @@ const ExceptionsSection = ({ exceptions, onChange }) => {
                 <p className="text-center text-xs text-slate-400 py-4">Sin excepciones registradas</p>
             )}
 
-            {editing !== null && (
+            {rowEditing !== null && (
                 <ExceptionModal
                     form={form}
                     setForm={setForm}
@@ -342,10 +349,10 @@ const ExceptionsSection = ({ exceptions, onChange }) => {
                     setErrors={setErrors}
                     onSave={save}
                     onClose={cancel}
-                    isEditing={editing !== "new"}
+                    isEditing={rowEditing !== "new"}
                 />
             )}
-        </div>
+        </CollapsibleCard>
     );
 };
 

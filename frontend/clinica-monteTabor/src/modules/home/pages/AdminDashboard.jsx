@@ -3,23 +3,18 @@ import { DollarSign, Users, CalendarDays, UserCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import useAdminDashboard from "../hooks/useAdminDashboard";
 import StatCard from "../components/StatCard";
-import DoctorStatusSection from "../components/DoctorStatusSection";
 import UserManagementSection from "../components/UserManagementSection";
 import ReportStatsSection from "../components/ReportStatsSection";
-import SystemControlSection from "../components/SystemControlSection";
+import TodayAgendaSection from "../components/TodayAgendaSection";
+import QuickActionsSection from "../components/QuickActionsSection";
+import SystemStatusSection from "../components/SystemStatusSection";
+import DashboardWelcomeHeader from "../components/DashboardWelcomeHeader";
 
 const fmtRevenue = (n) => {
     if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
     if (n >= 1_000)     return `$${(n / 1_000).toFixed(1)}k`;
     return `$${n.toLocaleString()}`;
 };
-
-const todayLabel = () =>
-    new Date().toLocaleDateString("es-SV", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-    });
 
 const AdminDashboard = () => {
     const { user } = useAuth();
@@ -30,6 +25,10 @@ const AdminDashboard = () => {
     const [userStats,    setUserStats]    = useState(null);
     const [reportStats,  setReportStats]  = useState(null);
     const [loading,      setLoading]      = useState(true);
+    // Alimenta el panel "Estado del sistema": healthy solo es true si las 4 llamadas de arriba
+    // terminaron sin error, y loadedAt es el momento real en que se cargaron (no decorativo).
+    const [dataHealthy,  setDataHealthy]  = useState(true);
+    const [loadedAt,     setLoadedAt]     = useState(null);
 
     useEffect(() => {
         Promise.allSettled([
@@ -37,18 +36,20 @@ const AdminDashboard = () => {
             getDoctorStatus(),
             getUserStats(),
             getReportStats(),
-        ]).then(([s, d, u, r]) => {
+        ]).then((results) => {
+            const [s, d, u, r] = results;
             if (s.status === "fulfilled") setStats(s.value);
             if (d.status === "fulfilled") setDoctorStatus(d.value);
             if (u.status === "fulfilled") setUserStats(u.value);
             if (r.status === "fulfilled") setReportStats(r.value);
+            setDataHealthy(results.every((res) => res.status === "fulfilled"));
+            setLoadedAt(new Date());
         }).finally(() => setLoading(false));
     }, []);
 
     const displayName = user
         ? `${user.name || ""} ${user.last_name || ""}`.trim() || user.email
         : "Administrador";
-    const initial = displayName?.[0]?.toUpperCase() || "A";
 
     if (loading) {
         return (
@@ -65,35 +66,12 @@ const AdminDashboard = () => {
 
     return (
         <div className="bg-slate-50 min-h-screen">
-            {/* ── Header con acento decorativo ── */}
-            <div className="relative overflow-hidden">
-                <div
-                    className="absolute -z-0 rounded-full pointer-events-none"
-                    style={{
-                        width: 420, height: 420, top: -260, left: -80,
-                        background: "radial-gradient(circle at center, #3b82f6 0%, #1d4ed8 60%, transparent 75%)",
-                        opacity: 0.08,
-                    }}
-                />
-                <div className="relative p-4 sm:p-6 pb-2 flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-3.5">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-blue-500/25 flex-shrink-0">
-                            {initial}
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-slate-800 leading-tight">
-                                ¡Bienvenido, {displayName}!
-                            </h1>
-                            <p className="text-sm text-slate-400">
-                                Aquí tienes un resumen de tus consultas
-                            </p>
-                        </div>
-                    </div>
-                    <span className="text-xs font-medium text-slate-500 bg-white border border-slate-100 shadow-sm px-3.5 py-2 rounded-full capitalize">
-                        Hoy, {todayLabel()}
-                    </span>
-                </div>
-            </div>
+            <DashboardWelcomeHeader
+                displayName={displayName}
+                subtitle="Aquí tienes un resumen de tus consultas"
+                user={user}
+                userType="admin"
+            />
 
             <div className="relative p-4 sm:p-6 pt-3 flex flex-col gap-8">
 
@@ -102,7 +80,11 @@ const AdminDashboard = () => {
                     <h2 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest mb-3">
                         Resumen general
                     </h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {/* grid-cols-5: la card de ingresos ocupa 2 columnas (más ancha/horizontal,
+                        como en la referencia) y las otras 3 ocupan 1 cada una — 2+1+1+1=5, así
+                        las 4 caben siempre en una sola fila sin que ninguna se desborde a la
+                        siguiente línea. */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                         <StatCard
                             featured
                             icon={<DollarSign className="w-5 h-5 text-white" />}
@@ -147,17 +129,23 @@ const AdminDashboard = () => {
                     </div>
                 </section>
 
-                {/* ── Equipo médico: estado + accesos del sistema, lado a lado ── */}
-                <section className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
-                    <div className="lg:col-span-2">
-                        <DoctorStatusSection data={doctorStatus} />
+                {/* ── Columna izquierda (usuarios + reportes) y barra lateral derecha
+                        (agenda, accesos rápidos, estado del sistema) como una sola columna
+                        continua de cards cuadradas/uniformes, no filas separadas ── */}
+                <section className="grid grid-cols-1 lg:grid-cols-4 gap-5 items-start">
+                    <div className="lg:col-span-3 flex flex-col gap-8">
+                        <UserManagementSection data={userStats} />
+                        <ReportStatsSection data={reportStats} />
                     </div>
-                    <SystemControlSection />
+                    <div className="flex flex-col gap-5">
+                        <TodayAgendaSection
+                            counts={doctorStatus?.counts}
+                            appointments={doctorStatus?.schedule}
+                        />
+                        <QuickActionsSection />
+                        <SystemStatusSection healthy={dataHealthy} updatedAt={loadedAt} />
+                    </div>
                 </section>
-
-                <UserManagementSection data={userStats} />
-
-                <ReportStatsSection data={reportStats} />
             </div>
         </div>
     );

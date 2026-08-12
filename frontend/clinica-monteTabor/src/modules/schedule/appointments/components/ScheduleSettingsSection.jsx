@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 const DEFAULT_BUFFER_OPTIONS  = [0, 5, 10, 15, 20, 30];
 const DEFAULT_BLOCK_DURATIONS = [15, 30, 45, 60];
@@ -13,6 +14,7 @@ const ScheduleSettingsSection = ({
     blockDurations,
     allowOutsideHours,
     onChange,
+    editing,
 }) => {
     const [newBuffer, setNewBuffer] = useState("");
     const [newDuration, setNewDuration] = useState("");
@@ -42,12 +44,10 @@ const ScheduleSettingsSection = ({
     };
 
     return (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-            <div className="mb-4">
-                <h3 className="text-sm font-semibold text-slate-800">4. Configuración de agenda</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Ajusta cómo se gestionarán tus citas.</p>
-            </div>
-
+        <CollapsibleCard
+            title="4. Configuración de agenda"
+            subtitle="Ajusta cuanto será el tiempo entre citas, las duraciones de bloque disponibles y si permites citas fuera de tu horario."
+        >
             <div className="flex flex-col gap-5">
                 {/* Tiempo entre citas */}
                 <div className="flex flex-col gap-1.5">
@@ -61,26 +61,28 @@ const ScheduleSettingsSection = ({
                     </select>
 
                     {/* Agrega un tiempo propio a la lista de opciones — se selecciona automáticamente. */}
-                    <div className="flex items-center gap-2 mt-1">
-                        <input
-                            type="number"
-                            min={0}
-                            max={120}
-                            placeholder="Agregar otro (min)"
-                            value={newBuffer}
-                            onChange={e => setNewBuffer(e.target.value.replace(/[^0-9]/g, ""))}
-                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addBufferOption(); } }}
-                            className="w-36 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                        <button
-                            type="button"
-                            onClick={addBufferOption}
-                            disabled={!newBuffer}
-                            className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                            <Plus className="w-3.5 h-3.5" /> Agregar
-                        </button>
-                    </div>
+                    {editing && (
+                        <div className="flex items-center gap-2 mt-1">
+                            <input
+                                type="number"
+                                min={0}
+                                max={120}
+                                placeholder="Agregar otro (min)"
+                                value={newBuffer}
+                                onChange={e => setNewBuffer(e.target.value.replace(/[^0-9]/g, ""))}
+                                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addBufferOption(); } }}
+                                className="w-36 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            />
+                            <button
+                                type="button"
+                                onClick={addBufferOption}
+                                disabled={!newBuffer}
+                                className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Agregar
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Duración de bloque — lista libre (no un único valor): cada duración que agregues
@@ -93,39 +95,43 @@ const ScheduleSettingsSection = ({
                         {durations.map(d => (
                             <span key={d} className="flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
                                 {d} min
-                                <button
-                                    type="button"
-                                    onClick={() => removeDuration(d)}
-                                    disabled={durations.length <= 1}
-                                    className="p-0.5 rounded-full hover:bg-blue-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                                    title={durations.length <= 1 ? "Debe quedar al menos una duración" : "Quitar"}
-                                >
-                                    <X className="w-3 h-3" />
-                                </button>
+                                {editing && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeDuration(d)}
+                                        disabled={durations.length <= 1}
+                                        className="p-0.5 rounded-full hover:bg-blue-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        title={durations.length <= 1 ? "Debe quedar al menos una duración" : "Quitar"}
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                )}
                             </span>
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-2 mt-1">
-                        <input
-                            type="number"
-                            min={1}
-                            max={480}
-                            placeholder="Ej. 20 (min)"
-                            value={newDuration}
-                            onChange={e => setNewDuration(e.target.value.replace(/[^0-9]/g, ""))}
-                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addDuration(); } }}
-                            className="w-36 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                        <button
-                            type="button"
-                            onClick={addDuration}
-                            disabled={!newDuration}
-                            className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                            <Plus className="w-3.5 h-3.5" /> Agregar duración
-                        </button>
-                    </div>
+                    {editing && (
+                        <div className="flex items-center gap-2 mt-1">
+                            <input
+                                type="number"
+                                min={1}
+                                max={480}
+                                placeholder="Ej. 20 (min)"
+                                value={newDuration}
+                                onChange={e => setNewDuration(e.target.value.replace(/[^0-9]/g, ""))}
+                                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addDuration(); } }}
+                                className="w-36 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            />
+                            <button
+                                type="button"
+                                onClick={addDuration}
+                                disabled={!newDuration}
+                                className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Agregar duración
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Permitir citas fuera del horario */}
@@ -149,7 +155,7 @@ const ScheduleSettingsSection = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </CollapsibleCard>
     );
 };
 

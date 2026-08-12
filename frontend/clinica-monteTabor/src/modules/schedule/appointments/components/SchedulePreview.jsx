@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Eye, X, Clock } from "lucide-react";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
@@ -59,18 +60,14 @@ const SchedulePreview = ({ availability, breaks, bufferTime, blockDurations }) =
     const slots = dayConfig ? generateDaySlots(dayConfig, breaks || [], bufferTime, selectedDuration) : [];
 
     return (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3">
-            <div>
-                <h3 className="text-sm font-semibold text-slate-800">Vista previa de tu agenda</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                    Revisa cómo se ven tus horarios semanales combinando tu tiempo entre citas y tus duraciones de bloque.
-                </p>
-            </div>
-
+        <CollapsibleCard
+            title="Vista previa de tu agenda"
+            subtitle="Revisa cómo se ven tus horarios semanales combinando tu tiempo entre citas y tus duraciones de bloque."
+        >
             <button
                 type="button"
                 onClick={openPreview}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-sm font-semibold hover:bg-blue-50 transition-colors self-start"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-sm font-semibold hover:bg-blue-50 transition-colors w-fit"
             >
                 <Eye className="w-4 h-4" />
                 Ver vista previa
@@ -175,7 +172,7 @@ const SchedulePreview = ({ availability, breaks, bufferTime, blockDurations }) =
                     </div>
                 </div>
             )}
-        </div>
+        </CollapsibleCard>
     );
 };
 

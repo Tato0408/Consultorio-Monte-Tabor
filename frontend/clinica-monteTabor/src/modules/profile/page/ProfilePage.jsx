@@ -63,7 +63,7 @@ const ProfilePage = () => {
         className="hidden"
       />
 
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-gray-100 pb-5 gap-4">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between border-b border-gray-100 pb-5 gap-4">
         <div>
           <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-1">
             <span>Sistema</span>
@@ -76,9 +76,11 @@ const ProfilePage = () => {
           </p>
         </div>
 
+        {/* md:mt-8 la baja a la misma altura que el botón "Guardar cambios" de Horarios, para
+            que no choque con la campana de notificaciones (fixed, ver MainLayout.jsx). */}
         <button
           onClick={logout}
-          className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-all self-start md:self-center"
+          className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-all self-start md:mt-8"
         >
           <LogOut className="w-4 h-4" />
           Cerrar sesión

@@ -145,16 +145,18 @@ const DoctorsList = () => {
             error={error}
             onSelectDoctor={setSelectedDoctor}
             onOpenForm={canCreate ? handleOpenCreate : undefined}
-            onEditDoctor={handleOpenEdit}
-            onDeleteDoctor={handleDeleteDoctor}
-            canUpdate={canUpdate}
-            canDelete={canDelete}
           />
         </div>
 
         {/* COLUMNA DE LA DERECHA (TARJETA DE PERFIL - Ajustado a col-span-3) */}
         <div className="col-span-3">
-          <DoctorProfileCard doctor={selectedDoctor} />
+          <DoctorProfileCard
+            doctor={selectedDoctor}
+            onEdit={handleOpenEdit}
+            onDelete={handleDeleteDoctor}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+          />
         </div>
       </div>
 

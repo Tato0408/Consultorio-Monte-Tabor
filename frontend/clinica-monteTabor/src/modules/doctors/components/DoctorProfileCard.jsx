@@ -1,7 +1,7 @@
 import React from "react";
-import { User } from "lucide-react";
+import { User, Edit2, Trash2 } from "lucide-react";
 
-const DoctorProfileCard = ({ doctor }) => {
+const DoctorProfileCard = ({ doctor, onEdit, onDelete, canUpdate = true, canDelete = true }) => {
   //Evalua si no hay ningun doctor seleccionado y muestra un mensaje de aviso
   if (!doctor) {
     return (
@@ -100,6 +100,33 @@ const DoctorProfileCard = ({ doctor }) => {
           </span>
         </div>
       </div>
+
+      {/* Acciones: reemplazan el menú "..." que antes vivía en la tabla (DoctorsTable.jsx) —
+          misma función (onEdit/onDelete), ahora aplicadas al doctor seleccionado. */}
+      {(canUpdate || canDelete) && (
+        <div className="grid grid-cols-2 gap-2.5 p-5 pt-0">
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => onEdit?.(doctor)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              Editar
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete?.(doctor._id)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Eliminar
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

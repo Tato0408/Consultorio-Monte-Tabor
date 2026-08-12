@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Search, Plus } from "lucide-react";
 import TablePagination from "./TablePagination";
 // Importamos los elementos de Shadcn UI que ya usas para los filtros
@@ -15,20 +15,67 @@ const GenericTable = ({
   addLabel = "Agregar",
   showNurseFilter = false,
   onRowClick,
+  // evenColumns: reparte las columnas en anchos iguales (table-layout: fixed) en vez del ancho
+  // automático por contenido — para tablas donde se quiere que los datos queden distribuidos de
+  // forma pareja en vez de amontonados a un lado. Opt-in para no afectar las tablas existentes
+  // que ya dependen del ancho automático.
+  evenColumns = false,
+  // Reporta (en px) la distancia entre el borde superior de este componente y el borde
+  // superior de la tabla real, es decir después de la barra de búsqueda/filtros de arriba —
+  // para que quien lo use pueda alinear otro elemento (ej. un panel lateral) con el inicio de
+  // la tabla en sí, no con el inicio de esos controles.
+  onTableOffsetChange,
+  // Contenido extra (título, selects de filtro, etc.) que se muestra en la MISMA fila que el
+  // buscador, a su izquierda — para no gastar una fila completa aparte solo para eso, dejando
+  // espacio en blanco a la derecha tanto de ese contenido como del buscador.
+  headerLeft,
+  // Filas extra a mostrar por encima de itemsPerPage, sin cambiar de página — para rellenar un
+  // espacio vertical disponible (ej. un panel lateral más alto). La paginación (totalPages,
+  // qué fila "empieza" cada página) sigue calculándose con itemsPerPage normal; esto solo
+  // decide cuántas filas se muestran de más al final de la página actual.
+  extraRows = 0,
+  // Avisa cuando cambia la cantidad de filas por página seleccionada — para que quien usa
+  // extraRows pueda invalidar su cálculo (basado en la altura de la tabla con el tamaño de
+  // página ANTERIOR) y volver a medir con el nuevo.
+  onItemsPerPageChange,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [nurseFilter, setNurseFilter] = useState("all"); // 'all' | 'yes' | 'no'
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(8);
+
+  const rootRef = useRef(null);
+  const tableContainerRef = useRef(null);
 
   // Volver a la página 1 si cambia cualquier filtro
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, nurseFilter, itemsPerPage]);
 
+  useEffect(() => {
+    onItemsPerPageChange?.(itemsPerPage);
+  }, [itemsPerPage]);
+
+  useLayoutEffect(() => {
+    if (!onTableOffsetChange) return;
+    const root = rootRef.current;
+    const tableEl = tableContainerRef.current;
+    if (!root || !tableEl) {
+      onTableOffsetChange(0);
+      return;
+    }
+    const report = () => {
+      onTableOffsetChange(tableEl.getBoundingClientRect().top - root.getBoundingClientRect().top);
+    };
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, [onTableOffsetChange, loading]);
+
   if (loading) {
-    return <div className="py-10 text-center text-sm text-gray-500">Cargando información...</div>;
+    return <div ref={rootRef} className="py-10 text-center text-sm text-gray-500">Cargando información...</div>;
   }
 
   const filteredData = data.filter((item) => {
@@ -51,16 +98,17 @@ const GenericTable = ({
   // Lógica de paginación sobre los datos ya filtrados
   const totalItems = filteredData.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+  const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
+  const effectivePerPage = itemsPerPage + Math.max(0, extraRows);
+  const currentItems = filteredData.slice(indexOfFirstItem, indexOfFirstItem + effectivePerPage);
 
   return (
-    <div className="space-y-4">
+    <div ref={rootRef} className="space-y-4">
       {/* BARRA SUPERIOR CONTROLES */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         
-        <div className="flex flex-1 items-center gap-3 max-w-2xl">
+        <div className="flex flex-1 flex-wrap items-center gap-3 max-w-2xl">
+          {headerLeft}
           {/* Buscador */}
           {searchFields.length > 0 && (
             <div className="relative flex-1 max-w-md">
@@ -108,16 +156,16 @@ const GenericTable = ({
       </div>
 
       {/* CONTENEDOR DE LA TABLA */}
-      <div className="w-full overflow-hidden bg-white border border-gray-100 rounded-xl shadow-sm">
+      <div ref={tableContainerRef} className="w-full overflow-hidden bg-white border border-gray-100 rounded-xl shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse" style={evenColumns ? { tableLayout: "fixed" } : undefined}>
             <thead>
               <tr className="border-b border-gray-100 text-gray-400 text-xs font-normal">
                 {columns.map((col, idx) => (
                   <th
                     key={idx}
-                    className={`py-4 pl-4 font-normal text-gray-400 ${
-                      col.align === "right" ? "text-right pr-6" : ""
+                    className={`py-4 font-normal text-gray-400 ${
+                      col.align === "right" ? "text-right pr-6 pl-4" : col.align === "center" ? "text-center px-8" : "pl-4"
                     }`}
                   >
                     {col.header}
@@ -135,7 +183,7 @@ const GenericTable = ({
                       {columns.map((col, colIdx) => (
                         <td
                           key={colIdx}
-                          className={`py-4 pl-4 ${col.align === "right" ? "text-right pr-6 relative" : ""}`}
+                          className={`py-4 ${col.align === "right" ? "text-right pr-6 pl-4 relative" : col.align === "center" ? "text-center px-8" : "pl-4"}`}
                         >
                           {col.render
                             ? col.render(item, rowIndex, openUpwards)

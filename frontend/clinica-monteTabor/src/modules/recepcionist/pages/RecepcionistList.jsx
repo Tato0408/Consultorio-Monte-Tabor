@@ -124,16 +124,18 @@ const ReceptionistsList = () => {
             error={error}
             onSelect={setSelectedReceptionist}
             onOpenForm={canCreate ? handleOpenCreate : undefined}
-            onEdit={handleOpenEdit}
-            onDelete={handleDelete}
-            canUpdate={canUpdate}
-            canDelete={canDelete}
           />
 
         </div>
 
         <div className="col-span-3">
-          <ReceptionistProfileCard receptionist={selectedReceptionist} />
+          <ReceptionistProfileCard
+            receptionist={selectedReceptionist}
+            onEdit={handleOpenEdit}
+            onDelete={handleDelete}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+          />
         </div>
       </div>
 

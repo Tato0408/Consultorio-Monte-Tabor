@@ -64,7 +64,13 @@ const MainLayout = () => {
                 </main>
             </div>
 
-            <div className="fixed top-4 right-4 z-30">
+            {/* sm:top-14 alinea verticalmente con el botón "Guardar cambios" de Horarios (ver
+                nota de sm:mt-8 ahí). sm:right-12 = el padding derecho doble que separa ese botón
+                del borde de la pantalla (sm:p-6 de <main> + sm:p-6 del contenedor de la página),
+                para que la campana quede justo arriba de su borde derecho. Como esta campana es
+                fixed y global (MainLayout), esa misma posición se mantiene igual en todas las
+                interfaces del sistema. */}
+            <div className="fixed top-4 sm:top-8 right-9 sm:right-14 z-30">
                 <NotificationBell />
             </div>
         </div>

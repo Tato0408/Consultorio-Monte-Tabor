@@ -11,9 +11,10 @@ import RecordsAccessCard    from "../components/doctor/RecordsAccessCard";
 import DiseaseStatsCard     from "../components/doctor/DiseaseStatsCard";
 import TreatmentStatsCard   from "../components/doctor/TreatmentStatsCard";
 import DoctorSummaryCard    from "../components/doctor/DoctorSummaryCard";
+import DashboardWelcomeHeader from "../components/DashboardWelcomeHeader";
 
 const DoctorDashboard = () => {
-    const { user } = useAuth();
+    const { user, userType } = useAuth();
     const { getStats, getTodayAppointments, getConsultationsAndRecords, getAnalytics } = useDoctorDashboard();
 
     const [stats,        setStats]        = useState(null);
@@ -54,13 +55,15 @@ const DoctorDashboard = () => {
     const s = stats || {};
 
     return (
-        <div className="p-4 sm:p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
+        <div className="bg-slate-50 min-h-screen">
+            <DashboardWelcomeHeader
+                displayName={displayName}
+                subtitle="Aquí tienes un resumen de tus consultas"
+                user={user}
+                userType={userType}
+            />
 
-            {/* ── Header ── */}
-            <div>
-                <h1 className="text-xl font-bold text-slate-800">¡Bienvenido, {displayName}!</h1>
-                <p className="text-sm text-slate-400 mt-0.5">Aquí tienes un resumen de tus consultas</p>
-            </div>
+            <div className="p-4 sm:p-6 pt-3 flex flex-col gap-6">
 
             {/* ── Tarjetas de resumen ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -129,6 +132,7 @@ const DoctorDashboard = () => {
                 <DoctorSummaryCard  summary={analytics?.summary ?? {}} />
             </div>
 
+            </div>
         </div>
     );
 };

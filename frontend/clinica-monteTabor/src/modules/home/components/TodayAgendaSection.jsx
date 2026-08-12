@@ -35,7 +35,7 @@ const TodayAgendaSection = ({ counts, appointments }) => {
     const c = counts || { inConsultation: 0, available: 0 };
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 h-full flex flex-col">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 flex flex-col">
             <div className="flex items-center justify-between mb-1">
                 <h2 className="text-base font-bold text-slate-800">Agenda del día</h2>
                 <button

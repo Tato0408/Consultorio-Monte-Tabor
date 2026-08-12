@@ -1,23 +1,13 @@
-import { MoreVertical, Edit2, Trash2 } from "lucide-react";
 import GenericTable from "@/components/ui/GenericTable";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 
+// Las acciones de editar/eliminar ya no viven aquí — se movieron a botones dentro de
+// ReceptionistProfileCard.jsx (el panel de la derecha), para no necesitar un menú por fila.
 const ReceptionistsTable = ({
   receptionists,
   loading,
   error,
   onSelect,
   onOpenForm,
-  onEdit,
-  onDelete,
-  canUpdate = true,
-  canDelete = true,
 }) => {
   //Si ocurre un error lo mostramos
   if (error) {
@@ -28,27 +18,28 @@ const ReceptionistsTable = ({
   const columns = [
     {
       header: "Nombre",
+      align: "center",
       render: (receptionist) => <span className="font-medium text-gray-900">{receptionist.name}</span>,
     },
     {
       header: "Apellido",
-      key: "last_name"
+      key: "last_name",
+      align: "center",
     },
     {
       header: "DUI",
+      align: "center",
       render: (receptionist) => <span className="font-mono text-xs text-gray-500">{receptionist.dui || "—"}</span>,
     },
     {
-      header: "Correo",
-      render: (receptionist) => <span className="text-gray-500">{receptionist.email || "—"}</span>,
-    },
-    {
       header: "Teléfono",
+      align: "center",
       render: (receptionist) => <span className="text-gray-500">{receptionist.phone || "—"}</span>,
     },
     {
       //Mostramos si el recepcionista esta activo o inactivo
       header: "Estado",
+      align: "center",
       render: (receptionist) => (
         <span
           className={`inline-flex items-center gap-1.5 font-medium px-2.5 py-1 rounded-full text-xs ${
@@ -60,50 +51,6 @@ const ReceptionistsTable = ({
         </span>
       ),
     },
-    ...(canUpdate || canDelete
-      ? [
-          {
-            //Columna donde se muestran las acciones
-            header: "Acciones",
-            align: "right",
-            // El menú se renderiza en un portal (fuera del contenedor con overflow de la
-            // tabla), por lo que ya no depende de "openUpwards": se reposiciona solo y nunca
-            // queda recortado, sin importar cuántas filas haya visibles.
-            render: (receptionist) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  onClick={(e) => e.stopPropagation()}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 outline-none data-popup-open:bg-gray-100 data-popup-open:text-gray-900"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-36">
-                  {canUpdate && (
-                    <DropdownMenuItem
-                      onClick={(e) => { e.stopPropagation(); onEdit?.(receptionist); }}
-                      className="text-gray-700 text-xs"
-                    >
-                      <Edit2 className="w-3.5 h-3.5 text-gray-400" />
-                      Editar
-                    </DropdownMenuItem>
-                  )}
-                  {canUpdate && canDelete && <DropdownMenuSeparator />}
-                  {canDelete && (
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={(e) => { e.stopPropagation(); onDelete?.(receptionist._id); }}
-                      className="text-xs"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Eliminar
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ),
-          },
-        ]
-      : []),
   ];
 
   //Renderizamos la tabla generica enviandole toda la configuracion
@@ -118,6 +65,7 @@ const ReceptionistsTable = ({
       onAdd={onOpenForm}
       addLabel="Agregar Recepcionista"
       onRowClick={onSelect}
+      evenColumns
     />
   );
 };

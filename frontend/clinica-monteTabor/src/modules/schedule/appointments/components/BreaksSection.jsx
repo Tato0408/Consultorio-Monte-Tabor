@@ -1,23 +1,27 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import InputField from "@/components/ui/InputField";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 const DAYS = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 
-const BreaksSection = ({ breaks, availability, onChange }) => {
-    const [editing, setEditing] = useState(null);
+// editing (prop): modo edición de la PÁGINA completa (ver ScheduleConfig.jsx) — controla si los
+// botones de agregar/editar/eliminar existen. rowEditing (state): cuál fila de la tabla está
+// siendo editada ahora mismo, solo alcanzable cuando editing=true.
+const BreaksSection = ({ breaks, availability, onChange, editing }) => {
+    const [rowEditing, setRowEditing] = useState(null);
     const [form, setForm]       = useState({ day: 1, start_time: "12:00", end_time: "13:00" });
 
     const availableDays = availability.filter(d => d.is_available).map(d => d.day);
 
-    const startNew  = () => { setForm({ day: availableDays[0] ?? 1, start_time: "12:00", end_time: "13:00" }); setEditing("new"); };
-    const startEdit = (i) => { setForm({ ...breaks[i] }); setEditing(i); };
-    const cancel    = () => setEditing(null);
+    const startNew  = () => { setForm({ day: availableDays[0] ?? 1, start_time: "12:00", end_time: "13:00" }); setRowEditing("new"); };
+    const startEdit = (i) => { setForm({ ...breaks[i] }); setRowEditing(i); };
+    const cancel    = () => setRowEditing(null);
 
     const save = () => {
-        if (editing === "new") onChange([...breaks, form]);
-        else onChange(breaks.map((b, i) => i === editing ? form : b));
-        setEditing(null);
+        if (rowEditing === "new") onChange([...breaks, form]);
+        else onChange(breaks.map((b, i) => i === rowEditing ? form : b));
+        setRowEditing(null);
     };
 
     const remove = (i) => onChange(breaks.filter((_, idx) => idx !== i));
@@ -30,21 +34,20 @@ const BreaksSection = ({ breaks, availability, onChange }) => {
     };
 
     return (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-            {/* Header */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
-                <div>
-                    <h3 className="text-sm font-semibold text-slate-800">2. Descansos</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Agrega los horarios de descanso dentro de tu jornada.</p>
-                </div>
-                <button
-                    onClick={startNew}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 whitespace-nowrap self-start sm:flex-shrink-0"
-                >
-                    <Plus className="w-3.5 h-3.5" /> Agregar descanso
-                </button>
-            </div>
-
+        <CollapsibleCard
+            title="2. Descansos"
+            subtitle="Agrega los horarios en los cuales descansarás durante tu jornada laborar."
+            actions={
+                editing && (
+                    <button
+                        onClick={startNew}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 whitespace-nowrap flex-shrink-0"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> Agregar descanso
+                    </button>
+                )
+            }
+        >
             {/* Table */}
             <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[320px]">
@@ -66,7 +69,7 @@ const BreaksSection = ({ breaks, availability, onChange }) => {
                                     <td className="py-2.5 text-slate-500 text-sm">{brk ? fmt(brk.start_time) : "—"}</td>
                                     <td className="py-2.5 text-slate-500 text-sm">{brk ? fmt(brk.end_time) : "—"}</td>
                                     <td className="py-2.5">
-                                        {brk && (
+                                        {editing && brk && (
                                             <div className="flex gap-1">
                                                 <button onClick={() => startEdit(brkIdx)} className="p-1 text-slate-400 hover:text-blue-500">
                                                     <Pencil className="w-3.5 h-3.5" />
@@ -81,7 +84,7 @@ const BreaksSection = ({ breaks, availability, onChange }) => {
                             );
                         })}
 
-                        {editing !== null && (
+                        {rowEditing !== null && (
                             <tr className="bg-blue-50/40 border-b border-blue-100">
                                 <td className="py-2.5 pr-2">
                                     <select
@@ -108,7 +111,7 @@ const BreaksSection = ({ breaks, availability, onChange }) => {
                     </tbody>
                 </table>
             </div>
-        </div>
+        </CollapsibleCard>
     );
 };
 

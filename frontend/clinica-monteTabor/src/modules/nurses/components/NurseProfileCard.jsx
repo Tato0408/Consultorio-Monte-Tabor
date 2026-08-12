@@ -1,6 +1,6 @@
-import { User, Gift, CreditCard, Phone, Mail, Clock, Loader2 } from "lucide-react";
+import { User, Gift, CreditCard, Phone, Mail, Clock, Loader2, Edit2, Trash2 } from "lucide-react";
 
-const NurseProfileCard = ({ nurse, nextProcedure, loadingDetail }) => {
+const NurseProfileCard = ({ nurse, nextProcedure, loadingDetail, onEdit, onDelete, canUpdate = true, canDelete = true }) => {
   if (!nurse) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 text-xs font-medium h-[400px] flex items-center justify-center shadow-sm">
@@ -102,6 +102,33 @@ const NurseProfileCard = ({ nurse, nextProcedure, loadingDetail }) => {
           </span>
         </div>
       </div>
+
+      {/* Acciones: reemplazan el menú "..." que antes vivía en la tabla (NurseTable.jsx) —
+          misma función (onEdit/onDelete), ahora aplicadas a la enfermera seleccionada. */}
+      {(canUpdate || canDelete) && (
+        <div className="grid grid-cols-2 gap-2.5 p-5 pt-0">
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => onEdit?.(nurse)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              Editar
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete?.(nurse)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Eliminar
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
