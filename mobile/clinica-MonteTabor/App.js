@@ -1,3 +1,4 @@
+
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -15,10 +16,16 @@ import RecoveryScreen from './src/screens/login/RecoveryScreens/RecoveryScreen';
 import VerifyCodeScreen from './src/screens/login/RecoveryScreens/VerifyCodeScreen';
 import NewPasswordScreen from './src/screens/login/RecoveryScreens/NewPasswordScreen';
 import PasswordUpdatedScreen from './src/screens/login/RecoveryScreens/PasswordUpdatedScreen';
+
 import DashboardScreen from './src/screens/DashboardScreen';
 import AppointmentsScreen from './src/screens/AppointmentsScreen';
+<<<<<<< Updated upstream
 import MedicationsScreen from './src/screens/medication/medicationScreen';
 import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
+=======
+
+
+>>>>>>> Stashed changes
 import ProfileScreen from './src/screens/profile/profileScreen';
 import HealthInfoScreen from './src/screens/profile/healthInfoScreen';
 import EditProfileScreen from './src/screens/profile/editProfileScreen';
@@ -27,19 +34,29 @@ import ListDetailScreen from './src/screens/profile/listDetailScreen';
 import BloodTypeScreen from './src/screens/profile/bloodTypeScreen';
 import OrganDonationScreen from './src/screens/profile/organDonationScreen';
 import LifestyleScreen from './src/screens/profile/lifeStyleScreen';
+<<<<<<< Updated upstream
 
+=======
+import AddBloodTypeScreen from './src/screens/profile/addBloodTypeScreen';
+import AddHereditaryScreen from './src/screens/profile/addHederitaryScreen';
+import AddPathologicalScreen from './src/screens/profile/addPathologicalScreen';
+>>>>>>> Stashed changes
 
 const Stack = createNativeStackNavigator();
 
-// Decide qué pantallas existen según el estado de la sesión.
-// Al cambiar isLoggedIn, React Navigation hace el switch solo: no navegues manualmente.
 function RootNavigator() {
   const { isLoggedIn, isLoading } = useAuth();
 
-  // Mientras validamos el token guardado, mostramos un splash
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6FA' }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#F4F6FA',
+        }}
+      >
         <ActivityIndicator size="large" />
       </View>
     );
@@ -50,11 +67,14 @@ function RootNavigator() {
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
-        contentStyle: { backgroundColor: '#F4F6FA' },
+        contentStyle: {
+          backgroundColor: '#F4F6FA',
+        },
       }}
     >
       {isLoggedIn ? (
         <>
+<<<<<<< Updated upstream
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
           <Stack.Screen name="Appointments" component={AppointmentsScreen} />
           <Stack.Screen name="Medications" component={MedicationsScreen} />
@@ -67,15 +87,106 @@ function RootNavigator() {
           <Stack.Screen name="BloodType" component={BloodTypeScreen} />
           <Stack.Screen name="OrganDonation" component={OrganDonationScreen} />
           <Stack.Screen name="Lifestyle" component={LifestyleScreen} />
+=======
+          <Stack.Screen
+            name="Dashboard"
+            component={DashboardScreen}
+          />
+
+          <Stack.Screen
+            name="Appointments"
+            component={AppointmentsScreen}
+          />
+
+  
+
+          <Stack.Screen
+            name="Profile"
+            component={ProfileScreen}
+          />
+
+ <Stack.Screen
+            name="AddBloodType"
+            component={AddBloodTypeScreen}
+          />
+
+          <Stack.Screen
+            name="EditProfile"
+            component={EditProfileScreen}
+          />
+
+          <Stack.Screen
+            name="ChangePassword"
+            component={ChangePasswordScreen}
+          />
+
+          <Stack.Screen
+            name="HealthInfo"
+            component={HealthInfoScreen}
+          />
+
+ <Stack.Screen
+            name="AddHederitaryScreen"
+            component={AddHereditaryScreen}
+          />
+
+ <Stack.Screen
+            name="AddPathologicalScreen"
+            component={AddPathologicalScreen}
+          />
+
+          <Stack.Screen
+            name="ListDetail"
+            component={ListDetailScreen}
+          />
+
+          <Stack.Screen
+            name="BloodType"
+            component={BloodTypeScreen}
+          />
+
+          <Stack.Screen
+            name="OrganDonation"
+            component={OrganDonationScreen}
+          />
+
+          <Stack.Screen
+            name="Lifestyle"
+            component={LifestyleScreen}
+          />
+>>>>>>> Stashed changes
         </>
       ) : (
         <>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen name="Recovery" component={RecoveryScreen} />
-          <Stack.Screen name="VerifyCode" component={VerifyCodeScreen} />
-          <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
-          <Stack.Screen name="PasswordUpdated" component={PasswordUpdatedScreen} />
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
+          />
+
+          <Stack.Screen
+            name="Register"
+            component={RegisterScreen}
+          />
+
+          <Stack.Screen
+            name="Recovery"
+            component={RecoveryScreen}
+          />
+
+          <Stack.Screen
+            name="VerifyCode"
+            component={VerifyCodeScreen}
+          />
+
+          <Stack.Screen
+            name="NewPassword"
+            component={NewPasswordScreen}
+          />
+
+          <Stack.Screen
+            name="PasswordUpdated"
+            component={PasswordUpdatedScreen}
+          />
         </>
       )}
     </Stack.Navigator>
@@ -84,6 +195,7 @@ function RootNavigator() {
 
 export default function App() {
   return (
+<<<<<<< Updated upstream
     <AuthProvider>
       <SafeAreaProvider>
         <NavigationContainer>
@@ -95,3 +207,19 @@ export default function App() {
     </AuthProvider>
   );
 }
+=======
+    <SafeAreaProvider>
+      <AuthProvider>
+        <NavigationContainer>
+          <StatusBar style="dark" />
+
+          <RootNavigator />
+        </NavigationContainer>
+
+        <Toast config={toastConfig} />
+      </AuthProvider>
+    </SafeAreaProvider>
+  );
+}
+
+>>>>>>> Stashed changes
