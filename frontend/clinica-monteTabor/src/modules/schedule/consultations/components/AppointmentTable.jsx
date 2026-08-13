@@ -15,6 +15,16 @@ const STATUS_BADGE = {
 const formatPersonName = (person) =>
     person ? `${person.name} ${person.last_name}` : "—";
 
+// Anchos proporcionales al contenido real de cada columna (no grid-cols-5 parejo): Hora es
+// corta ("14:00"), Paciente/Médico llevan nombres completos, Estado lleva la etiqueta más larga
+// ("Agendado (sin confirmar)") y Acciones un botón. Con columnas iguales, las cortas dejaban
+// mucho espacio vacío alrededor de su contenido centrado — sobre todo en los extremos (Hora a
+// la izquierda, Acciones a la derecha), que es justo lo que se veía "vacío" en las esquinas.
+// px-8 (en vez de px-6) aleja además el contenido del borde de la card. Se define una sola vez
+// para que el encabezado y las filas usen exactamente la misma plantilla y las columnas
+// coincidan siempre entre sí.
+const ROW_GRID = "grid grid-cols-[0.7fr_1.3fr_1.3fr_1.2fr_1fr] gap-x-6 px-8";
+
 const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, completedCount }) => {
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
@@ -41,39 +51,34 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                 </span>
             </div>
 
-            <table className="w-full text-sm">
-                <thead>
-                    <tr className="text-left text-slate-400 border-b border-slate-100">
-                        <th className="py-2 font-medium">Hora</th>
-                        <th className="py-2 font-medium">Paciente</th>
-                        <th className="py-2 font-medium">Médico atendiendo</th>
-                        <th className="py-2 font-medium">Estado</th>
-                        <th className="py-2 font-medium">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
+            {/* Mismo patrón de columnas que la tabla comparativa de Reportes (ReportsSection.jsx):
+                grid + padding horizontal, todo centrado respecto a su título — en vez de
+                <table>, que por defecto alinea cada celda a la izquierda y sin separación
+                simétrica entre columnas. Ver ROW_GRID arriba para los anchos por columna. */}
+            <div className="overflow-x-auto">
+                <div className="min-w-[720px] text-sm">
+                    <div className={`${ROW_GRID} py-2 border-b border-slate-100 text-slate-400`}>
+                        <span className="font-medium text-center">Hora</span>
+                        <span className="font-medium text-center">Paciente</span>
+                        <span className="font-medium text-center">Médico atendiendo</span>
+                        <span className="font-medium text-center">Estado</span>
+                        <span className="font-medium text-center">Acciones</span>
+                    </div>
+
                     {isLoading && (
-                        <tr>
-                            <td colSpan={5} className="py-8 text-center text-slate-400">
-                                Cargando consultas...
-                            </td>
-                        </tr>
+                        <p className="py-8 text-center text-slate-400">Cargando consultas...</p>
                     )}
 
                     {!isLoading && error && (
-                        <tr>
-                            <td colSpan={5} className="py-8 text-center text-red-500">
-                                No se pudieron cargar las consultas. {error}
-                            </td>
-                        </tr>
+                        <p className="py-8 text-center text-red-500">
+                            No se pudieron cargar las consultas. {error}
+                        </p>
                     )}
 
                     {!isLoading && !error && appointments.length === 0 && (
-                        <tr>
-                            <td colSpan={5} className="py-8 text-center text-slate-400">
-                                No hay consultas para los filtros seleccionados.
-                            </td>
-                        </tr>
+                        <p className="py-8 text-center text-slate-400">
+                            No hay consultas para los filtros seleccionados.
+                        </p>
                     )}
 
                     {!isLoading && !error && appointments.map((appt) => {
@@ -81,19 +86,19 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                         const isWaiting = appt.status === "scheduled";
 
                         return (
-                            <tr
+                            <div
                                 key={appt._id}
-                                className={`border-b border-slate-50 last:border-0 ${isWaiting ? "bg-blue-50/40" : ""}`}
+                                className={`${ROW_GRID} py-3 items-center border-b border-slate-50 last:border-0 ${isWaiting ? "bg-blue-50/40" : ""}`}
                             >
-                                <td className="py-3 text-slate-700">{appt.start_time}</td>
-                                <td className="py-3 text-slate-700">{formatPersonName(appt.patient_id)}</td>
-                                <td className="py-3 text-slate-700">{formatPersonName(appt.doctor_id)}</td>
-                                <td className="py-3">
+                                <span className="text-slate-700 text-center">{appt.start_time}</span>
+                                <span className="text-slate-700 text-center truncate">{formatPersonName(appt.patient_id)}</span>
+                                <span className="text-slate-700 text-center truncate">{formatPersonName(appt.doctor_id)}</span>
+                                <div className="flex justify-center">
                                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${badge.className}`}>
                                         {badge.label}
                                     </span>
-                                </td>
-                                <td className="py-3">
+                                </div>
+                                <div className="flex justify-center">
                                     {appt.status === "completed" ? (
                                         <button
                                             onClick={() =>
@@ -113,12 +118,12 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                             Continuar
                                         </button>
                                     ) : null}
-                                </td>
-                            </tr>
+                                </div>
+                            </div>
                         );
                     })}
-                </tbody>
-            </table>
+                </div>
+            </div>
         </div>
     );
 };

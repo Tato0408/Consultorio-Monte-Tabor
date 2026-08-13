@@ -7,7 +7,6 @@ import UserManagementSection from "../components/UserManagementSection";
 import ReportStatsSection from "../components/ReportStatsSection";
 import TodayAgendaSection from "../components/TodayAgendaSection";
 import QuickActionsSection from "../components/QuickActionsSection";
-import SystemStatusSection from "../components/SystemStatusSection";
 import DashboardWelcomeHeader from "../components/DashboardWelcomeHeader";
 
 const fmtRevenue = (n) => {
@@ -25,10 +24,6 @@ const AdminDashboard = () => {
     const [userStats,    setUserStats]    = useState(null);
     const [reportStats,  setReportStats]  = useState(null);
     const [loading,      setLoading]      = useState(true);
-    // Alimenta el panel "Estado del sistema": healthy solo es true si las 4 llamadas de arriba
-    // terminaron sin error, y loadedAt es el momento real en que se cargaron (no decorativo).
-    const [dataHealthy,  setDataHealthy]  = useState(true);
-    const [loadedAt,     setLoadedAt]     = useState(null);
 
     useEffect(() => {
         Promise.allSettled([
@@ -42,8 +37,6 @@ const AdminDashboard = () => {
             if (d.status === "fulfilled") setDoctorStatus(d.value);
             if (u.status === "fulfilled") setUserStats(u.value);
             if (r.status === "fulfilled") setReportStats(r.value);
-            setDataHealthy(results.every((res) => res.status === "fulfilled"));
-            setLoadedAt(new Date());
         }).finally(() => setLoading(false));
     }, []);
 
@@ -129,21 +122,30 @@ const AdminDashboard = () => {
                     </div>
                 </section>
 
-                {/* ── Columna izquierda (usuarios + reportes) y barra lateral derecha
-                        (agenda, accesos rápidos, estado del sistema) como una sola columna
-                        continua de cards cuadradas/uniformes, no filas separadas ── */}
-                <section className="grid grid-cols-1 lg:grid-cols-4 gap-5 items-start">
+                {/* ── Columna izquierda (usuarios + reportes) y barra lateral derecha (agenda +
+                        accesos rápidos) ── sin items-start: ambas columnas se estiran a la
+                        altura de la más alta (normalmente la izquierda). Dentro de la derecha,
+                        Agenda del día y Accesos rápidos reciben cada una flex-1 (mismo factor
+                        → mitad y mitad exactas), en vez de que una tome su alto natural y la
+                        otra absorba el resto sola — así ninguna se ve más "flaca" que la otra.
+                        min-h-0 en ambos wrappers es necesario para que puedan encogerse por
+                        debajo de su alto de contenido (si no, flex nunca las dejaría bajar de
+                        eso, y la mitad y mitad dejaría de ser real). */}
+                <section className="grid grid-cols-1 lg:grid-cols-4 gap-5">
                     <div className="lg:col-span-3 flex flex-col gap-8">
                         <UserManagementSection data={userStats} />
                         <ReportStatsSection data={reportStats} />
                     </div>
                     <div className="flex flex-col gap-5">
-                        <TodayAgendaSection
-                            counts={doctorStatus?.counts}
-                            appointments={doctorStatus?.schedule}
-                        />
-                        <QuickActionsSection />
-                        <SystemStatusSection healthy={dataHealthy} updatedAt={loadedAt} />
+                        <div className="flex-1 min-h-0">
+                            <TodayAgendaSection
+                                counts={doctorStatus?.counts}
+                                appointments={doctorStatus?.schedule}
+                            />
+                        </div>
+                        <div className="flex-1 min-h-0">
+                            <QuickActionsSection />
+                        </div>
                     </div>
                 </section>
             </div>

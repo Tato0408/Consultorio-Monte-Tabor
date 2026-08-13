@@ -6,7 +6,38 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+// Recorre los hijos declarados de <Select> (SelectTrigger, SelectContent, SelectGroup, etc.)
+// buscando <SelectItem> para armar la lista {value, label} que Base UI necesita.
+function collectSelectItems(children) {
+  const items = [];
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return;
+    if (child.type === SelectItem) {
+      items.push({ value: child.props.value, label: child.props.children });
+      return;
+    }
+    if (child.props?.children) {
+      items.push(...collectSelectItems(child.props.children));
+    }
+  });
+  return items;
+}
+
+function Select({ children, items, ...props }) {
+  // Base UI usa este arreglo para resolver, en <SelectValue>, el texto (label) del valor
+  // seleccionado. Sin él cae al valor crudo tal cual (ej. "all" en vez de "Todos"). Se deriva
+  // automáticamente de los <SelectItem> ya declarados como hijos para no duplicarlos a mano en
+  // cada uso de <Select> disperso por el sistema.
+  const resolvedItems = React.useMemo(
+    () => items ?? collectSelectItems(children),
+    [children, items]
+  );
+  return (
+    <SelectPrimitive.Root items={resolvedItems} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  );
+}
 
 function SelectGroup({
   className,

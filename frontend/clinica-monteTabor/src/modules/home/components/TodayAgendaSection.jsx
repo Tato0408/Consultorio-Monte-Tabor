@@ -39,7 +39,9 @@ const TodayAgendaSection = ({ counts, appointments }) => {
     const c = counts || { inConsultation: 0, available: 0 };
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 flex flex-col">
+        // h-full: para repartir el alto disponible mitad y mitad con Accesos rápidos (ver
+        // AdminDashboard.jsx) en vez de quedarse con su alto natural de contenido.
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 flex flex-col h-full">
             <div className="flex items-center justify-between mb-1">
                 <h2 className="text-base font-bold text-slate-800">Agenda del día</h2>
                 <button
@@ -68,21 +70,29 @@ const TodayAgendaSection = ({ counts, appointments }) => {
                     <p className="text-sm text-slate-400">No hay citas programadas para hoy.</p>
                 </div>
             ) : (
-                <div className="flex flex-col divide-y divide-slate-50">
+                // flex-1 min-h-0 + overflow-y-auto: muestra tantas citas como quepan en la mitad
+                // de alto que le toca (ver h-full arriba) y deja scroll interno para el resto,
+                // en vez de estirar la card entera o desbordarse por debajo de "Ver todas".
+                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col divide-y divide-slate-50">
+                    {/* Hora + estado van en su propia fila arriba (contenido corto, cabe
+                        holgado); paciente y doctor bajan a su propia fila con TODO el ancho de
+                        la card para sí solos, en vez de compartir espacio apretado entre la hora
+                        y el badge — así el nombre completo cabe y solo hace salto de línea
+                        (break-words, sin truncate) cuando de verdad es muy largo. */}
                     {visible.map((appt) => (
-                        <div key={appt._id} className="flex items-center gap-3 py-3">
-                            <span className="text-xs font-bold text-slate-700 w-16 flex-shrink-0 tabular-nums">
-                                {fmt12(appt.start_time)}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-slate-800 truncate">{personName(appt.patient)}</p>
-                                <p className="text-xs text-slate-400 truncate">
-                                    Dr. {appt.doctor?.name || ""} {appt.doctor?.last_name || ""}
-                                </p>
+                        <div key={appt._id} className="flex flex-col gap-1 py-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-bold text-slate-700 tabular-nums">
+                                    {fmt12(appt.start_time)}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0 ${STATUS_BADGES[appt.status] || "bg-slate-100 text-slate-600"}`}>
+                                    {STATUS_LABELS[appt.status] || appt.status}
+                                </span>
                             </div>
-                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0 ${STATUS_BADGES[appt.status] || "bg-slate-100 text-slate-600"}`}>
-                                {STATUS_LABELS[appt.status] || appt.status}
-                            </span>
+                            <p className="text-sm font-semibold text-slate-800 break-words">{personName(appt.patient)}</p>
+                            <p className="text-xs text-slate-400 break-words">
+                                Dr. {appt.doctor?.name || ""} {appt.doctor?.last_name || ""}
+                            </p>
                         </div>
                     ))}
                 </div>

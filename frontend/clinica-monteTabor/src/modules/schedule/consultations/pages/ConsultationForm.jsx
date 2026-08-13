@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
+import { ArrowLeft } from "lucide-react";
 
 import useConsultation from "../hooks/useConsultation";
 import PatientHeader from "../components/PatientHeader";
@@ -94,6 +95,16 @@ const ConsultationForm = () => {
         // los hijos vía useFormContext(), sin tener que pasarlos por props.
         <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="p-4 sm:p-8">
+                <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => navigate("/calendar/consultations")}
+                    className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#0b66d6] mb-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    Volver a consultas
+                </button>
+
                 <PatientHeader appointment={appointment} bloodTypeOverride={bloodTypeOverride} />
 
                 {error && (
