@@ -4,14 +4,13 @@ import {
   RefreshControl,
   ScrollView,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import BottomNav from "../../components/BottomNav";
+import NotificationBell from "../../components/NotificationBell";
 import ProfileCard from "../../components/profile/ProfileCard";
 import ShortcutCard from "../../components/profile/ShortcutCard";
 import InfoCard from "../../components/profile/InfoCard";
@@ -166,9 +165,7 @@ const ProfileScreen = ({ navigation }) => {
       >
         <View style={styles.header}>
           <Text style={styles.title}>Perfil</Text>
-          <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
-            <Ionicons name="notifications-outline" size={22} color={colors.text} />
-          </TouchableOpacity>
+          <NotificationBell navigation={navigation} color={colors.text} />
         </View>
 
         {loading ? (

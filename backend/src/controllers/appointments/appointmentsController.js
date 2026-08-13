@@ -55,6 +55,31 @@ function getDayRange(dateInput) {
     return { start, end };
 }
 
+// La fecha de la cita se guarda como medianoche UTC y la hora vive en
+// start_time. Se reconstruye como fecha/hora local para impedir cambios una
+// vez que la cita ya comenzÃ³, incluso si su estado aÃºn no fue actualizado.
+function hasAppointmentStarted(appointment, now = new Date()) {
+    const date = new Date(appointment.date);
+    const [hours, minutes] = String(appointment.start_time || "00:00")
+        .split(":")
+        .map(Number);
+
+    if (Number.isNaN(date.getTime()) || !Number.isFinite(hours) || !Number.isFinite(minutes)) {
+        return false;
+    }
+
+    const startsAt = new Date(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        hours,
+        minutes,
+        0,
+        0
+    );
+    return startsAt <= now;
+}
+
 // Indica si una fecha cae dentro de la semana actual (hoy hasta el domingo).
 function isWithinCurrentWeek(dateInput) {
     const requested = getDayRange(dateInput).start;
@@ -238,6 +263,27 @@ appointmentsController.getAppointments = async (req, res) => {
     } catch (error) {
         console.log("error" + error);
         return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// Devuelve una cita puntual del paciente autenticado. El filtro por
+// patient_id evita consultar citas ajenas cambiando el id de la URL.
+appointmentsController.getPatientAppointmentById = async (req, res) => {
+    try {
+        if (req.user.role !== "patient") {
+            return res.status(403).json({ message: "Acceso denegado." });
+        }
+        const appointment = await appointmentsModel
+            .findOne({ _id: req.params.id, patient_id: req.user.id })
+            .populate("doctor_id", "name last_name specialty img_url")
+            .populate({ path: "nurse_id", model: "nurses", select: "name last_name" })
+            .populate({ path: "procedure_id", model: "procedure", select: "name requires_nurse" });
+        if (!appointment) {
+            return res.status(404).json({ message: "No se encontró la cita." });
+        }
+        return res.status(200).json({ data: appointment });
+    } catch (error) {
+        return res.status(500).json({ message: "No se pudo cargar la cita." });
     }
 };
 
@@ -694,6 +740,9 @@ appointmentsController.cancelPatientAppointment = async (req, res) => {
         if (["completed", "cancelled", "no_show", "expired"].includes(appointment.status)) {
             return res.status(400).json({ message: "Esta cita ya no puede cancelarse." });
         }
+        if (hasAppointmentStarted(appointment)) {
+            return res.status(400).json({ message: "No puedes cancelar una cita que ya comenz\u00f3 o cuya fecha ya pas\u00f3." });
+        }
 
         appointment.status = "cancelled";
         appointment.cancellation_reason = reason;
@@ -835,8 +884,13 @@ appointmentsController.acceptAppointment = async (req, res) => {
             return res.status(409).json({ message: "Esta cita ya fue tomada por otro doctor." });
         }
 
+        const acceptingDoctor = await doctorsModel.findById(req.user.id).select("name last_name").lean();
+        const doctorName = acceptingDoctor
+            ? `Dr. ${acceptingDoctor.name} ${acceptingDoctor.last_name || ""}`.trim()
+            : "El doctor";
+
         await notifyAppointmentRecipients(accepted, {
-            patientMessage: "Tu cita fue aceptada por el doctor.",
+            patientMessage: `${doctorName} aceptó tu cita.`,
             actor: req.user,
         }).catch((error) => console.log("Error notificando aceptación de cita:", error));
 

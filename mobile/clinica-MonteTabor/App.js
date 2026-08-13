@@ -1,4 +1,3 @@
-
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -6,7 +5,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/lib/toast';
 
@@ -19,6 +17,9 @@ import PasswordUpdatedScreen from './src/screens/login/RecoveryScreens/PasswordU
 
 import DashboardScreen from './src/screens/DashboardScreen';
 import AppointmentsScreen from './src/screens/AppointmentsScreen';
+import NewAppointmentScreen from './src/screens/NewAppointmentScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import AppointmentDetailScreen from './src/screens/AppointmentDetailScreen';
 import MedicationsScreen from './src/screens/medication/medicationScreen';
 import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
 import ProfileScreen from './src/screens/profile/profileScreen';
@@ -37,14 +38,7 @@ function RootNavigator() {
 
   if (isLoading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: '#F4F6FA',
-        }}
-      >
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6FA' }}>
         <ActivityIndicator size="large" />
       </View>
     );
@@ -55,15 +49,16 @@ function RootNavigator() {
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
-        contentStyle: {
-          backgroundColor: '#F4F6FA',
-        },
+        contentStyle: { backgroundColor: '#F4F6FA' },
       }}
     >
       {isLoggedIn ? (
         <>
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
           <Stack.Screen name="Appointments" component={AppointmentsScreen} />
+          <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
           <Stack.Screen name="Medications" component={MedicationsScreen} />
           <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
@@ -77,35 +72,12 @@ function RootNavigator() {
         </>
       ) : (
         <>
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-          />
-
-          <Stack.Screen
-            name="Register"
-            component={RegisterScreen}
-          />
-
-          <Stack.Screen
-            name="Recovery"
-            component={RecoveryScreen}
-          />
-
-          <Stack.Screen
-            name="VerifyCode"
-            component={VerifyCodeScreen}
-          />
-
-          <Stack.Screen
-            name="NewPassword"
-            component={NewPasswordScreen}
-          />
-
-          <Stack.Screen
-            name="PasswordUpdated"
-            component={PasswordUpdatedScreen}
-          />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="Recovery" component={RecoveryScreen} />
+          <Stack.Screen name="VerifyCode" component={VerifyCodeScreen} />
+          <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
+          <Stack.Screen name="PasswordUpdated" component={PasswordUpdatedScreen} />
         </>
       )}
     </Stack.Navigator>
