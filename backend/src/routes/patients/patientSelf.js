@@ -13,4 +13,16 @@ router.get("/me", authenticate, patientSelfController.getMe);
 router.put("/me", authenticate, patientSelfController.updateMe);
 router.put("/changePassword", authenticate, patientSelfController.changePassword);
 
+// Historia clínica. Van en rutas propias y no dentro de PUT /me porque updateMe solo maneja
+// campos del documento raíz; estos viven dentro de clinical_history y las listas se agregan
+// con $push (sobrescribirlas con $set borraría los registros anteriores).
+router.put("/me/blood-type", authenticate, patientSelfController.updateBloodType);
+router.put("/me/lifestyle", authenticate, patientSelfController.updateLifestyle);
+
+router.post("/me/hereditary", authenticate, patientSelfController.addHereditary);
+router.delete("/me/hereditary/:entryId", authenticate, patientSelfController.deleteHereditary);
+
+router.post("/me/pathological", authenticate, patientSelfController.addPathological);
+router.delete("/me/pathological/:entryId", authenticate, patientSelfController.deletePathological);
+
 export default router;

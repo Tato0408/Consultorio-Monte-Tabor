@@ -12,6 +12,8 @@ const patientSelfController = {};
 
 const REQUIRED_FIELDS = ["name", "last_name", "birth_date", "gender", "phone", "email", "password"];
 
+const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
+
 // Firma el mismo tipo de token que usa el login — registrarse funciona como un "login
 // escondido": el paciente queda autenticado de inmediato, sin pasar por la pantalla de login.
 const signPatientToken = (patient) =>
@@ -23,6 +25,15 @@ const toUserPayload = (patient) => ({
     name: patient.name,
     last_name: patient.last_name,
 });
+
+// Los cinco endpoints de historia clínica repiten este chequeo; se extrae para no copiarlo
+const denyIfNotPatient = (req, res) => {
+    if (req.user?.role !== "patient") {
+        res.status(403).json({ message: "Acceso denegado" });
+        return true;
+    }
+    return false;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/patientAccount/register — público, cualquiera puede registrarse
@@ -107,9 +118,7 @@ patientSelfController.register = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 patientSelfController.getMe = async (req, res) => {
     try {
-        if (req.user?.role !== "patient") {
-            return res.status(403).json({ message: "Acceso denegado" });
-        }
+        if (denyIfNotPatient(req, res)) return;
 
         const patient = await patientsModel.findById(req.user.id).select("-password");
         if (!patient) {
@@ -130,9 +139,7 @@ patientSelfController.getMe = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 patientSelfController.updateMe = async (req, res) => {
     try {
-        if (req.user?.role !== "patient") {
-            return res.status(403).json({ message: "Acceso denegado" });
-        }
+        if (denyIfNotPatient(req, res)) return;
 
         let { name, last_name, dui, birth_date, gender, phone, email } = req.body;
 
@@ -187,15 +194,258 @@ patientSelfController.updateMe = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/patientAccount/me/blood-type
+// Va aparte de updateMe porque este solo acepta campos del documento raíz, y el tipo de
+// sangre vive dentro de clinical_history. Se usa notación de punto para tocar únicamente
+// esa casilla y no pisar signos vitales, antecedentes ni procedimientos.
+// ─────────────────────────────────────────────────────────────────────────────
+patientSelfController.updateBloodType = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const { blood_type, blood_type_date } = req.body;
+
+        // Lista cerrada: sin esto se puede guardar cualquier texto en un dato que se usa
+        // en emergencias médicas
+        if (!BLOOD_TYPES.includes(blood_type)) {
+            return res.status(400).json({ message: "Tipo de sangre no válido" });
+        }
+
+        let registeredAt = new Date();
+        if (blood_type_date) {
+            const parsed = new Date(blood_type_date);
+            if (Number.isNaN(parsed.getTime())) {
+                return res.status(400).json({ message: "Fecha de registro no válida" });
+            }
+            if (parsed > new Date()) {
+                return res.status(400).json({ message: "La fecha de registro no puede ser futura" });
+            }
+            registeredAt = parsed;
+        }
+
+        const updatedPatient = await patientsModel
+            .findByIdAndUpdate(
+                req.user.id,
+                {
+                    $set: {
+                        "clinical_history.blood_type": blood_type,
+                        // Campo aparte en vez de convertir blood_type en objeto: el panel
+                        // administrativo ya lo lee como string y se rompería
+                        "clinical_history.blood_type_date": registeredAt,
+                    },
+                },
+                { new: true }
+            )
+            .select("-password");
+
+        if (!updatedPatient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        return res.status(200).json({ message: "Tipo de sangre guardado", user: updatedPatient });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/patientAccount/me/lifestyle — antecedentes no patológicos y ecológico-sociales.
+// Son los dos campos de texto libre de clinical_history; se guardan juntos porque la app
+// los edita en la misma pantalla.
+// ─────────────────────────────────────────────────────────────────────────────
+patientSelfController.updateLifestyle = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const { non_pathological, ecologycal_social } = req.body;
+
+        const fieldsToSet = {};
+        // Se acepta la cadena vacía a propósito: es como el paciente borra lo que escribió
+        if (non_pathological !== undefined) {
+            fieldsToSet["clinical_history.non_pathological"] = String(non_pathological).trim();
+        }
+        if (ecologycal_social !== undefined) {
+            fieldsToSet["clinical_history.ecologycal_social"] = String(ecologycal_social).trim();
+        }
+
+        if (Object.keys(fieldsToSet).length === 0) {
+            return res.status(400).json({ message: "No data provided to update" });
+        }
+
+        const updatedPatient = await patientsModel
+            .findByIdAndUpdate(req.user.id, { $set: fieldsToSet }, { new: true })
+            .select("-password");
+
+        if (!updatedPatient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        return res.status(200).json({ message: "Información guardada", user: updatedPatient });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/patientAccount/me/hereditary — agrega un antecedente familiar.
+// $push y no $set: es una lista que se acumula, sobrescribirla borraría los anteriores.
+// ─────────────────────────────────────────────────────────────────────────────
+patientSelfController.addHereditary = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const { relationship, condition, type } = req.body;
+
+        if (!relationship?.trim()) {
+            return res.status(400).json({ message: "Indica el parentesco" });
+        }
+        if (!condition?.trim()) {
+            return res.status(400).json({ message: "Indica la condición o enfermedad" });
+        }
+
+        const updatedPatient = await patientsModel
+            .findByIdAndUpdate(
+                req.user.id,
+                {
+                    $push: {
+                        "clinical_history.hereditary": {
+                            relationship: relationship.trim(),
+                            condition: condition.trim(),
+                            type: type?.trim() || undefined,
+                        },
+                    },
+                },
+                { new: true }
+            )
+            .select("-password");
+
+        if (!updatedPatient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        return res.status(201).json({ message: "Antecedente familiar agregado", user: updatedPatient });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/patientAccount/me/hereditary/:entryId
+// ─────────────────────────────────────────────────────────────────────────────
+patientSelfController.deleteHereditary = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const patient = await patientsModel.findById(req.user.id);
+        if (!patient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        const entry = patient.clinical_history?.hereditary?.id(req.params.entryId);
+        if (!entry) {
+            return res.status(404).json({ message: "Antecedente no encontrado" });
+        }
+
+        patient.clinical_history.hereditary.pull(req.params.entryId);
+        await patient.save();
+
+        return res.status(200).json({ message: "Antecedente eliminado" });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/patientAccount/me/pathological — agrega una enfermedad crónica o diagnóstico
+// ─────────────────────────────────────────────────────────────────────────────
+patientSelfController.addPathological = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const { disease, diagnosis, type } = req.body;
+
+        if (!disease?.trim()) {
+            return res.status(400).json({ message: "Indica la enfermedad" });
+        }
+
+        let diagnosisDate;
+        if (diagnosis) {
+            const parsed = new Date(diagnosis);
+            if (Number.isNaN(parsed.getTime())) {
+                return res.status(400).json({ message: "Fecha de diagnóstico no válida" });
+            }
+            if (parsed > new Date()) {
+                return res.status(400).json({ message: "La fecha de diagnóstico no puede ser futura" });
+            }
+            diagnosisDate = parsed;
+        }
+
+        const updatedPatient = await patientsModel
+            .findByIdAndUpdate(
+                req.user.id,
+                {
+                    $push: {
+                        "clinical_history.pathological": {
+                            disease: disease.trim(),
+                            diagnosis: diagnosisDate,
+                            type: type?.trim() || undefined,
+                        },
+                    },
+                },
+                { new: true }
+            )
+            .select("-password");
+
+        if (!updatedPatient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        return res.status(201).json({ message: "Enfermedad agregada", user: updatedPatient });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/patientAccount/me/pathological/:entryId
+// ─────────────────────────────────────────────────────────────────────────────
+patientSelfController.deletePathological = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const patient = await patientsModel.findById(req.user.id);
+        if (!patient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        const entry = patient.clinical_history?.pathological?.id(req.params.entryId);
+        if (!entry) {
+            return res.status(404).json({ message: "Enfermedad no encontrada" });
+        }
+
+        patient.clinical_history.pathological.pull(req.params.entryId);
+        await patient.save();
+
+        return res.status(200).json({ message: "Enfermedad eliminada" });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PUT /api/patientAccount/changePassword — requiere sesión. A diferencia del cambio de
 // contraseña por recuperación (que verifica un código enviado al correo), aquí el paciente ya
 // está autenticado y debe confirmar su contraseña actual para poder establecer una nueva.
 // ─────────────────────────────────────────────────────────────────────────────
 patientSelfController.changePassword = async (req, res) => {
     try {
-        if (req.user?.role !== "patient") {
-            return res.status(403).json({ message: "Acceso denegado" });
-        }
+        if (denyIfNotPatient(req, res)) return;
 
         const { oldPassword, newPassword, confirmNewPassword } = req.body;
 
