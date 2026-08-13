@@ -21,6 +21,7 @@ router.route("/patient")
 
 router.get("/patient/procedures", appointmentsController.getPatientProcedures);
 router.get("/nurses-for-acceptance", authorize("calendar.appointments", "view"), appointmentsController.getNursesForAcceptance);
+router.get("/doctors-with-appointments", authorize("calendar.appointments", "view"), appointmentsController.getDoctorsWithAppointments);
 
 router.route("/patient/:id")
     .put(appointmentsController.updatePatientAppointment);

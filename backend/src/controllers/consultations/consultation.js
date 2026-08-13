@@ -5,7 +5,7 @@ import patientsModel from "../../models/patients/patients.js";
 import doctorsModel from "../../models/doctors/doctors.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import inventoryController from "../inventory/inventoryController.js";
-import { getVitalSignsError } from "../../utils/validators.js";
+import { getVitalSignsError, getRequiredConsultationFieldsError } from "../../utils/validators.js";
 const consultationController = {};
 
 // Convierte el triage de la consulta al shape de Patients.clinical_history.vital_signs — null si
@@ -224,6 +224,15 @@ consultationController.insertConsultation = async (req, res) => {
       prescription,
     } = req.body;
 
+    // Síntomas, triage básico y diagnóstico completo son los datos mínimos para registrar una
+    // consulta (ver ConsultationForm.jsx) — el resto del formulario queda opcional.
+    const requiredFieldsError = getRequiredConsultationFieldsError(clinical_data);
+    if (requiredFieldsError) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: requiredFieldsError });
+    }
+
     // El frontend (TriageCard.jsx) ya bloquea el signo "-" al escribir, pero el backend nunca
     // debe confiar solo en eso (ej. una llamada directa por Swagger) — mismas reglas que ya
     // exige el expediente clínico para signos vitales (buildVitalSignsEntry hace la misma
@@ -376,6 +385,13 @@ consultationController.updateConsultation = async (req, res) => {
       antecedents,
       prescription,
     } = req.body;
+
+    const requiredFieldsError = getRequiredConsultationFieldsError(clinical_data);
+    if (requiredFieldsError) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: requiredFieldsError });
+    }
 
     const vitalSignsCheck = buildVitalSignsEntry(clinical_data?.triage, null);
     if (vitalSignsCheck) {

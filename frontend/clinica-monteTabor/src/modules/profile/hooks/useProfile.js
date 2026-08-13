@@ -124,11 +124,50 @@ const useProfile = () => {
     }
   };
 
+  // Autoedición de datos personales (nombre, DUI, fecha de nacimiento, teléfono/género según el
+  // rol) — reutiliza el mismo endpoint de autoservicio que uploadAvatar/deleteAvatar, ver
+  // EditProfileModal.jsx para qué campos manda cada rol.
+  const updateProfile = async (fields) => {
+    try {
+      setSubmitting(true);
+      setError("");
+
+      await apiClient(getEndpoint(), {
+        method: "PUT",
+        body: fields,
+      });
+
+      await Swal.fire({
+        icon: "success",
+        title: "¡Actualizado!",
+        text: "Tu información fue actualizada correctamente.",
+        confirmButtonColor: "#2563eb",
+        timer: 2500,
+        timerProgressBar: true,
+      });
+
+      await refetchUser();
+      return true;
+    } catch (err) {
+      setError(err.message || "Error al actualizar tu información");
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.message || "Ocurrió un error al actualizar tu información.",
+        confirmButtonColor: "#2563eb",
+      });
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return {
     error,
     submitting,
     uploadAvatar,
     deleteAvatar,
+    updateProfile,
     logout
   };
 };

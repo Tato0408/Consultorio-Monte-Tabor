@@ -9,6 +9,7 @@ import DoctorsAgendaSection from "../components/DoctorsAgendaSection";
 import QuickAppointmentForm from "../components/QuickAppointmentForm";
 import UpcomingAppointmentsList from "../components/UpcomingAppointmentsList";
 import PendingConfirmationsPanel from "../components/PendingConfirmationsPanel";
+import DashboardWelcomeHeader from "../components/DashboardWelcomeHeader";
 
 const todayStr = () => {
     const d = new Date();
@@ -20,7 +21,7 @@ const todayStr = () => {
 // Única diferencia real: la enfermera no tiene registro rápido de pacientes, por eso no se monta
 // QuickPatientForm ni se le pasa onRequestNewPatient a QuickAppointmentForm (oculta el botón "Nuevo").
 const NurseDashboard = () => {
-    const { user } = useAuth();
+    const { user, userType } = useAuth();
     const navigate = useNavigate();
     const { getStats, getDoctorsAgenda, getUpcomingAppointments, getPendingConfirmations } = useNurseDashboard();
     const medicalData = useMedicalData();
@@ -84,13 +85,15 @@ const NurseDashboard = () => {
     const s = stats || {};
 
     return (
-        <div className="p-4 sm:p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
+        <div className="bg-slate-50 min-h-screen">
+            <DashboardWelcomeHeader
+                displayName={displayName}
+                subtitle="Aquí tienes un resumen de la actividad de hoy"
+                user={user}
+                userType={userType}
+            />
 
-            {/* ── Header ── */}
-            <div>
-                <h1 className="text-xl font-bold text-slate-800">¡Bienvenido, {displayName}!</h1>
-                <p className="text-sm text-slate-400 mt-0.5">Aquí tienes un resumen de la actividad de hoy</p>
-            </div>
+            <div className="p-4 sm:p-6 pt-3 flex flex-col gap-6">
 
             {/* ── Tarjetas de resumen ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -169,6 +172,7 @@ const NurseDashboard = () => {
                 </div>
             </div>
 
+            </div>
         </div>
     );
 };

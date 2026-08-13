@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { History, Check } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 // Convierte un timestamp ISO en "hace 15m" / "hace 1h 20m"
 const formatRelativeTime = (isoDate) => {
@@ -19,6 +20,8 @@ const formatPatientName = (patient) =>
 
 const AppointmentHistoryPanel = ({ history, isLoading, error }) => {
     const navigate = useNavigate();
+    const { hasPermission } = useAuth();
+    const canEdit = hasPermission("calendar.consultations", "update");
 
     return (
         <div className="bg-white border border-slate-100 rounded-xl p-5 w-full">
@@ -65,10 +68,12 @@ const AppointmentHistoryPanel = ({ history, isLoading, error }) => {
                             </p>
                         </div>
                         <button
-                            onClick={() => navigate(`/calendar/consultations/${appt._id}?mode=view`)}
+                            onClick={() =>
+                                navigate(`/calendar/consultations/${appt._id}${canEdit ? "" : "?mode=view"}`)
+                            }
                             className="border border-slate-200 rounded-md px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 shrink-0"
                         >
-                            Ver Registro
+                            {canEdit ? "Editar" : "Ver Registro"}
                         </button>
                     </div>
                 ))}

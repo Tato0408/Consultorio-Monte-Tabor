@@ -1,4 +1,5 @@
-import { AlertCircle, AlertTriangle, BookOpen, PackagePlus, ClipboardList, ShoppingCart } from "lucide-react";
+import { AlertCircle, AlertTriangle } from "lucide-react";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 const diffDays = (dateStr) => {
   const diff = new Date(dateStr) - new Date();
@@ -10,14 +11,18 @@ const fmtExpiry = (dateStr) => {
   return new Date(dateStr).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
-const InventoryAlerts = ({ stats, onManualUsage, onStockEntry, onAdjust }) => {
-  const alertas          = stats?.alertas          ?? [];
-  const proximosAVencer  = stats?.proximosAVencer  ?? [];
+// "Alertas de inventario" y "Próximos a vencer" van debajo de la tabla (no en el panel
+// lateral), una al lado de la otra ocupando cada una la mitad del ancho de la tabla.
+const InventoryAlertsRow = ({ stats }) => {
+  const alertas         = stats?.alertas         ?? [];
+  const proximosAVencer = stats?.proximosAVencer ?? [];
 
+  // items-start: cada card toma su propia altura de contenido — con el stretch por defecto de
+  // grid, cerrar una mientras la otra sigue abierta dejaba su borde estirado hasta la altura
+  // de la abierta, con un hueco vacío debajo del encabezado.
   return (
-    <div className="flex flex-col gap-5">
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-        <h3 className="text-sm font-semibold text-slate-800 mb-4">Alertas de inventario</h3>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
+      <CollapsibleCard title="Alertas de inventario">
         <div className="flex flex-col gap-2">
           {alertas.length === 0 && (
             <p className="text-xs text-slate-400 text-center py-4">Sin alertas activas</p>
@@ -45,11 +50,9 @@ const InventoryAlerts = ({ stats, onManualUsage, onStockEntry, onAdjust }) => {
         <button className="w-full mt-3 text-xs text-blue-600 hover:underline font-medium">
           Ver todas las alertas
         </button>
-      </div>
+      </CollapsibleCard>
 
-
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-        <h3 className="text-sm font-semibold text-slate-800 mb-4">Próximos a vencer</h3>
+      <CollapsibleCard title="Próximos a vencer">
         <div className="flex flex-col gap-3">
           {proximosAVencer.length === 0 && (
             <p className="text-xs text-slate-400 text-center py-4">Sin vencimientos próximos</p>
@@ -72,32 +75,9 @@ const InventoryAlerts = ({ stats, onManualUsage, onStockEntry, onAdjust }) => {
         <button className="w-full mt-3 text-xs text-blue-600 hover:underline font-medium">
           Ver todos
         </button>
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-        <h3 className="text-sm font-semibold text-slate-800 mb-4">Acciones rápidas</h3>
-        <div className="flex flex-col gap-1">
-          {[
-            { label: "Registrar uso manual",    icon: BookOpen,      color: "text-blue-600 bg-blue-50",   fn: onManualUsage },
-            { label: "Registrar entrada de stock", icon: PackagePlus, color: "text-green-600 bg-green-50", fn: onStockEntry  },
-            { label: "Ajuste de inventario",    icon: ClipboardList, color: "text-orange-500 bg-orange-50", fn: onAdjust     },
-            { label: "Generar orden de compra", icon: ShoppingCart,  color: "text-purple-600 bg-purple-50", fn: null          },
-          ].map(({ label, icon: Icon, color, fn }) => (
-            <button
-              key={label}
-              onClick={fn}
-              className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors text-left"
-            >
-              <div className={`p-2 rounded-lg ${color}`}>
-                <Icon className="w-4 h-4" />
-              </div>
-              <span className="text-sm text-slate-700">{label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      </CollapsibleCard>
     </div>
   );
 };
 
-export default InventoryAlerts;
+export default InventoryAlertsRow;

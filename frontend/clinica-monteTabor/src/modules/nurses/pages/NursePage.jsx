@@ -82,13 +82,8 @@ const NursesPage = () => {
           <NurseTable
             nurses={nurses}
             loading={loading}
-            selectedNurse={selectedNurse}
             onSelect={selectNurse}
             onAdd={canCreate ? handleOpenCreate : undefined}
-            onEdit={handleOpenEdit}
-            onDelete={deleteNurse}
-            canUpdate={canUpdate}
-            canDelete={canDelete}
           />
         </div>
 
@@ -98,6 +93,10 @@ const NursesPage = () => {
             nurse={selectedNurse}
             nextProcedure={nextProcedure}
             loadingDetail={loadingDetail}
+            onEdit={handleOpenEdit}
+            onDelete={deleteNurse}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
           />
         </div>
       </div>

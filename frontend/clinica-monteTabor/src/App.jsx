@@ -27,7 +27,6 @@ import ReportAppointmentPage from './modules/reports/appointments/pages/Appointm
 import InventoryReportsPage from './modules/reports/inventory/pages/InventoryReportsPage'
 import NursesPage from './modules/nurses/pages/NursePage'
 import Appointments from "./modules/schedule/appointments/pages/Appointments"
-import AppointmentsForm from './modules/schedule/appointments/components/AppointmentsForm';
 import AppointmentsFormCalendar from './modules/schedule/appointments/components/AppointmentsFormCalendar';
 import RecordsPage from './modules/reports/records/page/RecordsPage'
 import NotFound from './modules/notFound/pages/NotFound';
@@ -80,10 +79,8 @@ function AppRoutes() {
         <Route path="/users/doctors" element={<RequirePermission moduleKey="users.doctors"><DoctorsList /></RequirePermission>} />
         <Route path="/users/recepcionist" element={<RequirePermission moduleKey="users.receptionist"><RecepcionistList /></RequirePermission>} />
         <Route path="/calendar/appointments" element={<RequirePermission moduleKey="calendar.appointments"><Appointments /></RequirePermission>} />
-        <Route path="/calendar/appointments/new" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsForm /></RequirePermission>} />
-        <Route path="/calendar/appointments/:id" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsForm /></RequirePermission>} />
-        <Route path="/calendar/appointments/calendar/new" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsFormCalendar /></RequirePermission>} />
-        <Route path="/calendar/appointments/calendar/:id" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsFormCalendar /></RequirePermission>} />
+        <Route path="/calendar/appointments/new" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsFormCalendar /></RequirePermission>} />
+        <Route path="/calendar/appointments/:id" element={<RequirePermission moduleKey="calendar.appointments"><AppointmentsFormCalendar /></RequirePermission>} />
         <Route path="/calendar/consultations" element={<RequirePermission moduleKey="calendar.consultations"><Consultations /></RequirePermission>} />
         <Route path="/calendar/consultations/:appointmentId" element={<RequirePermission moduleKey="calendar.consultations"><ConsultationForm /></RequirePermission>} />
         <Route path="/calendar/schedule-config" element={<RequirePermission moduleKey="calendar.schedule"><RequireRole roles={["doctor", "nurse", "admin"]}><ScheduleConfig /></RequireRole></RequirePermission>} />

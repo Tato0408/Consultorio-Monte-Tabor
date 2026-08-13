@@ -38,11 +38,14 @@ const ReportHeader = ({
           {subtitle && <p className="text-sm text-slate-400 mt-1">{subtitle}</p>}
         </div>
 
+        {/* mt-8 lo baja a la misma altura que el botón "Guardar cambios" de Horarios, para que
+            no choque con la campana de notificaciones (fixed, ver MainLayout.jsx). Este header
+            es compartido por las 4 páginas de reportes, así que las corrige a todas de una vez. */}
         <button
           type="button"
           onClick={onExport}
           disabled={exporting || disableExport}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors disabled:opacity-60 mt-8"
         >
           {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           {exporting ? "Generando..." : "Exportar"}

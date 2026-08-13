@@ -26,7 +26,7 @@ const fmtDate = (d) => {
   });
 };
 
-const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, canDelete = true }) => {
+const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, canDelete = true, onTableOffsetChange }) => {
   const { getInsumos, deleteInsumo } = useInsumos();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -210,6 +210,12 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
       columns={columns}
       loading={loading}
       searchFields={["name", "category", "description"]}
+      onTableOffsetChange={onTableOffsetChange}
+      headerLeft={
+        <h2 className="text-base font-semibold text-slate-800 whitespace-nowrap flex-shrink-0">
+          Productos / Insumos
+        </h2>
+      }
     />
   );
 };

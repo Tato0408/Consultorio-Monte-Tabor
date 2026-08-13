@@ -11,6 +11,7 @@ import QuickAppointmentForm from "../components/QuickAppointmentForm";
 import UpcomingAppointmentsList from "../components/UpcomingAppointmentsList";
 import QuickPatientForm from "../components/receptionist/QuickPatientForm";
 import PendingConfirmationsPanel from "../components/PendingConfirmationsPanel";
+import DashboardWelcomeHeader from "../components/DashboardWelcomeHeader";
 
 const todayStr = () => {
     const d = new Date();
@@ -21,7 +22,7 @@ const todayStr = () => {
 // que AdminDashboard.jsx / DoctorDashboard.jsx, reutilizando StatCard y los hooks/endpoints ya
 // existentes de citas y pacientes para las dos secciones de registro rápido.
 const RecepcionistDashboard = () => {
-    const { user } = useAuth();
+    const { user, userType } = useAuth();
     const navigate = useNavigate();
     const { getStats, getDoctorsAgenda, getUpcomingAppointments, getPendingConfirmations } = useReceptionistDashboard();
     const medicalData = useMedicalData();
@@ -92,13 +93,15 @@ const RecepcionistDashboard = () => {
     const s = stats || {};
 
     return (
-        <div className="p-4 sm:p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
+        <div className="bg-slate-50 min-h-screen">
+            <DashboardWelcomeHeader
+                displayName={displayName}
+                subtitle="Aquí tienes un resumen de la actividad de hoy"
+                user={user}
+                userType={userType}
+            />
 
-            {/* ── Header ── */}
-            <div>
-                <h1 className="text-xl font-bold text-slate-800">¡Bienvenido, {displayName}!</h1>
-                <p className="text-sm text-slate-400 mt-0.5">Aquí tienes un resumen de la actividad de hoy</p>
-            </div>
+            <div className="p-4 sm:p-6 pt-3 flex flex-col gap-6">
 
             {/* ── Tarjetas de resumen ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -179,6 +182,7 @@ const RecepcionistDashboard = () => {
                 </div>
             </div>
 
+            </div>
         </div>
     );
 };

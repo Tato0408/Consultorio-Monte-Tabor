@@ -17,7 +17,8 @@ import NewPasswordScreen from './src/screens/login/RecoveryScreens/NewPasswordSc
 import PasswordUpdatedScreen from './src/screens/login/RecoveryScreens/PasswordUpdatedScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import AppointmentsScreen from './src/screens/AppointmentsScreen';
-import MedicationsScreen from './src/screens/MedicationsScreen';
+import MedicationsScreen from './src/screens/medication/medicationScreen';
+import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
 import ProfileScreen from './src/screens/profile/profileScreen';
 import HealthInfoScreen from './src/screens/profile/healthInfoScreen';
 import EditProfileScreen from './src/screens/profile/editProfileScreen';
@@ -26,8 +27,6 @@ import ListDetailScreen from './src/screens/profile/listDetailScreen';
 import BloodTypeScreen from './src/screens/profile/bloodTypeScreen';
 import OrganDonationScreen from './src/screens/profile/organDonationScreen';
 import LifestyleScreen from './src/screens/profile/lifeStyleScreen';
-import MedicationsScreen from './src/screens/medications/medicationsScreen';
-import AddMedicationScreen from './src/screens/medications/addMedicationScreen';
 
 
 const Stack = createNativeStackNavigator();
@@ -59,6 +58,7 @@ function RootNavigator() {
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
           <Stack.Screen name="Appointments" component={AppointmentsScreen} />
           <Stack.Screen name="Medications" component={MedicationsScreen} />
+          <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
@@ -84,30 +84,14 @@ function RootNavigator() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <StatusBar style="dark" />
-
-        <Stack.Navigator
-          initialRouteName="Profile"
-          screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-            contentStyle: { backgroundColor: '#F4F6FA' },
-          }}
-        >
-          <Stack.Screen name="Medications" component={MedicationsScreen} />
-<Stack.Screen name="AddMedication" component={AddMedicationScreen} />
-
-          <Stack.Screen name="ListDetail" component={ListDetailScreen} />
-<Stack.Screen name="BloodType" component={BloodTypeScreen} />
-<Stack.Screen name="OrganDonation" component={OrganDonationScreen} />
-<Stack.Screen name="Lifestyle" component={LifestyleScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-          <Stack.Screen name="HealthInfo" component={HealthInfoScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <AuthProvider>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <StatusBar style="dark" />
+          <RootNavigator />
+        </NavigationContainer>
+        <Toast config={toastConfig} topOffset={60} />
+      </SafeAreaProvider>
+    </AuthProvider>
   );
 }

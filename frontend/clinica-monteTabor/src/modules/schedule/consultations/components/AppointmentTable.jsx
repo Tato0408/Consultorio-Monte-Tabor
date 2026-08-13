@@ -17,6 +17,7 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
     const canAttend = hasPermission("calendar.consultations", "create");
+    const canEdit = hasPermission("calendar.consultations", "update");
 
     const handleContinue = (appointmentId) => {
         // Navega al formulario de consulta; el cambio de estado a "completed"
@@ -93,10 +94,14 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                 <td className="py-3">
                                     {appt.status === "completed" ? (
                                         <button
-                                            onClick={() => navigate(`/calendar/consultations/${appt._id}?mode=view`)}
+                                            onClick={() =>
+                                                navigate(
+                                                    `/calendar/consultations/${appt._id}${canEdit ? "" : "?mode=view"}`
+                                                )
+                                            }
                                             className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
                                         >
-                                            Ver registro
+                                            {canEdit ? "Editar" : "Ver registro"}
                                         </button>
                                     ) : canAttend ? (
                                         <button

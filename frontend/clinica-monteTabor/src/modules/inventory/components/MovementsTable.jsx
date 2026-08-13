@@ -11,7 +11,7 @@ const TYPE_FILTERS = [
   { value: "Inventory adjustment", label: TYPE_LABEL["Inventory adjustment"] },
 ];
 
-const MovementsTable = ({ movements, loading }) => {
+const MovementsTable = ({ movements, loading, onSelectMovement, onTableOffsetChange, extraRows = 0, onItemsPerPageChange }) => {
   const [typeFilter, setTypeFilter] = useState("all");
 
   const filtered = typeFilter === "all"
@@ -41,10 +41,6 @@ const MovementsTable = ({ movements, loading }) => {
       render: (m) => <span className="text-sm text-slate-700 font-medium">{m.itemName}</span>,
     },
     {
-      header: "Detalle",
-      render: (m) => <span className="text-sm text-slate-500">{m.detail || "—"}</span>,
-    },
-    {
       header: "Cantidad",
       render: (m) => (
         <span className={`text-sm font-semibold ${m.quantity >= 0 ? "text-green-600" : "text-red-500"}`}>
@@ -58,31 +54,38 @@ const MovementsTable = ({ movements, loading }) => {
     },
   ];
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl px-3 h-[42px] w-fit">
-        <span className="text-xs text-slate-400 font-normal whitespace-nowrap">Filtrar por tipo</span>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="h-7 border-none bg-transparent p-0 shadow-none focus:ring-0 gap-1 text-slate-800 font-semibold text-xs min-w-[150px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent sideOffset={6}>
-            {TYPE_FILTERS.map((f) => (
-              <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <GenericTable
-        title="Movimientos de inventario"
-        placeholderSearch="Buscar por producto, detalle o usuario..."
-        data={data}
-        columns={columns}
-        loading={loading}
-        searchFields={["itemName", "detail", "user", "typeLabel"]}
-      />
+  // Va en la misma fila que el buscador de GenericTable (prop headerLeft) — antes vivía en su
+  // propia fila arriba del buscador, dejando espacio en blanco a la derecha de ambos.
+  const typeFilterControl = (
+    <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl px-3 h-[42px] w-fit flex-shrink-0">
+      <span className="text-xs text-slate-400 font-normal whitespace-nowrap">Filtrar por tipo</span>
+      <Select value={typeFilter} onValueChange={setTypeFilter}>
+        <SelectTrigger className="h-7 border-none bg-transparent p-0 shadow-none focus:ring-0 gap-1 text-slate-800 font-semibold text-xs min-w-[150px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent sideOffset={6}>
+          {TYPE_FILTERS.map((f) => (
+            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
+  );
+
+  return (
+    <GenericTable
+      title="Movimientos de inventario"
+      placeholderSearch="Buscar por producto, detalle o usuario..."
+      data={data}
+      columns={columns}
+      loading={loading}
+      searchFields={["itemName", "detail", "user", "typeLabel"]}
+      onRowClick={onSelectMovement}
+      onTableOffsetChange={onTableOffsetChange}
+      extraRows={extraRows}
+      onItemsPerPageChange={onItemsPerPageChange}
+      headerLeft={typeFilterControl}
+    />
   );
 };
 

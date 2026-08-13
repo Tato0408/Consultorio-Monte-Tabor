@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 import InputField from "@/components/ui/InputField";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import { showError } from "@/lib/alerts";
 import { maskLettersOnly } from "@/lib/inputMasks";
@@ -15,13 +16,15 @@ const emptyType = () => ({ name: "", color: COLORS[0] });
 // agendar una cita (ver AppointmentsCalendar.jsx / AppointmentsForm.jsx). A diferencia del resto
 // de secciones de Horarios, esta no depende del botón "Guardar cambios": cada acción persiste de
 // inmediato contra su propio endpoint, porque ya no vive dentro del horario de un doctor
-// específico.
-const AppointmentTypesSection = () => {
+// específico. Aun así, agregar/editar/eliminar sigue gateado por el modo edición de la PÁGINA
+// (prop "editing") para que la interfaz completa se sienta consistente: nada de eso se puede
+// hacer sin antes presionar "Editar horario".
+const AppointmentTypesSection = ({ editing }) => {
     const { getAppointmentTypes, createAppointmentType, updateAppointmentType, deleteAppointmentType } = useAppointmentTypes();
     const [types, setTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [editing, setEditing] = useState(null);
+    const [rowEditing, setRowEditing] = useState(null);
     const [form, setForm] = useState(emptyType());
 
     const load = () => {
@@ -34,20 +37,20 @@ const AppointmentTypesSection = () => {
 
     useEffect(() => { load(); }, []);
 
-    const startNew  = () => { setForm(emptyType()); setEditing("new"); };
-    const startEdit = (i) => { setForm({ name: types[i].name, color: types[i].color }); setEditing(i); };
-    const cancel    = () => setEditing(null);
+    const startNew  = () => { setForm(emptyType()); setRowEditing("new"); };
+    const startEdit = (i) => { setForm({ name: types[i].name, color: types[i].color }); setRowEditing(i); };
+    const cancel    = () => setRowEditing(null);
 
     const save = async () => {
         if (!form.name.trim() || saving) return;
         setSaving(true);
         try {
-            if (editing === "new") {
+            if (rowEditing === "new") {
                 await createAppointmentType(form);
             } else {
-                await updateAppointmentType(types[editing]._id, form);
+                await updateAppointmentType(types[rowEditing]._id, form);
             }
-            setEditing(null);
+            setRowEditing(null);
             load();
         } catch (err) {
             showError(err.message || "No se pudo guardar el tipo de cita");
@@ -66,23 +69,22 @@ const AppointmentTypesSection = () => {
     };
 
     return (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-            {/* Header */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
-                <div>
-                    <h3 className="text-sm font-semibold text-slate-800">Tipos de citas</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Catálogo global: define el color de cada tipo de cita. Se usa en la leyenda del calendario y al agendar una cita.</p>
-                </div>
-                <button
-                    onClick={startNew}
-                    disabled={editing !== null}
-                    title={editing !== null ? "Guarda o cancela el tipo que estás editando antes de agregar otro" : undefined}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 whitespace-nowrap self-start sm:flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                >
-                    <Plus className="w-3.5 h-3.5" /> Agregar tipo
-                </button>
-            </div>
-
+        <CollapsibleCard
+            title="Tipos de citas"
+            subtitle="Catálogo global: define el color de cada tipo de cita. Se usa en la leyenda del calendario y al agendar una cita."
+            actions={
+                editing && (
+                    <button
+                        onClick={startNew}
+                        disabled={rowEditing !== null}
+                        title={rowEditing !== null ? "Guarda o cancela el tipo que estás editando antes de agregar otro" : undefined}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 whitespace-nowrap flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> Agregar tipo
+                    </button>
+                )
+            }
+        >
             {loading ? (
                 <p className="text-center text-xs text-slate-400 py-4">Cargando...</p>
             ) : (
@@ -103,27 +105,31 @@ const AppointmentTypesSection = () => {
                                     </td>
                                     <td className="py-2.5 text-right">
                                         {/* Deshabilitados mientras hay otra fila en edición: evita perder ese
-                                            borrador sin guardar, y evita que "editing" (un índice) quede
+                                            borrador sin guardar, y evita que "rowEditing" (un índice) quede
                                             apuntando a la fila equivocada si el listado cambia de por medio. */}
-                                        <button
-                                            onClick={() => startEdit(i)}
-                                            disabled={editing !== null}
-                                            className="p-1 text-slate-400 hover:text-blue-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-400"
-                                        >
-                                            <Pencil className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                            onClick={() => remove(i)}
-                                            disabled={editing !== null}
-                                            className="p-1 text-slate-400 hover:text-red-500 ml-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-400"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
+                                        {editing && (
+                                            <>
+                                                <button
+                                                    onClick={() => startEdit(i)}
+                                                    disabled={rowEditing !== null}
+                                                    className="p-1 text-slate-400 hover:text-blue-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-400"
+                                                >
+                                                    <Pencil className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => remove(i)}
+                                                    disabled={rowEditing !== null}
+                                                    className="p-1 text-slate-400 hover:text-red-500 ml-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-400"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
 
-                            {editing !== null && (
+                            {rowEditing !== null && (
                                 <tr className="border-b border-blue-100 bg-blue-50/40">
                                     <td className="py-2.5 pr-2">
                                         <div className="flex items-center gap-2">
@@ -167,10 +173,10 @@ const AppointmentTypesSection = () => {
                 </div>
             )}
 
-            {!loading && types.length === 0 && editing === null && (
+            {!loading && types.length === 0 && rowEditing === null && (
                 <p className="text-center text-xs text-slate-400 py-4">Aún no has agregado tipos de cita</p>
             )}
-        </div>
+        </CollapsibleCard>
     );
 };
 

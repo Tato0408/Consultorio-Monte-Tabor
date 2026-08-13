@@ -1,6 +1,10 @@
 import bcryptjs from "bcryptjs";
 import jsonwebtoken from "jsonwebtoken";
 import patientsModel from "../../models/patients/patients.js";
+import appointmentsModel from "../../models/appointments/appointments.js";
+import consultationsModel from "../../models/consultations/consultation.js";
+import prescriptionsModel from "../../models/consultations/prescription.js";
+import sickLeavesModel from "../../models/sickLeaves/sickLeave.js";
 import { config } from "../../../config.js";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError } from "../../utils/validators.js";
 
