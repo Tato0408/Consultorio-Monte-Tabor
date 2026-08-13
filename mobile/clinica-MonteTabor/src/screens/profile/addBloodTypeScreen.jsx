@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import FormDateInput from "../../components/profile/FormDateInput";
 import apiClient from "../../lib/apiClient";
 import { showError, showSuccess } from "../../lib/toast";
-import styles from "../../styles/profile/bloodTypeStyle";
+import styles from "../../styles/profile/healthStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
 // Mismo orden que el mockup. Debe coincidir con BLOOD_TYPES del controller

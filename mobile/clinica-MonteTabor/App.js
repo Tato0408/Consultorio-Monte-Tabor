@@ -16,20 +16,22 @@ import NewPasswordScreen from './src/screens/login/RecoveryScreens/NewPasswordSc
 import PasswordUpdatedScreen from './src/screens/login/RecoveryScreens/PasswordUpdatedScreen';
 
 import DashboardScreen from './src/screens/DashboardScreen';
-import AppointmentsScreen from './src/screens/AppointmentsScreen';
-import NewAppointmentScreen from './src/screens/NewAppointmentScreen';
-import NotificationsScreen from './src/screens/NotificationsScreen';
-import AppointmentDetailScreen from './src/screens/AppointmentDetailScreen';
-import MedicationsScreen from './src/screens/medication/medicationScreen';
-import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
+
+
 import ProfileScreen from './src/screens/profile/profileScreen';
-import HealthInfoScreen from './src/screens/profile/healthInfoScreen';
 import EditProfileScreen from './src/screens/profile/editProfileScreen';
 import ChangePasswordScreen from './src/screens/profile/changePasswordScreen';
 import ListDetailScreen from './src/screens/profile/listDetailScreen';
+import HealthInfoScreen from './src/screens/profile/healthInfoScreen';
 import BloodTypeScreen from './src/screens/profile/bloodTypeScreen';
-import OrganDonationScreen from './src/screens/profile/organDonationScreen';
+import AddBloodTypeScreen from './src/screens/profile/addBloodTypeScreen';
+import AddHereditaryScreen from './src/screens/profile/addHederitaryScreen';
+import AddPathologicalScreen from './src/screens/profile/addPathologicalScreen';
 import LifestyleScreen from './src/screens/profile/lifeStyleScreen';
+
+import MedicationsScreen from './src/screens/medication/medicationScreen';
+import AppointmentsScreen from './src/screens/AppointmentsScreen';
+import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -56,19 +58,26 @@ function RootNavigator() {
         <>
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
           <Stack.Screen name="Appointments" component={AppointmentsScreen} />
-          <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} />
-          <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
-          <Stack.Screen name="Medications" component={MedicationsScreen} />
-          <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
+
+          {/* ---------- Perfil ---------- */}
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-          <Stack.Screen name="HealthInfo" component={HealthInfoScreen} />
           <Stack.Screen name="ListDetail" component={ListDetailScreen} />
+
+          {/* ---------- Historia clínica ----------
+              El "name" es el string que reciben los navigation.navigate(): tiene que
+              coincidir letra por letra, por eso van sin el sufijo "Screen". */}
+          <Stack.Screen name="HealthInfo" component={HealthInfoScreen} />
           <Stack.Screen name="BloodType" component={BloodTypeScreen} />
-          <Stack.Screen name="OrganDonation" component={OrganDonationScreen} />
+          <Stack.Screen name="AddBloodType" component={AddBloodTypeScreen} />
+          <Stack.Screen name="AddHereditary" component={AddHereditaryScreen} />
+          <Stack.Screen name="AddPathological" component={AddPathologicalScreen} />
           <Stack.Screen name="Lifestyle" component={LifestyleScreen} />
+
+          {/* ---------- Medicamentos ---------- */}
+          <Stack.Screen name="Medications" component={MedicationsScreen} />
+          <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
         </>
       ) : (
         <>
@@ -86,14 +95,16 @@ function RootNavigator() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SafeAreaProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
         <NavigationContainer>
           <StatusBar style="dark" />
+
           <RootNavigator />
         </NavigationContainer>
-        <Toast config={toastConfig} topOffset={60} />
-      </SafeAreaProvider>
-    </AuthProvider>
+
+        <Toast config={toastConfig} />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

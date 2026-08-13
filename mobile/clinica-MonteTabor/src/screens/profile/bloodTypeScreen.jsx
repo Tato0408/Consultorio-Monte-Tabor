@@ -12,7 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
-import styles from "../../styles/profile/bloodTypeStyle";
+import styles from "../../styles/profile/healthStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
 // Compatibilidad transfusional estándar del sistema ABO/Rh

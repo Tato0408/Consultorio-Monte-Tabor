@@ -21,11 +21,14 @@ import { showError, showSuccess, showWarning, confirmLogout } from "../../lib/to
 
 const EMPTY = "Sin registrar";
 
+// "Recordatorios" salió de aquí: MedicationsScreen ya se titula "Recordatorios de medicina",
+// así que apuntaba al mismo lugar que "Medicamentos". Su espacio lo toma el tipo de sangre,
+// que sí necesita entrada propia. Son cuatro para que quepan en una fila (shortcut usa flex: 1).
 const shortcuts = [
   { icon: "person-outline", title: "Mis datos", screen: "EditProfile" },
   { icon: "calendar-outline", title: "Mis consultas", screen: "Appointments" },
   { icon: "medkit-outline", title: "Medicamentos", screen: "Medications" },
-  { icon: "notifications-outline", title: "Recordatorios" },
+  { icon: "water-outline", title: "Tipo de sangre", screen: "BloodType" },
 ];
 
 // El backend guarda fechas ISO; se formatea en UTC para que no se corra un día
@@ -95,12 +98,16 @@ const ProfileScreen = ({ navigation }) => {
       : EMPTY;
 
     return [
-      { label: "Tipo de sangre", value: history?.blood_type || EMPTY },
+      {
+        label: "Tipo de sangre",
+        value: history?.blood_type || EMPTY,
+        onPress: () => navigation.navigate("BloodType"),
+      },
       { label: "Enfermedades crónicas", value: chronic },
       { label: "Antecedentes hereditarios", value: hereditary },
       { label: "Hábitos", value: history?.non_pathological || EMPTY },
     ];
-  }, [patient]);
+  }, [patient, navigation]);
 
   // Se ordena por fecha antes de tomar la última: el $push de patientsController no garantiza
   // que la toma más reciente quede al final del arreglo
