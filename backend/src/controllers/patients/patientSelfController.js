@@ -30,7 +30,7 @@ const toUserPayload = (patient) => ({
     last_name: patient.last_name,
 });
 
-// Los cinco endpoints de historia clínica repiten este chequeo; se extrae para no copiarlo
+// Todos los endpoints con sesión repiten este chequeo; se extrae para no copiarlo
 const denyIfNotPatient = (req, res) => {
     if (req.user?.role !== "patient") {
         res.status(403).json({ message: "Acceso denegado" });
@@ -436,6 +436,84 @@ patientSelfController.deletePathological = async (req, res) => {
         await patient.save();
 
         return res.status(200).json({ message: "Enfermedad eliminada" });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/patientAccount/consultations — requiere sesión; historial de "Mis consultas"
+// del paciente autenticado. A diferencia de /api/consultations (uso del personal, filtra por
+// :patient_id y exige permiso "calendar.consultations"), aquí no hay parámetro de paciente ni
+// matriz de permisos: la identidad sale del token (igual que getMe/updateMe) y arma en un solo
+// viaje lo que la tarjeta de la app necesita — cada cita del paciente, cruzada con su consulta
+// (si ya fue atendida), su prescripción y si generó una incapacidad. Mismo cruce de datos que
+// usePatientRecordDetail.buildExtra hace en la web, adaptado a un solo endpoint self-service.
+// ─────────────────────────────────────────────────────────────────────────────
+patientSelfController.getMyConsultations = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const patientId = req.user.id;
+
+        const [appointments, consultations, sickLeaves] = await Promise.all([
+            appointmentsModel
+                .find({ patient_id: patientId })
+                .populate("doctor_id", "name last_name specialty img_url")
+                .sort({ date: -1, start_time: -1 }),
+            consultationsModel.find({ patient_id: patientId }).select("appointment_id clinical_data referral"),
+            sickLeavesModel.find({ patient_id: patientId }).select("consultation_id"),
+        ]);
+
+        const consultationIds = consultations.map((c) => c._id);
+        const prescriptions = await prescriptionsModel
+            .find({ consultation_id: { $in: consultationIds } })
+            .select("consultation_id medications");
+
+        const prescriptionByConsultationId = new Map(
+            prescriptions.map((p) => [String(p.consultation_id), p])
+        );
+        const consultationByAppointmentId = new Map(
+            consultations.filter((c) => c.appointment_id).map((c) => [String(c.appointment_id), c])
+        );
+        const sickLeaveConsultationIds = new Set(
+            sickLeaves.filter((s) => s.consultation_id).map((s) => String(s.consultation_id))
+        );
+
+        const data = appointments.map((appointment) => {
+            const consultation = consultationByAppointmentId.get(String(appointment._id)) || null;
+            const prescription = consultation ? prescriptionByConsultationId.get(String(consultation._id)) : null;
+
+            return {
+                appointment_id: appointment._id,
+                consultation_id: consultation?._id || null,
+                date: appointment.date,
+                start_time: appointment.start_time,
+                end_time: appointment.end_time,
+                type: appointment.type,
+                status: appointment.status,
+                doctor: appointment.doctor_id
+                    ? {
+                        name: appointment.doctor_id.name,
+                        last_name: appointment.doctor_id.last_name,
+                        specialty: appointment.doctor_id.specialty || null,
+                        img_url: appointment.doctor_id.img_url || null,
+                    }
+                    : null,
+                diagnosis:
+                    consultation?.clinical_data?.diagnosis_description ||
+                    consultation?.clinical_data?.diagnosis ||
+                    null,
+                badges: {
+                    prescription: Boolean(prescription?.medications?.length),
+                    referral: Boolean(consultation?.referral?.reason),
+                    sickLeave: Boolean(consultation && sickLeaveConsultationIds.has(String(consultation._id))),
+                },
+            };
+        });
+
+        return res.status(200).json(data);
     } catch (error) {
         console.log("error " + error);
         return res.status(500).json({ message: "Error interno del servidor" });
