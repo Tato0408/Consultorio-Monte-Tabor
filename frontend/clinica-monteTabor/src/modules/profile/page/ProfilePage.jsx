@@ -18,8 +18,8 @@ const ProfilePage = () => {
 
   const roleTranslations = {
     admin: "Administrador del sistema",
-    doctor: "Médico Especialista",
-    nurse: "Personal de Enfermería",
+    doctor: "Médico especialista",
+    nurse: "Personal de enfermería",
     receptionist: "Recepcionista del sistema",
   };
 

@@ -63,7 +63,7 @@ const ReceptionistsTable = ({
       loading={loading}
       searchFields={["name", "last_name", "dui", "email"]}
       onAdd={onOpenForm}
-      addLabel="Agregar Recepcionista"
+      addLabel="Agregar recepcionista"
       onRowClick={onSelect}
       evenColumns
     />

@@ -57,7 +57,7 @@ const DoctorsTable = ({
       loading={loading}
       searchFields={["name", "last_name", "email"]} // Filtra interactivamente usando estos campos
       onAdd={onOpenForm}
-      addLabel="Agregar Doctor"
+      addLabel="Agregar doctor"
       onRowClick={onSelectDoctor}
       evenColumns
     />

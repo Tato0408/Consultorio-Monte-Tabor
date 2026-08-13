@@ -14,7 +14,7 @@ const ProceduresCard = ({ readOnly }) => {
     });
 
     return (
-        <SectionCard title="Procedimientos Realizados">
+        <SectionCard title="Procedimientos realizados">
             <div className="space-y-4 mb-3">
                 {rows.map((row, index) => (
                     <ProcedureRow

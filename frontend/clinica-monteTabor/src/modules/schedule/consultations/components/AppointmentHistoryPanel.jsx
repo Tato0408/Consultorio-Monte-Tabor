@@ -28,13 +28,13 @@ const AppointmentHistoryPanel = ({ history, isLoading, error }) => {
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2 font-semibold text-slate-800">
                     <History size={16} className="text-[#0b66d6]" />
-                    Historial del Día
+                    Historial del día
                 </div>
                 <button
                     onClick={() => navigate("/calendar/consultations")}
                     className="text-xs text-[#0b66d6] font-medium hover:underline"
                 >
-                    Ver Todo
+                    Ver todo
                 </button>
             </div>
 
@@ -73,7 +73,7 @@ const AppointmentHistoryPanel = ({ history, isLoading, error }) => {
                             }
                             className="border border-slate-200 rounded-md px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 shrink-0"
                         >
-                            {canEdit ? "Editar" : "Ver Registro"}
+                            {canEdit ? "Editar" : "Ver registro"}
                         </button>
                     </div>
                 ))}

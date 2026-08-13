@@ -43,7 +43,7 @@ const TreatmentsPage = () => {
     <div className="p-4 sm:p-8 bg-gray-50/50 min-h-screen w-full font-sans text-slate-700">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Seguimiento del Paciente</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Seguimiento del paciente</h1>
         <p className="text-sm text-slate-400 mt-1">Gestiona el plan de atención y evolución de cada paciente</p>
       </div>
 

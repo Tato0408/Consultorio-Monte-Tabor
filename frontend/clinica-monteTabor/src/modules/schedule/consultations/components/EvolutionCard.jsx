@@ -5,7 +5,7 @@ const EvolutionCard = ({ readOnly }) => {
     const { control, formState: { errors } } = useFormContext();
 
     return (
-        <SectionCard title="Evolución Clínica">
+        <SectionCard title="Evolución clínica">
             <p className="text-xs text-slate-400 mb-2">
                 Resumen de evolución y padecimiento actual
             </p>

@@ -29,7 +29,7 @@ const PatientsTable = ({ patients, loading, onAdd, onSelectPatient }) => {
       loading={loading}
       searchFields={["name", "last_name", "dui", "email"]}
       onAdd={onAdd}
-      addLabel="Agregar Paciente"
+      addLabel="Agregar paciente"
       onRowClick={onSelectPatient}
       evenColumns
     />

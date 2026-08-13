@@ -14,7 +14,7 @@ const PrescriptionCard = ({ readOnly }) => {
     });
 
     return (
-        <SectionCard title="Receta y Seguimiento">
+        <SectionCard title="Receta y seguimiento">
             <div className="space-y-3 mb-3">
                 {rows.map((row, index) => (
                     <div key={row.id} className="border border-slate-100 rounded-lg p-3">

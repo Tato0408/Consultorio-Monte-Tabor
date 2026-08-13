@@ -14,7 +14,7 @@ const PhysicalExamCard = ({ readOnly }) => {
     const { register } = useFormContext();
 
     return (
-        <SectionCard title="Examen Físico">
+        <SectionCard title="Examen físico">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 {FIELDS.map((field) => (
                     <div key={field.key}>

@@ -8,7 +8,7 @@ const ConsultationActions = ({ readOnly, isSaving, onFinish, onPreview }) => {
                     type="button"
                     className="w-full border border-slate-200 rounded-lg py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
                 >
-                    Generar Incapacidad
+                    Generar incapacidad
                 </button>
             )}
 
@@ -26,7 +26,7 @@ const ConsultationActions = ({ readOnly, isSaving, onFinish, onPreview }) => {
                         type="button"
                         className="w-full border border-slate-200 rounded-lg py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
                     >
-                        Prescribir Examen
+                        Prescribir examen
                     </button>
 
                     {/* type="submit" porque dispara el handleSubmit del <form> padre */}
@@ -36,7 +36,7 @@ const ConsultationActions = ({ readOnly, isSaving, onFinish, onPreview }) => {
                         onClick={onFinish}
                         className="w-full bg-[#0b66d6] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#0a59ba] disabled:opacity-50"
                     >
-                        {isSaving ? "Guardando..." : "Finalizar y Guardar"}
+                        {isSaving ? "Guardando..." : "Finalizar y guardar"}
                     </button>
                 </>
             )}

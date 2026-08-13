@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import patientsModel from "../../models/patients/patients.js";
 import doctorsModel from "../../models/doctors/doctors.js";
@@ -33,12 +32,14 @@ reportsController.getAppointmentsReport = async (req, res) => {
         const range = resolveRange(req.query);
         const { isGeneral, start, end, prevStart, prevEnd } = range;
 
-        // El doctor solo ve el reporte de sus propias citas, admin ve toda la
-        // clínica. Se castea a ObjectId a mano porque aggregate() no lo hace solo.
-        const doctorScope = req.user.role === "doctor" ? { doctor_id: new mongoose.Types.ObjectId(req.user.id) } : {};
-
-        const curFilter = { ...dateFilter("date", start, end), ...doctorScope };
-        const prevFilter = isGeneral ? { ...doctorScope } : { ...dateFilter("date", prevStart, prevEnd), ...doctorScope };
+        // Los 4 reportes (citas/pacientes/doctores/inventario) muestran siempre los datos
+        // generales de toda la clínica, sin importar el rol de quien los consulta — igual que
+        // getPatientsReport/getDoctorsReport/getInventoryReport, que nunca filtraron por
+        // usuario. Antes este reporte SÍ acotaba por doctor_id cuando el rol era "doctor", lo
+        // que además de la inconsistencia con los otros 3, dejaba a un doctor sin citas propias
+        // viendo el reporte completamente vacío aunque la clínica sí tuviera actividad.
+        const curFilter = dateFilter("date", start, end);
+        const prevFilter = isGeneral ? {} : dateFilter("date", prevStart, prevEnd);
         const countCur = (extra = {}) => appointmentsModel.countDocuments({ ...curFilter, ...extra });
         const countPrev = (extra = {}) =>
             isGeneral ? Promise.resolve(0) : appointmentsModel.countDocuments({ ...prevFilter, ...extra });
@@ -85,8 +86,8 @@ reportsController.getAppointmentsReport = async (req, res) => {
             isGeneral ? Promise.resolve([]) : appointmentsModel.distinct("doctor_id", prevFilter),
             appointmentsModel.aggregate([{ $match: curFilter }, { $group: { _id: null, avg: { $avg: "$duration_minutes" } } }]),
             isGeneral ? Promise.resolve([]) : appointmentsModel.aggregate([{ $match: prevFilter }, { $group: { _id: null, avg: { $avg: "$duration_minutes" } } }]),
-            buildTimeSeries(appointmentsModel, "date", doctorScope, range),
-            buildTimeSeries(appointmentsModel, "date", { ...doctorScope, status: "completed" }, range),
+            buildTimeSeries(appointmentsModel, "date", {}, range),
+            buildTimeSeries(appointmentsModel, "date", { status: "completed" }, range),
             appointmentsModel.aggregate([
                 { $match: { ...curFilter, status: "completed" } },
                 { $group: { _id: "$patient_id", count: { $sum: 1 } } },
@@ -167,17 +168,18 @@ reportsController.getAppointmentsReport = async (req, res) => {
                 key: "medicos",
                 title: "Médicos y duración de consultas",
                 icon: "user",
-                // El doctor solo ve las suyas, así que "doctores con citas asignadas"
-                // siempre daría 1: la fila no aporta nada para ese rol.
+                // Ahora todos los roles ven el reporte general de toda la clínica (ver
+                // curFilter/prevFilter más arriba), así que esta fila ya aporta lo mismo para
+                // cualquier usuario que la consulte, no solo para admin.
                 rows: [
-                    req.user.role !== "doctor" && buildRow("Doctores con citas asignadas", doctorsCur.length, doctorsPrev.length, isGeneral),
+                    buildRow("Doctores con citas asignadas", doctorsCur.length, doctorsPrev.length, isGeneral),
                     {
                         proceso: "Duración promedio de las citas",
                         actual: `${avgDuration} min`,
                         anterior: isGeneral ? "—" : `${avgDurationPrev} min`,
                         variacion: isGeneral ? "—" : formatVariation(growthPct(avgDuration, avgDurationPrev)),
                     },
-                ].filter(Boolean),
+                ],
             },
         ];
 

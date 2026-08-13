@@ -110,7 +110,7 @@ const NewPassword = () => {
 
   return (
     <AuthLayout
-      title="REESTABLECE TU CONTRASEÑA"
+      title="Restablece tu contraseña"
       subtitle="Crea una nueva contraseña segura para proteger tu cuenta"
     >
       <div className="flex-1 flex flex-col justify-between px-8 sm:px-12 py-5">
@@ -187,7 +187,7 @@ const NewPassword = () => {
                   //Se bloquea si el loading esta activo o si falta alguna regla por cumplir
                   disabled={!allRulesPassed || loading}
                 >
-                  Reestablecer contraseña
+                  Restablecer contraseña
                 </PrimaryButton>
               </fieldset>
 

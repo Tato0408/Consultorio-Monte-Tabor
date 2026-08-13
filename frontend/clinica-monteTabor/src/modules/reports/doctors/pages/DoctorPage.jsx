@@ -81,8 +81,8 @@ const DoctoresPage = () => {
             {topCards.map((card) => <TopCard key={card.key} card={card} />)}
           </div>
           <div className="space-y-4">
-            {sections.map((section, i) => (
-              <ReportSection key={section.key} section={section} defaultOpen={i === 0} />
+            {sections.map((section) => (
+              <ReportSection key={section.key} section={section} />
             ))}
           </div>
         </>

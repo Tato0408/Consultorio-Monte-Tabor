@@ -42,7 +42,7 @@ const ConsultationForm = () => {
         if (error) {
             // Si terminó de cargar pero hay un error real (ej. error 500, error de red)
             showError(
-                "Error de Carga",
+                "Error de carga",
                 "No se pudo obtener el registro clínico. Por favor, vuelve a intentarlo."
             ).then(() => {
                 // Cuando el doctor le da "OK" al botón del SweetAlert, lo sacamos de aquí

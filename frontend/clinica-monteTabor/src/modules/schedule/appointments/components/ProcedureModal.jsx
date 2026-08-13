@@ -64,7 +64,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
             <DialogContent closeDisabled={submitting} className="sm:max-w-[480px] rounded-2xl bg-white p-6 shadow-xl border-0">
                 <DialogHeader>
                     <DialogTitle className="text-lg font-bold text-gray-900">
-                        Creación Rápida de Procedimiento
+                        Creación rápida de procedimiento
                     </DialogTitle>
                 </DialogHeader>
 
@@ -74,7 +74,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                 <fieldset disabled={submitting} className="contents">
                     {/* Nombre: obligatorio, mínimo 3 caracteres. */}
                     <div className="space-y-1">
-                        <Label className="text-xs font-semibold text-gray-600">Nombre del Procedimiento *</Label>
+                        <Label className="text-xs font-semibold text-gray-600">Nombre del procedimiento *</Label>
                         <Controller
                             name="name"
                             control={control}
@@ -86,7 +86,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                 <Input
                                     value={field.value}
                                     onChange={field.onChange}
-                                    placeholder="Ej. Limpieza Dental Profunda"
+                                    placeholder="Ej. Limpieza dental profunda"
                                     maxLength={100}
                                     className="bg-gray-50 border-gray-200 rounded-lg h-10 focus-visible:ring-[#0b66d6]"
                                 />
@@ -212,7 +212,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
 
                     {/* Indicaciones post-operatorias: opcional. */}
                     <div className="space-y-1">
-                        <Label className="text-xs font-semibold text-gray-600">Indicaciones Post-Operatorias</Label>
+                        <Label className="text-xs font-semibold text-gray-600">Indicaciones post-operatorias</Label>
                         <Controller
                             name="post_operative_instructions"
                             control={control}

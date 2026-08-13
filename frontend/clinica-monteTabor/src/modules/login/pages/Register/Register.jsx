@@ -25,7 +25,7 @@ const Register = () => {
 
   const passwordRules = [
     { id: "length", label: "La contraseña tiene al menos 8 caracteres", test: (p) => p.length >= 8 },
-    { id: "upper", label: "Las contraseña contiene mayúsculas y minúsculas", test: (p) => /[A-Z]/.test(p) && /[a-z]/.test(p) },
+    { id: "upper", label: "La contraseña contiene mayúsculas y minúsculas", test: (p) => /[A-Z]/.test(p) && /[a-z]/.test(p) },
     { id: "number", label: "La contraseña incluye números", test: (p) => /[0-9]/.test(p) },
     { id: "special", label: "La contraseña incluye caracteres especiales", test: (p) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
     { id: "match", label: "Las contraseñas coinciden", test: (p, c) => p.length > 0 && p === c },
@@ -134,7 +134,7 @@ const Register = () => {
         }}>
           <div className="absolute inset-0 flex flex-col justify-center items-center px-16 pt-[18%]">
             <div className="text-white max-w-[280px]">
-              <h1 className="text-4xl font-extrabold tracking-tight leading-tight mb-2">BIENVENIDO</h1>
+              <h1 className="text-4xl font-extrabold tracking-tight leading-tight mb-2">Bienvenido</h1>
               <h2 className="text-lg font-semibold mb-3 text-white/90">Crea tu cuenta de administrador</h2>
               <p className="text-sm text-white/75 leading-relaxed">
                 Crea tu cuenta con tu información personal para comenzar a gestionar el sistema de manera segura y eficiente
@@ -167,7 +167,7 @@ const Register = () => {
                 </svg>
                 <span className="relative z-10 text-white font-bold text-lg select-none">T</span>
               </div>
-              <h2 className="text-xl font-bold text-gray-800 tracking-tight">Crear Cuenta</h2>
+              <h2 className="text-xl font-bold text-gray-800 tracking-tight">Crear cuenta</h2>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
@@ -269,7 +269,7 @@ const Register = () => {
                 icon={<Lock className="w-4 h-4" />} error={errors.contrasena} disabled={loading} />
 
               {/* Confirmación */}
-              <InputField label="Confirmación de Contraseña" id="confirmContrasena" type="password" placeholder="Confirma tu contraseña"
+              <InputField label="Confirmación de contraseña" id="confirmContrasena" type="password" placeholder="Confirma tu contraseña"
                 value={formData.confirmContrasena} onChange={handleChange("confirmContrasena")} maxLength={100}
                 icon={<Lock className="w-4 h-4" />} error={errors.confirmContrasena} disabled={loading} />
 

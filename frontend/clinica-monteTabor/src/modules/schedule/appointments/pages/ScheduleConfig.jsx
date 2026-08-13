@@ -147,7 +147,9 @@ const ScheduleConfig = () => {
     const handleSave = async () => {
         if (saving) return;
         if (!ownerId) {
-            setError(`No se pudo obtener el ID del ${isNurse ? "enfermera" : "doctor"}. Recarga la página.`);
+            setError(isNurse
+                ? "No se pudo obtener el ID de la enfermera. Recarga la página."
+                : "No se pudo obtener el ID del doctor. Recarga la página.");
             return;
         }
         setSaving(true);

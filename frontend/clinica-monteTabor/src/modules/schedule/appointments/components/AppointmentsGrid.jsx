@@ -324,7 +324,7 @@ export default function AppointmentsGrid() {
                         className="bg-[#0b66d6] hover:bg-blue-700 text-white px-5 py-5 rounded-xl flex items-center gap-2 font-semibold shadow-md shadow-blue-100"
                     >
                         <Plus className="h-5 w-5" />
-                        Nueva Cita
+                        Nueva cita
                     </Button>
                 )}
             </div>

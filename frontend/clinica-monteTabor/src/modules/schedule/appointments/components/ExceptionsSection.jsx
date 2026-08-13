@@ -288,7 +288,7 @@ const ExceptionsSection = ({ exceptions, onChange, editing }) => {
     return (
         <CollapsibleCard
             title="3. Excepciones y días no laborables"
-            subtitle="Administralas excepciones que tendras en días especiales, tus vacaciones o cambios a tu horario habitual"
+            subtitle="Administra las excepciones que tendrás en días especiales, tus vacaciones o cambios a tu horario habitual"
             defaultOpen={false}
             actions={
                 editing && (

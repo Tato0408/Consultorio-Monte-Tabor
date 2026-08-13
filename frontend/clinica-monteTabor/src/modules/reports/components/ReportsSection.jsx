@@ -35,7 +35,7 @@ const VariacionCell = ({ value }) => {
   );
 };
 
-const ReportSection = ({ section, defaultOpen = true }) => {
+const ReportSection = ({ section, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const Icon = SECTION_ICONS[section.icon] || Activity;
 
@@ -80,7 +80,7 @@ const ReportSection = ({ section, defaultOpen = true }) => {
                 Actual
               </span>
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
-                Período Anterior
+                Período anterior
               </span>
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
                 Variación

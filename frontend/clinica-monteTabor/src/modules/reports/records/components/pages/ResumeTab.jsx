@@ -60,9 +60,9 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <VitalCard label="Presión Arterial" value={v.presionArterial} unit="mmHg" />
+        <VitalCard label="Presión arterial" value={v.presionArterial} unit="mmHg" />
         <VitalCard label="Glucosa" value={v.glucosa} unit="mg/dL" />
-        <VitalCard label="Peso / Altura" value={v.peso} unit={v.altura} />
+        <VitalCard label="Peso / altura" value={v.peso} unit={v.altura} />
         <VitalCard label="IMC" value={v.imc} badge={v.imcCategoria} />
         <div className="col-span-2 flex flex-col items-center justify-center rounded-2xl bg-blue-600 p-4 text-center text-white shadow-sm sm:col-span-1">
           <Clock className="h-5 w-5 opacity-90" />
@@ -186,7 +186,7 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
       </div>
 
       <SectionCard
-        title="Resultados de Laboratorio y Exámenes"
+        title="Resultados de laboratorio y exámenes"
         action={
           <div className="flex items-center gap-2">
             {canAttend && <AddButton onClick={handleAgregarClinico} />}
@@ -224,7 +224,7 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
       </SectionCard>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard title="Notas de Evolución" action={<VerTodos onClick={() => onNavigateTab?.("Consultas")}>Ver más</VerTodos>}>
+        <SectionCard title="Notas de evolución" action={<VerTodos onClick={() => onNavigateTab?.("Consultas")}>Ver más</VerTodos>}>
           <div className="rounded-xl border-l-4 border-blue-500 bg-slate-50 p-4">
             <p className="text-sm leading-relaxed text-slate-600">
               {patient.notasEvolucion?.texto ?? "—"}
@@ -237,7 +237,7 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
           </div>
         </SectionCard>
 
-        <SectionCard title="Impresión Diagnóstica">
+        <SectionCard title="Impresión diagnóstica">
           <div className="flex items-center gap-4 rounded-xl bg-slate-50 p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-[11px] font-bold text-blue-600">
               {patient.impresionDiagnostica?.codigo ?? "CIE"}

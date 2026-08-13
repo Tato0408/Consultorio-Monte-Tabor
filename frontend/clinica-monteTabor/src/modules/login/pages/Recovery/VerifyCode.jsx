@@ -176,7 +176,7 @@ const VerifyCode = () => {
 
   return (
     <AuthLayout
-      title="UN ÚLTIMO PASO"
+      title="Un último paso"
       subtitle="Hemos enviado un código de 6 dígitos a tu correo electrónico"
     >
       <div className="flex-1 flex flex-col justify-between px-8 sm:px-12 py-5">

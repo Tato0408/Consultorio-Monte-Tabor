@@ -108,7 +108,7 @@ const Login = () => {
           <div className="absolute inset-0 flex flex-col justify-center items-center px-16 pt-[18%]">
             <div className="text-white max-w-[260px]">
               <h1 className="text-4xl font-extrabold tracking-tight leading-tight mb-3">
-                BIENVENIDO
+                Bienvenido
               </h1>
               <h2 className="text-lg font-semibold mb-4 text-white/90">
                 Inicia sesión en tu cuenta

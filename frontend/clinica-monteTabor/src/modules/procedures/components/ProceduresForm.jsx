@@ -190,9 +190,9 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
 
           <div className="space-y-3">
             <div className="grid grid-cols-12 gap-2 md:gap-3 text-xs font-semibold text-gray-500 px-1">
-              <div className="col-span-7">MATERIAL</div>
-              <div className="col-span-3">CANTIDAD</div>
-              <div className="col-span-2 text-right">ACC.</div>
+              <div className="col-span-7">Material</div>
+              <div className="col-span-3">Cantidad</div>
+              <div className="col-span-2 text-right">Acc.</div>
             </div>
 
             {fields.map((item, index) => {

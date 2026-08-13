@@ -143,7 +143,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
           />
 
           <InputField
-            label="Confirmación de Contraseña"
+            label="Confirmación de contraseña"
             id="confirmContrasena"
             type="password"
             placeholder="Confirma tu contraseña"

@@ -12,7 +12,7 @@ const Home = () => {
     if (userType === "receptionist") return <RecepcionistDashboard />;
     if (userType === "nurse")        return <NurseDashboard />;
 
-    return <div className="p-8 text-slate-400 text-sm">Cargando Dashboard...</div>;
+    return <div className="p-8 text-slate-400 text-sm">Cargando dashboard...</div>;
 };
 
 export default Home;

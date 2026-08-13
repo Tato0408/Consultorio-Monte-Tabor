@@ -171,7 +171,7 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
                             className="w-full px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
                           >
                             <Edit2 className="w-3.5 h-3.5 text-gray-400" />
-                            Editar Completo
+                            Editar completo
                           </button>
                         )}
 

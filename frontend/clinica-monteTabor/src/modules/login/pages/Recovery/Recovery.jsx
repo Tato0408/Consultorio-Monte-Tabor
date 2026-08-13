@@ -50,7 +50,7 @@ const RecoveryPassword = () => {
         if (doctorRes.message === "Correo enviado") {
           localStorage.setItem("recoveryType", "doctor");
           localStorage.setItem("recoveryEmail", email);
-          showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
+          showSuccess("Correo enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
           navigate("/verify-code");
           return; //Como fue exitoso, se deitene la función aquí
         }
@@ -64,7 +64,7 @@ const RecoveryPassword = () => {
         if (recRes.message === "Correo enviado") {
           localStorage.setItem("recoveryType", "receptionist");
           localStorage.setItem("recoveryEmail", email);
-          showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
+          showSuccess("Correo enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
           navigate("/verify-code");
           return;
         }
@@ -78,7 +78,7 @@ const RecoveryPassword = () => {
         if (adminRes.message === "Correo enviado") {
           localStorage.setItem("recoveryType", "admin");
           localStorage.setItem("recoveryEmail", email);
-          showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
+          showSuccess("Correo enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
           navigate("/verify-code");
           return;
         }
@@ -92,7 +92,7 @@ const RecoveryPassword = () => {
         if (nurseRes.message === "Correo enviado") {
           localStorage.setItem("recoveryType", "nurse");
           localStorage.setItem("recoveryEmail", email);
-          showSuccess("Correo Enviado", "Se ha enviado un código de confirmación a tu correo.");
+          showSuccess("Correo enviado", "Se ha enviado un código de confirmación a tu correo.");
           navigate("/verify-code");
           return;
         }
@@ -115,7 +115,7 @@ const RecoveryPassword = () => {
 
   return (
     <AuthLayout
-      title="¿OLVIDASTE TU CONTRASEÑA?"
+      title="¿Olvidaste tu contraseña?"
       subtitle="Te ayudaremos a restablecerla"
     >
       <div className="flex-1 flex flex-col justify-between px-8 sm:px-12 py-5">

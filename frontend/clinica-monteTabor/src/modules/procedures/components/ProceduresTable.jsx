@@ -148,7 +148,7 @@ const ProceduresTable = ({ data, loading, onAdd, onEdit, onDelete, canUpdate = t
       loading={loading}
       searchFields={["name"]}
       onAdd={onAdd}
-      addLabel="Agregar Procedimiento"
+      addLabel="Agregar procedimiento"
       showNurseFilter={true} // <-- El filtro exclusivo de enfermeras ahora se activa bien desde aquí
     />
   );

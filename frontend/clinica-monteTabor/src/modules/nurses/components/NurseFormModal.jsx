@@ -274,7 +274,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               <label className="text-xs font-semibold text-gray-400">Correo electrónico</label>
               <input
                 type="email"
-                placeholder="Correo@gmail.com"
+                placeholder="correo@gmail.com"
                 maxLength={100}
                 {...register("email", {
                   required: "El correo es requerido",
@@ -392,7 +392,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
                 <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene al menos 8 caracteres" />
                 <ValidationRow checked={passwordValidations.hasMixedCase} label="La contraseña contiene mayúsculas y minúsculas" />
                 <ValidationRow checked={passwordValidations.hasNumbers} label="La contraseña incluye números" />
-                <ValidationRow checked={passwordValidations.hasSpecialChar} label="Las contraseñas incluyen caracteres especiales" />
+                <ValidationRow checked={passwordValidations.hasSpecialChar} label="La contraseña incluye caracteres especiales" />
               </div>
             </div>
           )}
