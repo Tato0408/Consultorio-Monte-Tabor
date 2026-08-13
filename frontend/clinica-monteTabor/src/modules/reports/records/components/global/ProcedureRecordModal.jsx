@@ -169,11 +169,13 @@ const ProcedureRecordModal = ({ isOpen, onClose, patientId, onSaved }) => {
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">Diagnóstico</label>
               <input type="text" maxLength={MAX_FIELD_LENGTH} value={form.diagnosis} onChange={(e) => set("diagnosis", e.target.value)} className={inputClass(false)} />
+              <p className="text-[11px] text-gray-400 text-right">{form.diagnosis.length}/{MAX_FIELD_LENGTH}</p>
             </div>
 
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">Resultado</label>
               <input type="text" maxLength={MAX_FIELD_LENGTH} value={form.result} onChange={(e) => set("result", e.target.value)} className={inputClass(false)} />
+              <p className="text-[11px] text-gray-400 text-right">{form.result.length}/{MAX_FIELD_LENGTH}</p>
             </div>
           </div>
 

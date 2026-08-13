@@ -124,7 +124,10 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
                                         onChange={(e) => set("name", maskLettersOnly(e.target.value, 50))}
                                         className={inputClass(errors.name)}
                                     />
-                                    {errors.name && <span className="text-[11px] text-red-500">{errors.name}</span>}
+                                    <div className="flex items-start justify-between gap-2">
+                                        {errors.name ? <span className="text-[11px] text-red-500">{errors.name}</span> : <span />}
+                                        <span className="text-[11px] text-gray-400 ml-auto">{(form.name || "").length}/50</span>
+                                    </div>
                                 </div>
                             )}
                             {fields.includes("last_name") && (
@@ -137,7 +140,10 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
                                         onChange={(e) => set("last_name", maskLettersOnly(e.target.value, 50))}
                                         className={inputClass(errors.last_name)}
                                     />
-                                    {errors.last_name && <span className="text-[11px] text-red-500">{errors.last_name}</span>}
+                                    <div className="flex items-start justify-between gap-2">
+                                        {errors.last_name ? <span className="text-[11px] text-red-500">{errors.last_name}</span> : <span />}
+                                        <span className="text-[11px] text-gray-400 ml-auto">{(form.last_name || "").length}/50</span>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -157,7 +163,10 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
                                         onChange={(e) => set("dui", maskDui(e.target.value))}
                                         className={inputClass(errors.dui)}
                                     />
-                                    {errors.dui && <span className="text-[11px] text-red-500">{errors.dui}</span>}
+                                    <div className="flex items-start justify-between gap-2">
+                                        {errors.dui ? <span className="text-[11px] text-red-500">{errors.dui}</span> : <span />}
+                                        <span className="text-[11px] text-gray-400 ml-auto">{(form.dui || "").length}/10</span>
+                                    </div>
                                 </div>
                             )}
                             {fields.includes("phone") && (
@@ -172,7 +181,10 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
                                         onChange={(e) => set("phone", maskPhone(e.target.value))}
                                         className={inputClass(errors.phone)}
                                     />
-                                    {errors.phone && <span className="text-[11px] text-red-500">{errors.phone}</span>}
+                                    <div className="flex items-start justify-between gap-2">
+                                        {errors.phone ? <span className="text-[11px] text-red-500">{errors.phone}</span> : <span />}
+                                        <span className="text-[11px] text-gray-400 ml-auto">{(form.phone || "").length}/9</span>
+                                    </div>
                                 </div>
                             )}
                             {fields.includes("gender") && (

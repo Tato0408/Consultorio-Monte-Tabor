@@ -83,18 +83,25 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                 validate: (value) => value.trim().length >= 3 || "El nombre debe tener al menos 3 caracteres.",
                             }}
                             render={({ field }) => (
-                                <Input
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    placeholder="Ej. Limpieza dental profunda"
-                                    maxLength={100}
-                                    className="bg-gray-50 border-gray-200 rounded-lg h-10 focus-visible:ring-[#0b66d6]"
-                                />
+                                <>
+                                    <Input
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        placeholder="Ej. Limpieza dental profunda"
+                                        maxLength={100}
+                                        className="bg-gray-50 border-gray-200 rounded-lg h-10 focus-visible:ring-[#0b66d6]"
+                                    />
+                                    <div className="flex items-start justify-between gap-2">
+                                        {errors.name ? (
+                                            <p className="text-xs text-rose-500">{errors.name.message}</p>
+                                        ) : <span />}
+                                        <span className="text-[11px] text-gray-400 flex-shrink-0 ml-auto">
+                                            {String(field.value ?? "").length}/100
+                                        </span>
+                                    </div>
+                                </>
                             )}
                         />
-                        {errors.name && (
-                            <p className="text-xs text-rose-500">{errors.name.message}</p>
-                        )}
                     </div>
 
                     {/* Duración y precio: no se aceptan valores en 0, negativos ni NaN. */}

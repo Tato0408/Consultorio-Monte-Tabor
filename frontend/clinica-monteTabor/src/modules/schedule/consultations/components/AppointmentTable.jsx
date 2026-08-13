@@ -3,11 +3,13 @@ import { useAuth } from "@/context/AuthContext";
 
 // El ciclo real de una cita es pending -> scheduled -> completed / cancelled
 // (ver AppointmentsForm.jsx); "scheduled" ("Programada") equivale a "en espera".
+// Mismas etiquetas que STATUS_OPTIONS en AppointmentFilters.jsx, para que el filtro y la
+// insignia de estado de esta misma tabla usen exactamente el mismo texto en español.
 const STATUS_BADGE = {
-    pending: { className: "bg-slate-100 text-slate-600" },
-    scheduled: { className: "bg-amber-100 text-amber-700" },
-    completed: { className: "bg-emerald-100 text-emerald-700" },
-    cancelled: { className: "bg-red-100 text-red-700" },
+    pending: { label: "Agendado (sin confirmar)", className: "bg-slate-100 text-slate-600" },
+    scheduled: { label: "En espera", className: "bg-amber-100 text-amber-700" },
+    completed: { label: "Atendido", className: "bg-emerald-100 text-emerald-700" },
+    cancelled: { label: "Cancelado", className: "bg-red-100 text-red-700" },
 };
 
 const formatPersonName = (person) =>
@@ -88,7 +90,7 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                 <td className="py-3 text-slate-700">{formatPersonName(appt.doctor_id)}</td>
                                 <td className="py-3">
                                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${badge.className}`}>
-                                        {appt.status}
+                                        {badge.label}
                                     </span>
                                 </td>
                                 <td className="py-3">

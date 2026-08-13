@@ -168,6 +168,9 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                 </button>
                             )}
                         </div>
+                        <span className="block text-right text-[11px] text-slate-400 mt-0.5">
+                            {(selectedPatient ? `${selectedPatient.name} ${selectedPatient.last_name}` : patientSearch).length}/100
+                        </span>
                         {showPatientList && !selectedPatient && (
                             <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-44 overflow-y-auto">
                                 {filteredPatients.length === 0 ? (
@@ -255,6 +258,9 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                             className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 resize-none"
                         />
+                        <span className="block text-right text-[11px] text-slate-400 mt-0.5">
+                            {form.description.length}/300
+                        </span>
                     </div>
 
                     <button

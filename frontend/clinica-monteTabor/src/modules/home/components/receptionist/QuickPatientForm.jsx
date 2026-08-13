@@ -100,7 +100,10 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Nombre(s)</label>
                         <input value={form.name} maxLength={50} onChange={setMasked("name", (v) => maskLettersOnly(v, 50))} placeholder="Nombre(s)" className={inputClass(errors.name)} />
-                        {errors.name && <span className="text-[10px] text-red-500">{errors.name}</span>}
+                        <div className="flex items-start justify-between gap-2">
+                            {errors.name && <span className="text-[10px] text-red-500">{errors.name}</span>}
+                            <span className="text-[10px] text-slate-400 ml-auto">{form.name.length}/50</span>
+                        </div>
                     </div>
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Correo electrónico</label>
@@ -111,12 +114,18 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Apellido(s)</label>
                         <input value={form.last_name} maxLength={50} onChange={setMasked("last_name", (v) => maskLettersOnly(v, 50))} placeholder="Apellido(s)" className={inputClass(errors.last_name)} />
-                        {errors.last_name && <span className="text-[10px] text-red-500">{errors.last_name}</span>}
+                        <div className="flex items-start justify-between gap-2">
+                            {errors.last_name && <span className="text-[10px] text-red-500">{errors.last_name}</span>}
+                            <span className="text-[10px] text-slate-400 ml-auto">{form.last_name.length}/50</span>
+                        </div>
                     </div>
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">DUI</label>
                         <input value={form.dui} inputMode="numeric" maxLength={10} onChange={setMasked("dui", maskDui)} placeholder="12345678-9" className={inputClass(errors.dui)} />
-                        {errors.dui && <span className="text-[10px] text-red-500">{errors.dui}</span>}
+                        <div className="flex items-start justify-between gap-2">
+                            {errors.dui && <span className="text-[10px] text-red-500">{errors.dui}</span>}
+                            <span className="text-[10px] text-slate-400 ml-auto">{form.dui.length}/10</span>
+                        </div>
                     </div>
 
                     <div>
@@ -127,7 +136,10 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
                     <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Teléfono</label>
                         <input value={form.phone} inputMode="numeric" maxLength={9} onChange={setMasked("phone", maskPhone)} placeholder="7890-1234" className={inputClass(errors.phone)} />
-                        {errors.phone && <span className="text-[10px] text-red-500">{errors.phone}</span>}
+                        <div className="flex items-start justify-between gap-2">
+                            {errors.phone && <span className="text-[10px] text-red-500">{errors.phone}</span>}
+                            <span className="text-[10px] text-slate-400 ml-auto">{form.phone.length}/9</span>
+                        </div>
                     </div>
 
                     <div>
@@ -158,6 +170,9 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
                     <div className="sm:col-span-2">
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Notas (opcional)</label>
                         <input value={form.referred_by} maxLength={150} onChange={set("referred_by")} placeholder="Referido por, información adicional..." className={inputClass(false)} />
+                        <div className="flex items-start justify-end gap-2">
+                            <span className="text-[10px] text-slate-400">{form.referred_by.length}/150</span>
+                        </div>
                     </div>
 
                     <div className="sm:col-span-2 flex items-center justify-end gap-2 mt-1">

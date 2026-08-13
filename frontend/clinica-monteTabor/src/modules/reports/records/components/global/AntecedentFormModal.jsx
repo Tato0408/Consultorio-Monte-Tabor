@@ -130,7 +130,10 @@ const AntecedentFormModal = ({ isOpen, onClose, patientId, title, editTitle, bod
                     errors[f.key] ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-blue-500"
                   }`}
                 />
-                {errors[f.key] && <p className="text-[11px] text-red-500">{errors[f.key]}</p>}
+                <div className="flex items-start justify-between gap-2">
+                  {errors[f.key] ? <p className="text-[11px] text-red-500">{errors[f.key]}</p> : <span />}
+                  <span className="text-[11px] text-gray-400 ml-auto">{values[f.key].length}/{MAX_FIELD_LENGTH}</span>
+                </div>
               </div>
             ))}
           </div>

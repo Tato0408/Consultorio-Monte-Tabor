@@ -2,7 +2,7 @@ import { useFormContext } from "react-hook-form";
 import SectionCard from "./SectionCard";
 
 const DiagnosisCard = ({ readOnly }) => {
-    const { register, setValue, formState: { errors } } = useFormContext();
+    const { register, setValue, watch, formState: { errors } } = useFormContext();
 
     // Máscara de CIE-10: solo letras/números/punto, en mayúsculas (ej. "J00", "E11.9") — mismo
     // criterio de "limpiar mientras se escribe" que las demás máscaras del sistema.
@@ -12,7 +12,7 @@ const DiagnosisCard = ({ readOnly }) => {
     };
 
     return (
-        <SectionCard title="Impresión diagnóstica">
+        <SectionCard title="Paso 4 - Impresión diagnóstica">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div>
                     <label className="text-xs text-slate-500 block mb-1">
@@ -46,9 +46,14 @@ const DiagnosisCard = ({ readOnly }) => {
                         })}
                         className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
                     />
-                    {errors?.clinical_data?.diagnosis && (
-                        <p className="text-[11px] text-red-500 mt-0.5">{errors.clinical_data.diagnosis.message}</p>
-                    )}
+                    <div className="flex items-start justify-between gap-2">
+                        {errors?.clinical_data?.diagnosis ? (
+                            <p className="text-[11px] text-red-500 mt-0.5">{errors.clinical_data.diagnosis.message}</p>
+                        ) : <span />}
+                        <span className="text-[11px] text-gray-400 mt-0.5 ml-auto">
+                            {watch("clinical_data.diagnosis")?.length ?? 0}/100
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -64,9 +69,14 @@ const DiagnosisCard = ({ readOnly }) => {
                 })}
                 className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />
-            {errors?.clinical_data?.diagnosis_description && (
-                <p className="text-[11px] text-red-500 mt-0.5">{errors.clinical_data.diagnosis_description.message}</p>
-            )}
+            <div className="flex items-start justify-between gap-2">
+                {errors?.clinical_data?.diagnosis_description ? (
+                    <p className="text-[11px] text-red-500 mt-0.5">{errors.clinical_data.diagnosis_description.message}</p>
+                ) : <span />}
+                <span className="text-[11px] text-gray-400 mt-0.5 ml-auto">
+                    {watch("clinical_data.diagnosis_description")?.length ?? 0}/500
+                </span>
+            </div>
         </SectionCard>
     );
 };

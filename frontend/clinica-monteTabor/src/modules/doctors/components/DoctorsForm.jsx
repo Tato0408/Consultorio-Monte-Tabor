@@ -337,7 +337,10 @@ const DoctorForm = ({
                   onChange={makeLettersMaskHandler("name", 50)}
                   className={inputClass(errors.name)}
                 />
-                {errors.name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.name.message}</span>}
+                <div className="flex items-start justify-between gap-2">
+                  {errors.name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.name.message}</span>}
+                  <span className="text-[10px] text-gray-400 ml-auto px-1">{(watch("name") || "").length}/50</span>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -350,7 +353,10 @@ const DoctorForm = ({
                   onChange={makeLettersMaskHandler("last_name", 50)}
                   className={inputClass(errors.last_name)}
                 />
-                {errors.last_name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.last_name.message}</span>}
+                <div className="flex items-start justify-between gap-2">
+                  {errors.last_name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.last_name.message}</span>}
+                  <span className="text-[10px] text-gray-400 ml-auto px-1">{(watch("last_name") || "").length}/50</span>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -370,7 +376,10 @@ const DoctorForm = ({
                   onChange={handlePhoneMask}
                   className={inputClass(errors.phone)}
                 />
-                {errors.phone && <span className="text-[10px] text-red-500 font-medium px-1">{errors.phone.message}</span>}
+                <div className="flex items-start justify-between gap-2">
+                  {errors.phone && <span className="text-[10px] text-red-500 font-medium px-1">{errors.phone.message}</span>}
+                  <span className="text-[10px] text-gray-400 ml-auto px-1">{(watch("phone") || "").length}/9</span>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -408,7 +417,10 @@ const DoctorForm = ({
                   onChange={handleDuiMask}
                   className={inputClass(errors.dui)}
                 />
-                {errors.dui && <span className="text-[10px] text-red-500 font-medium px-1">{errors.dui.message}</span>}
+                <div className="flex items-start justify-between gap-2">
+                  {errors.dui && <span className="text-[10px] text-red-500 font-medium px-1">{errors.dui.message}</span>}
+                  <span className="text-[10px] text-gray-400 ml-auto px-1">{(watch("dui") || "").length}/10</span>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -443,7 +455,10 @@ const DoctorForm = ({
                   onChange={handleLicenseMask}
                   className={inputClass(errors.license_number)}
                 />
-                {errors.license_number && <span className="text-[10px] text-red-500 font-medium px-1">{errors.license_number.message}</span>}
+                <div className="flex items-start justify-between gap-2">
+                  {errors.license_number && <span className="text-[10px] text-red-500 font-medium px-1">{errors.license_number.message}</span>}
+                  <span className="text-[10px] text-gray-400 ml-auto px-1">{(watch("license_number") || "").length}/30</span>
+                </div>
               </div>
 
               {/* Estado — solo en edición */}

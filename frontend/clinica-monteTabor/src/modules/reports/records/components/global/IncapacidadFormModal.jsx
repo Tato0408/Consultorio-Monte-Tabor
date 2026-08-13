@@ -20,6 +20,7 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
     handleSubmit,
     reset,
     getValues,
+    watch,
     formState: { errors },
   } = useForm({
     defaultValues: { diagnosis: "", start_date: "", end_date: "" },
@@ -97,9 +98,12 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
               })}
               className={inputClass(errors.diagnosis)}
             />
-            {errors.diagnosis && (
-              <span className="text-[11px] text-red-500 font-medium">{errors.diagnosis.message}</span>
-            )}
+            <div className="flex items-start justify-between gap-2">
+              {errors.diagnosis ? (
+                <span className="text-[11px] text-red-500 font-medium">{errors.diagnosis.message}</span>
+              ) : <span />}
+              <span className="text-[11px] text-gray-400 ml-auto">{(watch("diagnosis") || "").length}/150</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

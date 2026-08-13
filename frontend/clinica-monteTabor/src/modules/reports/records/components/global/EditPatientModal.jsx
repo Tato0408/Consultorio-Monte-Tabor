@@ -148,22 +148,34 @@ const EditPatientModal = ({ isOpen, onClose, patient, onSaved }) => {
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">Nombres</label>
               <input type="text" maxLength={50} value={form.name} onChange={(e) => set("name", maskName(e.target.value))} className={inputClass(errors.name)} />
-              {errors.name && <p className="text-[11px] text-red-500">{errors.name}</p>}
+              <div className="flex items-start justify-between gap-2">
+                {errors.name && <p className="text-[11px] text-red-500">{errors.name}</p>}
+                <span className="text-[11px] text-slate-400 ml-auto">{form.name.length}/50</span>
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">Apellidos</label>
               <input type="text" maxLength={50} value={form.last_name} onChange={(e) => set("last_name", maskName(e.target.value))} className={inputClass(errors.last_name)} />
-              {errors.last_name && <p className="text-[11px] text-red-500">{errors.last_name}</p>}
+              <div className="flex items-start justify-between gap-2">
+                {errors.last_name && <p className="text-[11px] text-red-500">{errors.last_name}</p>}
+                <span className="text-[11px] text-slate-400 ml-auto">{form.last_name.length}/50</span>
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">DUI</label>
               <input type="text" inputMode="numeric" placeholder="00000000-0" maxLength={10} value={form.dui} onChange={(e) => set("dui", maskDui(e.target.value))} className={inputClass(errors.dui)} />
-              {errors.dui && <p className="text-[11px] text-red-500">{errors.dui}</p>}
+              <div className="flex items-start justify-between gap-2">
+                {errors.dui && <p className="text-[11px] text-red-500">{errors.dui}</p>}
+                <span className="text-[11px] text-slate-400 ml-auto">{form.dui.length}/10</span>
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">Teléfono</label>
               <input type="text" inputMode="numeric" placeholder="0000-0000" maxLength={9} value={form.phone} onChange={(e) => set("phone", maskPhone(e.target.value))} className={inputClass(errors.phone)} />
-              {errors.phone && <p className="text-[11px] text-red-500">{errors.phone}</p>}
+              <div className="flex items-start justify-between gap-2">
+                {errors.phone && <p className="text-[11px] text-red-500">{errors.phone}</p>}
+                <span className="text-[11px] text-slate-400 ml-auto">{form.phone.length}/9</span>
+              </div>
             </div>
             <div className="flex flex-col gap-1.5 col-span-2">
               <label className="text-xs font-semibold text-slate-500">Correo electrónico</label>

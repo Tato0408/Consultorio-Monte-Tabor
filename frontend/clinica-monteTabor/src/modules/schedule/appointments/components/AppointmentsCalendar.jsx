@@ -28,6 +28,8 @@ const STATUS_BADGES = {
     completed: "bg-slate-100 text-slate-600",
     cancelled: "bg-red-100 text-red-600",
     pending:   "bg-amber-100 text-amber-700",
+    no_show:   "bg-slate-100 text-slate-500",
+    expired:   "bg-orange-100 text-orange-600",
 };
 const STATUS_LABELS = {
     scheduled: "Programada",
@@ -35,6 +37,8 @@ const STATUS_LABELS = {
     completed: "Completada",
     cancelled: "Cancelada",
     pending:   "Pendiente",
+    no_show:   "No se presentó",
+    expired:   "Vencida",
 };
 
 

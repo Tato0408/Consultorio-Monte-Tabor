@@ -365,23 +365,28 @@ export default function AppointmentsGrid() {
                     propio input (a la derecha); "pr-10" le reserva ese espacio para que el texto
                     escrito nunca llegue a tocarlo — un <input> nativo ya hace scroll del texto
                     hacia la izquierda por su cuenta cuando se pasa de su ancho visible/relleno. */}
-                <div className="relative flex-1 min-w-[220px]">
-                    <Input
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearch(); } }}
-                        placeholder="Buscar por paciente, doctor o descripción..."
-                        maxLength={100}
-                        className="pr-10 border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl h-10"
-                    />
-                    <button
-                        type="button"
-                        onClick={handleSearch}
-                        aria-label="Buscar"
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#0b66d6] hover:bg-slate-100 transition-colors"
-                    >
-                        <Search className="h-4 w-4" />
-                    </button>
+                <div className="flex-1 min-w-[220px] flex flex-col">
+                    <div className="relative">
+                        <Input
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearch(); } }}
+                            placeholder="Buscar por paciente, doctor o descripción..."
+                            maxLength={100}
+                            className="pr-10 border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl h-10"
+                        />
+                        <button
+                            type="button"
+                            onClick={handleSearch}
+                            aria-label="Buscar"
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#0b66d6] hover:bg-slate-100 transition-colors"
+                        >
+                            <Search className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <span className="self-end text-[11px] text-slate-400 mt-0.5">
+                        {searchInput.length}/100
+                    </span>
                 </div>
 
                 {/* Filtro por estado (lo controla la sub-pestaña para doctor/admin). */}

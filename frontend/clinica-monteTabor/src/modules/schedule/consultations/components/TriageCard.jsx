@@ -35,7 +35,7 @@ const TriageCard = ({ readOnly }) => {
     };
 
     return (
-        <SectionCard title="Triage (signos vitales)">
+        <SectionCard title="Paso 2 - Triage (signos vitales)">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {FIELDS.map((field) => (
                     <div key={field.key}>

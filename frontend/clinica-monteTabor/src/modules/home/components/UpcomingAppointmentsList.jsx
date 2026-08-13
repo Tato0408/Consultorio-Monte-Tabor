@@ -1,6 +1,10 @@
 const STATUS_BADGE = {
     scheduled: { label: "Confirmada", cls: "bg-emerald-50 text-emerald-600" },
     pending: { label: "Pendiente", cls: "bg-amber-50 text-amber-600" },
+    completed: { label: "Completada", cls: "bg-slate-100 text-slate-600" },
+    cancelled: { label: "Cancelada", cls: "bg-red-50 text-red-600" },
+    no_show: { label: "No se presentó", cls: "bg-slate-100 text-slate-500" },
+    expired: { label: "Vencida", cls: "bg-orange-50 text-orange-600" },
 };
 
 // "Próximas citas": lista simple de las siguientes citas del día, ordenadas por hora.
@@ -19,7 +23,10 @@ const UpcomingAppointmentsList = ({ appointments, onViewAll }) => {
             ) : (
                 <div className="flex flex-col divide-y divide-slate-50">
                     {appointments.map((a) => {
-                        const badge = STATUS_BADGE[a.status] || { label: a.status, cls: "bg-slate-50 text-slate-500" };
+                        // Fallback sin usar a.status crudo: todos los estados reales ya están en
+                        // STATUS_BADGE, así que esto solo protege contra un valor futuro no
+                        // contemplado, sin arriesgarse a mostrar texto en inglés en pantalla.
+                        const badge = STATUS_BADGE[a.status] || { label: "Otro estado", cls: "bg-slate-50 text-slate-500" };
                         return (
                             <div key={a._id} className="flex items-center justify-between py-2.5 gap-3">
                                 <div className="flex items-center gap-3 min-w-0">

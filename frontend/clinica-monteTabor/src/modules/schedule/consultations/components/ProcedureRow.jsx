@@ -90,8 +90,13 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
                 maxLength={500}
                 disabled={readOnly}
                 {...register(`procedure.${index}.notes`)}
-                className="w-full border border-slate-200 rounded-lg p-2 text-sm mb-3 disabled:bg-slate-50"
+                className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />
+            <div className="flex justify-end mb-3">
+                <span className="text-[11px] text-gray-400">
+                    {watch(`procedure.${index}.notes`)?.length ?? 0}/500
+                </span>
+            </div>
 
             <label className="text-xs text-slate-500 block mb-1">Material utilizado</label>
             <div className="space-y-2 mb-2">

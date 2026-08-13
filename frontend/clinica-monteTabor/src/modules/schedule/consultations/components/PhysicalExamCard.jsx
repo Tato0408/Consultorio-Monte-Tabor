@@ -11,10 +11,10 @@ const FIELDS = [
 ];
 
 const PhysicalExamCard = ({ readOnly }) => {
-    const { register } = useFormContext();
+    const { register, watch } = useFormContext();
 
     return (
-        <SectionCard title="Examen físico">
+        <SectionCard title="Paso 3 - Examen físico - opcional">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 {FIELDS.map((field) => (
                     <div key={field.key}>
@@ -26,6 +26,9 @@ const PhysicalExamCard = ({ readOnly }) => {
                             {...register(`physical_exam.${field.key}`)}
                             className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
                         />
+                        <span className="block text-right text-[11px] text-gray-400 mt-0.5">
+                            {watch(`physical_exam.${field.key}`)?.length ?? 0}/150
+                        </span>
                     </div>
                 ))}
             </div>
@@ -38,6 +41,11 @@ const PhysicalExamCard = ({ readOnly }) => {
                 {...register("physical_exam.notes")}
                 className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />
+            <div className="flex justify-end">
+                <span className="text-[11px] text-gray-400">
+                    {watch("physical_exam.notes")?.length ?? 0}/500
+                </span>
+            </div>
         </SectionCard>
     );
 };

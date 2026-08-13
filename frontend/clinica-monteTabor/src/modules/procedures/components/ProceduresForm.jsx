@@ -103,7 +103,10 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
                   : "bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white"
               }`}
             />
-            {errors.name && <span className="text-xs text-red-500 font-medium mt-1 block">{errors.name.message}</span>}
+            <div className="flex justify-between items-start mt-1">
+              {errors.name && <span className="text-xs text-red-500 font-medium">{errors.name.message}</span>}
+              <span className="text-[10px] text-gray-400 ml-auto">{(watchedValues.name || "").length}/100</span>
+            </div>
           </div>
 
           <div>

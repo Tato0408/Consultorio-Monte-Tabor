@@ -34,7 +34,7 @@ const BloodTypeCard = ({ patientId, currentValue, onSaved, readOnly }) => {
     };
 
     return (
-        <SectionCard title="Tipo de sangre">
+        <SectionCard title="Paso 8 - Tipo de sangre - opcional">
             <div className="grid grid-cols-3 gap-2">
                 {BLOOD_TYPES.map((bt) => {
                     const active = selected === bt;

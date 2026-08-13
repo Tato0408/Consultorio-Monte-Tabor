@@ -117,7 +117,7 @@ const ConsultationForm = () => {
                         <ProceduresCard readOnly={readOnly} />
 
                         <AntecedentsCard
-                            title="Antecedentes heredofamiliarios"
+                            title="Paso 6 - Antecedentes heredofamiliarios - opcional"
                             name="antecedents.hereditary"
                             fields={[
                                 { key: "relative", label: "Parentesco", maxLength: 50 },
@@ -127,7 +127,7 @@ const ConsultationForm = () => {
                         />
 
                         <AntecedentsCard
-                            title="Antecedentes patológicos"
+                            title="Paso 7 - Antecedentes patológicos - opcional"
                             name="antecedents.pathological"
                             fields={[
                                 { key: "disease", label: "Enfermedad", maxLength: 50 },
@@ -150,14 +150,14 @@ const ConsultationForm = () => {
                         <ReferralCard readOnly={readOnly} />
 
                         <AntecedentsCard
-                            title="Antecedentes no patológicos"
+                            title="Antecedentes no patológicos - opcional"
                             name="antecedents.non_pathological"
                             fields={[{ key: "description", label: "Descripción", maxLength: 300 }]}
                             readOnly={readOnly}
                         />
 
                         <AntecedentsCard
-                            title="Antecedentes ecológico-sociales"
+                            title="Antecedentes ecológico-sociales - opcional"
                             name="antecedents.socio_ecological"
                             fields={[{ key: "description", label: "Descripción", maxLength: 300 }]}
                             readOnly={readOnly}
