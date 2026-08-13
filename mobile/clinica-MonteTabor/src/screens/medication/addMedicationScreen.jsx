@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,6 +11,8 @@ import RadioGroup from "../../components/medications/RadioGroup";
 import TimeField from "../../components/medications/TimeField";
 import IconPickerModal, { ICON_OPTIONS } from "../../components/medications/IconPickerModal";
 import FormSelect from "../../components/profile/FormSelect";
+import apiClient from "../../lib/apiClient";
+import { showError } from "../../lib/toast";
 import styles, { pillTint } from "../../styles/medications/medicationStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
@@ -37,10 +39,23 @@ const EMPTY_FORM = {
   dias: "",
 };
 
+// El formulario está en español y la API en inglés: la traducción vive solo aquí
+const buildPayload = (form) => ({
+  name: form.nombre.trim(),
+  dose: form.dosis.trim(),
+  form: form.forma || null,
+  icon: form.icon,
+  color: form.color,
+  frequency_hours: form.frecuencia === "other" ? null : Number(form.frecuencia),
+  times: form.horas.map((hora) => hora?.trim()).filter(Boolean),
+  duration_days: form.dias ? Number(form.dias) : null,
+});
+
 const AddMedicationScreen = ({ navigation }) => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
   const [iconModal, setIconModal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const setField = (key) => (value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -68,14 +83,24 @@ const AddMedicationScreen = ({ navigation }) => {
     if (!form.nombre.trim()) next.nombre = "Ingresa el nombre del medicamento";
     if (!form.dosis.trim()) next.dosis = "Ingresa la dosis";
     if (!form.frecuencia) next.frecuencia = "Selecciona una frecuencia";
+    if (!form.horas.some((hora) => hora?.trim())) next.horas = "Agrega al menos una hora";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    if (saving) return; // un doble tap crearía dos medicamentos
     if (!validate()) return;
-    console.log("Paso 1:", form);
-    navigation.navigate("AddMedicationStep2", { data: form });
+
+    setSaving(true);
+    try {
+      await apiClient("/medications", { method: "POST", body: buildPayload(form) });
+      navigation.navigate("Medications"); // la lista se recarga sola al tomar foco
+    } catch (error) {
+      showError(error.message || "No se pudo guardar el medicamento.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tint = pillTint[form.color] || pillTint.blue;
@@ -188,10 +213,17 @@ const AddMedicationScreen = ({ navigation }) => {
                 key={index}
                 label={`Hora ${index + 1}`}
                 value={hora}
-                onChange={setHora(index)}
+                onChange={(value) => {
+                  setHora(index)(value);
+                  if (errors.horas) setErrors((prev) => ({ ...prev, horas: null }));
+                }}
                 onRemove={form.horas.length > 1 ? () => removeHora(index) : undefined}
               />
             ))}
+
+            {errors.horas ? (
+              <Text style={styles.errorText}>{errors.horas}</Text>
+            ) : null}
 
             <TouchableOpacity style={styles.addTime} activeOpacity={0.7} onPress={addHora}>
               <Ionicons name="add" size={16} color={colors.primary} />
@@ -220,11 +252,16 @@ const AddMedicationScreen = ({ navigation }) => {
 
         <View style={styles.footer}>
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[styles.primaryButton, saving && { opacity: 0.6 }]}
             activeOpacity={0.85}
             onPress={handleContinue}
+            disabled={saving}
           >
-            <Text style={styles.primaryButtonText}>Continuar</Text>
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Guardar medicamento</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

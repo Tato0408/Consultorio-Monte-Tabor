@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,42 +6,97 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import AvatarPicker from "../../components/profile/AvatarPicker";
 import FormInput from "../../components/profile/FormInput";
 import FormSelect from "../../components/profile/FormSelect";
 import FormDateInput from "../../components/profile/FormDateInput";
+import apiClient from "../../lib/apiClient";
+import { showError, showSuccess } from "../../lib/toast";
 import styles from "../../styles/profile/editProfileStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
+// Deben coincidir con el enum de gender en el modelo de Mongoose
 const GENEROS = ["Masculino", "Femenino", "Otro", "Prefiero no decirlo"];
-const ESTADOS_CIVILES = ["Soltero", "Casado", "Divorciado", "Viudo", "Unión libre"];
-const CIUDADES = ["San Salvador", "Santa Ana", "San Miguel", "Sonsonate", "La Libertad"];
-const RELACIONES = ["Madre", "Padre", "Hermano/a", "Cónyuge", "Hijo/a", "Amigo/a"];
 
-const initialForm = {
-  photo: "https://i.pravatar.cc/150",
-  nombres: "Carlos Andrés",
-  apellidos: "Rodríguez Gómez",
-  fechaNacimiento: "12/03/1996",
-  genero: "Masculino",
-  estadoCivil: "Soltero",
-  telefono: "+503 7777 7777",
-  correo: "carlos.rodriguez@email.com",
-  direccion: "Calle 123 #45-67, San Salvador, El Salvador",
-  ciudad: "San Salvador",
-  emergenciaNombre: "María Rodríguez",
-  emergenciaTelefono: "+503 4444 4444",
-  emergenciaRelacion: "Madre",
+const EMPTY_FORM = {
+  nombres: "",
+  apellidos: "",
+  dui: "",
+  fechaNacimiento: "",
+  genero: "",
+  telefono: "",
+  correo: "",
 };
 
-const EditProfileScreen = ({ navigation }) => {
-  const [form, setForm] = useState(initialForm);
+// ISO del backend -> "DD/MM/AAAA" del FormDateInput. Todo en UTC: con la hora local,
+// un nacimiento guardado a medianoche se muestra un día antes en El Salvador (UTC-6).
+const isoToDisplay = (iso) => {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${date.getUTCFullYear()}`;
+};
+
+// "DD/MM/AAAA" -> ISO. Devuelve null si está incompleta, para no mandar "Invalid Date"
+const displayToIso = (value) => {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value?.trim() || "");
+  if (!match) return null;
+  const [, dd, mm, yyyy] = match;
+  return new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd))).toISOString();
+};
+
+// API (inglés) -> formulario (español)
+const fromApi = (patient) => ({
+  nombres: patient?.name || "",
+  apellidos: patient?.last_name || "",
+  dui: patient?.dui || "",
+  fechaNacimiento: isoToDisplay(patient?.birth_date),
+  genero: patient?.gender || "",
+  telefono: patient?.phone || "",
+  correo: patient?.email || "",
+});
+
+// Formulario -> API: solo los siete campos que updateMe acepta.
+// El DUI vacío se manda como "" porque el controller lo convierte a undefined y lo ignora
+// (hay pacientes menores de edad que todavía no tienen DUI).
+const toPayload = (form) => ({
+  name: form.nombres.trim(),
+  last_name: form.apellidos.trim(),
+  dui: form.dui.trim(),
+  birth_date: displayToIso(form.fechaNacimiento),
+  gender: form.genero,
+  phone: form.telefono.trim(),
+  email: form.correo.trim(),
+});
+
+const EditProfileScreen = ({ navigation, route }) => {
+  // Si ProfileScreen ya trae el paciente, se pinta de inmediato y se refresca detrás
+  const cached = route?.params?.patient;
+
+  const [form, setForm] = useState(cached ? fromApi(cached) : EMPTY_FORM);
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(!cached);
+  const [saving, setSaving] = useState(false);
+
+  const loadProfile = useCallback(async () => {
+    try {
+      // getMe devuelve el paciente directo, sin envolverlo en { data }
+      const patient = await apiClient("/patientAccount/me");
+      if (patient) setForm(fromApi(patient));
+    } catch (error) {
+      showError(error.message || "No se pudo cargar tu información.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadProfile(); }, [loadProfile]);
 
   const setField = (key) => (value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -54,18 +109,48 @@ const EditProfileScreen = ({ navigation }) => {
     if (!form.apellidos.trim()) next.apellidos = "Ingresa tus apellidos";
     if (!/^\S+@\S+\.\S+$/.test(form.correo)) next.correo = "Correo no válido";
     if (!form.telefono.trim()) next.telefono = "Ingresa un teléfono";
+    // El DUI es opcional en el backend, pero si se escribe debe tener el formato correcto
+    if (form.dui.trim() && !/^\d{8}-\d$/.test(form.dui.trim())) {
+      next.dui = "Formato: 12345678-9";
+    }
+    if (!form.fechaNacimiento) next.fechaNacimiento = "Ingresa tu fecha de nacimiento";
+    else if (!displayToIso(form.fechaNacimiento)) next.fechaNacimiento = "Usa el formato DD/MM/AAAA";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return; // evita que un doble tap mande dos PUT
     if (!validate()) return;
-    // Aquí iría la llamada a tu API
-    console.log("Guardando:", form);
-    Alert.alert("Listo", "Tus cambios se guardaron correctamente", [
-      { text: "OK", onPress: () => navigation?.goBack() },
-    ]);
+
+    setSaving(true);
+    try {
+      // PUT, no PATCH: patientSelf.js solo registra .put() para /me
+      const response = await apiClient("/patientAccount/me", {
+        method: "PUT",
+        body: toPayload(form),
+      });
+
+      // updateMe responde { message, user } con el paciente ya actualizado
+      if (response?.user) setForm(fromApi(response.user));
+
+      showSuccess(response?.message || "Tus cambios se guardaron.");
+      navigation.goBack(); // ProfileScreen recarga sola al tomar foco
+    } catch (error) {
+      // 400 también cubre correo o DUI ya registrados en otra cuenta
+      showError(error.message || "No se pudieron guardar los cambios.");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 60 }} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -84,8 +169,11 @@ const EditProfileScreen = ({ navigation }) => {
           style={styles.headerSide}
           activeOpacity={0.7}
           onPress={handleSave}
+          disabled={saving}
         >
-          <Text style={styles.headerAction}>Guardar</Text>
+          <Text style={[styles.headerAction, saving && { opacity: 0.5 }]}>
+            {saving ? "..." : "Guardar"}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -98,11 +186,6 @@ const EditProfileScreen = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-     <AvatarPicker
-            photo={form.photo}
-            onChange={setField("photo")}
-          />
-
           <Text style={styles.sectionTitle}>Información personal</Text>
 
           <FormInput
@@ -117,22 +200,26 @@ const EditProfileScreen = ({ navigation }) => {
             onChangeText={setField("apellidos")}
             error={errors.apellidos}
           />
-<FormDateInput
+          <FormInput
+            label="DUI (opcional)"
+            value={form.dui}
+            onChangeText={setField("dui")}
+            placeholder="12345678-9"
+            keyboardType="number-pad"
+            error={errors.dui}
+          />
+          <FormDateInput
             label="Fecha de nacimiento"
             value={form.fechaNacimiento}
             onChange={setField("fechaNacimiento")}
+            error={errors.fechaNacimiento}
           />
           <FormSelect
             label="Género"
             value={form.genero}
             options={GENEROS}
+            placeholder="Seleccionar"
             onChange={setField("genero")}
-          />
-          <FormSelect
-            label="Estado civil"
-            value={form.estadoCivil}
-            options={ESTADOS_CIVILES}
-            onChange={setField("estadoCivil")}
           />
 
           <Text style={styles.sectionTitle}>Información de contacto</Text>
@@ -152,45 +239,18 @@ const EditProfileScreen = ({ navigation }) => {
             autoCapitalize="none"
             error={errors.correo}
           />
-          <FormInput
-            label="Dirección"
-            value={form.direccion}
-            onChangeText={setField("direccion")}
-            multiline
-          />
-          <FormSelect
-            label="Ciudad"
-            value={form.ciudad}
-            options={CIUDADES}
-            onChange={setField("ciudad")}
-          />
-
-          <Text style={styles.sectionTitle}>Contacto de emergencia</Text>
-
-          <FormInput
-            label="Nombre"
-            value={form.emergenciaNombre}
-            onChangeText={setField("emergenciaNombre")}
-          />
-          <FormInput
-            label="Teléfono"
-            value={form.emergenciaTelefono}
-            onChangeText={setField("emergenciaTelefono")}
-            keyboardType="phone-pad"
-          />
-          <FormSelect
-            label="Relación"
-            value={form.emergenciaRelacion}
-            options={RELACIONES}
-            onChange={setField("emergenciaRelacion")}
-          />
 
           <TouchableOpacity
-            style={styles.saveButton}
+            style={[styles.saveButton, saving && { opacity: 0.6 }]}
             activeOpacity={0.85}
             onPress={handleSave}
+            disabled={saving}
           >
-            <Text style={styles.saveButtonText}>Guardar cambios</Text>
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.saveButtonText}>Guardar cambios</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

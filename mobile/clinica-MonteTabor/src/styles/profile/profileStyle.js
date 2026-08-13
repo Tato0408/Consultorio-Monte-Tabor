@@ -48,23 +48,36 @@ const styles = StyleSheet.create({
   },
   profileTop: { flexDirection: "row", alignItems: "center" },
   avatarWrapper: { marginRight: 14 },
-  avatar: {
+
+  // El modelo no guarda foto: se muestran las iniciales sobre el azul de la tarjeta
+  avatarCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.6)",
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  cameraBadge: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    backgroundColor: colors.card,
-    borderRadius: 10,
-    padding: 3,
-  },
+  avatarText: { color: "#fff", fontSize: 22, fontWeight: "700" },
+
+  profileTexts: { flex: 1 },
   name: { color: "#fff", fontSize: 18, fontWeight: "700", marginBottom: 4 },
   info: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginTop: 2 },
+
+  // Chips traslúcidos: tipo de sangre y estado de la cuenta
+  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  badgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
 
   editButton: {
     marginTop: 16,
