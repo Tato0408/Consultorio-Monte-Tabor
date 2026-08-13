@@ -38,6 +38,8 @@ const GenericTable = ({
   // extraRows pueda invalidar su cálculo (basado en la altura de la tabla con el tamaño de
   // página ANTERIOR) y volver a medir con el nuevo.
   onItemsPerPageChange,
+  // Opciones del selector "Filas por página" — ver TablePagination.jsx.
+  pageSizeOptions,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [nurseFilter, setNurseFilter] = useState("all"); // 'all' | 'yes' | 'no'
@@ -213,6 +215,7 @@ const GenericTable = ({
         setItemsPerPage={setItemsPerPage}
         onNextPage={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
         onPrevPage={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+        pageSizeOptions={pageSizeOptions}
       />
     </div>
   );

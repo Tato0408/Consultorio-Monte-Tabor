@@ -80,6 +80,7 @@ const WeeklyAvailabilitySection = ({ availability, onChange, editing }) => {
         <CollapsibleCard
             title="1. Disponibilidad semanal"
             subtitle="Configura los días y bloques de tiempo en los que estás disponible."
+            defaultOpen={false}
         >
             <div className="divide-y divide-slate-50">
                 {availability.map(dayConfig => {

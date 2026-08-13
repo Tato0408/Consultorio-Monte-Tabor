@@ -2,11 +2,22 @@ import { Download, Calendar, Loader2 } from "lucide-react";
 
 // Límite amplio pero real: evita años absurdos (5+ dígitos) al escribir la fecha a mano.
 const MIN_DATE_STR = "2000-01-01";
-const MAX_DATE_STR = `${new Date().getFullYear() + 1}-12-31`;
+// No tiene sentido pedir datos de una fecha que todavía no ha pasado — ni como inicio ni como
+// final del rango — así que ninguno de los dos inputs deja elegir más allá de hoy.
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const MAX_DATE_STR = todayStr();
 
 // dateFrom/dateTo: strings "YYYY-MM-DD" (formato nativo de <input type="date">)
 // isGeneral: si true, el rango de fechas se ignora y se piden TODOS los datos históricos
-// onChangeFrom/onChangeTo/onToggleGeneral: setters controlados por el hook de cada página
+// onChangeFrom/onChangeTo: setters controlados por el hook de cada página — elegir una fecha
+// ya cambia isGeneral a false por su cuenta, así que el rango queda SIEMPRE activo/clickeable
+// (nunca disabled): no hace falta un paso previo para "activar" el parametrizado.
+// onSelectGeneral: vuelve a modo General — a diferencia del rango de fechas, esto es una acción
+// de un solo sentido (no un toggle): la única forma de volver a parametrizado es elegir una
+// fecha, no volver a hacer clic en "General".
 // onExport: dispara la generación/descarga del PDF con lo que se está mostrando en pantalla
 const ReportHeader = ({
   title,
@@ -17,7 +28,7 @@ const ReportHeader = ({
   isGeneral,
   onChangeFrom,
   onChangeTo,
-  onToggleGeneral,
+  onSelectGeneral,
   onExport,
   exporting,
   disableExport = false,
@@ -52,9 +63,16 @@ const ReportHeader = ({
         </button>
       </div>
 
-      {/* Filtro de rango de fechas + botón de reporte general */}
+      {/* Filtro de rango de fechas (parametrizado) + botón de reporte general — como dos
+          opciones tipo pestaña: cuál está resaltada en azul indica cuál está activa ahora
+          mismo, pero el rango de fechas nunca se deshabilita, para poder pasar a parametrizado
+          con solo elegir una fecha. */}
       <div className="flex justify-end items-center gap-2 flex-wrap">
-        <div className={`flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-white shadow-sm transition-opacity ${isGeneral ? "opacity-40 pointer-events-none" : ""}`}>
+        <div
+          className={`flex items-center gap-2 border rounded-xl px-3 py-2 shadow-sm transition-colors ${
+            isGeneral ? "border-slate-200 bg-white" : "border-blue-200 bg-blue-50/40"
+          }`}
+        >
           <Calendar className="w-3.5 h-3.5 text-slate-400" />
           <input
             type="date"
@@ -62,7 +80,6 @@ const ReportHeader = ({
             max={MAX_DATE_STR}
             value={dateFrom || ""}
             onChange={(e) => onChangeFrom(e.target.value)}
-            disabled={isGeneral}
             className="text-xs font-semibold text-slate-700 outline-none bg-transparent"
           />
           <span className="text-xs text-slate-400">–</span>
@@ -72,14 +89,13 @@ const ReportHeader = ({
             max={MAX_DATE_STR}
             value={dateTo || ""}
             onChange={(e) => onChangeTo(e.target.value)}
-            disabled={isGeneral}
             className="text-xs font-semibold text-slate-700 outline-none bg-transparent"
           />
         </div>
 
         <button
           type="button"
-          onClick={onToggleGeneral}
+          onClick={onSelectGeneral}
           className={`text-xs font-semibold px-4 py-2.5 rounded-xl border transition-colors shadow-sm ${
             isGeneral
               ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"

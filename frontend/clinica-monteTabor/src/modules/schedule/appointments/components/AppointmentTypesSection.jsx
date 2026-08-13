@@ -72,6 +72,7 @@ const AppointmentTypesSection = ({ editing }) => {
         <CollapsibleCard
             title="Tipos de citas"
             subtitle="Catálogo global: define el color de cada tipo de cita. Se usa en la leyenda del calendario y al agendar una cita."
+            defaultOpen={false}
             actions={
                 editing && (
                     <button

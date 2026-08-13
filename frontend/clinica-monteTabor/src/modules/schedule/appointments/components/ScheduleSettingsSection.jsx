@@ -47,6 +47,7 @@ const ScheduleSettingsSection = ({
         <CollapsibleCard
             title="4. Configuración de agenda"
             subtitle="Ajusta cuanto será el tiempo entre citas, las duraciones de bloque disponibles y si permites citas fuera de tu horario."
+            defaultOpen={false}
         >
             <div className="flex flex-col gap-5">
                 {/* Tiempo entre citas */}

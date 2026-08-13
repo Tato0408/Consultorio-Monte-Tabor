@@ -29,7 +29,7 @@ const PacientesPage = () => {
   const {
     loading, error, topCards, sections, pdfData,
     dateFrom, dateTo, isGeneral,
-    setDateFrom, setDateTo, toggleGeneral, refetch,
+    setDateFrom, setDateTo, activateGeneral, refetch,
   } = usePacientesReport();
 
   const [exporting, setExporting] = useState(false);
@@ -58,7 +58,7 @@ const PacientesPage = () => {
         isGeneral={isGeneral}
         onChangeFrom={setDateFrom}
         onChangeTo={setDateTo}
-        onToggleGeneral={toggleGeneral}
+        onSelectGeneral={activateGeneral}
         onExport={handleExport}
         exporting={exporting}
         disableExport={loading || !pdfData}

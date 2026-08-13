@@ -5,7 +5,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/lib/toast';
 
@@ -41,14 +40,7 @@ function RootNavigator() {
 
   if (isLoading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: '#F4F6FA',
-        }}
-      >
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6FA' }}>
         <ActivityIndicator size="large" />
       </View>
     );
@@ -59,9 +51,7 @@ function RootNavigator() {
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
-        contentStyle: {
-          backgroundColor: '#F4F6FA',
-        },
+        contentStyle: { backgroundColor: '#F4F6FA' },
       }}
     >
       {isLoggedIn ? (

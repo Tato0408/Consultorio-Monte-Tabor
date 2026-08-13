@@ -3,8 +3,8 @@ import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 // "Acciones rápidas" — se quedó sola en el panel lateral tras mover "Alertas de inventario" y
 // "Próximos a vencer" debajo de la tabla (ver InventoryAlertsRow.jsx).
-const QuickActionsCard = ({ onManualUsage, onStockEntry, onAdjust }) => (
-  <CollapsibleCard title="Acciones rápidas">
+const QuickActionsCard = ({ onManualUsage, onStockEntry, onAdjust, defaultOpen = true }) => (
+  <CollapsibleCard title="Acciones rápidas" defaultOpen={defaultOpen}>
     <div className="flex flex-col gap-1">
       {[
         { label: "Registrar uso manual",    icon: BookOpen,      color: "text-blue-600 bg-blue-50",   fn: onManualUsage },

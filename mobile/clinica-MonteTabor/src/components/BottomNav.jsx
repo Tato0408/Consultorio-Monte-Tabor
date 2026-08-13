@@ -50,6 +50,8 @@ const BottomNav = ({ navigation, active, onAddPress }) => {
     navigation?.navigate(route);
   };
 
+  const openAppointmentForm = () => navigation?.navigate("NewAppointment");
+
   return (
     <View style={[styles.wrapper, { paddingBottom: insets.bottom }]}>
       <View style={styles.bar}>
@@ -66,7 +68,7 @@ const BottomNav = ({ navigation, active, onAddPress }) => {
           <TouchableOpacity
             style={styles.addButton}
             activeOpacity={0.85}
-            onPress={onAddPress || (() => showWarning("Próximamente disponible."))}
+            onPress={onAddPress || openAppointmentForm}
           >
             <Ionicons name="add" size={28} color="#fff" />
           </TouchableOpacity>
