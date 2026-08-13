@@ -31,7 +31,7 @@ const CitasPage = () => {
   const {
     loading, error, topCards, sections, pdfData,
     dateFrom, dateTo, isGeneral,
-    setDateFrom, setDateTo, toggleGeneral, refetch,
+    setDateFrom, setDateTo, activateGeneral, refetch,
   } = useCitasReport();
 
   const [exporting, setExporting] = useState(false);
@@ -60,7 +60,7 @@ const CitasPage = () => {
         isGeneral={isGeneral}
         onChangeFrom={setDateFrom}
         onChangeTo={setDateTo}
-        onToggleGeneral={toggleGeneral}
+        onSelectGeneral={activateGeneral}
         onExport={handleExport}
         exporting={exporting}
         disableExport={loading || !pdfData}

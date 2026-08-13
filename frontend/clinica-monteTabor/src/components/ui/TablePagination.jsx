@@ -16,6 +16,11 @@ const TablePagination = ({
   setItemsPerPage,
   onNextPage,
   onPrevPage,
+  // Opciones del selector "Filas por página" — configurable porque no todas las tablas quieren
+  // las mismas: ej. Movimientos de inventario rellena el espacio en blanco debajo de la tabla
+  // con filas extra (ver extraRows en GenericTable.jsx), así que paginar de 5 en 5 ahí no tiene
+  // sentido, dejaba espacio en blanco de todos modos.
+  pageSizeOptions = [5, 8, 10],
 }) => {
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500 mt-4">
@@ -37,9 +42,9 @@ const TablePagination = ({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="5">5</SelectItem>
-            <SelectItem value="8">8</SelectItem>
-            <SelectItem value="10">10</SelectItem>
+            {pageSizeOptions.map((size) => (
+              <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

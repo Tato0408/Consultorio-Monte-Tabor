@@ -85,6 +85,9 @@ const MovementsTable = ({ movements, loading, onSelectMovement, onTableOffsetCha
       extraRows={extraRows}
       onItemsPerPageChange={onItemsPerPageChange}
       headerLeft={typeFilterControl}
+      // La tabla rellena el espacio en blanco que deja debajo (ver extraRows más arriba), así
+      // que paginar de 5 en 5 no sirve de nada — siempre quedaría relleno con filas extra.
+      pageSizeOptions={[8, 10]}
     />
   );
 };

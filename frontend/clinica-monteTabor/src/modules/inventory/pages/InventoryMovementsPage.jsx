@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
-import { Download } from "lucide-react";
 import useInsumos from "../hooks/useInsumos";
 
 import MovementsStats from "../components/MovementsStats";
@@ -28,15 +27,14 @@ const InventoryMovementsPage = () => {
   // rápidas". Al cerrarse esa card el panel vuelve a bajar y esto recalcula a 0, devolviendo la
   // tabla a lo que la paginación normal muestra.
   const [extraRows, setExtraRows] = useState(0);
+  // Antes de la primera carga real, "left" muestra fugazmente la tabla VACÍA (movements=[],
+  // loading=false, un instante antes de que loadMovements() ponga loading=true) — si esa altura
+  // fantasma se llegaba a usar como referencia, quedaba grabada y ya no había forma de
+  // corregirla (ver por qué abajo ya no se necesita una referencia "congelada"). Este flag evita
+  // que el efecto de abajo mida nada hasta que ya haya datos reales (o un resultado vacío real).
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const leftColRef  = useRef(null);
   const rightColRef = useRef(null);
-  // Borde inferior (viewport Y) de la tabla SIN filas extra (extraRows=0) — se vuelve a
-  // capturar cada vez que extraRows está en 0. Es la referencia contra la que se compara el
-  // borde inferior del panel derecho. Usamos "bottom" (no "height") porque el panel derecho
-  // arranca más abajo que la tabla (marginTop: tableOffset, para alinearlo con el <table> real
-  // y no con la barra de filtros) — comparar solo alturas ignoraba ese desplazamiento y
-  // subestimaba el espacio en blanco real que quedaba debajo de la tabla.
-  const baseBottomRef = useRef(null);
   // Alto aproximado de una fila de MovementsTable (py-4 en cada celda + el contenido) — solo
   // se usa para estimar cuántas filas hacen falta para cubrir la diferencia, no necesita ser
   // exacto: si sobra/falta un poco, la siguiente medición lo vuelve a ajustar.
@@ -46,23 +44,28 @@ const InventoryMovementsPage = () => {
   const recalcRef = useRef(() => {});
 
   useLayoutEffect(() => {
+    if (!hasLoadedOnce) return;
     const left = leftColRef.current;
     const right = rightColRef.current;
     if (!left || !right) return;
 
-    // Importante: solo se observa "right". Si también observáramos "left", agregar filas
-    // cambiaría su tamaño, lo que dispararía otra medición que podía volver a cambiar
-    // extraRows y así sucesivamente — ese ciclo era la tabla "parpadeando". Al comparar
-    // siempre contra la altura BASE (capturada únicamente cuando extraRows es 0, con la
-    // forma funcional de setExtraRows) el resultado ya no depende de los cambios que el
-    // propio ajuste provoca en la tabla.
+    // Importante: solo se observa "right", nunca "left" — si también observáramos "left",
+    // agregar filas cambiaría su tamaño, lo que dispararía otra medición que podía volver a
+    // cambiar extraRows y así sucesivamente (la tabla "parpadeando").
+    //
+    // "left" en este momento YA incluye prevExtra filas de más (las que el render actual está
+    // mostrando), así que le restamos esa altura estimada para obtener su borde inferior
+    // NATURAL (con 0 filas extra). Antes esto se resolvía guardando esa altura natural en un
+    // ref y solo "recapturándola" cuando extraRows volvía a valer exactamente 0 — pero si esa
+    // captura ocurría en un mal momento (ej. contra la tabla vacía de antes de cargar datos),
+    // quedaba grabada mal PARA SIEMPRE, porque nada garantizaba que extraRows fuera a volver a
+    // tocar 0 de nuevo. Restar la altura de las filas extra en cada medición, en vez de
+    // depender de una referencia congelada, hace que el cálculo se autocorrija solo cada vez
+    // que se dispara, sin importar si una medición anterior fue imprecisa.
     const recalc = () => {
       setExtraRows((prevExtra) => {
-        if (prevExtra === 0) {
-          baseBottomRef.current = left.getBoundingClientRect().bottom;
-        }
-        const base = baseBottomRef.current ?? left.getBoundingClientRect().bottom;
-        const diff = right.getBoundingClientRect().bottom - base;
+        const naturalBottom = left.getBoundingClientRect().bottom - prevExtra * ROW_HEIGHT_ESTIMATE;
+        const diff = right.getBoundingClientRect().bottom - naturalBottom;
         return diff > ROW_HEIGHT_ESTIMATE / 2 ? Math.ceil(diff / ROW_HEIGHT_ESTIMATE) : 0;
       });
     };
@@ -71,15 +74,13 @@ const InventoryMovementsPage = () => {
     const ro = new ResizeObserver(recalc);
     ro.observe(right);
     return () => ro.disconnect();
-  }, [movements, selectedMovement]);
+  }, [hasLoadedOnce, movements, selectedMovement]);
 
-  // Si el usuario cambia cuántas filas por página quiere VER (8, 15, 25...) mientras el panel
-  // ya tenía filas extra, la altura BASE que teníamos guardada quedó calculada con el tamaño de
-  // página ANTERIOR y ya no sirve — se invalida y se vuelve a medir una vez que la tabla
-  // termine de re-renderizar con el tamaño nuevo (por eso el requestAnimationFrame).
+  // Si el usuario cambia cuántas filas por página quiere VER (8, 15, 25...), la relación entre
+  // "left" y extraRows cambió de base — se recalcula una vez que la tabla termine de
+  // re-renderizar con el tamaño nuevo (por eso el requestAnimationFrame). Ya no hace falta
+  // forzar extraRows a 0 primero: recalc() se autocorrige solo (ver comentario arriba).
   const handleItemsPerPageChange = useCallback(() => {
-    baseBottomRef.current = null;
-    setExtraRows(0);
     requestAnimationFrame(() => recalcRef.current());
   }, []);
 
@@ -88,7 +89,10 @@ const InventoryMovementsPage = () => {
     getMovements(500)
       .then(setMovements)
       .catch(() => setMovements([]))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setHasLoadedOnce(true);
+      });
   }, [refresh]);
 
   // Selección automática del primer movimiento al cargar (mismo patrón que Pacientes/Doctores/
@@ -116,15 +120,6 @@ const InventoryMovementsPage = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Movimientos de inventario</h1>
           <p className="text-sm text-slate-400 mt-1">Historial de entradas, salidas y ajustes de stock</p>
-        </div>
-        {/* sm:mt-8 la baja a la misma altura que el botón "Guardar cambios" de Horarios, para
-            que no choque con la campana de notificaciones (fixed, ver MainLayout.jsx). */}
-        <div className="flex items-center gap-3 sm:flex-shrink-0 sm:mt-8">
-          <button className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Exportar reporte</span>
-            <span className="sm:hidden">Exportar</span>
-          </button>
         </div>
       </div>
 
@@ -154,6 +149,7 @@ const InventoryMovementsPage = () => {
             onStockEntry={() => setModal("stock")}
             onManualUsage={() => setModal("usage")}
             onAdjust={() => setModal("adjust")}
+            defaultOpen={false}
           />
         </div>
       </div>
@@ -161,7 +157,7 @@ const InventoryMovementsPage = () => {
       {/* A todo el ancho de la pantalla (no solo el ancho de la tabla); cada una toma su
           propia altura para poder colapsarse de forma independiente. */}
       <div className="mt-6">
-        <InventoryAlertsRow stats={stats} />
+        <InventoryAlertsRow stats={stats} defaultOpen={false} />
       </div>
 
       {modal === "stock" && (

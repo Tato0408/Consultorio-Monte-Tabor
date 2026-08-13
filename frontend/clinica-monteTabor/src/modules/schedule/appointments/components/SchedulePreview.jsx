@@ -63,6 +63,7 @@ const SchedulePreview = ({ availability, breaks, bufferTime, blockDurations }) =
         <CollapsibleCard
             title="Vista previa de tu agenda"
             subtitle="Revisa cómo se ven tus horarios semanales combinando tu tiempo entre citas y tus duraciones de bloque."
+            defaultOpen={false}
         >
             <button
                 type="button"

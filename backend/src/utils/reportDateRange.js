@@ -30,9 +30,21 @@ const parseDateOnly = (value) => {
     return isNaN(date.getTime()) ? null : date;
 };
 
+// Fecha centinela para "sin límite inferior" cuando el usuario deja dateFrom vacío pero sí
+// puso dateTo — coincide con el mínimo permitido en los inputs de fecha del frontend
+// (ReportHeader.jsx, MIN_DATE_STR), así que en la práctica cubre cualquier registro real.
+const EARLIEST_SENTINEL = new Date(2000, 0, 1);
+
 // A partir de los query params (dateFrom, dateTo, general) calcula el rango actual y el
 // período anterior equivalente (misma duración, inmediatamente antes) para las comparaciones
 // de variación. Si general=true, no hay filtro de fecha ni período anterior.
+//
+// dateFrom/dateTo son cada uno independientemente opcionales (no hace falta mandar los dos):
+// solo dateFrom  -> desde ahí hasta hoy.
+// solo dateTo    -> desde el inicio (EARLIEST_SENTINEL) hasta ahí.
+// ninguno de los dos (y general != true) -> también desde el inicio hasta hoy, equivalente en
+// la práctica a general pero con período anterior calculado (queda vacío/sin datos, ya que cae
+// antes de EARLIEST_SENTINEL).
 export const resolveRange = ({ dateFrom, dateTo, general }) => {
     const isGeneral = general === "true" || general === true;
 
@@ -40,8 +52,15 @@ export const resolveRange = ({ dateFrom, dateTo, general }) => {
         return { isGeneral: true, start: null, end: null, prevStart: null, prevEnd: null };
     }
 
-    const end = endOfDay(dateTo ? parseDateOnly(dateTo) || new Date() : new Date());
-    const start = startOfDay(dateFrom ? parseDateOnly(dateFrom) || new Date(end.getFullYear(), end.getMonth(), 1) : new Date(end.getFullYear(), end.getMonth(), 1));
+    // No tiene sentido pedir datos de una fecha que todavía no ha pasado — el frontend ya lo
+    // bloquea (ReportHeader.jsx, max={hoy}), pero se vuelve a exigir aquí por si la petición no
+    // vino de ahí. Una fecha futura (o inválida) se trata igual que si no se hubiera mandado.
+    const now = new Date();
+    const parsedFrom = dateFrom ? parseDateOnly(dateFrom) : null;
+    const parsedTo = dateTo ? parseDateOnly(dateTo) : null;
+
+    const end = endOfDay(parsedTo && parsedTo <= now ? parsedTo : now);
+    const start = startOfDay(parsedFrom && parsedFrom <= now ? parsedFrom : EARLIEST_SENTINEL);
 
     const rangeMs = end.getTime() - start.getTime();
     const prevEnd = endOfDay(new Date(start.getTime() - 1));

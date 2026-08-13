@@ -13,7 +13,7 @@ const fmtExpiry = (dateStr) => {
 
 // "Alertas de inventario" y "Próximos a vencer" van debajo de la tabla (no en el panel
 // lateral), una al lado de la otra ocupando cada una la mitad del ancho de la tabla.
-const InventoryAlertsRow = ({ stats }) => {
+const InventoryAlertsRow = ({ stats, defaultOpen = true }) => {
   const alertas         = stats?.alertas         ?? [];
   const proximosAVencer = stats?.proximosAVencer ?? [];
 
@@ -22,7 +22,7 @@ const InventoryAlertsRow = ({ stats }) => {
   // de la abierta, con un hueco vacío debajo del encabezado.
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
-      <CollapsibleCard title="Alertas de inventario">
+      <CollapsibleCard title="Alertas de inventario" defaultOpen={defaultOpen}>
         <div className="flex flex-col gap-2">
           {alertas.length === 0 && (
             <p className="text-xs text-slate-400 text-center py-4">Sin alertas activas</p>
@@ -52,7 +52,7 @@ const InventoryAlertsRow = ({ stats }) => {
         </button>
       </CollapsibleCard>
 
-      <CollapsibleCard title="Próximos a vencer">
+      <CollapsibleCard title="Próximos a vencer" defaultOpen={defaultOpen}>
         <div className="flex flex-col gap-3">
           {proximosAVencer.length === 0 && (
             <p className="text-xs text-slate-400 text-center py-4">Sin vencimientos próximos</p>

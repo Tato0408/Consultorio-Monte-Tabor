@@ -37,6 +37,7 @@ const BreaksSection = ({ breaks, availability, onChange, editing }) => {
         <CollapsibleCard
             title="2. Descansos"
             subtitle="Agrega los horarios en los cuales descansarás durante tu jornada laborar."
+            defaultOpen={false}
             actions={
                 editing && (
                     <button
