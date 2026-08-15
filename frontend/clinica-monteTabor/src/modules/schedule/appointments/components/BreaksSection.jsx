@@ -5,9 +5,10 @@ import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 const DAYS = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 
-// editing (prop): modo edición de la PÁGINA completa (ver ScheduleConfig.jsx) — controla si los
-// botones de agregar/editar/eliminar existen. rowEditing (state): cuál fila de la tabla está
-// siendo editada ahora mismo, solo alcanzable cuando editing=true.
+// editing (prop): modo edición de la página completa (ver
+// ScheduleConfig.jsx), controla si los botones de agregar, editar y
+// eliminar existen. rowEditing (state): cuál fila de la tabla está
+// siendo editada ahora mismo, solo alcanzable cuando editing es true.
 const BreaksSection = ({ breaks, availability, onChange, editing }) => {
     const [rowEditing, setRowEditing] = useState(null);
     const [form, setForm]       = useState({ day: 1, start_time: "12:00", end_time: "13:00" });

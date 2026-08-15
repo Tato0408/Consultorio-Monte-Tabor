@@ -4,9 +4,11 @@ const nurseScheduleController = {};
 
 const toMins = (t) => { const [h, m] = (t || "0:0").split(":").map(Number); return h * 60 + m; };
 
-// GET /api/nurse-schedule/:nurseId — igual que scheduleController.getSchedule pero para enfermeras.
-// Solo la propia enfermera o un admin pueden consultarlo/editarlo (mismo criterio que
-// appointmentsController.getNursesForAcceptance usa para el catálogo de enfermeras).
+// GET /api/nurse-schedule/:nurseId, igual que scheduleController.getSchedule
+// pero para enfermeras.
+// Solo la propia enfermera o un admin pueden consultarlo o editarlo
+// (mismo criterio que appointmentsController.getNursesForAcceptance
+// usa para el catálogo de enfermeras).
 nurseScheduleController.getSchedule = async (req, res) => {
     try {
         if (!["nurse", "admin"].includes(req.user.role)) {
@@ -20,7 +22,7 @@ nurseScheduleController.getSchedule = async (req, res) => {
     }
 };
 
-// PUT /api/nurse-schedule/:nurseId — crear o actualizar horario (upsert)
+// PUT /api/nurse-schedule/:nurseId, crea o actualiza el horario (upsert).
 nurseScheduleController.saveSchedule = async (req, res) => {
     try {
         if (!["nurse", "admin"].includes(req.user.role)) {
@@ -41,12 +43,15 @@ nurseScheduleController.saveSchedule = async (req, res) => {
     }
 };
 
-// Helper interno (no es una ruta HTTP): dado un rango horario ya definido para una cita
-// (start_time/end_time, calculados a partir del doctor/procedimiento), indica si una enfermera
-// tiene horario configurado que cubra ese rango, sin descansos ni otra cita ya asignada en ese
-// momento. Lo usa appointmentsController.getNursesForAcceptance para filtrar el catálogo.
-// excludeAppointmentId se pasa al editar una cita ya existente, para que la propia enfermera
-// asignada no se filtre por "chocar" contra la misma cita que se está editando.
+// Helper interno (no es una ruta HTTP): dado un rango horario ya
+// definido para una cita (start_time y end_time, calculados a partir
+// del doctor y el procedimiento), indica si una enfermera tiene
+// horario configurado que cubra ese rango, sin descansos ni otra
+// cita ya asignada en ese momento. Lo usa
+// appointmentsController.getNursesForAcceptance para filtrar el
+// catálogo. excludeAppointmentId se pasa al editar una cita ya
+// existente, para que la propia enfermera asignada no choque contra
+// la misma cita que se está editando.
 export const isNurseAvailable = async (nurseId, date, start_time, end_time, appointmentsModel, excludeAppointmentId) => {
     const schedule = await nurseScheduleModel.findOne({ nurse_id: nurseId }).lean();
     if (!schedule) return false;

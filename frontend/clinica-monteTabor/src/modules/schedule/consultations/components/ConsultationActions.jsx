@@ -1,4 +1,5 @@
-// Barra de acciones de la derecha. En modo "view" solo se muestra
+// Barra de acciones de la derecha. En modo de solo lectura (readOnly)
+// solo se muestra el botón de vista previa e impresión.
 
 const ConsultationActions = ({ readOnly, isSaving, onFinish, onPreview }) => {
     return (

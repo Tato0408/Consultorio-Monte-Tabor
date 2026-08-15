@@ -4,9 +4,14 @@ import { ChevronRight } from "lucide-react";
 
 const COLORS = ["#3b82f6", "#8b5cf6", "#14b8a6", "#10b981", "#f59e0b"];
 
+// Muestra un gráfico de dona con las enfermedades más frecuentes y su
+// porcentaje sobre el total. Recibe la lista de enfermedades (nombre,
+// conteo y porcentaje) y el total general de diagnósticos.
 const DiseaseStatsCard = ({ diseases = [], total = 0 }) => {
     const navigate = useNavigate();
 
+    // Si no hay enfermedades registradas, se muestra un slice único gris
+    // en vez de dejar el gráfico vacío.
     const data = diseases.length > 0
         ? diseases.map((d) => ({ name: d.name, value: d.count }))
         : [{ name: "Sin datos", value: 1 }];
@@ -18,7 +23,7 @@ const DiseaseStatsCard = ({ diseases = [], total = 0 }) => {
             <p className="text-sm font-bold text-slate-800">Enfermedad más frecuente</p>
 
             <div className="flex items-center gap-4">
-                {/* Donut */}
+                {/* Gráfico de dona */}
                 <div className="w-36 h-36 flex-shrink-0">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -56,7 +61,7 @@ const DiseaseStatsCard = ({ diseases = [], total = 0 }) => {
                     </ResponsiveContainer>
                 </div>
 
-                {/* Legend */}
+                {/* Leyenda */}
                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                     {hasData ? diseases.map((d, i) => (
                         <div key={i} className="flex items-center gap-2">

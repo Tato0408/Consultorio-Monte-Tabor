@@ -1,10 +1,3 @@
-/*
-    appointments_id
-    nurse_id
-    patient_id
-    instructions
-*/
-
 import {Schema, model} from "mongoose";
 
 const nurseNotesSchema = new Schema({

@@ -21,11 +21,11 @@ const Consultations =() => {
      const today = getTodayString();
      const { user } = useAuth();
 
-   // Por defecto la tabla muestra TODAS las fechas (el filtro de fechas es secundario, el
-    // usuario lo activa si lo necesita) con citas "pending" (agendadas sin confirmar) y
-    // "scheduled" (confirmadas / en espera) - las "completed" se ven en el Historial del Día en
-    // vez de en esta tabla operativa. Antes arrancaba fijado a "hoy", lo que dejaba la tabla
-    // vacía o casi vacía cualquier día sin citas agendadas para esa fecha exacta.
+   // Por defecto la tabla muestra todas las fechas (el filtro de
+    // fechas es secundario, se activa solo si se necesita) con citas
+    // pending (agendadas sin confirmar) y scheduled (confirmadas, en
+    // espera). Las completed se ven en el Historial del Día, no en
+    // esta tabla operativa.
     const {
         appointments,
         pagination,
@@ -46,8 +46,9 @@ const Consultations =() => {
     const completedCount = appointments.filter((a) => a.status === "completed").length;
  
     const handleFilterChange = (changed) => {
-        // Si el usuario cambia el filtro de estado manualmente, respetamos su elección
-        // en vez del default "pending, scheduled".
+        // Si el usuario cambia el filtro de estado manualmente, se
+        // respeta esa elección en vez del valor por defecto (pending,
+        // scheduled).
         if ("status" in changed) {
             updateFilters({ status: changed.status || undefined });
             return;
@@ -55,10 +56,12 @@ const Consultations =() => {
         updateFilters(changed);
     };
 
-    // Click en una tarjeta superior (Agendados / En espera / Completados): filtra la tabla
-    // de abajo por ese estado y por "mis citas" (doctor_id del usuario logueado), para no
-    // tener que buscar entre las citas de todos los doctores. Un segundo click sobre la
-    // misma tarjeta ya activa quita el filtro y vuelve a la vista general por defecto.
+    // Al hacer click en una tarjeta superior (Agendados, En espera o
+    // Completados) se filtra la tabla de abajo por ese estado y por
+    // las citas del usuario logueado (doctor_id), para no tener que
+    // buscar entre las citas de todos los doctores. Un segundo click
+    // sobre la misma tarjeta ya activa quita el filtro y vuelve a la
+    // vista general por defecto.
     const handleStatCardClick = (statusValue) => {
         const isSameFilterActive = filters.status === statusValue && filters.doctor_id === user?.id;
         if (isSameFilterActive) {

@@ -30,8 +30,8 @@ const fmt12 = (t) => {
 
 const personName = (p) => (p ? `${p.name || ""} ${p.last_name || ""}`.trim() : "—");
 
-// Vista compacta y cronológica de TODAS las citas de hoy — reemplaza los dos listados
-// separados ("en consulta" / "próxima hora") por una sola agenda más completa y fácil de leer.
+// Muestra todas las citas de hoy en orden cronológico, en una sola
+// agenda compacta.
 const TodayAgendaSection = ({ counts, appointments }) => {
     const navigate = useNavigate();
     const list = appointments || [];
@@ -52,7 +52,7 @@ const TodayAgendaSection = ({ counts, appointments }) => {
                 </button>
             </div>
 
-            {/* Pulso rápido: cuántos doctores están en consulta / disponibles ahora mismo */}
+            {/* Pulso rápido: cuántos doctores están en consulta y cuántos disponibles */}
             <div className="flex items-center gap-3 text-xs text-slate-400 mb-4 pb-4 border-b border-slate-50">
                 <span className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
@@ -70,15 +70,18 @@ const TodayAgendaSection = ({ counts, appointments }) => {
                     <p className="text-sm text-slate-400">No hay citas programadas para hoy.</p>
                 </div>
             ) : (
-                // flex-1 min-h-0 + overflow-y-auto: muestra tantas citas como quepan en la mitad
-                // de alto que le toca (ver h-full arriba) y deja scroll interno para el resto,
-                // en vez de estirar la card entera o desbordarse por debajo de "Ver todas".
+                // Las clases flex-1, min-h-0 y overflow-y-auto muestran tantas citas
+                // como quepan en la mitad de alto que le toca (ver h-full arriba) y
+                // dejan scroll interno para el resto, en vez de estirar la tarjeta
+                // entera o desbordarse por debajo del botón de ver todas.
                 <div className="flex-1 min-h-0 overflow-y-auto flex flex-col divide-y divide-slate-50">
-                    {/* Hora + estado van en su propia fila arriba (contenido corto, cabe
-                        holgado); paciente y doctor bajan a su propia fila con TODO el ancho de
-                        la card para sí solos, en vez de compartir espacio apretado entre la hora
-                        y el badge — así el nombre completo cabe y solo hace salto de línea
-                        (break-words, sin truncate) cuando de verdad es muy largo. */}
+                    {/* La hora y el estado van juntos en su propia fila arriba, ya
+                        que es contenido corto que cabe holgado. El paciente y el
+                        doctor bajan a su propia fila con todo el ancho de la tarjeta
+                        para ellos solos, en vez de compartir espacio apretado entre
+                        la hora y la etiqueta de estado. Así el nombre completo cabe
+                        y solo hace salto de línea (con break-words, sin truncate)
+                        cuando es realmente muy largo. */}
                     {visible.map((appt) => (
                         <div key={appt._id} className="flex flex-col gap-1 py-3">
                             <div className="flex items-center justify-between gap-2">

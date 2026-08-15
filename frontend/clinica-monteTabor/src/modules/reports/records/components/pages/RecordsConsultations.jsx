@@ -12,7 +12,8 @@ const ESTADO_STYLES = {
 const MIN_FILTER_YEAR = 2000;
 const MAX_FILTER_DATE = `${new Date().getFullYear() + 1}-12-31`;
 
-// Espera `patient.consultas` = [{ id, hora, paciente, medico, estado, _fecha }]
+// Espera que patient.consultas sea una lista de objetos con id, hora,
+// paciente, medico, estado y _fecha.
 const ConsultasDelDia = ({
   patient = {},
   onContinuar,

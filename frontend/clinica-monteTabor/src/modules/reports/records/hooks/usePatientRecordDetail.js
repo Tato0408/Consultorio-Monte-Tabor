@@ -21,15 +21,16 @@ const getLatestByDate = (items = [], dateField) =>
     return latest;
   }, null);
 
-// Arma, a partir de las consultas/citas pendientes/incapacidades reales de un
-// paciente, el mismo shape de campos que antes vivía quemado en
-// MOCK_DEFAULTS (useRecords.js): consultas, recetas, laboratorios,
-// referencias, incapacidades, notasEvolucion e impresionDiagnostica.
+// Arma, a partir de las consultas, las citas pendientes y las
+// incapacidades reales de un paciente, el mismo conjunto de campos que
+// usa el expediente: consultas, recetas, laboratorios, referencias,
+// incapacidades, notasEvolucion e impresionDiagnostica.
 const buildExtra = (consultations, pendingAppointments, sickLeaves, patientName) => {
   const atendidas = consultations.map((c, i) => ({
     id: c._id || `c-${i}`,
-    // El id de la Consulta no sirve para navegar al formulario (que siempre
-    // se monta por id de Cita); se guarda aparte para no confundirlo con `id`.
+    // El id de la consulta no sirve para navegar al formulario, que siempre
+    // se monta con el id de la cita. Se guarda aparte para no confundirlo
+    // con el campo id.
     appointmentId: c.appointment_id?._id || c.appointment_id || null,
     _fecha: c.date,
     hora: c.appointment_id?.start_time || "—",
@@ -125,10 +126,10 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, patientName)
   return extra;
 };
 
-// Trae, para un paciente puntual, todo lo que su expediente necesita y que
-// no vive en el documento de /patients: consultas reales, citas aún no
-// atendidas, y sus incapacidades. Se dispara solo cuando cambia el
-// paciente abierto, no en cada cambio de pestaña.
+// Trae, para un paciente puntual, todo lo que necesita su expediente y
+// que no vive en el documento de pacientes: consultas reales, citas
+// pendientes de atender y sus incapacidades. Se ejecuta solo cuando
+// cambia el paciente abierto, no en cada cambio de pestaña.
 const usePatientRecordDetail = (patientId, patientName) => {
   const [extra, setExtra] = useState(null);
   const [loading, setLoading] = useState(false);

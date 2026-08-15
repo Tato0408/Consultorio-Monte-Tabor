@@ -12,12 +12,15 @@ const maskPhone = (raw) => {
     return digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
 };
 
-// Campos que cada rol puede autoeditar aquí — mismo criterio que sus respectivos endpoints de
-// autoservicio (doctorsController.updateOwnProfile, nursesController.updateOwnProfile,
-// receptionistController.updateOwnProfile, adminController.updateAdmin). Ninguno acepta correo
-// ni contraseña por esta vía: el correo del admin dispara un flujo de verificación aparte
-// (código al nuevo correo) y la contraseña ya tiene su propio botón "Modificar contraseña" — no
-// tiene sentido mezclar esos dos flujos con una edición rápida de datos personales.
+// Campos que cada rol puede autoeditar aquí. Mismo criterio que sus
+// respectivos endpoints de autoservicio
+// (doctorsController.updateOwnProfile, nursesController.updateOwnProfile,
+// receptionistController.updateOwnProfile, adminController.updateAdmin).
+// Ninguno acepta correo ni contraseña por esta vía: el correo del
+// admin dispara un flujo de verificación aparte (código al nuevo
+// correo), y la contraseña ya tiene su propio botón de modificar
+// contraseña, por lo que no tiene sentido mezclar esos dos flujos con
+// una edición rápida de datos personales.
 const ROLE_FIELDS = {
     doctor:       ["name", "last_name", "dui", "birth_date", "phone"],
     nurse:        ["name", "last_name", "dui", "birth_date", "phone"],
@@ -31,8 +34,9 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
 
-    // El componente se queda montado entre aperturas (el padre solo cambia "isOpen"), así que sin
-    // esto el formulario conservaría lo último escrito en vez de partir de los datos actuales del
+    // El componente se queda montado entre aperturas, ya que el padre
+    // solo cambia isOpen. Sin este efecto, el formulario conservaría
+    // lo último escrito en vez de partir de los datos actuales del
     // usuario cada vez que se abre.
     useEffect(() => {
         if (!isOpen) return;
@@ -52,7 +56,8 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
     const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
     const close = () => { if (!submitting) onClose(); };
 
-    // Género no se valida como "requerido": es un <select> que siempre trae un valor por defecto.
+    // El género no se valida como requerido, ya que es un select que
+    // siempre trae un valor por defecto.
     const validate = () => {
         const e = {};
         fields.forEach((f) => {

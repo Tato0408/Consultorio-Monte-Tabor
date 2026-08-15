@@ -8,18 +8,21 @@ import sickLeavesModel from "../../models/sickLeaves/sickLeave.js";
 import { config } from "../../../config.js";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError } from "../../utils/validators.js";
 
-// Controller de autoservicio para pacientes: a diferencia de patientsController.js (usado por
-// el panel administrativo, donde el staff gestiona CUALQUIER paciente por :id y con permisos de
-// rol), este es el que consume la app móvil — cada paciente solo puede crear su propia cuenta,
-// y ver/actualizar ÚNICAMENTE su propio perfil (identidad tomada del token, nunca de un :id).
+// Controller de autoservicio para pacientes: a diferencia de
+// patientsController.js (usado por el panel administrativo, donde el
+// staff gestiona cualquier paciente por :id y con permisos de rol),
+// este es el que consume la app móvil. Cada paciente solo puede crear
+// su propia cuenta, y ver o actualizar únicamente su propio perfil
+// (identidad tomada del token, nunca de un :id).
 const patientSelfController = {};
 
 const REQUIRED_FIELDS = ["name", "last_name", "birth_date", "gender", "phone", "email", "password"];
 
 const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
-// Firma el mismo tipo de token que usa el login — registrarse funciona como un "login
-// escondido": el paciente queda autenticado de inmediato, sin pasar por la pantalla de login.
+// Firma el mismo tipo de token que usa el login. Registrarse
+// funciona como un login escondido: el paciente queda autenticado de
+// inmediato, sin pasar por la pantalla de login.
 const signPatientToken = (patient) =>
     jsonwebtoken.sign({ id: patient._id, userType: "patient" }, config.JWT.secret, { expiresIn: "15m" });
 
@@ -39,9 +42,7 @@ const denyIfNotPatient = (req, res) => {
     return false;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/patientAccount/register — público, cualquiera puede registrarse
-// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/patientAccount/register, público, cualquiera puede registrarse.
 patientSelfController.register = async (req, res) => {
     try {
         let { name, last_name, dui, birth_date, gender, phone, email, password } = req.body;
@@ -59,8 +60,9 @@ patientSelfController.register = async (req, res) => {
         phone = phone.trim();
         email = email.trim();
         password = password.trim();
-        // El DUI es opcional (puede haber pacientes menores de edad sin DUI todavía) — una
-        // cadena vacía cuenta como "no enviado", no como un valor a validar
+        // El DUI es opcional (puede haber pacientes menores de edad
+        // sin DUI todavía), una cadena vacía cuenta como no enviado,
+        // no como un valor a validar.
         dui = dui ? String(dui).trim() : undefined;
         if (dui === "") dui = undefined;
 
@@ -74,9 +76,11 @@ patientSelfController.register = async (req, res) => {
             return res.status(400).json({ message: passwordError });
         }
 
-        // Único dentro de la colección de pacientes — a propósito NO se usa findStaffDuplicate:
-        // los pacientes pueden compartir correo/DUI con el staff, solo no entre ellos mismos
-        // (el login de pacientes busca por correo con findOne, tiene que ser único ahí)
+        // Único dentro de la colección de pacientes, a propósito no
+        // se usa findStaffDuplicate: los pacientes pueden compartir
+        // correo o DUI con el staff, solo no entre ellos mismos (el
+        // login de pacientes busca por correo con findOne, tiene que
+        // ser único ahí).
         const duplicateFilter = dui ? { $or: [{ email }, { dui }] } : { email };
         const existsPatient = await patientsModel.findOne(duplicateFilter);
         if (existsPatient) {
@@ -117,9 +121,7 @@ patientSelfController.register = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/patientAccount/me — requiere sesión; devuelve SOLO el perfil de quien la pide
-// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/patientAccount/me, requiere sesión, devuelve solo el perfil de quien la pide.
 patientSelfController.getMe = async (req, res) => {
     try {
         if (denyIfNotPatient(req, res)) return;
@@ -136,11 +138,11 @@ patientSelfController.getMe = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PUT /api/patientAccount/me — requiere sesión; actualiza SOLO el perfil de quien la pide.
-// La contraseña queda fuera de este endpoint a propósito: tiene su propio endpoint dedicado
-// (changePassword, más abajo) porque requiere confirmar la contraseña actual primero.
-// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/patientAccount/me, requiere sesión, actualiza solo el
+// perfil de quien la pide.
+// La contraseña queda fuera de este endpoint a propósito: tiene su
+// propio endpoint dedicado (changePassword, más abajo) porque
+// requiere confirmar la contraseña actual primero.
 patientSelfController.updateMe = async (req, res) => {
     try {
         if (denyIfNotPatient(req, res)) return;
@@ -197,20 +199,19 @@ patientSelfController.updateMe = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PUT /api/patientAccount/me/blood-type
-// Va aparte de updateMe porque este solo acepta campos del documento raíz, y el tipo de
-// sangre vive dentro de clinical_history. Se usa notación de punto para tocar únicamente
-// esa casilla y no pisar signos vitales, antecedentes ni procedimientos.
-// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/patientAccount/me/blood-type.
+// Va aparte de updateMe porque este solo acepta campos del documento
+// raíz, y el tipo de sangre vive dentro de clinical_history. Se usa
+// notación de punto para tocar únicamente esa casilla y no pisar
+// signos vitales, antecedentes ni procedimientos.
 patientSelfController.updateBloodType = async (req, res) => {
     try {
         if (denyIfNotPatient(req, res)) return;
 
         const { blood_type, blood_type_date } = req.body;
 
-        // Lista cerrada: sin esto se puede guardar cualquier texto en un dato que se usa
-        // en emergencias médicas
+        // Lista cerrada: sin esto se puede guardar cualquier texto en
+        // un dato que se usa en emergencias médicas.
         if (!BLOOD_TYPES.includes(blood_type)) {
             return res.status(400).json({ message: "Tipo de sangre no válido" });
         }
@@ -233,8 +234,9 @@ patientSelfController.updateBloodType = async (req, res) => {
                 {
                     $set: {
                         "clinical_history.blood_type": blood_type,
-                        // Campo aparte en vez de convertir blood_type en objeto: el panel
-                        // administrativo ya lo lee como string y se rompería
+                        // Campo aparte en vez de convertir blood_type
+                        // en objeto: el panel administrativo ya lo lee
+                        // como string y se rompería.
                         "clinical_history.blood_type_date": registeredAt,
                     },
                 },
@@ -253,11 +255,10 @@ patientSelfController.updateBloodType = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PUT /api/patientAccount/me/lifestyle — antecedentes no patológicos y ecológico-sociales.
-// Son los dos campos de texto libre de clinical_history; se guardan juntos porque la app
-// los edita en la misma pantalla.
-// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/patientAccount/me/lifestyle, antecedentes no patológicos
+// y ecológico-sociales.
+// Son los dos campos de texto libre de clinical_history, se guardan
+// juntos porque la app los edita en la misma pantalla.
 patientSelfController.updateLifestyle = async (req, res) => {
     try {
         if (denyIfNotPatient(req, res)) return;
@@ -265,7 +266,8 @@ patientSelfController.updateLifestyle = async (req, res) => {
         const { non_pathological, ecologycal_social } = req.body;
 
         const fieldsToSet = {};
-        // Se acepta la cadena vacía a propósito: es como el paciente borra lo que escribió
+        // Se acepta la cadena vacía a propósito: es como el paciente
+        // borra lo que escribió.
         if (non_pathological !== undefined) {
             fieldsToSet["clinical_history.non_pathological"] = String(non_pathological).trim();
         }
@@ -292,10 +294,9 @@ patientSelfController.updateLifestyle = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/patientAccount/me/hereditary — agrega un antecedente familiar.
-// $push y no $set: es una lista que se acumula, sobrescribirla borraría los anteriores.
-// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/patientAccount/me/hereditary, agrega un antecedente familiar.
+// Usa $push y no $set: es una lista que se acumula, sobrescribirla
+// borraría los anteriores.
 patientSelfController.addHereditary = async (req, res) => {
     try {
         if (denyIfNotPatient(req, res)) return;
@@ -336,9 +337,7 @@ patientSelfController.addHereditary = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DELETE /api/patientAccount/me/hereditary/:entryId
-// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/patientAccount/me/hereditary/:entryId.
 patientSelfController.deleteHereditary = async (req, res) => {
     try {
         if (denyIfNotPatient(req, res)) return;
@@ -363,9 +362,8 @@ patientSelfController.deleteHereditary = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/patientAccount/me/pathological — agrega una enfermedad crónica o diagnóstico
-// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/patientAccount/me/pathological, agrega una enfermedad
+// crónica o diagnóstico.
 patientSelfController.addPathological = async (req, res) => {
     try {
         if (denyIfNotPatient(req, res)) return;
@@ -415,9 +413,7 @@ patientSelfController.addPathological = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DELETE /api/patientAccount/me/pathological/:entryId
-// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/patientAccount/me/pathological/:entryId.
 patientSelfController.deletePathological = async (req, res) => {
     try {
         if (denyIfNotPatient(req, res)) return;
@@ -442,15 +438,17 @@ patientSelfController.deletePathological = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/patientAccount/consultations — requiere sesión; historial de "Mis consultas"
-// del paciente autenticado. A diferencia de /api/consultations (uso del personal, filtra por
-// :patient_id y exige permiso "calendar.consultations"), aquí no hay parámetro de paciente ni
-// matriz de permisos: la identidad sale del token (igual que getMe/updateMe) y arma en un solo
-// viaje lo que la tarjeta de la app necesita — cada cita del paciente, cruzada con su consulta
-// (si ya fue atendida), su prescripción y si generó una incapacidad. Mismo cruce de datos que
-// usePatientRecordDetail.buildExtra hace en la web, adaptado a un solo endpoint self-service.
-// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/patientAccount/consultations, requiere sesión, historial
+// de mis consultas del paciente autenticado.
+// A diferencia de /api/consultations (uso del personal, filtra por
+// :patient_id y exige permiso calendar.consultations), aquí no hay
+// parámetro de paciente ni matriz de permisos: la identidad sale del
+// token (igual que getMe y updateMe) y arma en un solo viaje lo que
+// la tarjeta de la app necesita: cada cita del paciente, cruzada con
+// su consulta (si ya fue atendida), su prescripción y si generó una
+// incapacidad. Mismo cruce de datos que
+// usePatientRecordDetail.buildExtra hace en la web, adaptado a un
+// solo endpoint self-service.
 patientSelfController.getMyConsultations = async (req, res) => {
     try {
         if (denyIfNotPatient(req, res)) return;
@@ -520,11 +518,11 @@ patientSelfController.getMyConsultations = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PUT /api/patientAccount/changePassword — requiere sesión. A diferencia del cambio de
-// contraseña por recuperación (que verifica un código enviado al correo), aquí el paciente ya
-// está autenticado y debe confirmar su contraseña actual para poder establecer una nueva.
-// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/patientAccount/changePassword, requiere sesión.
+// A diferencia del cambio de contraseña por recuperación (que
+// verifica un código enviado al correo), aquí el paciente ya está
+// autenticado y debe confirmar su contraseña actual para poder
+// establecer una nueva.
 patientSelfController.changePassword = async (req, res) => {
     try {
         if (denyIfNotPatient(req, res)) return;

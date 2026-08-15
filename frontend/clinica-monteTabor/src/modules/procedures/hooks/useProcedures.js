@@ -1,4 +1,3 @@
-// src/features/procedures/hooks/useProcedures.js
 import { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import apiClient from "@/lib/apiClient";
@@ -13,7 +12,8 @@ const useProcedures = () => {
     try {
       setLoading(true);
       setError("");
-      // apiClient ya devuelve el JSON parseado directo (sin envoltorio { data }), así que aquí asignamos la respuesta tal cual.
+      // apiClient ya devuelve el JSON parseado directo, sin envoltorio
+      // { data }, por lo que la respuesta se asigna tal cual.
       const data = await apiClient("/procedures");
       setProcedures(data);
     } catch (err) {

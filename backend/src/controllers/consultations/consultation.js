@@ -40,7 +40,7 @@ const nonEmptyRows = (rows, keys) =>
   (Array.isArray(rows) ? rows : []).filter((row) => keys.some((k) => String(row?.[k] || "").trim() !== ""));
 
 // Descarta materiales sin insumo elegido (el doctor le dio "Agregar material" pero dejó el
-// selector en blanco) — si no se limpia aquí, Mongoose revienta al intentar castear "" como
+// selector en blanco), si no se limpia aquí, Mongoose revienta al intentar castear "" como
 // ObjectId al guardar la consulta, y de paso evita que se descuente inventario con cantidad 0.
 const sanitizeProcedureRows = (procedure) =>
   (Array.isArray(procedure) ? procedure : []).map((p) => ({
@@ -52,7 +52,7 @@ const sanitizeProcedureRows = (procedure) =>
 // Arma el update ($set + $push) de Patients.clinical_history a partir de lo que el doctor cargó
 // en esta consulta. hereditary/pathological/antecedentes de texto se REEMPLAZAN por completo: el
 // formulario de consulta ya precarga lo que el paciente tenía registrado (ver
-// useConsultation.js -> getPatientAntecedents), así que lo que llega aquí YA es la versión
+// useConsultation.js a getPatientAntecedents), así que lo que llega aquí YA es la versión
 // editada por el doctor, no una lista parcial. Signos vitales y procedimientos en cambio se
 // ACUMULAN como historial (cada consulta agrega una toma/entrada nueva, no reemplaza la anterior).
 const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedure, consultationId, consultationDate, followUpDate }) => {
@@ -77,7 +77,7 @@ const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedur
 
   // Se resuelven los nombres reales (no solo los ids) para poder etiquetar con algo legible el
   // movimiento de inventario que descuenta los materiales usados (ver applyMaterialUsageDelta
-  // más abajo), y se devuelven junto con los mapas para que syncProcedureHistory (justo debajo)
+  // más abajo), y se devuelven junto con los mapas para que syncProcedureHistory
   // los reutilice sin tener que volver a consultar la colección.
   let procedureNames = [];
   let doctorName = "";
@@ -106,14 +106,7 @@ const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedur
 };
 
 // Sincroniza Patients.clinical_history.procedures fila por fila, en vez de simplemente empujar
-// (`$push`) lo que traiga la consulta cada vez que se guarda. Antes, tanto insertConsultation
-// como updateConsultation usaban $push sin condición: guardar/editar la MISMA consulta dos veces
-// duplicaba su procedimiento en el expediente del paciente y en el seguimiento de Tratamientos
-// (cada guardado agregaba una copia más). Ahora, si ya existe una entrada para este
-// (consultation_id, procedure_id) — porque esta consulta ya se había guardado antes — se
-// actualiza en su lugar, SIN tocar result/resultAuthor/resultUpdatedAt/notes/documents (esos son
-// datos que Tratamientos pudo haber agregado después y no deben perderse solo porque el doctor
-// volvió a guardar la consulta). Si no existe todavía, se agrega nueva.
+// lo que traiga la consulta cada vez que se guarda. 
 const syncProcedureHistory = async ({ patientId, consultationId, procedureRows, procedureNameById, doctorNameById, consultationDate, diagnosisText, followUpDate, session }) => {
   for (const row of procedureRows) {
     const procedureName = procedureNameById.get(String(row.procedure_id)) || "Procedimiento";
@@ -234,7 +227,7 @@ consultationController.insertConsultation = async (req, res) => {
     }
 
     // El frontend (TriageCard.jsx) ya bloquea el signo "-" al escribir, pero el backend nunca
-    // debe confiar solo en eso (ej. una llamada directa por Swagger) — mismas reglas que ya
+    // debe confiar solo en eso (ej. una llamada directa por Swagger) mismas reglas que ya
     // exige el expediente clínico para signos vitales (buildVitalSignsEntry hace la misma
     // conversión cm→m que usa Patients.clinical_history.vital_signs).
     const vitalSignsCheck = buildVitalSignsEntry(clinical_data?.triage, null);
@@ -279,7 +272,7 @@ consultationController.insertConsultation = async (req, res) => {
     }
 
     // Sincroniza el expediente del paciente (signos vitales, antecedentes, procedimientos) con
-    // lo que el doctor acaba de registrar en esta consulta — así el Expediente Clínico deja de
+    // lo que el doctor acaba de registrar en esta consulta así el Expediente Clínico deja de
     // depender de un flujo aparte que nunca existió.
     const { update: patientUpdate, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById } = await buildClinicalHistoryUpdate({
       clinical_data,
@@ -350,7 +343,7 @@ consultationController.deleteConsultation = async (req, res) => {
     }
 
     // Si esta consulta había empujado algún procedimiento al expediente del paciente (ver
-    // syncProcedureHistory), se limpia también — si no, queda un "tratamiento fantasma" en
+    // syncProcedureHistory), se limpia también si no, queda un "tratamiento fantasma" en
     // Tratamientos (/inventory/treatments) apuntando a una consulta que ya no existe.
     if (consultationDeleted.patient_id) {
       await patientsModel.updateOne(
@@ -447,7 +440,7 @@ consultationController.updateConsultation = async (req, res) => {
         { session, upsert: true, new: true, runValidators: true }
       );
     }
-    // Misma sincronización que insertConsultation — al editar una consulta ya existente
+    // Misma sincronización que insertConsultation al editar una consulta ya existente
     // (ej. completar el registro de una cita en curso) el expediente del paciente también
     // debe quedar al día.
     const { update: patientUpdate, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById } = await buildClinicalHistoryUpdate({
@@ -466,7 +459,7 @@ consultationController.updateConsultation = async (req, res) => {
       });
     }
     // syncProcedureHistory (no un $push directo): esta consulta puede que ya se haya guardado
-    // antes, así que hay que actualizar en su lugar la entrada existente en vez de duplicarla —
+    // antes, así que hay que actualizar en su lugar la entrada existente en vez de duplicarla
     // ver el comentario junto a la función para el detalle del bug que esto evita.
     if (procedureRows.length) {
       await syncProcedureHistory({
@@ -483,7 +476,7 @@ consultationController.updateConsultation = async (req, res) => {
     }
 
     // Solo mueve la DIFERENCIA entre lo que la consulta usaba antes de esta edición y lo que
-    // usa ahora — si no cambió nada en material_used, no se genera ningún movimiento.
+    // usa ahora si no cambió nada en material_used, no se genera ningún movimiento.
     const patientForMovement = await patientsModel.findById(patient_id).select("name last_name").session(session).lean();
     await inventoryController.applyMaterialUsageDelta({
       previousProcedureRows: previousConsultation?.procedure || [],

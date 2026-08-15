@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Plus, MoreVertical, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import ProcedureRecordModal from "../global/ProcedureRecordModal";
 
-// Espera `patient.procedimientos` = [{ nombre, fecha, doctor, duracion }]
+// Espera que patient.procedimientos sea una lista de objetos con nombre,
+// fecha, doctor y duracion.
 export default function ProcedimientosTab({ patient = {}, onSaved }) {
   const data = patient.procedimientos ?? [];
 
@@ -50,8 +51,9 @@ export default function ProcedimientosTab({ patient = {}, onSaved }) {
             <span className="text-slate-600">{p.doctor}</span>
             <span className="text-slate-600">{p.duracion}</span>
             <span className="flex justify-center">
-              {/* Editar/eliminar un procedimiento puntual no tiene destino todavía (PUT
-                  /patients/:id de hoy solo permite agregar, no editar/quitar uno existente). */}
+              {/* Editar o eliminar un procedimiento puntual no tiene destino todavía
+                  (el PUT a /patients/:id actual solo permite agregar, no editar ni
+                  quitar uno existente). */}
               <button type="button" className="text-slate-300 cursor-not-allowed" disabled title="Próximamente">
                 <MoreVertical className="h-4 w-4" />
               </button>
@@ -60,7 +62,7 @@ export default function ProcedimientosTab({ patient = {}, onSaved }) {
         ))}
       </div>
 
-      {/* Pie: filas por página + paginación */}
+      {/* Pie: filas por página y paginación */}
       <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-5 text-sm text-slate-500">
         <div className="flex items-center gap-2">
           <span>Filas por página</span>

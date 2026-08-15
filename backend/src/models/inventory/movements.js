@@ -12,8 +12,11 @@ const movementSchema = new Schema(
       ref: "inventory",
       required: true,
     },
-    itemName:  { type: String },               // denormalized for reports
-    quantity:  { type: Number, required: true }, // negative = output, positive = input
+    // Nombre del artículo, guardado de forma redundante para simplificar
+    // los reportes.
+    itemName:  { type: String },
+    // Cantidad del movimiento: negativa si es salida, positiva si es entrada.
+    quantity:  { type: Number, required: true },
     detail:    { type: String },
     user:      { type: String },
     patient:   { type: String },

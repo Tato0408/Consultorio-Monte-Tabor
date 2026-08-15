@@ -77,8 +77,7 @@ const PatientProfileCard = ({ patient, onEdit, onDelete, canUpdate = true, canDe
         </div>
       </div>
 
-      {/* Acciones: reemplazan el menú "..." que antes vivía en la tabla (PatientsTable.jsx) —
-          misma función (onEdit/onDelete), ahora aplicadas al paciente seleccionado. */}
+      {/* Botones para editar o eliminar el paciente seleccionado en la tarjeta. */}
       {(canUpdate || canDelete) && (
         <div className="grid grid-cols-2 gap-2.5 p-5 pt-0">
           {canUpdate && (

@@ -8,12 +8,15 @@ const useProfile = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState("");
 
-  // admin usa el endpoint genérico /admin/:id porque ahí solo depende de validateAuthCookie
-  // (sin permiso dinámico de por medio) — ya es "autoservicio" de hecho. doctor/nurse/
-  // receptionist en cambio tienen una ruta de autoservicio dedicada (/profile/update):
-  // el endpoint genérico /:id de esos tres exige el permiso de ADMINISTRAR a otros usuarios
-  // de ese rol (users.doctors/users.nurses/users.receptionist "update"), que estos roles no
-  // tienen sobre sí mismos — por eso editar la propia foto ahí devolvía 403.
+  // El rol admin usa el endpoint genérico /admin/:id porque ahí solo
+  // depende de validateAuthCookie, sin permiso dinámico de por medio,
+  // lo que ya lo hace autoservicio de hecho. Los roles doctor, nurse y
+  // receptionist en cambio tienen una ruta de autoservicio dedicada
+  // (/profile/update), ya que el endpoint genérico /:id de esos tres
+  // exige el permiso de administrar a otros usuarios de ese rol
+  // (users.doctors, users.nurses o users.receptionist con acción
+  // update), permiso que esos roles no tienen sobre sí mismos, por lo
+  // que editar la propia foto ahí devolvía un error 403.
   const getEndpoint = () => {
     const routes = {
       admin:        `/admin/${user?.id}`,
@@ -29,9 +32,10 @@ const useProfile = () => {
       admin:        "image",
       doctor:       "doctorImage",
       nurse:        "img_url",
-      // receptionistController espera el archivo bajo "receptionistImage" (ver
-      // routes/receptionist/receptionist.js), no "img_url" — ese es el nombre del campo en la
-      // base de datos, no el nombre del campo de subida.
+      // receptionistController espera el archivo bajo el campo
+      // receptionistImage (ver routes/receptionist/receptionist.js),
+      // no img_url, que es el nombre del campo en la base de datos y
+      // no el nombre del campo de subida.
       receptionist: "receptionistImage",
     };
     return fields[userType];
@@ -124,9 +128,10 @@ const useProfile = () => {
     }
   };
 
-  // Autoedición de datos personales (nombre, DUI, fecha de nacimiento, teléfono/género según el
-  // rol) — reutiliza el mismo endpoint de autoservicio que uploadAvatar/deleteAvatar, ver
-  // EditProfileModal.jsx para qué campos manda cada rol.
+  // Edición de los datos personales del propio usuario (nombre, DUI,
+  // fecha de nacimiento, teléfono o género según el rol). Reutiliza el
+  // mismo endpoint de autoservicio que uploadAvatar y deleteAvatar.
+  // Ver EditProfileModal.jsx para los campos que envía cada rol.
   const updateProfile = async (fields) => {
     try {
       setSubmitting(true);

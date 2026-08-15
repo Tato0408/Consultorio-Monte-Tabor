@@ -11,15 +11,18 @@ const fmtExpiry = (dateStr) => {
   return new Date(dateStr).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
-// "Alertas de inventario" y "Próximos a vencer" van debajo de la tabla (no en el panel
-// lateral), una al lado de la otra ocupando cada una la mitad del ancho de la tabla.
+// Los bloques de alertas de inventario y próximos a vencer van
+// debajo de la tabla, no en el panel lateral, uno al lado del otro,
+// cada uno ocupando la mitad del ancho de la tabla.
 const InventoryAlertsRow = ({ stats, defaultOpen = true }) => {
   const alertas         = stats?.alertas         ?? [];
   const proximosAVencer = stats?.proximosAVencer ?? [];
 
-  // items-start: cada card toma su propia altura de contenido — con el stretch por defecto de
-  // grid, cerrar una mientras la otra sigue abierta dejaba su borde estirado hasta la altura
-  // de la abierta, con un hueco vacío debajo del encabezado.
+  // La clase items-start hace que cada card tome su propia altura
+  // de contenido. Con el stretch por defecto de la cuadrícula,
+  // cerrar una mientras la otra sigue abierta deja su borde
+  // estirado hasta la altura de la abierta, con un hueco vacío
+  // debajo del encabezado.
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
       <CollapsibleCard title="Alertas de inventario" defaultOpen={defaultOpen}>

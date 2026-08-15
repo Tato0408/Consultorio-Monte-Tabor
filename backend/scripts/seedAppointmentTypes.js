@@ -1,25 +1,33 @@
-// Migración de una sola vez: crea los tipos de cita que antes vivían hardcodeados en
-// AppointmentsCalendar.jsx (TYPE_COLORS) como entradas reales del catálogo global
-// (AppointmentType), y le asigna "appointment_type" a las citas que ya existían — antes de este
-// campo, esas citas no tenían ningún tipo de cita asociado (solo "type", que sigue definiendo
-// precio/duración vía Procedimientos, sin relación con el color de la leyenda).
+// Migración de una sola vez: crea los tipos de cita que antes vivían
+// hardcodeados en AppointmentsCalendar.jsx (TYPE_COLORS) como entradas
+// reales del catálogo global (AppointmentType), y asigna
+// "appointment_type" a las citas que ya existían. Esas citas no tenían
+// ningún tipo de cita asociado antes de este campo (solo "type", que
+// sigue definiendo precio y duración vía Procedimientos, sin relación
+// con el color de la leyenda).
 import mongoose from "mongoose";
 import { config } from "../config.js";
 import appointmentTypeModel from "../src/models/appointmentTypes/appointmentType.js";
 import appointmentsModel from "../src/models/appointments/appointments.js";
 
-// Mismos colores que usaba el TYPE_COLORS anterior (Tailwind -500/-400 aproximados a hex).
+// Mismos colores que usaba el TYPE_COLORS anterior (aproximación en hex
+// de los tonos 500 y 400 de Tailwind).
 const TYPES = [
-    { name: "Consulta", color: "#3b82f6" },      // blue-500
-    { name: "Control", color: "#10b981" },        // emerald-500
-    { name: "Procedimiento", color: "#f97316" },  // orange-500
-    { name: "Descanso", color: "#facc15" },       // yellow-400
+    // blue-500
+    { name: "Consulta", color: "#3b82f6" },
+    // emerald-500
+    { name: "Control", color: "#10b981" },
+    // orange-500
+    { name: "Procedimiento", color: "#f97316" },
+    // yellow-400
+    { name: "Descanso", color: "#facc15" },
 ];
 
-// Mapea el "type" real que ya guardan las citas (solo estos dos valores existen en datos reales)
-// al nombre del nuevo "appointment_type". "Control" y "Descanso" no tienen backfill porque
-// ninguna cita real llegó a tener esos "type" — se crean igual en el catálogo por si el admin
-// quiere empezar a usarlos desde ahora.
+// Mapea el "type" real que ya guardan las citas (solo estos dos valores
+// existen en datos reales) al nombre del nuevo "appointment_type".
+// "Control" y "Descanso" no tienen backfill porque ninguna cita real
+// llegó a tener esos "type". Se crean igual en el catálogo por si el
+// admin quiere empezar a usarlos desde ahora.
 const TYPE_TO_APPOINTMENT_TYPE = {
     "Consulta Médica General": "Consulta",
     "Procedimiento": "Procedimiento",
@@ -39,8 +47,9 @@ async function seedAppointmentTypes() {
     }
 
     for (const [type, appointmentType] of Object.entries(TYPE_TO_APPOINTMENT_TYPE)) {
-        // Solo se tocan citas que todavía no tienen appointment_type asignado (no pisa nada que
-        // ya se haya elegido a mano desde que existe el selector nuevo).
+        // Solo se tocan citas que todavía no tienen appointment_type
+        // asignado (no pisa nada que ya se haya elegido a mano desde
+        // que existe el selector nuevo).
         const result = await appointmentsModel.updateMany(
             { type, $or: [{ appointment_type: { $exists: false } }, { appointment_type: null }, { appointment_type: "" }] },
             { $set: { appointment_type: appointmentType } }

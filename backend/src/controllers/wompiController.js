@@ -1,10 +1,11 @@
 import { config } from "../../config.js";
 
-// Proxy delgado hacia la API real de Wompi El Salvador. Se usa "fetch" nativo de Node
-// (ya disponible desde Node 18) en vez de agregar la dependencia "node-fetch".
+// Proxy delgado hacia la API real de Wompi El Salvador. Usa fetch
+// nativo de Node (ya disponible desde Node 18) en vez de agregar la
+// dependencia node-fetch.
 const wompiController = {};
 
-// Generar el token de acceso (OAuth2 client_credentials)
+// Genera el token de acceso (OAuth2 client_credentials).
 wompiController.generarToken = async (req, res) => {
     try {
         const response = await fetch("https://id.wompi.sv/connect/token", {
@@ -27,9 +28,10 @@ wompiController.generarToken = async (req, res) => {
     }
 };
 
-// Tokenizar la tarjeta: la tarjeta viaja una sola vez hacia Wompi y a cambio se recibe
-// un token; ese token es lo único que se usa después para cobrar (nunca se guarda el
-// número real de la tarjeta en ningún lado de nuestro sistema).
+// Tokeniza la tarjeta: la tarjeta viaja una sola vez hacia Wompi y a
+// cambio se recibe un token. Ese token es lo único que se usa después
+// para cobrar (nunca se guarda el número real de la tarjeta en
+// ningún lado de este sistema).
 wompiController.tokenizarTarjeta = async (req, res) => {
     try {
         const { token, formData } = req.body;
@@ -52,8 +54,9 @@ wompiController.tokenizarTarjeta = async (req, res) => {
     }
 };
 
-// TRANSACCIÓN DE PRUEBA (tokenizada, sin 3DS) — la única que Wompi permite mientras el
-// aplicativo esté en modo "desarrollo" (verificado en vivo con estas credenciales)
+// Transacción de prueba (tokenizada, sin 3DS): la única que Wompi
+// permite mientras el aplicativo esté en modo desarrollo (verificado
+// en vivo con estas credenciales).
 wompiController.paymentTest = async (req, res) => {
     try {
         const { token, formData } = req.body;
@@ -76,8 +79,9 @@ wompiController.paymentTest = async (req, res) => {
     }
 };
 
-// TRANSACCIÓN REAL (con verificación 3DS del banco) — Wompi la rechaza mientras el
-// aplicativo siga en modo "desarrollo"; solo funcionará cuando la cuenta pase a productivo
+// Transacción real (con verificación 3DS del banco): Wompi la
+// rechaza mientras el aplicativo siga en modo desarrollo, solo
+// funcionará cuando la cuenta pase a productivo.
 wompiController.payment3DS = async (req, res) => {
     try {
         const { token, formData } = req.body;

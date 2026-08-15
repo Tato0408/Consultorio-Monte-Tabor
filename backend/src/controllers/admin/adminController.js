@@ -64,15 +64,18 @@ adminController.updateAdmin = async (req, res) => {
             is_verified,
         };
 
-        // Si viene una nueva contraseña, la validamos y encriptamos antes de guardar. Antes esto
-        // se hacía sin condición, así que CUALQUIER edición sin contraseña (ej. solo cambiar el
-        // nombre) terminaba hasheando "undefined" y dejaba al admin sin poder volver a iniciar sesión.
+        // Si viene una nueva contraseña, la valida y encripta antes
+        // de guardar. Si se guardara sin esta condición, cualquier
+        // edición sin contraseña (por ejemplo, solo cambiar el
+        // nombre) terminaría hasheando undefined y dejaría al admin
+        // sin poder volver a iniciar sesión.
         if (password && password.trim() !== "") {
             const passwordError = getPasswordError(password);
             if (passwordError) {
                 return res.status(400).json({ message: passwordError });
             }
-            // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+            // Compara contra el hash actual para no permitir
+            // cambiarla por la misma contraseña de siempre.
             const samePassword = await bcrypt.compare(password, adminFound.password);
             if (samePassword) {
                 return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });

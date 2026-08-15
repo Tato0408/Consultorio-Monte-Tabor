@@ -35,10 +35,10 @@ const useRegisterAdmin = () => {
 
       showSuccess("Cuenta de administrador creada con éxito.");
 
-      // Actualizamos el estado global para que hasAdmins pase a true
+      // Actualiza el estado global para que hasAdmins pase a true.
       await refetchAdminStatus();
 
-      // Ahora sí redirigimos al login
+      // Redirige al login tras completar el registro.
       navigate("/login");
 
     } catch (err) {

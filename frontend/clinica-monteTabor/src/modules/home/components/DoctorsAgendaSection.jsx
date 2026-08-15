@@ -10,14 +10,15 @@ const STATUS_STYLES = {
 
 const todayStr = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-// Un slot "disponible" pero cuya hora de inicio ya llegó o quedó atrás (fecha pasada, o para hoy
-// una hora ya en curso/pasada, ej. son las 13:15 -> el bloque de las 13:00 ya no se puede agendar)
-// no debe poder seleccionarse. Se muestra bloqueado (candado), igual que un permiso protegido en
-// la pantalla de Roles y Permisos, en vez de dejar la animación de "Disponible" que confunde.
+// Determina si un horario marcado como disponible ya pasó: la fecha es
+// anterior a hoy, o es hoy pero la hora de inicio ya llegó o quedó
+// atrás. Estos horarios se muestran bloqueados en vez de disponibles,
+// ya que no se pueden agendar.
 const isSlotInPast = (dateStr, startTime) => new Date(`${dateStr}T${startTime}:00`) <= new Date();
 
-// Agenda de doctores: pestañas por doctor + línea de tiempo del día. Un espacio "Disponible"
-// es clicable y precarga doctor/fecha/hora en el formulario de "Registro rápido de citas".
+// Agenda de doctores: muestra pestañas por doctor y una línea de tiempo
+// del día. Un espacio disponible es clicable y precarga doctor, fecha
+// y hora en el formulario de registro rápido de citas.
 const DoctorsAgendaSection = ({ agenda, date, onDateChange, onSlotClick, loading }) => {
     const doctors = agenda?.doctors || [];
     const [activeDoctorId, setActiveDoctorId] = useState(null);

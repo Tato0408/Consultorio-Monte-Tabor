@@ -16,28 +16,38 @@ const InventoryMovementsPage = () => {
   const [stats, setStats]         = useState(null);
   const [loading, setLoading]     = useState(false);
   const [refresh, setRefresh]     = useState(0);
-  const [modal, setModal]         = useState(null); // "stock" | "usage" | "adjust"
+  // Puede ser stock, usage o adjust.
+  const [modal, setModal]         = useState(null);
   const [selectedMovement, setSelectedMovement] = useState(null);
-  // Distancia entre el inicio de MovementsTable y el inicio real de su <table> (después de su
-  // propia barra de filtro y la de búsqueda de GenericTable) — reportada en vivo, para bajar
-  // el panel de detalle exactamente lo mismo y que quede alineado con la tabla en sí.
+  // Distancia entre el inicio de MovementsTable y el inicio real de
+  // su tabla interna (después de su propia barra de filtro y la de
+  // búsqueda de GenericTable), reportada en vivo. Sirve para bajar
+  // el panel de detalle la misma distancia, de modo que quede
+  // alineado con la tabla.
   const [tableOffset, setTableOffset] = useState(0);
-  // Filas extra para que la tabla rellene el espacio en blanco que deja debajo cuando el panel
-  // derecho (detalle + acciones rápidas) queda más alto que ella — ej. al desplegar "Acciones
-  // rápidas". Al cerrarse esa card el panel vuelve a bajar y esto recalcula a 0, devolviendo la
+  // Filas extra para que la tabla rellene el espacio en blanco que
+  // deja debajo cuando el panel derecho (detalle y acciones
+  // rápidas) queda más alto que ella, por ejemplo al desplegar el
+  // bloque de acciones rápidas. Al cerrarse esa card el panel
+  // vuelve a bajar y esto recalcula el valor a 0, devolviendo la
   // tabla a lo que la paginación normal muestra.
   const [extraRows, setExtraRows] = useState(0);
-  // Antes de la primera carga real, "left" muestra fugazmente la tabla VACÍA (movements=[],
-  // loading=false, un instante antes de que loadMovements() ponga loading=true) — si esa altura
-  // fantasma se llegaba a usar como referencia, quedaba grabada y ya no había forma de
-  // corregirla (ver por qué abajo ya no se necesita una referencia "congelada"). Este flag evita
-  // que el efecto de abajo mida nada hasta que ya haya datos reales (o un resultado vacío real).
+  // Antes de la primera carga real, la columna izquierda muestra
+  // fugazmente la tabla vacía, justo antes de que loadMovements
+  // active el estado de carga. Si esa altura fantasma se llegaba a
+  // usar como referencia, quedaba grabada sin forma de corregirla
+  // después (ver el motivo por el que ya no se depende de una
+  // referencia fija más abajo). Este flag evita que el efecto de
+  // abajo mida algo hasta que existan datos reales o un resultado
+  // vacío real.
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const leftColRef  = useRef(null);
   const rightColRef = useRef(null);
-  // Alto aproximado de una fila de MovementsTable (py-4 en cada celda + el contenido) — solo
-  // se usa para estimar cuántas filas hacen falta para cubrir la diferencia, no necesita ser
-  // exacto: si sobra/falta un poco, la siguiente medición lo vuelve a ajustar.
+  // Alto aproximado de una fila de MovementsTable, sumando el
+  // padding de cada celda y su contenido. Solo se usa para estimar
+  // cuántas filas hacen falta para cubrir la diferencia, no
+  // necesita ser exacto, ya que la siguiente medición ajusta el
+  // valor si sobra o falta un poco.
   const ROW_HEIGHT_ESTIMATE = 57;
   // Siempre apunta al recalc más reciente (ver el useLayoutEffect de abajo), para poder
   // dispararlo manualmente desde handleItemsPerPageChange sin duplicar la lógica.
@@ -49,19 +59,19 @@ const InventoryMovementsPage = () => {
     const right = rightColRef.current;
     if (!left || !right) return;
 
-    // Importante: solo se observa "right", nunca "left" — si también observáramos "left",
-    // agregar filas cambiaría su tamaño, lo que dispararía otra medición que podía volver a
-    // cambiar extraRows y así sucesivamente (la tabla "parpadeando").
+    // Solo se observa el elemento right, nunca left. Si también se
+    // observara left, agregar filas cambiaría su tamaño, lo que
+    // dispararía otra medición que podría volver a cambiar
+    // extraRows y así sucesivamente, generando un parpadeo en la
+    // tabla.
     //
-    // "left" en este momento YA incluye prevExtra filas de más (las que el render actual está
-    // mostrando), así que le restamos esa altura estimada para obtener su borde inferior
-    // NATURAL (con 0 filas extra). Antes esto se resolvía guardando esa altura natural en un
-    // ref y solo "recapturándola" cuando extraRows volvía a valer exactamente 0 — pero si esa
-    // captura ocurría en un mal momento (ej. contra la tabla vacía de antes de cargar datos),
-    // quedaba grabada mal PARA SIEMPRE, porque nada garantizaba que extraRows fuera a volver a
-    // tocar 0 de nuevo. Restar la altura de las filas extra en cada medición, en vez de
-    // depender de una referencia congelada, hace que el cálculo se autocorrija solo cada vez
-    // que se dispara, sin importar si una medición anterior fue imprecisa.
+    // En este punto, left ya incluye las filas extra que el render
+    // actual está mostrando, así que se resta esa altura estimada
+    // para obtener su borde inferior natural, es decir, el que
+    // tendría con cero filas extra. Restar la altura de las filas
+    // extra en cada medición hace que el cálculo se autocorrija
+    // solo cada vez que se dispara, sin importar si una medición
+    // anterior fue imprecisa.
     const recalc = () => {
       setExtraRows((prevExtra) => {
         const naturalBottom = left.getBoundingClientRect().bottom - prevExtra * ROW_HEIGHT_ESTIMATE;
@@ -76,10 +86,12 @@ const InventoryMovementsPage = () => {
     return () => ro.disconnect();
   }, [hasLoadedOnce, movements, selectedMovement]);
 
-  // Si el usuario cambia cuántas filas por página quiere VER (8, 15, 25...), la relación entre
-  // "left" y extraRows cambió de base — se recalcula una vez que la tabla termine de
-  // re-renderizar con el tamaño nuevo (por eso el requestAnimationFrame). Ya no hace falta
-  // forzar extraRows a 0 primero: recalc() se autocorrige solo (ver comentario arriba).
+  // Si el usuario cambia cuántas filas por página se muestran, la
+  // relación entre left y extraRows cambia de base. El recálculo
+  // ocurre una vez que la tabla termina de renderizar con el
+  // tamaño nuevo, por eso se usa requestAnimationFrame. La función
+  // recalc se autocorrige sola, como se explica en el comentario
+  // anterior.
   const handleItemsPerPageChange = useCallback(() => {
     requestAnimationFrame(() => recalcRef.current());
   }, []);
@@ -95,8 +107,10 @@ const InventoryMovementsPage = () => {
       });
   }, [refresh]);
 
-  // Selección automática del primer movimiento al cargar (mismo patrón que Pacientes/Doctores/
-  // Enfermeras/Recepcionistas) — sin esto, el panel de detalle empezaría siempre vacío.
+  // Selecciona automáticamente el primer movimiento al cargar, con
+  // el mismo patrón que las páginas de pacientes, doctores,
+  // enfermeras y recepcionistas. Sin esto, el panel de detalle
+  // empezaría siempre vacío.
   useEffect(() => {
     if (movements.length > 0) {
       const exists = movements.find((m) => m._id === selectedMovement?._id);
@@ -125,10 +139,13 @@ const InventoryMovementsPage = () => {
 
       <MovementsStats movements={movements} loading={loading} />
 
-      {/* Tabla + alertas / acciones rápidas (mismo layout y componente que el dashboard de inventario) */}
-      {/* items-start: sin esto, grid estira ambas columnas a la altura de la más alta por
-          defecto — lo que impedía medir la altura REAL de cada una (ver extraRows arriba) y
-          dejaba un hueco en blanco debajo de la tabla en vez de rellenarlo con más filas. */}
+      {/* Tabla, alertas y acciones rápidas (mismo layout y
+          componente que el dashboard de inventario) */}
+      {/* La clase items-start evita que la cuadrícula estire ambas
+          columnas a la altura de la más alta. Sin ella no se podía
+          medir la altura real de cada una (ver extraRows arriba), y
+          quedaba un hueco en blanco debajo de la tabla en vez de
+          rellenarlo con más filas. */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6 items-start">
         <div className="lg:col-span-8" ref={leftColRef}>
           <MovementsTable
@@ -140,9 +157,11 @@ const InventoryMovementsPage = () => {
             onItemsPerPageChange={handleItemsPerPageChange}
           />
         </div>
-        {/* Panel de detalle del movimiento seleccionado primero, bajado exactamente lo mismo
-            que tableOffset para que quede alineado con el inicio real de la tabla (no con el
-            de su barra de filtro/búsqueda), y debajo "Acciones rápidas". */}
+        {/* Panel de detalle del movimiento seleccionado primero,
+            bajado la misma distancia que tableOffset para quedar
+            alineado con el inicio real de la tabla y no con su
+            barra de filtro y búsqueda, y debajo el bloque de
+            acciones rápidas. */}
         <div className="lg:col-span-4 flex flex-col gap-5" style={{ marginTop: tableOffset }} ref={rightColRef}>
           <MovementDetailCard movement={selectedMovement} />
           <QuickActionsCard
@@ -154,8 +173,9 @@ const InventoryMovementsPage = () => {
         </div>
       </div>
 
-      {/* A todo el ancho de la pantalla (no solo el ancho de la tabla); cada una toma su
-          propia altura para poder colapsarse de forma independiente. */}
+      {/* A todo el ancho de la pantalla, no solo el ancho de la
+          tabla. Cada una toma su propia altura para poder
+          colapsarse de forma independiente. */}
       <div className="mt-6">
         <InventoryAlertsRow stats={stats} defaultOpen={false} />
       </div>

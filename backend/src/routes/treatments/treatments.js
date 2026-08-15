@@ -7,9 +7,11 @@ const router = express.Router();
 
 router.get("/follow-up", authorize("inventory.treatments", "view"), treatmentsController.getFollowUp);
 
-// Las 4 acciones del panel de seguimiento del paciente (botones "Actualizar evolución",
-// "Agregar nota", "Programar control" y "Dar de alta") — mismo criterio de permisos que ya usa
-// el resto del sistema: "create" para agregar algo nuevo, "update" para modificar el tratamiento.
+// Las 4 acciones del panel de seguimiento del paciente (botones
+// "Actualizar evolución", "Agregar nota", "Programar control" y
+// "Dar de alta") usan el mismo criterio de permisos que el resto
+// del sistema: "create" para agregar algo nuevo, "update" para
+// modificar el tratamiento.
 router.patch("/:patientId/evolution",        authorize("inventory.treatments", "update"), treatmentsController.updateEvolution);
 router.delete("/:patientId/evolution",       authorize("inventory.treatments", "delete"), treatmentsController.deleteEvolution);
 router.post("/:patientId/notes",             authorize("inventory.treatments", "create"), treatmentsController.addNote);
@@ -18,8 +20,9 @@ router.delete("/:patientId/notes/:noteId",   authorize("inventory.treatments", "
 router.patch("/:patientId/follow-up",        authorize("inventory.treatments", "update"), treatmentsController.scheduleControl);
 router.patch("/:patientId/discharge",        authorize("inventory.treatments", "update"), treatmentsController.discharge);
 
-// Botón "Subir documento" de la pestaña Documentos — sube el archivo a Cloudinary (multer) antes
-// de llegar al controller, igual que las fotos de doctores/enfermeras/recepcionistas.
+// El botón "Subir documento" de la pestaña Documentos sube el
+// archivo a Cloudinary (multer) antes de llegar al controller,
+// igual que las fotos de doctores, enfermeras y recepcionistas.
 router.post("/:patientId/documents",              authorize("inventory.treatments", "create"), uploadDocument.single("document"), treatmentsController.uploadDocument);
 router.delete("/:patientId/documents/:documentId", authorize("inventory.treatments", "delete"), treatmentsController.deleteDocument);
 

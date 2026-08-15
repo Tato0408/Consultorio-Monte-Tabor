@@ -6,10 +6,10 @@ import SectionCard from "./SectionCard";
 
 const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
-// Tarjeta (no modal) para elegir el tipo de sangre del paciente, integrada entre las demás
-// secciones de la consulta — antes vivía en un modal aparte disparado desde un lápiz en el
-// encabezado; el encabezado (PatientHeader.jsx) ahora solo lo muestra, la edición pasa aquí.
-// PUT /patients/:id (blood_type) ya existe, no hizo falta backend nuevo.
+// Tarjeta (no modal) para elegir el tipo de sangre del paciente,
+// integrada entre las demás secciones de la consulta. El encabezado
+// (PatientHeader.jsx) solo muestra el valor, la edición se hace aquí,
+// contra PUT /patients/:id (blood_type).
 const BloodTypeCard = ({ patientId, currentValue, onSaved, readOnly }) => {
     const [selected, setSelected] = useState(currentValue || null);
     const [loading, setLoading] = useState(false);

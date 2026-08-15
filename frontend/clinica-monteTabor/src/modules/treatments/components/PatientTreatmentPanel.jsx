@@ -15,10 +15,11 @@ const InfoRow = ({ label, value }) => (
   </div>
 );
 
-// Botón pequeño de ícono para editar/eliminar, reutilizado en Evolución y en cada nota. Las
-// clases van completas (no interpoladas por "tone") porque Tailwind solo detecta clases que
-// aparecen literalmente en el código fuente — un template string como `text-${tone}-400` nunca
-// terminaría en el CSS compilado.
+// Boton pequeño de icono para editar o eliminar, reutilizado en Evolucion y
+// en cada nota. Las clases van completas (no interpoladas por "tone")
+// porque Tailwind solo detecta clases que aparecen literalmente en el
+// codigo fuente. Un template string como `text-${tone}-400` nunca
+// terminaria en el CSS compilado.
 const TONE_CLASSES = {
   blue: "text-blue-400 hover:text-blue-600 hover:bg-blue-50",
   red: "text-red-400 hover:text-red-600 hover:bg-red-50",
@@ -35,10 +36,11 @@ const IconAction = ({ icon: Icon, label, onClick, tone }) => (
   </button>
 );
 
-// Las acciones del panel ("Actualizar evolución", "Agregar nota", "Programar control", "Dar de
-// alta", más editar/eliminar sobre la evolución y sobre cada nota puntual) escriben sobre el
-// tratamiento/procedimiento más reciente del paciente en el backend (ver treatmentsController.js)
-// — cada una abre su propio modal (o confirmación) y, al guardar, el padre (TreatmentsPage)
+// Las acciones del panel (actualizar evolucion, agregar nota, programar
+// control, dar de alta, ademas de editar y eliminar la evolucion y cada
+// nota) escriben sobre el tratamiento o procedimiento mas reciente del
+// paciente en el backend (ver treatmentsController.js). Cada una abre su
+// propio modal o confirmacion y, al guardar, el padre (TreatmentsPage)
 // refresca la lista completa.
 const PatientTreatmentPanel = ({
   patient,
@@ -54,8 +56,10 @@ const PatientTreatmentPanel = ({
   onDischarge,
 }) => {
   const [tab, setTab] = useState("Resumen");
-  const [openModal, setOpenModal] = useState(null); // "evolution" | "note" | "control" | null
-  // null = el modal de nota está en modo "agregar"; con un id, está editando esa nota puntual.
+  // Valores posibles: "evolution", "note", "control" o null
+  const [openModal, setOpenModal] = useState(null);
+  // Si es null, el modal de nota esta en modo agregar. Si tiene un id, esta
+  // editando esa nota puntual.
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
@@ -80,8 +84,8 @@ const PatientTreatmentPanel = ({
 
   const editingNote = editingNoteId ? patient.notes?.find((n) => n.id === editingNoteId) : null;
 
-  // Acciones directas (sin modal): confirmación + llamada + su propio toast, mismo patrón que
-  // "Dar de alta" ya usaba.
+  // Acciones directas (sin modal): piden confirmacion, hacen la llamada y
+  // muestran su propio mensaje de exito o error, igual que "Dar de alta".
   const handleDeleteEvolution = async () => {
     const confirmed = await confirmDelete({
       title: "¿Eliminar la evolución?",
@@ -112,7 +116,8 @@ const PatientTreatmentPanel = ({
 
   const handleFileSelected = async (e) => {
     const file = e.target.files?.[0];
-    e.target.value = ""; // permite volver a elegir el mismo archivo dos veces seguidas
+    // Permite volver a elegir el mismo archivo dos veces seguidas
+    e.target.value = "";
     if (!file) return;
 
     setUploading(true);
@@ -259,8 +264,9 @@ const PatientTreatmentPanel = ({
           </>
         )}
 
-        {/* Se llena con el botón "Actualizar evolución" (PATCH /treatments/:id/evolution) — mismo
-            formato de tarjeta que una nota (texto + fecha/autor + editar/eliminar). */}
+        {/* Se llena con el boton "Actualizar evolucion" (PATCH
+            /treatments/:id/evolution). Usa el mismo formato de tarjeta que
+            una nota: texto, fecha, autor y botones de editar y eliminar. */}
         {tab === "Evolución" && (
           patient.evolution?.text ? (
             <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
@@ -280,7 +286,8 @@ const PatientTreatmentPanel = ({
           )
         )}
 
-        {/* Se llena con el botón "Agregar nota" (POST /treatments/:id/notes) — bitácora acumulada. */}
+        {/* Se llena con el boton "Agregar nota" (POST /treatments/:id/notes).
+            Es una bitacora acumulada. */}
         {tab === "Notas" && (
           patient.notes?.length ? (
             <div className="flex flex-col gap-3">
@@ -304,9 +311,8 @@ const PatientTreatmentPanel = ({
           )
         )}
 
-        {/* Archivos reales en Cloudinary — no había ningún lugar en todo el sistema donde se
-            pudieran subir documentos de un paciente, así que se agregó aquí (ver
-            treatmentsController.uploadDocument / CloudinaryDocumentConfig.js). */}
+        {/* Documentos reales almacenados en Cloudinary (ver
+            treatmentsController.uploadDocument y CloudinaryDocumentConfig.js). */}
         {tab === "Documentos" && (
           <div className="flex flex-col gap-3">
             {patient.documents?.length ? (
@@ -404,7 +410,7 @@ const PatientTreatmentPanel = ({
         onSubmit={onUpdateEvolution}
       />
 
-      {/* Mismo modal para "Agregar nota" y para "Editar nota" — cambia según editingNoteId. */}
+      {/* Mismo modal para "Agregar nota" y "Editar nota", cambia segun editingNoteId. */}
       <TreatmentTextModal
         isOpen={openModal === "note"}
         onClose={closeModal}

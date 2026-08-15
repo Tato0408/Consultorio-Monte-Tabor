@@ -22,13 +22,15 @@ const GENERAL_CONSULT = {
 const DEPOSIT_PERCENTAGE = 0.5;
 const calcDepositAmount = (total) => Math.round(total * DEPOSIT_PERCENTAGE * 100) / 100;
 
-// Convierte "HH:mm" a minutos desde medianoche, para poder comparar horarios entre sí
+// Convierte una hora en formato HH:mm a minutos desde medianoche,
+// para poder comparar horarios entre sí.
 const toMinutes = (time) => {
     const [h, m] = time.split(":").map(Number);
     return h * 60 + m;
 };
 
-// Suma minutos a una hora "HH:mm" y devuelve otra hora en el mismo formato
+// Suma minutos a una hora en formato HH:mm y devuelve otra hora en el
+// mismo formato.
 const addMinutes = (time, minutes) => {
     const total = toMinutes(time) + minutes;
     const hh = String(Math.floor(total / 60)).padStart(2, "0");
@@ -36,8 +38,9 @@ const addMinutes = (time, minutes) => {
     return `${hh}:${mm}`;
 };
 
-// Arma el inicio y fin de un día completo en hora LOCAL a partir de "YYYY-MM-DD",
-// para no correr la fecha un día por culpa de la conversión a UTC
+// Arma el inicio y fin de un día completo en hora local a partir de
+// una fecha en formato YYYY-MM-DD, para no correr la fecha un día por
+// culpa de la conversión a UTC.
 const getDayRange = (dateStr) => {
     const [year, month, day] = dateStr.split("-").map(Number);
     const start = new Date(year, month - 1, day, 0, 0, 0, 0);
@@ -45,20 +48,22 @@ const getDayRange = (dateStr) => {
     return { start, end };
 };
 
-// Convierte una fecha a "YYYY-MM-DD" en hora LOCAL
+// Convierte una fecha a formato YYYY-MM-DD en hora local.
 const toDateStr = (d) => {
     const dt = new Date(d);
     return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 };
 
-// "duration" es texto libre (ej. "7 días"); se toma el primer número como cantidad de días.
-// Si no se puede leer un número, se asume una semana como valor razonable por defecto.
+// duration es texto libre (por ejemplo, 7 días), se toma el primer
+// número como cantidad de días. Si no se puede leer un número, se
+// asume una semana como valor razonable por defecto.
 const parseDurationDays = (duration) => {
     const match = String(duration || "").match(/\d+/);
     return match ? Number(match[0]) : 7;
 };
 
-// Un medicamento está "activo hoy" si hoy cae dentro de [emitido, emitido + duración]
+// Un medicamento está activo hoy si hoy cae dentro del rango
+// [emitido, emitido + duración].
 const isActiveToday = (issuedAt, duration) => {
     if (!issuedAt) return false;
     const days = parseDurationDays(duration);
@@ -79,9 +84,10 @@ const fetchConsultations = (patientId) =>
         .populate({ path: "appointment_id", populate: { path: "doctor_id", select: "name last_name" } })
         .sort({ date: -1 });
 
-// Recetas del paciente a partir de sus consultas. OJO: el campo realmente usado para
-// enlazar (tal como lo escribe/lee consultationController) es "consultation_id", no
-// "consultations_id" como está declarado en el esquema de Prescriptions.
+// Recetas del paciente a partir de sus consultas. El campo realmente
+// usado para enlazar (tal como lo escribe y lee
+// consultationController) es consultation_id, no consultations_id
+// como está declarado en el esquema de Prescriptions.
 const fetchPrescriptions = async (patientId, consultations) => {
     const ids = consultations.map((c) => String(c._id));
     const prescriptions = await prescriptionsModel
@@ -99,7 +105,8 @@ const fetchPrescriptions = async (patientId, consultations) => {
     }));
 };
 
-// Medicamentos que siguen "activos" hoy según sus recetas, con si ya se marcaron como tomados
+// Medicamentos que siguen activos hoy según sus recetas, con si ya se
+// marcaron como tomados.
 const fetchTodayMedications = async (patientId, prescriptions) => {
     const activeMeds = [];
     for (const p of prescriptions) {
@@ -127,8 +134,9 @@ const fetchTodayMedications = async (patientId, prescriptions) => {
     return activeMeds.map((m) => ({ ...m, taken: takenIds.has(m.medication_id) }));
 };
 
-// GET /api/patient-portal/doctors — lista de doctores activos con solo los datos
-// necesarios para elegir uno (nunca datos sensibles como contraseña, dui o licencia)
+// GET /api/patient-portal/doctors, lista de doctores activos con
+// solo los datos necesarios para elegir uno (nunca datos sensibles
+// como contraseña, dui o licencia).
 patientPortalController.getDoctors = async (req, res) => {
     try {
         const doctors = await doctorsModel

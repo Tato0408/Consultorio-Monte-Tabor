@@ -8,7 +8,7 @@ import { showWarning } from "@/lib/alerts";
 import { Badge, SectionCard, VerTodos, initials } from "../global/ui";
 import IncapacidadFormModal from "../global/IncapacidadFormModal";
 
-/* Botón azul "+ Agregar", mismo estilo que el resto del expediente */
+// Botón azul de agregar, mismo estilo que el resto del expediente.
 function AddButton({ children = "Agregar", ...props }) {
   return (
     <button
@@ -22,7 +22,7 @@ function AddButton({ children = "Agregar", ...props }) {
   );
 }
 
-/* Tarjeta de un signo vital individual */
+// Tarjeta de un signo vital individual.
 function VitalCard({ label, value, unit, badge }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -46,9 +46,10 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
   const canCreateSickLeave = hasPermission("reports.records", "create");
   const [incapacidadModalOpen, setIncapacidadModalOpen] = useState(false);
 
-  // Recetas, referencias y laboratorios solo existen ligados a una consulta;
-  // "Agregar" lleva al formulario real de consulta de la próxima cita del
-  // paciente, en vez de duplicar ese concepto como un recurso suelto.
+  // Recetas, referencias y laboratorios solo existen ligados a una
+  // consulta. El botón Agregar lleva al formulario real de consulta de la
+  // próxima cita del paciente, en vez de duplicar ese concepto como un
+  // recurso suelto.
   const handleAgregarClinico = () => {
     if (!patient.nextPendingAppointmentId) {
       showWarning("Agenda una cita para este paciente para registrar recetas, laboratorios o referencias.");

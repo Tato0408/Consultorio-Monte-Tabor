@@ -21,8 +21,8 @@ router.route("/countAppointments")
 router.route("/countProcedures")
 .get(authorize("users.nurses", "view"), nurseController.countProcedures)
 
-// Hardcodeado al rol nurse: editar el propio perfil debe funcionar siempre,
-// para todos los roles, sin depender de la matriz de permisos dinamica.
+// Fijo al rol nurse: editar el propio perfil debe funcionar siempre,
+// sin depender de la matriz de permisos dinámica.
 router
 .route("/profile/update")
 .put(

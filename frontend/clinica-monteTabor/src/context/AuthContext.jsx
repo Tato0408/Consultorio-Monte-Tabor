@@ -2,19 +2,24 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { toast } from "react-hot-toast";
 import apiClient from "../lib/apiClient";
 
-//Declaracion del contexto
+// Declaración del contexto de autenticación.
 const AuthContext = createContext();
 
-//Envuelve todo el sistema para dar el estado global de autenticacion con metodos de inicio y cierre de sesion y los estados al inciar el sistema
+// Envuelve todo el sistema para exponer el estado global de autenticación,
+// con los métodos de inicio y cierre de sesión y los estados que se
+// resuelven al iniciar la aplicación.
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null); // datos del usuario actual
-    const [userType, setUserType] = useState(null); // rol (admin, doctor, nurse, receptionist)
-    const [isLoggedIn, setIsLoggedIn] = useState(false); //indica si hay una sesión activa
-    const [isLoading, setIsLoading] = useState(true); // estado de carga inicial de la app
-    const [hasAdmins, setHasAdmins] = useState(true); //verificar si existen administradores en el sistema
-    const [permissions, setPermissions] = useState([]); // matriz de permisos del rol actual
+    const [user, setUser] = useState(null);
+    // Rol del usuario autenticado: admin, doctor, nurse o receptionist.
+    const [userType, setUserType] = useState(null);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    // Indica si ya existe algún administrador registrado en el sistema.
+    const [hasAdmins, setHasAdmins] = useState(true);
+    // Matriz de permisos (por moduleKey y acción) del rol autenticado.
+    const [permissions, setPermissions] = useState([]);
 
-    //obtiene la matriz de permisos del rol autenticado (una sola vez por sesión)
+    // Obtiene la matriz de permisos del rol autenticado, una sola vez por sesión.
     const fetchPermissions = useCallback(async () => {
         try {
             const response = await apiClient("/permissions/me");
@@ -24,14 +29,15 @@ export const AuthProvider = ({ children }) => {
         }
     }, []);
 
-    //consulta si el rol actual tiene una acción (view/create/update/delete) habilitada para un moduleKey
+    // Consulta si el rol actual tiene habilitada una acción (view, create,
+    // update o delete) para un moduleKey dado.
     const hasPermission = useCallback((moduleKey, action = "view") => {
         if (!moduleKey) return false;
         const permission = permissions.find((p) => p.moduleKey === moduleKey);
         return permission ? !!permission[action] : false;
     }, [permissions]);
 
-    //verifica  si hay administradores registrados en la base de datos
+    // Verifica si hay administradores registrados en la base de datos.
     const checkAdminExistence = useCallback(async () => {
         try {
             const response = await apiClient("/admin/check", { method: "GET" });
@@ -41,7 +47,9 @@ export const AuthProvider = ({ children }) => {
         }
     }, []);
 
-    //* valida el estado de la sesión actual consultando las cookies del navegador si el token es válido, restaura el estado del usuario en memoria global
+    // Valida el estado de la sesión actual consultando la cookie del
+    // navegador. Si el token es válido, restaura el estado del usuario en
+    // memoria global.
     const checkSession = useCallback(async () => {
         try {
             const response = await apiClient("/auth/me");
@@ -50,7 +58,7 @@ export const AuthProvider = ({ children }) => {
             setIsLoggedIn(true);
             await fetchPermissions();
         } catch {
-            //Si el backend rechaza el token limpiamos los estados
+            // Limpia los estados si el backend rechaza el token.
             setUser(null);
             setUserType(null);
             setIsLoggedIn(false);
@@ -58,14 +66,16 @@ export const AuthProvider = ({ children }) => {
         }
     }, [fetchPermissions]);
 
-    //Metodo de inicialización  ejecutando los estaods iniciales del sistema
+    // Inicializa el sistema al montar el proveedor: valida si existen
+    // administradores y, si corresponde, restaura la sesión.
     useEffect(() => {
         const initSystem = async () => {
             try {
                 // 1. Verificar si el sistema ya cuenta con administradores creados
                 await checkAdminExistence();
 
-                //2.si el usuario está en Login o Registro no es necesario validar sesión al cargar las paginas
+                // 2. Si el usuario está en Login o Registro, no hace falta
+                // validar la sesión al cargar la página.
                 const pathname = window.location.pathname;
                 if (pathname === "/login" || pathname === "/register") {
                     return;
@@ -73,7 +83,7 @@ export const AuthProvider = ({ children }) => {
                 // 3. si está en una ruta interna, valida el estado de la sesión
                 await checkSession();
             } finally {
-                //apaga la pantalla de carga
+                // Apaga la pantalla de carga.
                 setIsLoading(false);
             }
         };
@@ -81,7 +91,8 @@ export const AuthProvider = ({ children }) => {
         initSystem();
     }, [checkSession, checkAdminExistence]);
 
-    //Método para iniciar sesión en el sistema que envía las credenciales al backend, guarda el estado si es exitoso y muestra notificacion
+    // Envía las credenciales al backend para iniciar sesión, guarda el
+    // estado si es exitoso y muestra una notificación.
     const login = async (email, password) => {
         if (!email || !password) {
             toast.error("Por favor, completa todos los campos.");
@@ -94,24 +105,27 @@ export const AuthProvider = ({ children }) => {
                 body: { email, password },
             });
 
-            // Seteo del estado global tras la respuesta exitosa del backend
+            // Actualiza el estado global tras la respuesta exitosa del backend.
             setUser(response.user);
             setUserType(response.userType);
             setIsLoggedIn(true);
             await fetchPermissions();
-            // El toast de bienvenida ya lo muestra Login.jsx (personalizado);
-            // mostrarlo también aquí duplicaba la notificación de éxito.
+            // El toast de bienvenida lo muestra Login.jsx de forma
+            // personalizada. No se repite aquí para evitar una notificación
+            // de éxito duplicada.
             return true;
         } catch (error) {
-            // 403 = cuenta desactivada (ver loginController.js): se muestra un aviso específico,
-            // distinto del genérico de credenciales incorrectas, para que quede claro que la
-            // cuenta existe pero fue desactivada por un administrador.
+            // El código 403 indica que la cuenta está desactivada (ver
+            // loginController.js): se muestra un aviso específico, distinto
+            // del genérico de credenciales incorrectas, para dejar claro que
+            // la cuenta existe pero fue desactivada por un administrador.
             if (error.status === 403) {
                 toast.error("Cuenta desactivada. Si considera que es un error, comuníquese con el administrador.");
             } else {
-                // Antes se mostraba error.message tal cual (ej. "User not found", "Wrong password"
-                // sin traducir) — ahora siempre el mismo texto amigable, sin importar cuál de los
-                // dos falló, para no filtrar el mensaje crudo del backend al usuario.
+                // Muestra siempre el mismo mensaje genérico y amigable en vez
+                // del texto crudo que envía el backend (error.message), sin
+                // importar cuál credencial falló, para no filtrar detalles
+                // internos al usuario.
                 toast.error("Credenciales incorrectas, verifica tu correo o contraseña.");
             }
             setIsLoggedIn(false);
@@ -119,7 +133,8 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    //método para cerrar sesión  borrando la sesión en el backend limpiando la cookie y resetea todos los estados en el frontend.
+    // Cierra la sesión en el backend, lo que limpia la cookie, y resetea
+    // los estados del frontend.
     const logout = async () => {
         try {
             await apiClient("/logout", { method: "POST" });
@@ -137,7 +152,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        //Envio de estados y metodos para que puedan acceder desde cualquier componente del sistema
+        // Expone los estados y métodos del contexto para que cualquier
+        // componente del sistema pueda acceder a ellos.
         <AuthContext.Provider
             value={{
                 user,

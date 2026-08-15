@@ -45,10 +45,11 @@ const Sparkline = ({ chartData, hasData, gradId, lineColor, glassTooltip, emptyL
         </div>
     );
 
-// Tarjeta destacada (degradado, ocupa 2 columnas): usada para UNA sola métrica principal
-// en un grid, ej. ingresos en el dashboard de admin. Layout propio (icono arriba a la
-// derecha, crecimiento como píldora) — completamente separado del render normal de abajo
-// para que tocar esto nunca pueda afectar a los demás dashboards.
+// Tarjeta destacada, con degradado y que ocupa dos columnas del grid,
+// usada para una sola métrica principal, por ejemplo los ingresos en
+// el dashboard de administración. Tiene su propio layout (ícono arriba
+// a la derecha, crecimiento como píldora), separado del render normal
+// de StatCard.
 const FeaturedStatCard = ({ icon, label, value, growth, growthLabel, sparkline, sparklineColor, caption }) => {
     const isPositive = parseFloat(String(growth).replace("%", "").replace("+", "")) >= 0;
     const raw        = sparkline?.length ? sparkline : [0, 0, 0, 0, 0, 0, 0];
@@ -89,6 +90,9 @@ const FeaturedStatCard = ({ icon, label, value, growth, growthLabel, sparkline, 
     );
 };
 
+// Tarjeta de estadística con ícono, valor, indicador de crecimiento y
+// un mini gráfico de tendencia (sparkline). Si featured es true,
+// delega el render en FeaturedStatCard con su layout destacado.
 const StatCard = ({ icon, iconBg, label, value, growth, growthLabel, sparkline, sparklineColor, caption, featured = false }) => {
     if (featured) {
         return (
@@ -107,7 +111,7 @@ const StatCard = ({ icon, iconBg, label, value, growth, growthLabel, sparkline, 
 
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 sm:p-5 flex flex-col">
-            {/* Icon + label + value */}
+            {/* Ícono, etiqueta y valor */}
             <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
                 <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
                     {icon}
@@ -118,7 +122,7 @@ const StatCard = ({ icon, iconBg, label, value, growth, growthLabel, sparkline, 
                 </div>
             </div>
 
-            {/* Growth */}
+            {/* Indicador de crecimiento */}
             <div className="flex items-center gap-1.5 mb-2 sm:mb-4 flex-wrap">
                 {isPositive
                     ? <TrendingUp className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />

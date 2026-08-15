@@ -4,8 +4,9 @@ import scheduleModel from "../../models/schedule/schedule.js";
 
 const nurseDashboardController = {};
 
-// Mismo enum que valida appointmentsController.insertAppointment — "confirmada" en la UI
-// corresponde a "scheduled" en la base de datos.
+// Mismo enum que valida appointmentsController.insertAppointment. El
+// estado confirmada en la UI corresponde a scheduled en la base de
+// datos.
 const PENDING = "pending";
 const CONFIRMED = "scheduled";
 const COMPLETED = "completed";
@@ -36,8 +37,9 @@ nurseDashboardController.getStats = async (req, res) => {
         const oneHourLaterTime = `${pad(oneHourLater.getHours())}:${pad(oneHourLater.getMinutes())}`;
         const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
 
-        // Últimos 7 días, para los sparklines de las StatCard (mismo patrón que
-        // dashboardController.js / doctorDashboardController.js / receptionistDashboardController.js)
+        // Últimos 7 días, para los sparklines de las StatCard (mismo
+        // patrón que dashboardController.js, doctorDashboardController.js
+        // y receptionistDashboardController.js).
         const days = Array.from({ length: 7 }, (_, i) => {
             const dayStart = new Date(today); dayStart.setDate(dayStart.getDate() - (6 - i));
             const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
@@ -127,9 +129,10 @@ nurseDashboardController.getStats = async (req, res) => {
 };
 
 // GET /api/nurse-dashboard/doctors-agenda?date=YYYY-MM-DD
-// Arma la línea de tiempo del día para cada doctor activo: bloques de 30 min marcados como
-// ocupados (con la cita), en descanso, o disponibles — para que la enfermera pueda dar clic
-// directo en un espacio libre y agendar ahí.
+// Arma la línea de tiempo del día para cada doctor activo: bloques de
+// 30 minutos marcados como ocupados (con la cita), en descanso o
+// disponibles, para que la enfermera pueda hacer clic directo en un
+// espacio libre y agendar ahí.
 nurseDashboardController.getDoctorsAgenda = async (req, res) => {
     try {
         const dateStr = req.query.date || (() => {

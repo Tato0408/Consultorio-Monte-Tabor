@@ -17,15 +17,19 @@ import usePatientRecordDetail from "../hooks/usePatientRecordDetail";
 
 const TAB_LABELS = ["Resumen", "Historia clínica", "Procedimientos", "Signos vitales", "Consultas", "Incapacidades"];
 
-// Se renderiza dentro de RecordsPage al hacer clic en un paciente de la tabla:
-// no navega a una ruta nueva, solo intercambia qué se muestra dentro del SPA.
-// `record` trae lo que ya vive en el documento del paciente (useRecords);
-// usePatientRecordDetail completa aparte lo que depende de consultas/citas/
-// incapacidades reales, y se fusiona antes de pasarlo a cada pestaña.
-// `onPatientUpdated` refresca el documento base del paciente (lo que trae useRecords) después de
-// guardar cualquiera de los modales del expediente (datos personales, antecedentes, signos
-// vitales, procedimientos) — usePatientRecordDetail.refetch por sí solo no alcanza porque ese
-// hook solo trae consultas/citas/incapacidades, no el documento del paciente en sí.
+// Se renderiza dentro de RecordsPage al hacer clic en un paciente de la
+// tabla. No navega a una ruta nueva, solo intercambia qué se muestra
+// dentro del SPA.
+// La prop record trae lo que ya vive en el documento del paciente
+// (useRecords). usePatientRecordDetail completa aparte lo que depende de
+// las consultas, las citas y las incapacidades reales, y se fusiona antes
+// de pasarlo a cada pestaña.
+// onPatientUpdated refresca el documento base del paciente, el que trae
+// useRecords, después de guardar cualquiera de los modales del
+// expediente (datos personales, antecedentes, signos vitales,
+// procedimientos). Llamar solo a usePatientRecordDetail.refetch no
+// alcanza, porque ese hook solo trae consultas, citas e incapacidades, no
+// el documento del paciente en sí.
 const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
   const fullName = `${record?.nombre || ""} ${record?.apellido || ""}`.trim();
   const { extra, loading, error, refetch } = usePatientRecordDetail(record?.id, fullName);
@@ -35,10 +39,12 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
   const canEdit = hasPermission("calendar.consultations", "update");
   const [activeTab, setActiveTab] = useState(0);
 
-  // Elimina una consulta médica ya atendida (documento Consultation real, no la cita). Existe
-  // sobre todo para poder limpiar consultas huérfanas: si su cita se borró por separado, la
-  // consulta sobrevive apuntando solo al paciente y bloquea "Eliminar paciente" sin dar ninguna
-  // pista de por qué — este botón es el único lugar del sistema donde se puede quitar.
+  // Elimina una consulta médica ya atendida (el documento Consultation
+  // real, no la cita). Existe sobre todo para poder limpiar consultas
+  // huérfanas: si su cita se borró por separado, la consulta sobrevive
+  // apuntando solo al paciente y bloquea la eliminación del paciente sin
+  // dar ninguna pista de por qué. Este botón es el único lugar del sistema
+  // donde se puede quitar una consulta huérfana.
   const handleEliminarConsulta = async (c) => {
     const ok = await confirmDelete({
       title: "¿Eliminar esta consulta?",
@@ -54,9 +60,10 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
     }
   };
 
-  // Refresca tanto el documento del paciente como las consultas/citas/incapacidades — los
-  // modales del expediente solo tocan el primero, pero es más simple refrescar ambos siempre
-  // que reimplementar "cuál lo necesita" en cada callback.
+  // Refresca tanto el documento del paciente como las consultas, las citas
+  // y las incapacidades. Los modales del expediente solo tocan el primero,
+  // pero es más simple refrescar ambos siempre que reimplementar en cada
+  // callback cuál de los dos hace falta.
   const refreshAll = () => {
     onPatientUpdated?.();
     refetch();
@@ -79,8 +86,9 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
     );
   }
 
-  // Solo sobrescribe última visita/doctor si la consulta más reciente es
-  // más nueva que el último procedimiento ya calculado por useRecords.
+  // Solo sobrescribe la última visita y el doctor si la consulta más
+  // reciente es más nueva que el último procedimiento ya calculado por
+  // useRecords.
   const useConsultationOverride =
     extra?.ultimaVisitaOverride?._fecha &&
     (!record.ultimaVisita?._fecha ||

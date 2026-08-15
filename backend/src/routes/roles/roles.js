@@ -4,9 +4,9 @@ import { getRoles, getRoleByKey, updateRolePermissions } from "../../controllers
 
 const router = Router();
 
-// Hardcodeado a ["admin"] a proposito (requisito 7): editar permisos nunca debe
-// depender de la propia matriz de permisos dinamica, para evitar que un cambio
-// mal hecho bloquee a todos los admins.
+// Hardcodeado a ["admin"] a propósito (requisito 7): editar permisos
+// nunca debe depender de la propia matriz de permisos dinámica, para
+// evitar que un cambio mal hecho bloquee a todos los admins.
 router.use(validateAuthCookie(["admin"]));
 
 router.get("/", getRoles);

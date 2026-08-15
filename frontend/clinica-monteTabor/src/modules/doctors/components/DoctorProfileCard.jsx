@@ -15,7 +15,7 @@ const DoctorProfileCard = ({ doctor, onEdit, onDelete, canUpdate = true, canDele
 
   return (
     <div className="border rounded-xl overflow-hidden shadow-sm bg-white">
-      {/*Encabezado de tarjeta */}
+      {/* Encabezado de tarjeta */}
       <div className="bg-blue-600 text-white p-6 flex flex-col items-center">
         <div className="w-24 h-24 rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
           {doctor.img_url ? (
@@ -35,7 +35,7 @@ const DoctorProfileCard = ({ doctor, onEdit, onDelete, canUpdate = true, canDele
         </h3>
       </div>
 
-      {/*Detalled*/}
+      {/* Detalle */}
       <div className="p-5 space-y-4 text-sm">
         <div>
           <span className="font-semibold">
@@ -86,7 +86,7 @@ const DoctorProfileCard = ({ doctor, onEdit, onDelete, canUpdate = true, canDele
           <span className="font-semibold">
             Estado:
           </span>{" "}
-          {/* Cambia  el color del texto dependiendo de si el doctor esta activo o inactivo */}
+          {/* Cambia el color del texto segun si el doctor esta activo o inactivo */}
           <span
             className={
               doctor.is_active
@@ -101,8 +101,7 @@ const DoctorProfileCard = ({ doctor, onEdit, onDelete, canUpdate = true, canDele
         </div>
       </div>
 
-      {/* Acciones: reemplazan el menú "..." que antes vivía en la tabla (DoctorsTable.jsx) —
-          misma función (onEdit/onDelete), ahora aplicadas al doctor seleccionado. */}
+      {/* Botones para editar o eliminar el doctor seleccionado en la tarjeta. */}
       {(canUpdate || canDelete) && (
         <div className="grid grid-cols-2 gap-2.5 p-5 pt-0">
           {canUpdate && (

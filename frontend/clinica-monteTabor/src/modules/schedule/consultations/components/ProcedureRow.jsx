@@ -1,4 +1,3 @@
-// src/features/consultations/components/ProcedureRow.jsx
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 import useInventory from "@/modules/inventory/hooks/useInventory";
@@ -32,7 +31,8 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
         }
     };
 
-    // Comentario para debugear que traigo en cada procedimiento
+    // Registra en consola el procedimiento seleccionado en cada fila,
+    // útil para depuración.
     useEffect(() => {
         console.log(`📋 Procedure row ${index} - selected ID:`, selectedProcedureId);
         console.log(`📋 Procedure row ${index} - selected procedure:`, selectedProcedure);
@@ -123,9 +123,10 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
                             step={1}
                             placeholder="Cant."
                             disabled={readOnly}
-                            // Los <input type="number"> nativos igual dejan escribir "e", "+", "-" y "."
-                            // (no son dígitos pero sí caracteres válidos de notación numérica) —
-                            // se bloquean explícitamente para que solo entren enteros positivos.
+                            // Los <input type="number"> nativos igual dejan escribir e, +, - y
+                            // el punto (no son dígitos pero sí caracteres válidos de notación
+                            // numérica), se bloquean explícitamente para que solo entren
+                            // enteros positivos.
                             onKeyDown={(e) => { if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault(); }}
                             {...register(`procedure.${index}.material_used.${materialIndex}.quantity`, {
                                 valueAsNumber: true,

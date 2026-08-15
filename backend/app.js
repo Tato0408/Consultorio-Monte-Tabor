@@ -59,13 +59,13 @@ app.use(express.json({
 
 app.use(cors({
     origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
-    //Permitir el envío de cookies y credenciales
+    // Permite el envío de cookies y credenciales
     credentials: true
 }))
 
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument))
 
-//Enpoints publicos
+//Endpoints públicos
 app.use("/api/auth" , authRoutes);
 app.use("/api/registerAdmin" , registerAdminRoute);
 app.use("/api/loginCommonRole", loginCommonRoleRoute);
@@ -88,8 +88,9 @@ app.use("/api/recepcionist", receptionistRoutes);
 
 app.use("/api/patients", authenticate, patientsRoute);
 app.use("/api/registerPatient", registerPatientRoutes);
-// Autoservicio para pacientes (usado por la app móvil): /register es público, /me requiere
-// sesión y se aplica a nivel de ruta dentro de patientSelf.js (por eso no hay authenticate aquí)
+// Autoservicio de pacientes, usado por la app móvil. La ruta /register es
+// pública y /me requiere sesión, validada a nivel de ruta dentro de
+// patientSelf.js, por eso no se aplica authenticate en este archivo.
 app.use("/api/patientAccount", patientSelfRoutes);
 
 app.use("/api/nurses", authenticate, nurseRoutes);
@@ -115,16 +116,19 @@ app.use("/api/reports", authenticate, reportsRoutes);
 app.use("/api/sick-leaves", authenticate, sickLeavesRoutes);
 app.use("/api/notifications", authenticate, notificationsRoutes);
 
-// Portal del paciente (sitio público): solo pacientes logueados, endpoints propios
-// que no dependen de los permisos de staff (admin/doctor/enfermera/recepcionista)
+// Portal del paciente, sitio público solo para pacientes logueados. Sus
+// endpoints propios no dependen de los permisos de staff (admin, doctor,
+// enfermera, recepcionista).
 app.use("/api/patient-portal", validateAuthCookie(["patient"]), patientPortalRoutes);
 
-// Webhook de Wompi: sin cookie de sesión (lo llama Wompi, no un navegador logueado),
-// la seguridad la da la firma HMAC verificada dentro del controller
+// Webhook de Wompi: no lleva cookie de sesión porque lo llama Wompi, no un
+// navegador logueado. La seguridad la da la firma HMAC verificada dentro
+// del controller.
 app.use("/api/webhooks/wompi", wompiWebhookRoutes);
 
-// Proxy directo hacia la API de Wompi (token, tokenizar tarjeta, cobrar) usado por la
-// página de pago del paciente; solo pacientes logueados pueden llamarlo
+// Proxy directo hacia la API de Wompi (token, tokenizar tarjeta, cobrar),
+// usado por la página de pago del paciente. Solo pacientes logueados
+// pueden llamarlo.
 app.use("/api/wompi", validateAuthCookie(["patient"]), wompiRoutes);
 
 export default app;

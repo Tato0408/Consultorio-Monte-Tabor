@@ -10,14 +10,17 @@ const todayStr = () => {
 
 const EMPTY_FORM = { patientId: "", doctorId: "", procedure: "general", date: todayStr(), selectedTime: "", description: "" };
 
-// Un horario cuya hora de inicio ya llegó o quedó atrás (ej. son las 13:15 -> ya no se puede
-// agendar el bloque de las 13:00, aunque nunca se haya ocupado) no debe poder elegirse aquí,
-// igual que en la tabla de "Agenda de doctores".
+// Un horario cuya hora de inicio ya llegó o quedó atrás no debe poder
+// elegirse aquí, aunque nunca se haya ocupado. Por ejemplo, si son las
+// 13:15, el bloque de las 13:00 ya no se puede agendar. Aplica el
+// mismo criterio que la tabla de agenda de doctores.
 const isSlotInPast = (dateStr, startTime) => new Date(`${dateStr}T${startTime}:00`) <= new Date();
 
-// "Registro rápido de citas": versión condensada de AppointmentsFormCalendar.jsx para el dashboard de
-// recepción. Reutiliza el mismo catálogo (useMedicalData, ya cargado por el dashboard) y el
-// mismo endpoint POST /api/appointments — no duplica lógica de negocio, solo el formulario.
+// Formulario de registro rápido de citas: versión condensada de
+// AppointmentsFormCalendar.jsx para los dashboards de recepción y
+// enfermería. Reutiliza el mismo catálogo (useMedicalData, ya cargado
+// por el dashboard) y el mismo endpoint POST /api/appointments, sin
+// duplicar lógica de negocio, solo el formulario.
 const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPatient }) => {
     const { patients, doctors, procedures, getAvailableSlots } = medicalData;
 
@@ -28,14 +31,17 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
     const [availableSlots, setAvailableSlots] = useState([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    // Horario elegido con un clic en "Agenda de doctores" (grid fijo de 30 min). El endpoint de
-    // horarios sugeridos (getAvailableSlots) deja un margen (buffer_time) entre citas, así que no
-    // siempre coincide con esa cuadrícula de 30 min — sin esto, el <select> no podía mostrar la
-    // hora elegida porque no había ninguna <option> con ese valor exacto.
+    // Horario elegido con un clic en la agenda de doctores (cuadrícula
+    // fija de 30 minutos). El endpoint de horarios sugeridos
+    // (getAvailableSlots) deja un margen (buffer_time) entre citas, por
+    // lo que no siempre coincide con esa cuadrícula de 30 minutos. Sin
+    // este valor guardado, el select no podía mostrar la hora elegida
+    // porque no existía ninguna opción con ese valor exacto.
     const [pinnedSlot, setPinnedSlot] = useState(null);
     const wrapRef = useRef(null);
 
-    // Precarga doctor/fecha/hora cuando el recepcionista da clic en un espacio libre de la agenda
+    // Precarga doctor, fecha y hora cuando el recepcionista o la
+    // enfermera hacen clic en un espacio libre de la agenda.
     useEffect(() => {
         if (!prefill) return;
         setForm((prev) => ({ ...prev, doctorId: prefill.doctorId, date: prefill.date, selectedTime: prefill.start_time }));
@@ -65,9 +71,11 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
         return () => { cancelled = true; };
     }, [form.doctorId, form.date, duration]);
 
-    // Combina los horarios sugeridos con el horario "fijado" por un clic en la agenda (si aplica
-    // al doctor/fecha actuales), sin volver a pedir datos al backend. Si la fecha elegida es hoy,
-    // además descarta cualquier horario cuya hora ya haya pasado o esté en curso.
+    // Combina los horarios sugeridos con el horario fijado por un clic
+    // en la agenda, si corresponde al doctor y la fecha actuales, sin
+    // volver a pedir datos al backend. Si la fecha elegida es hoy,
+    // además descarta cualquier horario cuya hora ya haya pasado o
+    // esté en curso.
     useEffect(() => {
         let list = rawSlots;
         if (
@@ -156,8 +164,9 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                 onFocus={() => setShowPatientList(true)}
                                 className={`w-full pl-8 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 ${onRequestNewPatient ? "pr-16" : "pr-3"}`}
                             />
-                            {/* El botón "Nuevo" solo tiene sentido si el dashboard que usa este formulario
-                                tiene registro rápido de pacientes (recepción); enfermería no lo pasa. */}
+                            {/* El botón de nuevo paciente solo aparece si el dashboard que
+                                usa este formulario tiene registro rápido de pacientes, como
+                                recepción. Enfermería no lo pasa. */}
                             {onRequestNewPatient && (
                                 <button
                                     type="button"

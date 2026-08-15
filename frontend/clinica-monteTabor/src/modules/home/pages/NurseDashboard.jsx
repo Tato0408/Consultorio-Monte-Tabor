@@ -16,10 +16,13 @@ const todayStr = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-// Dashboard de la enfermera: mismo patrón/recursos que RecepcionistDashboard.jsx (StatCard,
-// agenda de doctores, registro rápido de citas, próximas citas, confirmación/cancelación).
-// Única diferencia real: la enfermera no tiene registro rápido de pacientes, por eso no se monta
-// QuickPatientForm ni se le pasa onRequestNewPatient a QuickAppointmentForm (oculta el botón "Nuevo").
+// Dashboard de la enfermera. Usa el mismo patrón y los mismos
+// componentes que RecepcionistDashboard.jsx (StatCard, agenda de
+// doctores, registro rápido de citas, próximas citas, confirmación y
+// cancelación de citas). La diferencia es que la enfermera no cuenta
+// con registro rápido de pacientes, por eso no se monta
+// QuickPatientForm ni se le pasa onRequestNewPatient a
+// QuickAppointmentForm, lo que oculta el botón de nuevo paciente.
 const NurseDashboard = () => {
     const { user, userType } = useAuth();
     const navigate = useNavigate();
@@ -63,7 +66,8 @@ const NurseDashboard = () => {
         loadAgenda(agendaDate);
     }, [agendaDate, loadAgenda]);
 
-    // Refresca todo lo que puede haber cambiado tras crear/confirmar/cancelar una cita
+    // Refresca todo lo que puede haber cambiado después de crear,
+    // confirmar o cancelar una cita.
     const refreshAll = () => {
         loadStatsAndLists();
         loadAgenda(agendaDate);
@@ -95,7 +99,7 @@ const NurseDashboard = () => {
 
             <div className="p-4 sm:p-6 pt-3 flex flex-col gap-6">
 
-            {/* ── Tarjetas de resumen ── */}
+            {/* Tarjetas de resumen */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     icon={<CalendarCheck2 className="w-5 h-5 text-blue-600" />}
@@ -142,7 +146,7 @@ const NurseDashboard = () => {
                 />
             </div>
 
-            {/* ── Agenda + Registro rápido de citas ── */}
+            {/* Agenda y registro rápido de citas */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                 <div className="lg:col-span-2 flex flex-col gap-4">
                     <DoctorsAgendaSection

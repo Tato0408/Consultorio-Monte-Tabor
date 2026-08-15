@@ -3,10 +3,11 @@ import { useLocation } from 'react-router-dom';
 import AppointmentsGrid from '../components/AppointmentsGrid';
 import AppointmentsCalendar from '../components/AppointmentsCalendar';
 
-// Pestañas de esta página: "Calendario" (vista semanal, AppointmentsCalendar)
-// y "Citas" (el CRUD en tarjetas, AppointmentsGrid). Se monta solo el
-// contenido de la pestaña activa (no las dos a la vez), para no tener dos
-// fetches de citas corriendo al mismo tiempo en segundo plano.
+// Pestañas de esta página: Calendario (vista semanal,
+// AppointmentsCalendar) y Citas (el CRUD en tarjetas,
+// AppointmentsGrid). Se monta solo el contenido de la pestaña activa
+// (no las dos a la vez), para no tener dos fetches de citas corriendo
+// al mismo tiempo en segundo plano.
 const TABS = [
     { key: "calendar", label: "Calendario" },
     { key: "citas", label: "Citas" },
@@ -14,11 +15,12 @@ const TABS = [
 
 const AdminAppointments = () => {
     const location = useLocation();
-    // Al volver del detalle de una cita (botón "X" de AppointmentsFormCalendar.jsx),
-    // location.state.initialView trae desde qué pestaña se abrió
-    // esa cita ("calendar" o "citas") — sin esto, este componente siempre remonta con
-    // useState("calendar") y el usuario termina de vuelta en el Calendario aunque hubiera
-    // abierto la cita desde "Citas".
+    // Al volver del detalle de una cita (botón de cerrar de
+    // AppointmentsFormCalendar.jsx), location.state.initialView indica
+    // desde qué pestaña se abrió esa cita (calendar o citas). Sin esto,
+    // este componente siempre remonta con useState("calendar") y el
+    // usuario termina de vuelta en el Calendario aunque hubiera abierto
+    // la cita desde Citas.
     const [activeTab, setActiveTab] = useState(location.state?.initialView || "calendar");
 
     return (

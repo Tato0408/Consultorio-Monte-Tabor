@@ -24,20 +24,16 @@ const DoctorForm = ({
   doctor,
   refreshDoctors,
 }) => {
-  //Desestructura las funciones para crear y actualizar que vienen del custom hook
   const { createDoctor, updateDoctor } = useDoctors();
 
-  //useState para manejar el loading de la peticion del formulario
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  //useState para guardar el archivo binario de la imagen del doctor
   const [doctorImage, setDoctorImage] = useState(null);
-  //useState para guardar el archivo binario de la imagen de la licencia
   const [licenseImage, setLicenseImage] = useState(null);
-  //useState para manejar las rutas de las previsualizaciones en la vista
   const [profilePreview, setProfilePreview] = useState("");
   const [licensePreview, setLicensePreview] = useState("");
-  //useState para mostrar el aviso de "imagen requerida" cuando se envía el formulario sin foto
+  // Muestran el aviso de imagen requerida cuando se envia el formulario sin
+  // foto de perfil o sin documento de licencia.
   const [imageError, setImageError] = useState("");
   const [licenseImageError, setLicenseImageError] = useState("");
   const fileInputRef = useRef(null);
@@ -74,10 +70,9 @@ const DoctorForm = ({
   };
   const isPasswordValid = Object.values(passwordValidations).every(Boolean);
 
-  //1. Cargar datos del doctor al editar
-  //useEffect sirve para cargar los datos en los inputs de forma automatica al abrir el modal
+  // Carga los datos del doctor en el formulario al abrir el modal en modo
+  // edicion, o limpia los campos si se trata de un registro nuevo.
   useEffect(() => {
-    //Si viene un doctor por los parametros y el modal esta abierto carga los datos para editar
     if (doctor && isOpen) {
       reset({
         name: doctor.name || "",
@@ -89,11 +84,11 @@ const DoctorForm = ({
         phone: doctor.phone || "",
         email: doctor.email || "",
         license_number: doctor.license_number || "",
-        password: "", // Se deja vacío al editar por seguridad
+        // Se deja vacia al editar por seguridad
+        password: "",
         is_active: doctor.is_active !== undefined ? doctor.is_active : true,
       });
     } else if (!doctor && isOpen) {
-      // Limpiar si es un doctor nuevo
       reset({
         name: "",
         last_name: "",
@@ -108,32 +103,32 @@ const DoctorForm = ({
       });
     }
 
-    // Limpiar archivos seleccionados al abrir/cerrar modal para que no se queden guardados
+    // Limpia los archivos seleccionados al abrir o cerrar el modal para que
+    // no se queden guardados de una sesion anterior.
     setDoctorImage(null);
     setLicenseImage(null);
     setImageError("");
     setLicenseImageError("");
     setShowPassword(false);
-  }, [doctor, isOpen, reset]); //Se dispara de nuevo si cambia el doctor o el estado de apertura
+  }, [doctor, isOpen, reset]);
 
-  //2.previsualizacion de imagenes
-  //useEffect para generar la url temporal de la foto de perfil del doctor
+  // Genera la url temporal de la vista previa de la foto de perfil. Si no
+  // se selecciono una foto nueva, usa la que el doctor ya tiene en Cloudinary.
   useEffect(() => {
-    //Si el usuario no ha seleccionado ninguna foto nueva
     if (!doctorImage) {
-      //Pone por defecto la url de la imagen que ya tiene guardada el doctor en cloudinary
       setProfilePreview(doctor?.img_url || "");
       return;
     }
 
-    //Crea una url local y segura del archivo binario cargado desde la computadora
     const objectUrl = URL.createObjectURL(doctorImage);
     setProfilePreview(objectUrl);
 
-    //El return limpia y remueve la url de la memoria del navegador para que no se sature
+    // Libera la url de la memoria del navegador cuando deja de usarse
     return () => URL.revokeObjectURL(objectUrl);
   }, [doctorImage, doctor]);
 
+  // Mismo comportamiento que el efecto anterior, pero para la vista previa
+  // del documento de licencia.
   useEffect(() => {
     if (!licenseImage) {
       setLicensePreview(doctor?.license_url || "");
@@ -146,16 +141,17 @@ const DoctorForm = ({
     return () => URL.revokeObjectURL(objectUrl);
   }, [licenseImage, doctor]);
 
-  // Mascaras de solo-letras (nombres/apellidos) y alfanumerica (numero de licencia) — mismo
-  // patron que handlePhoneMask/handleDuiMask: el onChange sobreescribe el del register y
-  // dispara la validacion manualmente.
+  // Mascaras de solo letras (nombres y apellidos) y alfanumerica (numero de
+  // licencia). Igual que handlePhoneMask y handleDuiMask, el onChange
+  // sobreescribe el del register y dispara la validacion manualmente.
   const makeLettersMaskHandler = (field, max) => (e) =>
     setValue(field, maskLettersOnly(e.target.value, max), { shouldValidate: true });
 
   const handleLicenseMask = (e) =>
     setValue("license_number", maskAlnum(e.target.value, 30), { shouldValidate: true });
 
-  // Mascara de telefono: solo digitos, formato XXXX-XXXX (misma logica que Pacientes/Enfermeras)
+  // Mascara de telefono: solo digitos, formato XXXX-XXXX (misma logica que
+  // en Pacientes y Enfermeras).
   const handlePhoneMask = (e) => {
     let digits = e.target.value.replace(/\D/g, "");
     if (digits.length > 8) digits = digits.slice(0, 8);
@@ -163,7 +159,8 @@ const DoctorForm = ({
     setValue("phone", masked, { shouldValidate: true });
   };
 
-  // Mascara de DUI: solo digitos, formato XXXXXXXX-X (misma logica que Pacientes/Enfermeras)
+  // Mascara de DUI: solo digitos, formato XXXXXXXX-X (misma logica que en
+  // Pacientes y Enfermeras).
   const handleDuiMask = (e) => {
     let digits = e.target.value.replace(/\D/g, "");
     if (digits.length > 9) digits = digits.slice(0, 9);
@@ -171,14 +168,16 @@ const DoctorForm = ({
     setValue("dui", masked, { shouldValidate: true });
   };
 
-  //Funcion asincrona que procesa y envia el formulario al dar click en guardar/editar
+  // Procesa y envia el formulario al guardar o editar un doctor.
   const onSubmit = async (formValues) => {
     if (loading) return;
-    // Al crear, no se permite enviar si la contraseña no cumple los requisitos de seguridad
+    // Al crear, no se permite enviar si la contraseña no cumple los
+    // requisitos de seguridad.
     if (!doctor && !isPasswordValid) return;
 
-    // Al crear, la foto de perfil y el documento de licencia son obligatorios (el backend
-    // también lo exige); se avisa aquí antes de mandar la petición
+    // Al crear, la foto de perfil y el documento de licencia son
+    // obligatorios (el backend tambien lo exige). Se avisa aqui antes de
+    // mandar la peticion.
     if (!doctor) {
       const missingImages = [];
       if (!doctorImage) missingImages.push("Foto de perfil");
@@ -192,60 +191,51 @@ const DoctorForm = ({
       }
     }
 
-    //El try sirve para capturar cualquier error que ocurra durante la peticion api
     try {
       setLoading(true);
 
-      //Instancia el objeto FormData que es obligatorio para mandar textos y archivos juntos
+      // FormData es obligatorio para mandar los campos de texto y los
+      // archivos en la misma peticion.
       const data = new FormData();
 
-      //Recorre las propiedades clave y valor que estan dentro de nuestro objeto formValues
       Object.entries(formValues).forEach(([key, value]) => {
-        // Al editar, no enviamos la contraseña si se dejó en blanco
+        // Al editar, no se envia la contraseña si se dejo en blanco
         if (key === "password" && doctor && !value) return;
 
-        //Si el valor tiene contenido lo mete dentro del FormData compilado
         if (value !== undefined && value !== null) {
           data.append(key, value);
         }
       });
 
-      //Si el usuario selecciono un archivo binario nuevo de imagen, lo añade al FormData
       if (doctorImage) {
         data.append("doctorImage", doctorImage);
       }
 
-      //Si el usuario selecciono un archivo binario nuevo de licencia, lo añade al FormData
       if (licenseImage) {
         data.append("licenseImage", licenseImage);
       }
 
-      //Evalua si existe el objeto doctor para decidir si va a actualizar o a crear uno nuevo
       if (doctor) {
-        //Manda a llamar la funcion updateDoctor pasandole el id unico y los datos del formulario
         await updateDoctor(doctor._id, data);
       } else {
-        //Manda a llamar la funcion createDoctor enviando el objeto FormData limpio
         await createDoctor(data);
       }
 
-      //Vuelve a mandar a llamar a la funcion para refrescar la tabla de la vista principal
       await refreshDoctors();
-      //Cierra el modal indicando que sí se guardó, para que solo entonces se muestre el mensaje de éxito
+      // El true indica que si se guardo, para que el llamador muestre el
+      // mensaje de exito correspondiente.
       onClose(true);
     } catch (error) {
       console.error(error);
-      //Muestra la alerta de error indicando que no se pudo guardar el registro
       showError(error.message || "No se pudo guardar el doctor.");
     } finally {
-      //El finally se ejecuta siempre al terminar y cambia el loading a false para activar los botones
       setLoading(false);
     }
   };
 
-  // Se dispara cuando el envío falla la validación (campos vacíos o con formato inválido);
-  // además del contorno rojo y el mensaje debajo de cada input, avisa arriba a la derecha
-  // qué campo(s) específicos hay que corregir.
+  // Se dispara cuando el envio falla la validacion (campos vacios o con
+  // formato invalido). Ademas del contorno rojo y el mensaje debajo de cada
+  // input, avisa arriba a la derecha que campos hay que corregir.
   const onInvalid = (formErrors) => {
     const invalidFields = Object.keys(formErrors).map((key) => FIELD_LABELS[key] || key);
     showError(`Revisa este/estos campo(s): ${invalidFields.join(", ")}`);
@@ -267,7 +257,6 @@ const DoctorForm = ({
         : "border-gray-200 focus:border-blue-500"
     }`;
 
-  //Si isOpen es falso corta la ejecucion de la funcion y devuelve null para ocultar el formulario
   if (!isOpen) return null;
 
   return (
@@ -284,7 +273,7 @@ const DoctorForm = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Encabezado centrado: foto + titulo */}
+        {/* Encabezado centrado: foto y titulo */}
         <div className="flex flex-col items-center mb-6">
           <input
             type="file"
@@ -319,10 +308,11 @@ const DoctorForm = ({
         </div>
 
         <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="w-full">
-          {/* fieldset con display:contents — desactiva todos los inputs/selects/botones que
-              contiene de un solo golpe durante el envío, sin alterar el layout de grid */}
+          {/* El fieldset usa display:contents para desactivar de un solo golpe
+              todos los inputs, selects y botones que contiene durante el
+              envio, sin alterar el layout de grid. */}
           <fieldset disabled={loading} className="contents">
-          {/* Cuerpo horizontal: datos a la izquierda, licencia/contraseña a la derecha */}
+          {/* Cuerpo horizontal: datos a la izquierda, licencia y contraseña a la derecha */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
             {/* IZQUIERDA */}
@@ -461,7 +451,7 @@ const DoctorForm = ({
                 </div>
               </div>
 
-              {/* Estado — solo en edición */}
+              {/* Estado: solo en edicion */}
               {doctor && (
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
                   <label className="text-xs font-semibold text-gray-400">Estado de la cuenta</label>
@@ -532,7 +522,7 @@ const DoctorForm = ({
                 {licenseImageError && <span className="text-[10px] text-red-500 font-medium px-1">{licenseImageError}</span>}
               </div>
 
-              {/* Contraseña — solo en creación */}
+              {/* Contraseña: solo en creacion */}
               {!doctor && (
                 <div className="flex flex-col gap-3 w-full border-t border-gray-100 pt-4 mt-1">
                   <div className="flex flex-col gap-1.5 relative">

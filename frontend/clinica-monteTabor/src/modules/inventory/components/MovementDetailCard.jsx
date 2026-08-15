@@ -1,10 +1,12 @@
 import { PackageSearch, Calendar, Hash, User, FileText } from "lucide-react";
 import { TYPE_LABEL, TYPE_STYLE, fmtMovementDate } from "../utils/movementTypes";
 
-// Panel de detalle del movimiento seleccionado — mismo estilo que las cards de perfil de
-// usuario (PatientProfileCard.jsx, DoctorProfileCard.jsx, etc.): header azul + filas
-// icono/etiqueta/valor. El detalle completo del movimiento solo vive aquí; la tabla
-// (MovementsTable.jsx) ya no muestra la columna "Detalle".
+// Panel de detalle del movimiento seleccionado. Sigue el mismo
+// estilo que las cards de perfil de usuario (PatientProfileCard.jsx,
+// DoctorProfileCard.jsx, etc.), con encabezado azul y filas de
+// icono, etiqueta y valor. El detalle completo del movimiento solo
+// vive aquí, la tabla en MovementsTable.jsx ya no muestra la
+// columna Detalle.
 const MovementDetailCard = ({ movement }) => {
   if (!movement) {
     return (

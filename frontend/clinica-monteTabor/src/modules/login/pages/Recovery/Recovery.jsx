@@ -18,9 +18,10 @@ import { showError, showSuccess } from "../../../../lib/alerts";
 const RecoveryPassword = () => {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
-  // Este formulario prueba hasta 4 peticiones seguidas (doctor, recepcionista, admin,
-  // enfermera) antes de saber si el correo existe — sin esto, un doble clic podía disparar
-  // esa cadena completa dos veces en paralelo.
+  // Este formulario prueba hasta 4 peticiones seguidas (doctor,
+  // recepcionista, admin, enfermera) antes de saber si el correo
+  // existe. Este estado evita que un doble clic dispare esa cadena
+  // completa dos veces en paralelo.
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
@@ -43,22 +44,23 @@ const RecoveryPassword = () => {
 
     setIsSubmitting(true);
     try {
-      //1. Intentamos con Doctor
+      // 1. Intenta autenticar el correo como doctor.
       try {
         const doctorRes = await doctorRecovery.requestCode(email);
-        // Solo entramos al IF si fue exitoso
+        // Continúa solo si la respuesta indica éxito.
         if (doctorRes.message === "Correo enviado") {
           localStorage.setItem("recoveryType", "doctor");
           localStorage.setItem("recoveryEmail", email);
           showSuccess("Correo enviado", "Se ha enviado un código de confirmación a tu correo electrónico.");
           navigate("/verify-code");
-          return; //Como fue exitoso, se deitene la función aquí
+          // Ya tuvo éxito, así que la función se detiene aquí.
+          return;
         }
       } catch (e) {
         console.log("No es doctor:", e.message);
       }
 
-      //2. Intentamos con Receptionist
+      // 2. Intenta autenticar el correo como recepcionista.
       try {
         const recRes = await receptionistRecovery.requestCode(email);
         if (recRes.message === "Correo enviado") {
@@ -72,7 +74,7 @@ const RecoveryPassword = () => {
         console.log("No es recepcionista:", e.message);
       }
 
-      //3. Intentamos con Admin
+      // 3. Intenta autenticar el correo como administrador.
       try {
         const adminRes = await adminRecovery.requestCode(email);
         if (adminRes.message === "Correo enviado") {
@@ -86,7 +88,7 @@ const RecoveryPassword = () => {
         console.log("No es admin:", e.message);
       }
 
-      // 4.Intentamos con Nurse
+      // 4. Intenta autenticar el correo como enfermera.
       try {
         const nurseRes = await nurseRecovery.requestCode(email);
         if (nurseRes.message === "Correo enviado") {
@@ -100,15 +102,17 @@ const RecoveryPassword = () => {
         console.log("No es enfermera:", e.message);
       }
 
-      // 5.Si el código llega hasta esta linea, significa que todos los intentos anteriores fallaron
-      //por lo tanto el correo no existe en ninguna de las colecciones wuaooow
+      // 5. Si el flujo llega hasta aquí, significa que ninguno de
+      // los intentos anteriores tuvo éxito y el correo no existe en
+      // ninguna de las colecciones de usuarios.
       showError(
         "Correo incorrecto",
         "No se ha encontrado una cuenta con ese correo electrónico."
       );
     } finally {
-      // Se ejecuta siempre, incluso en los "return" de éxito — así el formulario nunca se queda
-      // bloqueado si algo falla de forma inesperada antes de que la navegación desmonte la página
+      // Se ejecuta siempre, incluso en los return de éxito. Así el
+      // formulario nunca queda bloqueado si algo falla de forma
+      // inesperada antes de que la navegación desmonte la página.
       setIsSubmitting(false);
     }
   };

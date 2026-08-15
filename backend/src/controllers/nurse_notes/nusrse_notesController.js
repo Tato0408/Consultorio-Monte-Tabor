@@ -2,6 +2,8 @@ import nurse_notesModel from "../../models/nurse_notes/nurse_notes.js";
 
 const nurse_notesController = {}
 
+// Devuelve todas las notas de enfermería con los datos de la cita, la
+// enfermera y el paciente asociados.
 nurse_notesController.getNurseNotes = async (req, res) => {
     try {
         const nurseNotes = await nurse_notesModel.find()
@@ -14,6 +16,8 @@ nurse_notesController.getNurseNotes = async (req, res) => {
     }
 }
 
+// Crea una nota de enfermería a partir de los datos del body (cita,
+// enfermera, paciente e instrucciones).
 nurse_notesController.createNurseNote = async (req, res) => {
     try {
         const {
@@ -37,6 +41,8 @@ nurse_notesController.createNurseNote = async (req, res) => {
     }
 }
 
+// Actualiza una nota de enfermería según su id, recibido en
+// req.params.id. Responde con error 400 si la nota no existe.
 nurse_notesController.updateNurseNote = async (req, res) => {
     try {
         const response = await nurse_notesModel.findById(req.params.id)
@@ -61,6 +67,8 @@ nurse_notesController.updateNurseNote = async (req, res) => {
     }
 }
 
+// Elimina una nota de enfermería según su id, recibido en
+// req.params.id. Responde con error 400 si la nota no existe.
 nurse_notesController.deleteNurseNote = async (req, res) => {
     try {
         const response = await nurse_notesModel.findById(req.params.id)

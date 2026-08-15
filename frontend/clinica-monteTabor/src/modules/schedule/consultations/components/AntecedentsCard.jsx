@@ -5,8 +5,8 @@ import SectionCard from "./SectionCard";
 const AntecedentsCard = ({ title, name, fields, readOnly }) => {
     const { control, register, watch } = useFormContext();
 
-    // useFieldArray maneja agregar/quitar filas sin que nosotros
-    // manipulemos arrays a mano con setState.
+    // useFieldArray maneja agregar y quitar filas sin necesidad de
+    // manipular arrays a mano con setState.
     const { fields: rows, append, remove } = useFieldArray({ control, name });
 
     // Valores vacíos para la fila nueva: uno por cada columna definida.
@@ -32,7 +32,7 @@ const AntecedentsCard = ({ title, name, fields, readOnly }) => {
                                 </span>
                             </div>
                         ))}
-                        {/* Botón de borrar fila; se oculta en modo lectura */}
+                        {/* Botón de borrar fila, se oculta en modo lectura */}
                         {!readOnly && (
                             <button
                                 type="button"

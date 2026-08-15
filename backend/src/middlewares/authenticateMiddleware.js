@@ -1,12 +1,14 @@
 import jsonwebToken from "jsonwebtoken";
 import { config } from "../../config.js";
 
-// Valida la cookie de sesion y expone req.user = { id, role }, sin validar rol.
-// La autorizacion por rol/moduleKey se resuelve aparte en authorize().
+// Valida la cookie de sesión y expone req.user = { id, role }, sin validar
+// el rol. La autorización por rol o por moduleKey se resuelve aparte, en
+// authorize().
 export const authenticate = (req, res, next) => {
     try {
-        // La web manda el token por cookie; la app móvil no tiene cookie jar y lo manda como
-        // "Authorization: Bearer <token>" — se acepta cualquiera de las dos
+        // La web manda el token por cookie, la app móvil no tiene cookie jar
+        // y lo manda como "Authorization: Bearer <token>". Se acepta
+        // cualquiera de los dos formatos.
         let token = req.cookies?.authCookie;
         if (!token) {
             const authHeader = req.headers.authorization;

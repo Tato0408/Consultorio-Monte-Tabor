@@ -8,11 +8,12 @@ import useInsumos from "@/modules/inventory/hooks/useInsumos";
 // del catálogo. Nunca choca con un ObjectId real de Mongo.
 const LEGACY_PREFIX = "legacy:";
 
-// Normaliza los materiales que vienen del backend (edición) al shape que usa el formulario:
-// "insumo" siempre es un string — el _id real del insumo, o un sentinel "legacy:<nombre>" cuando
-// el material no está vinculado a ningún insumo del catálogo (nunca lo estuvo, o el insumo se
-// eliminó). Así el <select> siempre tiene una opción que calza con el valor actual y nunca cae
-// en blanco por sí solo.
+// Normaliza los materiales que vienen del backend (edicion) al shape que usa
+// el formulario. "insumo" siempre es un string, el _id real del insumo o un
+// sentinel "legacy:<nombre>" cuando el material no esta vinculado a ningun
+// insumo del catalogo (nunca lo estuvo, o el insumo se eliminó). Así el
+// <select> siempre tiene una opcion que calza con el valor actual y nunca
+// cae en blanco por si solo.
 const normalizeMaterials = (materials) =>
   (materials && materials.length ? materials : [{ quantity: 1 }]).map((m) => {
     const insumoId = m.insumo && typeof m.insumo === "object" ? m.insumo._id : m.insumo;
@@ -55,9 +56,10 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
   const { fields, append, remove } = useFieldArray({ control, name: "materials" });
   const watchedValues = watch();
 
-  // Los materiales que llegan aquí (insumo/quantity, con "insumo" siendo un id real o un
-  // sentinel legacy) se traducen al shape que espera el backend (insumo? + name), resolviendo el
-  // nombre real desde el catálogo cargado en vez de dejarlo vacío.
+  // Los materiales que llegan aqui (insumo y quantity, con "insumo" siendo un
+  // id real o un sentinel legacy) se traducen al shape que espera el backend
+  // (insumo opcional y name), resolviendo el nombre real desde el catalogo
+  // cargado en vez de dejarlo vacio.
   const handleFormSubmit = (data) => {
     const materials = (data.materials || [])
       .filter((m) => m.insumo)
@@ -79,8 +81,9 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
 
       className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 items-start"
     >
-      {/* fieldset con display:contents — desactiva todos los inputs/selects/botones que
-          contiene de un solo golpe durante el envío, sin alterar el layout de grid */}
+      {/* El fieldset usa display:contents para desactivar de un solo golpe
+          todos los inputs, selects y botones que contiene durante el envio,
+          sin alterar el layout de grid. */}
       <fieldset disabled={isSubmitting} className="contents">
       <div className="lg:col-span-2 space-y-4 md:space-y-6">
 
@@ -205,10 +208,11 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
               const rawInsumo = watchedValues.materials?.[index]?.insumo || "";
               const isLegacySentinel = rawInsumo.startsWith(LEGACY_PREFIX);
               const legacyName = isLegacySentinel ? rawInsumo.slice(LEGACY_PREFIX.length) : "";
-              // Insumo real (no legacy) que ya no aparece en el catálogo cargado (ej. fue
-              // eliminado del inventario después de asignarse a este procedimiento) — mismo
-              // problema que un material legacy: sin esta opción de respaldo, el <select> caería
-              // en blanco y se perdería el nombre al guardar sin querer.
+              // Insumo real (no legacy) que ya no aparece en el catalogo
+              // cargado (por ejemplo, fue eliminado del inventario despues
+              // de asignarse a este procedimiento). Es el mismo problema que
+              // un material legacy: sin esta opcion de respaldo, el <select>
+              // caeria en blanco y se perderia el nombre al guardar.
               const isOrphanedRealInsumo = rawInsumo && !isLegacySentinel && !insumos.some((i) => i._id === rawInsumo);
 
               return (

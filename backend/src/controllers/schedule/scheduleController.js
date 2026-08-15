@@ -5,8 +5,9 @@ import proceduresModel from "../../models/procedures/procedures.js";
 
 const scheduleController = {};
 
-// Busca un schedule por doctorId exacto; si no lo encuentra, busca por nombre del doctor.
-// Esto resuelve el caso donde hay dos entradas del mismo médico con distintos _id.
+// Busca un schedule por doctorId exacto. Si no lo encuentra, busca
+// por nombre del doctor, para resolver el caso donde hay dos entradas
+// del mismo médico con distintos _id.
 const findScheduleByDoctorId = async (doctorId) => {
     let schedule = await scheduleModel.findOne({ doctor_id: doctorId });
     if (schedule) return schedule;
@@ -25,13 +26,15 @@ const findScheduleByDoctorId = async (doctorId) => {
     return scheduleModel.findOne({ doctor_id: { $in: ids } });
 };
 
-// Solo doctores (su propio horario) y admin pueden ver/editar un horario de doctor — receptionist
-// y nurse quedan fuera aunque tengan calendar.schedule.view/update en true, porque ese permiso
-// también gobierna endpoints que sí necesitan (ej. consultar slots libres para agendar una cita).
-// Mismo patrón que appointmentsController.getNursesForAcceptance.
+// Solo doctores (su propio horario) y admin pueden ver o editar un
+// horario de doctor. Receptionist y nurse quedan fuera aunque tengan
+// calendar.schedule.view y calendar.schedule.update en true, porque
+// ese permiso también gobierna endpoints que sí necesitan (por
+// ejemplo, consultar slots libres para agendar una cita). Mismo
+// patrón que appointmentsController.getNursesForAcceptance.
 const isDoctorScheduleManager = (role) => ["doctor", "admin"].includes(role);
 
-// GET /api/schedule/:doctorId  — obtener horario del médico
+// GET /api/schedule/:doctorId, obtiene el horario del médico.
 scheduleController.getSchedule = async (req, res) => {
     try {
         if (!isDoctorScheduleManager(req.user.role)) {
@@ -45,7 +48,7 @@ scheduleController.getSchedule = async (req, res) => {
     }
 };
 
-// PUT /api/schedule/:doctorId  — crear o actualizar horario (upsert)
+// PUT /api/schedule/:doctorId, crea o actualiza el horario (upsert).
 scheduleController.saveSchedule = async (req, res) => {
     try {
         if (!isDoctorScheduleManager(req.user.role)) {
@@ -66,16 +69,17 @@ scheduleController.saveSchedule = async (req, res) => {
     }
 };
 
-// Convierte "HH:mm" a minutos desde medianoche.
+// Convierte una hora en formato HH:mm a minutos desde medianoche.
 const toMins = (t) => { const [h, m] = (t || "0:0").split(":").map(Number); return h * 60 + m; };
 
-// Revalida si un horario puntual (fecha + start_time/end_time) sigue libre para
-// un doctor: mismo criterio que getAvailableSlots (excepciones, día
-// disponible, descansos, otras citas), pero para un slot ya elegido en vez de
-// generar la lista completa. Se usa al aceptar una cita, para no confiar en
-// que el horario siga libre desde que se creó la cita hasta que se acepta.
-// excludeAppointmentId se pasa al aceptar una cita existente, para no
-// chocar contra sí misma.
+// Revalida si un horario puntual (fecha, start_time y end_time) sigue
+// libre para un doctor: mismo criterio que getAvailableSlots
+// (excepciones, día disponible, descansos, otras citas), pero para
+// un slot ya elegido en vez de generar la lista completa. Se usa al
+// aceptar una cita, para no confiar en que el horario siga libre
+// desde que se creó la cita hasta que se acepta. excludeAppointmentId
+// se pasa al aceptar una cita existente, para no chocar contra sí
+// misma.
 export const isSlotFreeForDoctor = async (doctorId, date, start_time, end_time, excludeAppointmentId) => {
     const schedule = await findScheduleByDoctorId(doctorId);
     if (!schedule) return { free: false, reason: "El doctor no tiene un horario configurado." };
@@ -210,14 +214,16 @@ scheduleController.getAvailableSlots = async (req, res) => {
         const schedule = await findScheduleByDoctorId(doctorId);
         if (!schedule) return res.status(404).json({ message: "Horario no configurado" });
 
-        // Parsear la fecha como fecha LOCAL para que getDay() devuelva el día correcto
+        // Parsea la fecha como fecha local para que getDay() devuelva
+        // el día correcto (0 es domingo, 1 es lunes, y así sucesivamente).
         const [yr, mo, dy] = date.split("-").map(Number);
         const localDate  = new Date(yr, mo - 1, dy);
-        const dayOfWeek  = localDate.getDay(); // 0=Dom, 1=Lun, ...
+        const dayOfWeek  = localDate.getDay();
 
 
-        // Verificar excepciones (comparar solo la parte de fecha, sin hora)
-        // Extraemos la parte YYYY-MM-DD directamente del string para evitar desplazamientos de zona horaria
+        // Verifica excepciones (compara solo la parte de fecha, sin
+        // hora). Toma la parte YYYY-MM-DD directamente del string
+        // para evitar desplazamientos de zona horaria.
         const toDateStr = (d) => {
             if (!d) return "";
             if (typeof d === "string") return d.split("T")[0];
@@ -242,7 +248,8 @@ scheduleController.getAvailableSlots = async (req, res) => {
         const durationMin = Number(duration);
         const bufferMin   = schedule.buffer_time || 0;
 
-        // Obtener citas ya agendadas para este doctor en esta fecha (excluyendo canceladas)
+        // Obtiene las citas ya agendadas para este doctor en esta
+        // fecha (excluyendo canceladas).
         const dayStart = new Date(`${date}T00:00:00.000Z`);
         const dayEnd   = new Date(`${date}T23:59:59.999Z`);
         const existingAppointments = await appointmentsModel.find({
@@ -256,7 +263,8 @@ scheduleController.getAvailableSlots = async (req, res) => {
             console.log("[slots] booked times:", existingAppointments.map(a => `${a.start_time}-${a.end_time}`));
         }
 
-        // Convierte "HH:mm" → minutos para comparar rangos
+        // Convierte una hora en formato HH:mm a minutos, para poder
+        // comparar rangos.
         const toMins = (t) => { const [h, m] = (t || "0:0").split(":").map(Number); return h * 60 + m; };
         const bookedRanges = existingAppointments
             .filter(a => a.start_time && a.end_time)
@@ -291,7 +299,7 @@ scheduleController.getAvailableSlots = async (req, res) => {
                     return current < bEnd && slotEnd > bStart;
                 });
 
-                // Excluir si se solapa con una cita existente
+                // Excluye el slot si se solapa con una cita existente.
                 const isBooked = bookedRanges.some(r => current < r.end && slotEnd > r.start);
 
                 if (!inBreak && !isBooked) {

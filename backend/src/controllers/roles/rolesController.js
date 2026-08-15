@@ -5,11 +5,13 @@ import { refreshRoleCache } from "../../services/roleCache.js";
 
 const VALID_ACTIONS = ["view", "create", "update", "delete"];
 
-// Permisos que, para ciertos roles, el propio dashboard de ese rol necesita en true para
-// funcionar (ej. el recepcionista no puede agendar citas si le apagan "ver horarios" o
-// "crear pacientes" — su propio panel principal quedaría roto). A diferencia de isProtected
-// (que bloquea TODO el rol, como admin), esto solo bloquea esos permisos puntuales; el resto
-// del rol se sigue pudiendo editar con normalidad.
+// Permisos que, para ciertos roles, el propio dashboard de ese rol
+// necesita en true para funcionar (por ejemplo, el recepcionista no
+// puede agendar citas si le apagan ver horarios o crear pacientes, su
+// propio panel principal quedaría roto). A diferencia de isProtected
+// (que bloquea todo el rol, como admin), esto solo bloquea esos
+// permisos puntuales, el resto del rol se sigue pudiendo editar con
+// normalidad.
 const LOCKED_TRUE_PERMISSIONS = {
     receptionist: {
         "calendar.schedule": ["view"],
@@ -74,7 +76,8 @@ export const updateRolePermissions = async (req, res) => {
         const changedBy = req.user?.id || "unknown";
         const batchId = crypto.randomUUID();
         const logs = [];
-        // moduleKey de cada permiso tocado en este batch — se revisan todos al final (ver abajo).
+        // moduleKey de cada permiso tocado en este batch, se revisan
+        // todos al final (ver abajo).
         const touchedModuleKeys = new Set();
 
         for (const change of changes) {
@@ -113,12 +116,15 @@ export const updateRolePermissions = async (req, res) => {
             });
         }
 
-        // Nada impedía, a nivel de backend, que "Crear"/"Editar"/"Eliminar" quedaran en true
-        // mientras "Ver" está en false — esa regla solo vivía en el frontend
-        // (ModulePermissionCard.jsx: apagar "view" apaga los demás en cascada). Una llamada
-        // directa a la API (ej. Swagger) podía dejar un permiso inconsistente e inalcanzable
-        // desde la propia interfaz. Se revisa el estado FINAL de cada módulo tocado en este
-        // batch, ya con todos los cambios aplicados en memoria (antes de guardar).
+        // Nada impedía, a nivel de backend, que crear, editar o
+        // eliminar quedaran en true mientras ver está en false, esa
+        // regla solo vivía en el frontend (ModulePermissionCard.jsx:
+        // apagar view apaga los demás en cascada). Una llamada
+        // directa a la API (por ejemplo, Swagger) podía dejar un
+        // permiso inconsistente e inalcanzable desde la propia
+        // interfaz. Se revisa el estado final de cada módulo tocado
+        // en este batch, ya con todos los cambios aplicados en
+        // memoria (antes de guardar).
         for (const moduleKey of touchedModuleKeys) {
             const permission = role.permissions.find((p) => p.moduleKey === moduleKey);
             if (!permission.view && (permission.create || permission.update || permission.delete)) {

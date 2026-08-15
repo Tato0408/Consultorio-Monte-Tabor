@@ -2,7 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { History, Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
-// Convierte un timestamp ISO en "hace 15m" / "hace 1h 20m"
+// Convierte un timestamp ISO en un texto relativo, por ejemplo hace
+// 15m o hace 1h 20m.
 const formatRelativeTime = (isoDate) => {
     const diffMs = Date.now() - new Date(isoDate).getTime();
     const totalMinutes = Math.max(Math.floor(diffMs / 60000), 0);

@@ -3,6 +3,8 @@ import { ChevronRight } from "lucide-react";
 
 const TreatmentStatsCard = ({ treatments = [] }) => {
     const navigate = useNavigate();
+    // Conteo más alto entre los tratamientos, usado para escalar el ancho
+    // de las barras de forma proporcional.
     const maxCount = treatments.length > 0 ? Math.max(...treatments.map((t) => t.count)) : 1;
 
     return (

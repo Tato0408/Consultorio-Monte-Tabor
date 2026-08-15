@@ -2,8 +2,8 @@ import { Link } from "react-router-dom";
 import { Home, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
-// Ilustración de la lupa con carita triste + nubes decorativas, dibujada a mano en SVG
-// para no depender de un asset externo
+// Ilustración de la lupa con carita triste y nubes decorativas,
+// dibujada a mano en SVG para no depender de un asset externo.
 const SearchIllustration = () => (
   <svg viewBox="0 0 220 170" className="w-48 h-auto" fill="none" xmlns="http://www.w3.org/2000/svg">
     {/* Sombra */}
@@ -48,9 +48,10 @@ const SearchIllustration = () => (
   </svg>
 );
 
-// El login guarda el token en "authCookie" sin la bandera httpOnly (ver loginController.js),
-// así que sí es legible desde document.cookie — esto solo confirma que la cookie existe en el
-// navegador, no valida que el token siga siendo válido en el backend.
+// El login guarda el token en authCookie sin la bandera httpOnly (ver
+// loginController.js), así que sí es legible desde document.cookie.
+// Esto solo confirma que la cookie existe en el navegador, no valida
+// que el token siga siendo válido en el backend.
 const hasAuthCookie = () =>
   document.cookie.split("; ").some((entry) => entry.startsWith("authCookie="));
 
@@ -58,9 +59,11 @@ const NotFound = () => {
   const { hasAdmins } = useAuth();
   const showPanelLink = hasAuthCookie();
 
-  // Si todavía no existe ningún administrador, "/login" rebota automáticamente a "/register"
-  // (ver App.jsx) — así que aquí apuntamos directo ahí y cambiamos la etiqueta del botón para
-  // que no diga "inicio de sesión" cuando en realidad no hay ninguna cuenta creada todavía.
+  // Si todavía no existe ningún administrador, la ruta /login rebota
+  // automáticamente a /register (ver App.jsx). Por eso aquí se apunta
+  // directo ahí y se cambia la etiqueta del botón, para que no diga
+  // inicio de sesión cuando en realidad no hay ninguna cuenta creada
+  // todavía.
   const primaryTo = hasAdmins ? "/login" : "/register";
   const primaryLabel = hasAdmins ? "Volver al inicio de sesión" : "Volver al primer registro";
 
@@ -109,8 +112,8 @@ const NotFound = () => {
             {primaryLabel}
           </Link>
 
-          {/* Solo tiene sentido ofrecer "volver al panel" si hay una sesión iniciada en el
-              navegador; si no hay cookie de sesión, el link ni siquiera se muestra */}
+          {/* El enlace de volver al panel solo se muestra si hay una sesión
+              iniciada en el navegador. Si no hay cookie de sesión, no aparece. */}
           {showPanelLink && (
             <Link
               to="/home"

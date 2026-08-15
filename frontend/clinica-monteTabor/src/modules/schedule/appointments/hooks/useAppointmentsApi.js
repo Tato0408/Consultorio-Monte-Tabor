@@ -1,5 +1,7 @@
 const BASE = "http://localhost:4000/api/appointments";
 
+// Parsea la respuesta como JSON y lanza un error con el mensaje del
+// servidor si la solicitud no fue exitosa.
 const handleResponse = async (res) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Error en la solicitud");
@@ -7,6 +9,8 @@ const handleResponse = async (res) => {
 };
 
 const useAppointmentsApi = () => {
+    // Obtiene el listado de citas filtrado por los parámetros recibidos,
+    // descartando los valores nulos o vacíos antes de armar la query.
     const getAppointments = (params = {}) => {
         const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== ""));
         const q = new URLSearchParams(clean).toString();

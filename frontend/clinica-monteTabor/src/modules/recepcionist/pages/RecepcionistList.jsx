@@ -12,7 +12,6 @@ const ReceptionistsList = () => {
   const canUpdate = hasPermission("users.receptionist", "update");
   const canDelete = hasPermission("users.receptionist", "delete");
 
-  //Desestructuramos Userecepcionist (las funciones q trae) solo lo que vamos a ocupar del hook
   const {
     receptionists,
     loading,
@@ -21,20 +20,18 @@ const ReceptionistsList = () => {
     deleteReceptionist,
   } = useReceptionist();
 
-  //Estado para controlar si el formulario está abierto
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  //Aquí guardamos el recepcionista que se va a editar
-  //Si es null significa que vamos a crear uno nuevo
+  // Recepcionista que se va a editar. Si es null, el formulario crea uno nuevo.
   const [receptionistToEdit, setReceptionistToEdit] = useState(null);
 
-  //Aquí guardamos el recepcionista seleccionado para mostrar su tarjeta de perfil
   const [selectedReceptionist, setSelectedReceptionist] = useState(null);
 
-  // El propio hook useReceptionist ya pide la lista al montarse (su useEffect interno) —
-  // pedirla también aquí duplicaba la petición en cada carga de la página.
+  // El hook useReceptionist ya carga la lista al montarse mediante su propio
+  // useEffect interno, por lo que no es necesario volver a pedirla aquí.
 
-  // Selección automática de la primera fila al cargar (misma lógica que Pacientes/Enfermeras)
+  // Selecciona automaticamente la primera fila al cargar (misma logica que
+  // en Pacientes y Enfermeras).
   useEffect(() => {
     if (receptionists.length > 0) {
       const exists = receptionists.find((r) => r._id === selectedReceptionist?._id);
@@ -46,41 +43,37 @@ const ReceptionistsList = () => {
     }
   }, [receptionists, selectedReceptionist]);
 
-  //Abre el formulario para registrar un nuevo recepcionista
   const handleOpenCreate = () => {
     setReceptionistToEdit(null);
     setIsFormOpen(true);
   };
 
-  //Abre el formulario cargando la información del recepcionista seleccionado
   const handleOpenEdit = (receptionist) => {
     setReceptionistToEdit(receptionist);
     setIsFormOpen(true);
   };
 
-  //Esta función se ejecuta cuando se cierra el formulario
+  // Cierra el formulario. Solo refresca la tabla y muestra el mensaje de
+  // exito si el formulario realmente guardo algo (wasSaved en true).
   const handleCloseForm = async (wasSaved = false) => {
-    //Cerramos el modal
     setIsFormOpen(false);
 
-    //Si se guardó información volvemos a cargar la tabla
     if (wasSaved) {
       await getReceptionists();
 
-      //Si había un recepcionista seleccionado significa que fue una edición
+      // Si habia un recepcionista seleccionado, fue una edicion. Si no
+      // habia ninguno seleccionado, fue un registro nuevo.
       if (receptionistToEdit) {
         showSuccess("La información fue actualizada correctamente.");
       } else {
-        //Si no había ninguno seleccionado entonces fue un registro nuevo
         showSuccess("El recepcionista fue registrado correctamente.");
       }
     }
 
-    //Limpiamos el estado para que no quede información guardada
     setReceptionistToEdit(null);
   };
 
-  //Función para eliminar un recepcionista (con confirmación previa)
+  // Elimina un recepcionista previa confirmacion del usuario.
   const handleDelete = async (id) => {
     const confirmed = await confirmDelete({
       title: "¿Eliminar este recepcionista?",
@@ -89,16 +82,12 @@ const ReceptionistsList = () => {
     if (!confirmed) return;
 
     try {
-      //Eliminamos el registro
       await deleteReceptionist(id);
 
-      //Actualizamos la tabla
       await getReceptionists();
 
-      //Mostramos mensaje de éxito
       showSuccess("El recepcionista fue eliminado correctamente.");
     } catch (error) {
-      //Si ocurre un error mostramos la alerta
       showError(error.message || "No fue posible eliminar el recepcionista.");
     }
   };
@@ -117,7 +106,6 @@ const ReceptionistsList = () => {
       <div className="grid grid-cols-12 gap-6 mt-8">
         <div className="col-span-9">
 
-          {/* Aquí enviamos toda la información necesaria a la tabla */}
           <ReceptionistsTable
             receptionists={receptionists}
             loading={loading}

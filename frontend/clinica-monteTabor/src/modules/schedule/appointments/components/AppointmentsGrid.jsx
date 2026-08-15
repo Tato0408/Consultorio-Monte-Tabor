@@ -34,10 +34,10 @@ export default function AppointmentsGrid() {
     const canCreate = hasPermission("calendar.appointments", "create");
     const canUpdate = hasPermission("calendar.appointments", "update");
     const canDelete = hasPermission("calendar.appointments", "delete");
-    // El doctor tiene su propio flujo dentro de "Citas" (aceptar/ver las
-    // suyas), distinto del CRUD normal de admin/recepcionista.
+    // El doctor tiene su propio flujo dentro de Citas (aceptar y ver
+    // las suyas), distinto del CRUD normal de admin o recepcionista.
     const isDoctor = userType === "doctor";
-    // El admin tiene el mismo flujo de "por aceptar", pero en vez de
+    // El admin tiene el mismo flujo de por aceptar, pero en vez de
     // aceptar la cita él mismo, la asigna a un doctor.
     const isAdmin = userType === "admin";
 
@@ -56,21 +56,23 @@ export default function AppointmentsGrid() {
         goToPage
     } = useAppointments({ sortOrder: "desc" });
 
-    // Texto del buscador, separado del filtro real: ya no se dispara solo al escribir, solo con
-    // el botón de buscar (o Enter) — ver handleSearch más abajo.
+    // Texto del buscador, separado del filtro real. Se aplica solo con
+    // el botón de buscar (o Enter), ver handleSearch más abajo.
     const [searchInput, setSearchInput] = useState("");
 
     const handleSearch = () => {
         updateFilters({ search: searchInput.trim() || undefined });
     };
 
-    // Sub-pestaña del doctor: "pending" (por aceptar) o "mine" (resueltas);
-    // el backend ya limita doctor_id al propio, aquí solo se controla el status.
-    // Si se volvió desde el detalle de una cita (botón "X" de AppointmentsFormCalendar.jsx),
-    // location.state.initialTab trae la pestaña desde la que se abrió esa cita, para no perderla.
+    // Sub pestaña del doctor: pending (por aceptar) o mine (resueltas).
+    // El backend ya limita doctor_id al propio, aquí solo se controla
+    // el status. Si se volvió desde el detalle de una cita (botón de
+    // cerrar de AppointmentsFormCalendar.jsx), location.state.initialTab
+    // trae la pestaña desde la que se abrió esa cita, para no perderla.
     const [doctorTab, setDoctorTab] = useState(location.state?.initialTab || "pending");
-    // Misma idea para el admin: "pending" (por aceptar) o "assigned" (citas
-    // asignadas). El admin ve todas, no solo las de un doctor en particular.
+    // Misma idea para el admin: pending (por aceptar) o assigned
+    // (citas asignadas). El admin ve todas, no solo las de un doctor
+    // en particular.
     const [adminTab, setAdminTab] = useState(location.state?.initialTab || "pending");
     const [appointmentToAccept, setAppointmentToAccept] = useState(null);
     const [appointmentToAssign, setAppointmentToAssign] = useState(null);
@@ -82,13 +84,13 @@ export default function AppointmentsGrid() {
     const [selectedDoctorId, setSelectedDoctorId] = useState("");
     const [loadingDoctors, setLoadingDoctors] = useState(false);
 
-    // Catálogo del filtro "Doctor": solo doctores que ya tienen al menos una cita registrada
-    // (no el catálogo completo de doctores), para que el filtro nunca ofrezca una opción que de
-    // todos modos no devolvería ningún resultado.
+    // Catálogo del filtro Doctor: solo doctores que ya tienen al menos
+    // una cita registrada (no el catálogo completo), para que el
+    // filtro nunca ofrezca una opción que de todos modos no
+    // devolvería ningún resultado.
     const [doctorFilterOptions, setDoctorFilterOptions] = useState([]);
-    // Catálogo del filtro "Tipo de cita": el mismo catálogo global que define el admin y que
-    // aparece en la leyenda del calendario (antes eran dos opciones fijas — "Consulta Médica
-    // General"/"Procedimiento" — que ya no reflejan los tipos reales que el admin configura).
+    // Catálogo del filtro Tipo de cita: el mismo catálogo global que
+    // define el admin y que aparece en la leyenda del calendario.
     const { getAppointmentTypes } = useAppointmentTypes();
     const [appointmentTypeOptions, setAppointmentTypeOptions] = useState([]);
 
@@ -123,8 +125,9 @@ export default function AppointmentsGrid() {
         });
     }, [isAdmin, adminTab, updateFilters]);
 
-    // Acepta una cita pendiente asignada al doctor; el backend revalida el
-    // horario y puede rechazar con un mensaje claro si ya no está libre.
+    // Acepta una cita pendiente asignada al doctor. El backend
+    // revalida el horario y puede rechazar con un mensaje claro si ya
+    // no está libre.
     const handleAceptar = async (id, nurseId) => {
         try {
             await acceptAppointment(id, nurseId);
@@ -136,10 +139,11 @@ export default function AppointmentsGrid() {
         }
     };
 
-    // Query params con la fecha/hora exacta de la cita: el backend solo devuelve enfermeras
-    // que tengan ese horario configurado como disponible (ver nurseScheduleController.js).
-    // appointment_id evita que la enfermera ya asignada a ESTA cita se filtre por "chocar"
-    // contra sí misma.
+    // Query params con la fecha y hora exacta de la cita: el backend
+    // solo devuelve enfermeras que tengan ese horario configurado
+    // como disponible (ver nurseScheduleController.js). appointment_id
+    // evita que la enfermera ya asignada a esta cita se filtre por
+    // chocar contra sí misma.
     const nurseAvailabilityParams = (appointment) => ({
         date: new Date(appointment.date).toISOString().split("T")[0],
         start_time: appointment.start_time,
@@ -167,8 +171,9 @@ export default function AppointmentsGrid() {
         }
     };
 
-    // Asigna una cita pendiente a un doctor elegido por el admin; el backend
-    // revalida el horario para ese doctor igual que en la aceptación normal.
+    // Asigna una cita pendiente a un doctor elegido por el admin. El
+    // backend revalida el horario para ese doctor igual que en la
+    // aceptación normal.
     const handleAsignar = async (id, doctorId, nurseId) => {
         try {
             await assignDoctor(id, doctorId, nurseId);
@@ -189,8 +194,8 @@ export default function AppointmentsGrid() {
         setSelectedNurseId("");
         setLoadingDoctors(true);
         try {
-            // Catálogo liviano — no requiere el permiso "Ver Doctores" (ver
-            // backend/src/routes/doctors/doctors.js).
+            // Catálogo liviano, no requiere el permiso Ver Doctores
+            // (ver backend/src/routes/doctors/doctors.js).
             const response = await apiClient("/doctors/catalog");
             setDoctors(Array.isArray(response) ? response : response.data || []);
         } catch (error) {
@@ -216,11 +221,13 @@ export default function AppointmentsGrid() {
         }
     };
 
-    // Indica si hay algún filtro activo, para ajustar el mensaje de "sin datos".
+    // Indica si hay algún filtro activo, para ajustar el mensaje de
+    // sin datos.
     const hasActiveFilters = Boolean(filters.search || filters.status || filters.appointment_type || filters.doctor_id);
 
-    // Traducción de los status a texto legible; "no_show" y "expired" los
-    // asigna el backend solo a una "pending" vencida o no aceptada a tiempo.
+    // Traducción de los status a texto legible. no_show y expired los
+    // asigna el backend solo a una cita pending vencida o no aceptada
+    // a tiempo.
     const statusTranslations = {
         pending: "Pendiente",
         scheduled: "Programada",
@@ -236,7 +243,8 @@ export default function AppointmentsGrid() {
             ? (adminTab === "pending" ? "No hay citas pendientes por asignar." : "No hay citas asignadas todavía.")
             : (hasActiveFilters ? "No se encontraron citas con los filtros aplicados." : "No hay citas registradas en este momento.");
 
-    // Elimina la cita por completo; pide confirmación por ser irreversible.
+    // Elimina la cita por completo. Pide confirmación por ser
+    // irreversible.
     const handleEliminar = async (id) => {
         const confirmed = await confirmDelete();
 
@@ -257,7 +265,7 @@ export default function AppointmentsGrid() {
         }
     };
 
-    // Cambia el status a "cancelled" sin borrar el registro.
+    // Cambia el status a cancelled sin borrar el registro.
     const handleCancelar = async (id) => {
         const confirmed = await confirmCancelAppointment();
 
@@ -329,9 +337,9 @@ export default function AppointmentsGrid() {
                 )}
             </div>
 
-            {/* Sub-pestañas del doctor y del admin: separan lo que aún hay
-                que aceptar/asignar de lo que ya está resuelto. El backend
-                filtra doctor_id al propio para el doctor; el admin ve todas. */}
+            {/* Sub pestañas del doctor y del admin: separan lo que aún hay
+                que aceptar o asignar de lo que ya está resuelto. El backend
+                filtra doctor_id al propio para el doctor, el admin ve todas. */}
             {(isDoctor || isAdmin) && (
                 <div className="border-b border-slate-100 flex gap-6 text-sm font-medium mb-6">
                     <button
@@ -357,14 +365,15 @@ export default function AppointmentsGrid() {
                 </div>
             )}
 
-            {/* Búsqueda, filtros de estado/tipo y orden por fecha. Todo se
+            {/* Búsqueda, filtros de estado y tipo, y orden por fecha. Todo se
                 resuelve en el backend vía updateFilters (query params). */}
             <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 mb-6 flex flex-col md:flex-row gap-3 md:items-center">
-                {/* Búsqueda por paciente, doctor o descripción — ya no se dispara al escribir,
-                    solo al hacer clic en el botón (o presionar Enter). El botón vive dentro del
-                    propio input (a la derecha); "pr-10" le reserva ese espacio para que el texto
-                    escrito nunca llegue a tocarlo — un <input> nativo ya hace scroll del texto
-                    hacia la izquierda por su cuenta cuando se pasa de su ancho visible/relleno. */}
+                {/* Búsqueda por paciente, doctor o descripción. Se dispara solo al
+                    hacer clic en el botón (o presionar Enter). El botón vive dentro
+                    del propio input (a la derecha), la clase pr-10 reserva ese
+                    espacio para que el texto escrito nunca llegue a tocarlo. Un
+                    <input> nativo ya hace scroll del texto hacia la izquierda por su
+                    cuenta cuando se pasa de su ancho visible. */}
                 <div className="flex-1 min-w-[220px] flex flex-col">
                     <div className="relative">
                         <Input
@@ -389,7 +398,7 @@ export default function AppointmentsGrid() {
                     </span>
                 </div>
 
-                {/* Filtro por estado (lo controla la sub-pestaña para doctor/admin). */}
+                {/* Filtro por estado (lo controla la sub pestaña para doctor o admin). */}
                 {!isDoctor && !isAdmin && (
                     <Select
                         value={filters.status || "all"}
@@ -410,8 +419,9 @@ export default function AppointmentsGrid() {
                     </Select>
                 )}
 
-                {/* Filtro por doctor — solo lista doctores que ya tienen alguna cita. Un doctor
-                    viendo su propio listado no necesita filtrarse a sí mismo. */}
+                {/* Filtro por doctor, solo lista doctores que ya tienen alguna cita.
+                    Un doctor viendo su propio listado no necesita filtrarse a sí
+                    mismo. */}
                 {!isDoctor && (
                     <Select
                         value={filters.doctor_id || "all"}
@@ -434,10 +444,10 @@ export default function AppointmentsGrid() {
                     </Select>
                 )}
 
-                {/* Filtro por tipo de cita — el mismo catálogo global que define el admin y que
-                    aparece en la leyenda del calendario. Filtra por "appointment_type" (el campo
-                    de catálogo), no por "type" (que solo distingue Consulta Médica General de
-                    Procedimiento). */}
+                {/* Filtro por tipo de cita, el mismo catálogo global que define el
+                    admin y que aparece en la leyenda del calendario. Filtra por
+                    appointment_type (el campo de catálogo), no por type (que solo
+                    distingue Consulta Médica General de Procedimiento). */}
                 <Select
                     value={filters.appointment_type || "all"}
                     onValueChange={(value) => updateFilters({ appointment_type: value === "all" ? undefined : value })}
@@ -481,7 +491,7 @@ export default function AppointmentsGrid() {
                                 className="bg-white border border-slate-100 shadow-md rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col h-full"
                             >
                                 <CardHeader className="p-5 pb-3 flex flex-row items-center gap-2 space-y-0">
-                                    {/* Badge de estado; el color depende del status. */}
+                                    {/* Badge de estado, el color depende del status. */}
                                     <Badge
                                         variant="secondary"
                                         className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${cita.status === "completed"
@@ -521,7 +531,7 @@ export default function AppointmentsGrid() {
                                             : "Paciente no asignado"}
                                     </h3>
 
-                                    {/* Nombre del procedimiento si aplica; si no, el tipo general. */}
+                                    {/* Nombre del procedimiento si aplica, si no, el tipo general. */}
                                     <p>
                                         <span className="text-slate-400">
                                             Tipo de procedimiento:
@@ -594,8 +604,9 @@ export default function AppointmentsGrid() {
                                         </span>
                                     </div>
 
-                                    {/* Acciones: "Aceptar"/"Asignar" reemplaza el resto mientras esté pendiente;
-                                        si no, eliminar/editar/cancelar según permisos. Ver siempre está disponible. */}
+                                    {/* Acciones: los botones de Aceptar o Asignar reemplazan el resto
+                                        mientras esté pendiente. Si no, se muestran eliminar, editar o
+                                        cancelar según permisos. Ver siempre está disponible. */}
                                     <div className="flex items-center gap-1">
                                         {isDoctor && cita.status === "pending" ? (
                                             <Button
@@ -631,9 +642,10 @@ export default function AppointmentsGrid() {
                                                     </Button>
                                                 )}
 
-                                                {/* Abre el formulario en modo edición (editMode: true). fromTab recuerda desde
-                                                    qué sub-pestaña (Por aceptar / Mis citas / Citas asignadas) se abrió, para
-                                                    que el botón "X" del formulario pueda regresar exactamente ahí. */}
+                                                {/* Abre el formulario en modo edición (editMode: true). fromTab
+                                                    recuerda desde qué sub pestaña (Por aceptar, Mis citas o Citas
+                                                    asignadas) se abrió, para que el botón de cerrar del formulario
+                                                    pueda regresar exactamente ahí. */}
                                                 {canUpdate && (
                                                     <Button
                                                         variant="ghost"
@@ -672,7 +684,7 @@ export default function AppointmentsGrid() {
                                             </>
                                         )}
 
-                                        {/* Abre el formulario en modo solo-lectura. fromTab: ver nota en el botón de editar. */}
+                                        {/* Abre el formulario en modo de solo lectura. fromTab: ver nota en el botón de editar. */}
                                         <Button
                                             variant="ghost"
                                             className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center"
@@ -696,7 +708,7 @@ export default function AppointmentsGrid() {
                             </Card>
                         ))}
                     </div>
-                    {/* Paginación: goToPage actualiza el filtro "page" y dispara el refetch. */}
+                    {/* Paginación: goToPage actualiza el filtro page y dispara el refetch. */}
                     <div className="flex justify-center items-center gap-4 mt-8">
                         <Button
                             variant="outline"

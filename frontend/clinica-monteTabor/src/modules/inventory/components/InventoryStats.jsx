@@ -1,8 +1,9 @@
 import { Package, TrendingDown, Activity, DollarSign } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 
-// Últimos 7 días reales (reconstruidos a partir de la bitácora de movimientos — ver
-// inventoryController.getStats -> trends), no arreglos fijos.
+// Últimos 7 días reales, reconstruidos a partir de la bitácora de
+// movimientos (ver inventoryController.getStats, sección trends).
+// No son datos fijos ni de ejemplo.
 const CARDS = [
   { title: "Productos en stock",    sub: "Total disponible",          icon: Package,     color: "bg-blue-100 text-blue-600",    line: "#3b82f6", trendKey: "stock" },
   { title: "Bajo inventario",       sub: "Requieren reposición",      icon: TrendingDown, color: "bg-orange-100 text-orange-500", line: "#f97316", trendKey: "lowStock" },

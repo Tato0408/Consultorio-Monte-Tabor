@@ -6,9 +6,11 @@ const handleResponse = async (res) => {
     return data;
 };
 
-// Catálogo GLOBAL de tipos de cita (nombre + color) — lo leen todos los roles (leyenda del
-// calendario, selector "Tipo de cita" al agendar), pero solo el admin puede crear/editar/eliminar
-// (el backend lo exige aparte, esto es solo para no mostrar los botones a quien no puede usarlos).
+// Catálogo global de tipos de cita (nombre y color), usado por todos
+// los roles (la leyenda del calendario y el selector de tipo de cita
+// al agendar). Solo el admin puede crear, editar o eliminar tipos, el
+// backend valida ese permiso aparte, esto solo evita mostrar los
+// botones a quien no puede usarlos.
 const useAppointmentTypes = () => {
     const getAppointmentTypes = () =>
         fetch(BASE, { credentials: "include" }).then(handleResponse);

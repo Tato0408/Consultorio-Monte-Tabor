@@ -7,7 +7,7 @@ const STATUS_BADGE = {
     expired: { label: "Vencida", cls: "bg-orange-50 text-orange-600" },
 };
 
-// "Próximas citas": lista simple de las siguientes citas del día, ordenadas por hora.
+// Lista simple de las próximas citas del día, ordenadas por hora.
 const UpcomingAppointmentsList = ({ appointments, onViewAll }) => {
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5">

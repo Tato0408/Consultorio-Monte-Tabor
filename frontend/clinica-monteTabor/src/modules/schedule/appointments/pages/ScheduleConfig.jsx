@@ -39,13 +39,16 @@ const EMPTY_SCHEDULE = {
 const ScheduleConfig = () => {
     const { user, userType, isLoading: authLoading, hasPermission } = useAuth();
     const canUpdate = hasPermission("calendar.schedule", "update");
-    // El admin también ejerce como doctor (mismo correo que su propio registro en la colección
-    // de doctores), así que sí tiene y configura su propio horario igual que cualquier otro
-    // doctor — solo se le agrega, aparte, el catálogo global de "Tipos de citas" (ver más abajo),
-    // que es lo único exclusivo de admin.
+    // El admin también ejerce como doctor (mismo correo que su propio
+    // registro en la colección de doctores), así que tiene y
+    // configura su propio horario igual que cualquier otro doctor.
+    // Solo se le agrega, aparte, el catálogo global de tipos de citas
+    // (ver más abajo), que es lo único exclusivo de admin.
     const isAdmin = userType === "admin";
-    // Horarios es doctor/enfermera/admin — cada uno guarda en una colección distinta
-    // (backend/src/models/schedule/schedule.js vs nurseSchedule.js), por eso hay dos hooks.
+    // La página de Horarios sirve para doctor, enfermera y admin,
+    // cada uno guarda en una colección distinta
+    // (backend/src/models/schedule/schedule.js o nurseSchedule.js),
+    // por eso hay dos hooks.
     const isNurse = userType === "nurse";
     const doctorSchedule = useSchedule();
     const nurseSchedule = useNurseSchedule();
@@ -53,33 +56,39 @@ const ScheduleConfig = () => {
         ? nurseSchedule
         : doctorSchedule;
 
-    // El user.id del JWT puede diferir del _id en la colección doctors/nurses.
-    // Buscamos al usuario por email en el catálogo correspondiente para obtener el _id correcto.
-    // Para admin usamos /doctors/catalog (no /doctors): ese catálogo es el que crea y mantiene su
-    // "doctor espejo" (ver doctorsController.getDoctorsCatalog), y es exactamente el mismo _id
-    // que va a aparecer seleccionable al agendar una cita — así el horario que configura aquí es
-    // el mismo que se usa para calcular su disponibilidad real.
+    // El user.id del JWT puede diferir del _id en la colección de
+    // doctores o enfermeras. Se busca al usuario por email en el
+    // catálogo correspondiente para obtener el _id correcto. Para
+    // admin se usa /doctors/catalog (no /doctors): ese catálogo es el
+    // que crea y mantiene su doctor espejo (ver
+    // doctorsController.getDoctorsCatalog), y es exactamente el mismo
+    // id que va a aparecer seleccionable al agendar una cita. Así el
+    // horario que se configura aquí es el mismo que se usa para
+    // calcular su disponibilidad real.
     const [ownerId, setOwnerId] = useState(null);
 
     const [config, setConfig]   = useState(EMPTY_SCHEDULE);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving]   = useState(false);
     const [error, setError]     = useState(null);
-    // La página arranca en modo solo-lectura: nada es editable hasta que se presiona "Editar
-    // horario". configSnapshot guarda el config tal cual estaba justo antes de entrar a modo
-    // edición, para que "Descartar" pueda devolver todo a como estaba sin tener que volver a
-    // pedirlo al backend.
+    // La página arranca en modo de solo lectura: nada es editable
+    // hasta que se presiona Editar horario. configSnapshot guarda el
+    // config tal cual estaba justo antes de entrar a modo edición,
+    // para que Descartar pueda devolver todo a como estaba sin volver
+    // a pedirlo al backend.
     const [editing, setEditing] = useState(false);
     const [configSnapshot, setConfigSnapshot] = useState(null);
 
     useEffect(() => {
         if (!user?.email) return;
         const catalogUrl = isNurse ? "http://localhost:4000/api/nurses" : "http://localhost:4000/api/doctors/catalog";
-        // Sin "credentials: include" esta petición sale sin la cookie de sesión — el backend la
-        // rechaza (401/403), el catch cae al fallback de abajo, y para un admin ese fallback
-        // (user.id, el _id de Admin) NO es el mismo id que el doctor espejo con el que se agenda
-        // la cita. Resultado: el horario se guardaba bajo un id y se consultaba bajo otro, así
-        // que getAvailableSlots nunca encontraba nada para el admin.
+        // Sin la opción credentials: include, esta petición sale sin
+        // la cookie de sesión. El backend la rechaza (401 o 403), el
+        // catch cae al fallback de abajo, y para un admin ese
+        // fallback (user.id, el id de Admin) no es el mismo id que el
+        // doctor espejo con el que se agenda la cita. En ese caso, el
+        // horario se guarda bajo un id y se consulta bajo otro, así
+        // que getAvailableSlots nunca encuentra nada para el admin.
         fetch(catalogUrl, { credentials: "include" })
             .then(r => r.json())
             .then(list => {
@@ -96,9 +105,11 @@ const ScheduleConfig = () => {
         const applyConfig = (data) => {
             if (!data) return;
             const bufferTime = data.buffer_time ?? 10;
-            // Horarios guardados antes de esta lista personalizable solo tenían buffer_time (un
-            // único valor) — se usa como semilla de la lista para no perder la configuración ya
-            // hecha. Mismo criterio para block_durations con el antiguo min_block_duration.
+            // Horarios guardados antes de esta lista personalizable
+            // solo tenían buffer_time (un único valor), se usa como
+            // semilla de la lista para no perder la configuración ya
+            // hecha. Mismo criterio para block_durations con el
+            // antiguo min_block_duration.
             const bufferOptions = data.buffer_time_options?.length
                 ? data.buffer_time_options
                 : Array.from(new Set([...DEFAULT_BUFFER_OPTIONS, bufferTime])).sort((a, b) => a - b);
@@ -130,8 +141,8 @@ const ScheduleConfig = () => {
 
     const patch = (key, value) => setConfig(prev => ({ ...prev, [key]: value }));
 
-    // Entra a modo edición guardando una copia del config actual — es a lo que "Descartar"
-    // regresa si el usuario se arrepiente.
+    // Entra a modo edición guardando una copia del config actual. Es
+    // a lo que vuelve el botón Descartar si el usuario se arrepiente.
     const startEditing = () => {
         setConfigSnapshot(config);
         setEditing(true);
@@ -156,9 +167,10 @@ const ScheduleConfig = () => {
         setError(null);
         try {
             await saveSchedule(ownerId, config);
-            // Al guardar con éxito la interfaz vuelve a su estado inicial (solo lectura) — el
-            // toast confirma el guardado ya que el botón no llega a quedarse en pantalla como
-            // "¡Guardado!" (pasa a "Editar horario" de inmediato).
+            // Al guardar con éxito la interfaz vuelve a su estado
+            // inicial (solo lectura). El toast confirma el guardado,
+            // ya que el botón pasa directo a Editar horario sin
+            // quedarse en pantalla mostrando Guardado.
             showSuccess("Horario guardado correctamente.");
             setConfigSnapshot(null);
             setEditing(false);
@@ -193,10 +205,11 @@ const ScheduleConfig = () => {
                             : "Define tus horarios de atención y descansos."}
                     </p>
                 </div>
-                {/* sm:mt-8 baja el botón (sin tocar su tamaño/forma original) para que quede a
-                    la misma altura inferior que el label gris — solo aplica en sm:flex-row,
-                    donde el botón se alinea arriba junto al título; en mobile (flex-col) ya
-                    queda debajo por el orden natural, así que no hace falta el margen ahí. */}
+                {/* sm:mt-8 baja el botón (sin tocar su tamaño ni forma original)
+                    para que quede a la misma altura inferior que el label gris. Solo
+                    aplica en sm:flex-row, donde el botón se alinea arriba junto al
+                    título. En mobile (flex-col) ya queda debajo por el orden
+                    natural, así que no hace falta el margen ahí. */}
                 <div className="flex gap-3 flex-shrink-0 sm:mt-8">
                     {canUpdate && (
                         editing ? (
@@ -240,32 +253,36 @@ const ScheduleConfig = () => {
             )}
 
             {/* Grid de secciones */}
-            {/* items-start: sin esto, CSS Grid estira cada card a la altura de la más alta de su
-                fila por defecto — al colapsar una card quedaba con su encabezado compacto pero
-                una caja en blanco debajo hasta esa altura estirada, en vez de encogerse a solo
-                título+descripción. */}
+            {/* items-start: sin esto, CSS Grid estira cada card a la altura de
+                la más alta de su fila por defecto. Al colapsar una card,
+                quedaba con su encabezado compacto pero una caja en blanco debajo
+                hasta esa altura estirada, en vez de encogerse a solo título y
+                descripción. */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
-                {/* Catálogo global de tipos de cita — exclusivo de admin (ver comentario en
-                    isAdmin más arriba). Autocontenido: no depende del botón "Guardar cambios" de
-                    esta página, cada acción persiste de inmediato contra su propio endpoint —
-                    por eso queda FUERA del fieldset de modo edición de abajo (no tiene nada que
-                    "descartar"). Aun así, sus botones de agregar/editar/eliminar solo existen si
-                    editing=true (se lo pasamos directo, ver AppointmentTypesSection.jsx), para
-                    que la interfaz completa se sienta consistente. Son los mismos tipos que
-                    aparecen en el selector "Tipo de Cita" al agendar una cita
-                    (AppointmentsForm.jsx) y en la leyenda del calendario. */}
+                {/* Catálogo global de tipos de cita, exclusivo de admin (ver
+                    comentario en isAdmin más arriba). Autocontenido: no depende del
+                    botón Guardar cambios de esta página, cada acción persiste de
+                    inmediato contra su propio endpoint, por eso queda fuera del
+                    fieldset de modo edición de abajo (no tiene nada que descartar).
+                    Aun así, sus botones de agregar, editar y eliminar solo existen
+                    si editing es true (se pasa directo, ver
+                    AppointmentTypesSection.jsx), para que la interfaz completa se
+                    sienta consistente. Son los mismos tipos que aparecen en el
+                    selector de tipo de cita al agendar una cita (AppointmentsForm.jsx)
+                    y en la leyenda del calendario. */}
                 {isAdmin && <AppointmentTypesSection editing={editing} />}
 
-                {/* fieldset con display:contents — desactiva los inputs/selects/toggles que
-                    contienen estas secciones de un solo golpe, tanto mientras se guarda como
-                    mientras la página está en modo solo-lectura (antes de presionar "Editar
-                    horario"), sin alterar el layout de grid. No hace falta estar dentro de un
-                    <form> para que funcione. Los botones de agregar/editar/eliminar de cada
-                    sección además reciben "editing" directamente y desaparecen por completo (no
-                    solo se deshabilitan) cuando no se está editando. Los despliegues de
-                    CollapsibleCard/por-día siguen funcionando igual estando disabled: son
-                    <div role="button">, no <button>, así que el fieldset no los toca (ver
-                    CollapsibleCard.jsx). */}
+                {/* fieldset con display:contents. Desactiva los inputs, selects y
+                    toggles que contienen estas secciones de un solo golpe, tanto
+                    mientras se guarda como mientras la página está en modo de solo
+                    lectura (antes de presionar Editar horario), sin alterar el
+                    layout de grid. No hace falta estar dentro de un <form> para que
+                    funcione. Los botones de agregar, editar y eliminar de cada
+                    sección además reciben editing directamente y desaparecen por
+                    completo (no solo se deshabilitan) cuando no se está editando.
+                    Los despliegues de CollapsibleCard, por día, siguen funcionando
+                    igual estando disabled: son <div role="button">, no <button>,
+                    así que el fieldset no los toca (ver CollapsibleCard.jsx). */}
                 <fieldset disabled={saving || !editing} className="contents">
                     <WeeklyAvailabilitySection
                         availability={config.weekly_availability}
@@ -293,8 +310,9 @@ const ScheduleConfig = () => {
                     />
                 </fieldset>
 
-                {/* Vista previa — de solo lectura (no cambia config), fuera del fieldset para
-                    que "Ver vista previa" siga funcionando en modo solo-lectura. */}
+                {/* Vista previa: de solo lectura (no cambia config), fuera del
+                    fieldset para que el botón de vista previa siga funcionando en
+                    modo de solo lectura. */}
                 <SchedulePreview
                     availability={config.weekly_availability}
                     breaks={config.breaks}

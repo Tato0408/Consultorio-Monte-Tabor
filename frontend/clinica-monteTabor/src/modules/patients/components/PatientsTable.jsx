@@ -1,7 +1,7 @@
 import GenericTable from "@/components/ui/GenericTable";
 
-// Las acciones de editar/eliminar ya no viven aquí — se movieron a botones dentro de
-// PatientProfileCard.jsx (el panel de la derecha), para no necesitar un menú por fila.
+// Los botones de editar y eliminar viven en PatientProfileCard.jsx (el panel
+// derecho), por lo que esta tabla no necesita un menu de acciones por fila.
 const PatientsTable = ({ patients, loading, onAdd, onSelectPatient }) => {
   const columns = [
     { header: "Nombre", align: "center", render: (patient) => <span className="font-medium text-gray-900">{patient.name}</span> },

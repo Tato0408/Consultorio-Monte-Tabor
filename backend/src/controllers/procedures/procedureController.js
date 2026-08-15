@@ -3,9 +3,11 @@ import { getNonNegativeError, escapeRegex } from '../../utils/validators.js'
 
 const proceduresController = {}
 
-// Evita procedimientos duplicados (mismo nombre, sin importar mayúsculas/espacios extra) — dos
-// procedimientos con el mismo nombre confunden cualquier selector que los liste (ProcedureModal,
-// AppointmentsForm, ProceduresForm). excludeId se pasa al editar, para no chocar contra sí mismo.
+// Evita procedimientos duplicados (mismo nombre, sin importar
+// mayúsculas o espacios extra). Dos procedimientos con el mismo
+// nombre confunden cualquier selector que los liste (ProcedureModal,
+// AppointmentsForm, ProceduresForm). excludeId se pasa al editar,
+// para no chocar contra sí mismo.
 const findDuplicateProcedureName = async (name, excludeId) => {
     const normalized = String(name || '').trim()
     if (!normalized) return null
@@ -16,9 +18,10 @@ const findDuplicateProcedureName = async (name, excludeId) => {
     return found ? 'Ya existe un procedimiento registrado con ese nombre' : null
 }
 
-// Valida precio, duración y cantidad de materiales de un procedimiento — mismas reglas que ya
-// exige el frontend (ProceduresForm.jsx / ProcedureModal.jsx), repetidas aquí porque el backend
-// nunca debe confiar solo en que el cliente ya validó.
+// Valida precio, duración y cantidad de materiales de un
+// procedimiento: mismas reglas que ya exige el frontend
+// (ProceduresForm.jsx y ProcedureModal.jsx), repetidas aquí porque
+// el backend nunca debe confiar solo en que el cliente ya validó.
 const getProcedureError = ({ price, estimated_duration, materials }) => {
     const priceError = getNonNegativeError(price, "El precio")
     if (priceError) return priceError
@@ -39,7 +42,7 @@ const getProcedureError = ({ price, estimated_duration, materials }) => {
     return null
 }
 
-// GET — traer todos los procedimientos
+// GET, trae todos los procedimientos.
 proceduresController.getProcedures = async (req, res) => {
     try {
         const response = await proceduresModel.find()
@@ -74,8 +77,8 @@ proceduresController.insertProcedure = async (req, res) => {
         const duplicateError = await findDuplicateProcedureName(name)
         if (duplicateError) return res.status(400).json({ message: duplicateError })
 
-        // Limpiar materiales — quitar _id que pueda venir del frontend
-        // y asegurar que cada material tenga name como String
+        // Limpia los materiales: quita el _id que pueda venir del
+        // frontend y asegura que cada material tenga name como String.
         const cleanMaterials = (materials || []).map(({ _id, ...rest }) => ({
             name:     rest.name     || "",
             quantity: rest.quantity || 1,
@@ -125,8 +128,9 @@ proceduresController.updateProcedure = async (req, res) => {
         const duplicateError = await findDuplicateProcedureName(name, req.params.id)
         if (duplicateError) return res.status(400).json({ message: duplicateError })
 
-        // Limpiar _id de subdocumentos que Mongoose genera automáticamente
-        // al devolver el documento — si los mandamos de vuelta causan CastError
+        // Limpia el _id de subdocumentos que Mongoose genera
+        // automáticamente al devolver el documento, si se mandan de
+        // vuelta causan CastError.
         const cleanMaterials = (materials || []).map(({ _id, ...rest }) => ({
             name:     rest.name     || "",
             quantity: rest.quantity || 1,

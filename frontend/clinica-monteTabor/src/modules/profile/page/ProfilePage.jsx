@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { ChevronRight, LogOut, Trash2, Loader2 } from "lucide-react";
-import { useAuth } from "../../../context/AuthContext"; // Ajusta la ruta según tu proyecto
+import { useAuth } from "../../../context/AuthContext";
 import useProfile from '../hooks/useProfile'
 import ChangePasswordModal from "../components/ChangePasswordModal";
 import EditProfileModal from "../components/EditProfileModal";
@@ -23,9 +23,11 @@ const ProfilePage = () => {
     receptionist: "Recepcionista del sistema",
   };
 
-  // doctor y recepcionista tienen la foto como campo obligatorio en su modelo (siempre se sube
-  // una al registrarlos) — a diferencia de admin/enfermería, eliminarla dejaría la cuenta en un
-  // estado que el propio backend no permite crear, así que aquí no se ofrece esa opción.
+  // Los roles doctor y recepcionista tienen la foto como campo
+  // obligatorio en su modelo, siempre se sube una al registrarlos. A
+  // diferencia de admin y enfermería, eliminarla dejaría la cuenta en
+  // un estado que el propio backend no permite crear, así que aquí no
+  // se ofrece esa opción.
   const canDeleteAvatar = userType === "admin" || userType === "nurse";
 
   const handleTriggerFileInput = () => {
@@ -76,8 +78,9 @@ const ProfilePage = () => {
           </p>
         </div>
 
-        {/* md:mt-8 la baja a la misma altura que el botón "Guardar cambios" de Horarios, para
-            que no choque con la campana de notificaciones (fixed, ver MainLayout.jsx). */}
+        {/* La clase md:mt-8 baja el botón a la misma altura que el de guardar
+            cambios de Horarios, para que no choque con la campana de
+            notificaciones (fija, ver MainLayout.jsx). */}
         <button
           onClick={logout}
           className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-all self-start md:mt-8"

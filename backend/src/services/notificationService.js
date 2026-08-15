@@ -7,9 +7,10 @@ export async function notifyAppointmentRecipients(appointment, { doctorMessage, 
     const notifications = [];
     const actorId = actor?.id?.toString();
 
-    // Las solicitudes creadas por pacientes nacen sin doctor. No intentes
-    // crear una notificación con recipient_id=null; el doctor se notifica
-    // cuando acepta la cita o cuando un administrador se la asigna.
+    // Las solicitudes creadas por pacientes nacen sin doctor asignado. No
+    // se crea una notificación con recipient_id nulo, el doctor se
+    // notifica recién cuando acepta la cita o cuando un administrador se
+    // la asigna.
     if (doctorMessage && appointment.doctor_id && appointment.doctor_id.toString() !== actorId) {
         notifications.push({
             recipient_role: "doctor",

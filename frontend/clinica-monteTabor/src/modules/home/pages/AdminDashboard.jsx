@@ -68,15 +68,17 @@ const AdminDashboard = () => {
 
             <div className="relative p-4 sm:p-6 pt-3 flex flex-col gap-8">
 
-                {/* ── Resumen general: ingresos como métrica principal destacada ── */}
+                {/* Resumen general: ingresos como métrica principal destacada */}
                 <section>
                     <h2 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest mb-3">
                         Resumen general
                     </h2>
-                    {/* grid-cols-5: la card de ingresos ocupa 2 columnas (más ancha/horizontal,
-                        como en la referencia) y las otras 3 ocupan 1 cada una — 2+1+1+1=5, así
-                        las 4 caben siempre en una sola fila sin que ninguna se desborde a la
-                        siguiente línea. */}
+                    {/* La clase grid-cols-5 hace que la tarjeta de ingresos ocupe dos
+                        columnas, más ancha y horizontal como en el diseño de referencia,
+                        y que las otras tres ocupen una columna cada una. Entre las
+                        cuatro tarjetas suman las cinco columnas de la grilla, así que
+                        siempre caben en una sola fila sin desbordarse a la siguiente
+                        línea. */}
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                         <StatCard
                             featured
@@ -122,15 +124,16 @@ const AdminDashboard = () => {
                     </div>
                 </section>
 
-                {/* ── Columna izquierda (usuarios + reportes) y barra lateral derecha (agenda +
-                        accesos rápidos) ── sin items-start: ambas columnas se estiran a la
-                        altura de la más alta (normalmente la izquierda). Dentro de la derecha,
-                        Agenda del día y Accesos rápidos reciben cada una flex-1 (mismo factor
-                        → mitad y mitad exactas), en vez de que una tome su alto natural y la
-                        otra absorba el resto sola — así ninguna se ve más "flaca" que la otra.
-                        min-h-0 en ambos wrappers es necesario para que puedan encogerse por
-                        debajo de su alto de contenido (si no, flex nunca las dejaría bajar de
-                        eso, y la mitad y mitad dejaría de ser real). */}
+                {/* Columna izquierda (usuarios y reportes) y barra lateral derecha
+                    (agenda y accesos rápidos). No usa items-start, así que ambas
+                    columnas se estiran a la altura de la más alta, que suele ser la
+                    izquierda. Dentro de la derecha, Agenda del día y Accesos rápidos
+                    reciben cada una flex-1, el mismo factor, para quedar exactamente
+                    mitad y mitad, en vez de que una tome su alto natural y la otra
+                    absorba el resto sola. El min-h-0 en ambos contenedores es
+                    necesario para que puedan encogerse por debajo de su alto de
+                    contenido, ya que sin eso flex nunca las dejaría bajar de ese
+                    tamaño y la mitad y mitad dejaría de cumplirse. */}
                 <section className="grid grid-cols-1 lg:grid-cols-4 gap-5">
                     <div className="lg:col-span-3 flex flex-col gap-8">
                         <UserManagementSection data={userStats} />

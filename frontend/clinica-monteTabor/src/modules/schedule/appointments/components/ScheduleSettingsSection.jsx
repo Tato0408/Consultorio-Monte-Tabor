@@ -5,9 +5,10 @@ import CollapsibleCard from "@/components/ui/CollapsibleCard";
 const DEFAULT_BUFFER_OPTIONS  = [0, 5, 10, 15, 20, 30];
 const DEFAULT_BLOCK_DURATIONS = [15, 30, 45, 60];
 
-// bufferOptions y blockDurations son propias de cada doctor (se guardan en su Schedule) — cada
-// quien arma su propia lista de tiempos entre citas y duraciones de bloque, y esas mismas listas
-// son las que se reflejan al agendar una cita con ese doctor específico.
+// bufferOptions y blockDurations son propias de cada doctor (se
+// guardan en su Schedule), cada quien arma su propia lista de tiempos
+// entre citas y duraciones de bloque, y esas mismas listas son las
+// que se reflejan al agendar una cita con ese doctor específico.
 const ScheduleSettingsSection = ({
     bufferTime,
     bufferOptions,
@@ -61,7 +62,8 @@ const ScheduleSettingsSection = ({
                         {options.map(v => <option key={v} value={v}>{v === 0 ? "Sin tiempo de espera" : `${v} minutos`}</option>)}
                     </select>
 
-                    {/* Agrega un tiempo propio a la lista de opciones — se selecciona automáticamente. */}
+                    {/* Agrega un tiempo propio a la lista de opciones, se selecciona
+                        automáticamente. */}
                     {editing && (
                         <div className="flex items-center gap-2 mt-1">
                             <input
@@ -86,8 +88,8 @@ const ScheduleSettingsSection = ({
                     )}
                 </div>
 
-                {/* Duración de bloque — lista libre (no un único valor): cada duración que agregues
-                    queda disponible para elegir al agendar una cita contigo. */}
+                {/* Duración de bloque: lista libre, no un único valor. Cada duración
+                    que se agregue queda disponible para elegir al agendar una cita. */}
                 <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-medium text-slate-600">Duraciones de bloque disponibles</label>
                     <p className="text-[11px] text-slate-400">Estas son las duraciones que se podrán elegir al agendar una cita contigo.</p>
@@ -143,10 +145,11 @@ const ScheduleSettingsSection = ({
                             Los pacientes podrán solicitar citas fuera de tu horario para aprobación.
                         </p>
                     </div>
-                    {/* El punto necesita una posición base explícita (left-1) — sin ella, quedaba a
-                        merced de la posición estática por defecto del navegador y terminaba
-                        saliéndose del check al activarlo. Con left-1 + translate-x-4 el recorrido
-                        queda siempre dentro del track de 40px (4px de margen a cada lado). */}
+                    {/* El punto necesita una posición base explícita (left-1), sin ella
+                        queda a merced de la posición estática por defecto del navegador
+                        y termina saliéndose del check al activarlo. Con left-1 junto
+                        con translate-x-4 el recorrido queda siempre dentro del track
+                        de 40px (4px de margen a cada lado). */}
                     <button
                         type="button"
                         onClick={() => onChange("allow_outside_hours", !allowOutsideHours)}

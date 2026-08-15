@@ -18,9 +18,11 @@ const todayStr = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-// Dashboard del recepcionista: mismo patrón de página (header + StatCards + Promise.allSettled)
-// que AdminDashboard.jsx / DoctorDashboard.jsx, reutilizando StatCard y los hooks/endpoints ya
-// existentes de citas y pacientes para las dos secciones de registro rápido.
+// Dashboard del recepcionista. Sigue el mismo patrón de página que
+// AdminDashboard.jsx y DoctorDashboard.jsx (encabezado, tarjetas de
+// estadísticas cargadas con Promise.allSettled), reutilizando StatCard
+// y los hooks y endpoints ya existentes de citas y pacientes para las
+// dos secciones de registro rápido.
 const RecepcionistDashboard = () => {
     const { user, userType } = useAuth();
     const navigate = useNavigate();
@@ -67,7 +69,8 @@ const RecepcionistDashboard = () => {
         loadAgenda(agendaDate);
     }, [agendaDate, loadAgenda]);
 
-    // Refresca todo lo que puede haber cambiado tras crear/confirmar/cancelar una cita
+    // Refresca todo lo que puede haber cambiado después de crear,
+    // confirmar o cancelar una cita.
     const refreshAll = () => {
         loadStatsAndLists();
         loadAgenda(agendaDate);
@@ -103,7 +106,7 @@ const RecepcionistDashboard = () => {
 
             <div className="p-4 sm:p-6 pt-3 flex flex-col gap-6">
 
-            {/* ── Tarjetas de resumen ── */}
+            {/* Tarjetas de resumen */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     icon={<CalendarCheck2 className="w-5 h-5 text-blue-600" />}
@@ -150,7 +153,7 @@ const RecepcionistDashboard = () => {
                 />
             </div>
 
-            {/* ── Agenda + Registro rápido de citas ── */}
+            {/* Agenda y registro rápido de citas */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                 <div className="lg:col-span-2 flex flex-col gap-4">
                     <DoctorsAgendaSection

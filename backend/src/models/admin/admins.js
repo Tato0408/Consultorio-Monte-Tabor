@@ -1,17 +1,3 @@
-/*
-img_url,
-name,
-last_name,
-dui,
-birth_date,
-gender,
-email,
-password,
-is_active,
-is_verified,
-loginAttempts
-timeOut
-*/
 import { Schema, model } from "mongoose";
 
 const adminSchema = new Schema({

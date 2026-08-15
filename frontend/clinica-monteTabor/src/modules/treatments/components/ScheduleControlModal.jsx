@@ -2,17 +2,19 @@ import { useState, useEffect } from "react";
 import { X, Loader2, CalendarPlus } from "lucide-react";
 import { showSuccess, showError } from "@/lib/alerts";
 
-// Modal del botón "Programar control" — elige/reprograma la fecha del próximo control del
-// tratamiento actual. Es la única acción que mueve a un paciente entre "En tratamiento" y
-// "Requiere revisión" (ver treatmentsController.getFollowUp): con fecha futura queda activo, si
-// se deja vencer sin reprogramar pasa a requerir revisión.
+// Modal del boton "Programar control". Permite elegir o reprogramar la
+// fecha del proximo control del tratamiento actual. Es la unica accion que
+// mueve a un paciente entre "En tratamiento" y "Requiere revisión" (ver
+// treatmentsController.getFollowUp): con fecha futura queda activo, si se
+// deja vencer sin reprogramar pasa a requerir revision.
 const ScheduleControlModal = ({ isOpen, onClose, initialValue = "", onSubmit }) => {
   const [date, setDate] = useState(initialValue);
   const [loading, setLoading] = useState(false);
 
-  // El componente se queda montado entre aperturas (el padre solo cambia "isOpen"); sin esto la
-  // fecha elegida la última vez se quedaría pegada en vez de partir del control actual del
-  // paciente cada vez que se abre de nuevo.
+  // El componente se queda montado entre aperturas (el padre solo cambia
+  // "isOpen"). Sin este efecto, la fecha elegida la ultima vez se quedaria
+  // pegada en vez de partir del control actual del paciente cada vez que se
+  // abre de nuevo.
   useEffect(() => {
     if (isOpen) setDate(initialValue);
     // eslint-disable-next-line react-hooks/exhaustive-deps

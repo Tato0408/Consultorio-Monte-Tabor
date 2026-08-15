@@ -18,14 +18,15 @@ const defaultValues = {
     post_operative_instructions: "",
 };
 
-// Modal de creación rápida de un procedimiento, abierto desde el botón "+"
-// junto al selector de tipo de procedimiento en AppointmentsForm.
+// Modal de creación rápida de un procedimiento, abierto desde el
+// botón de agregar junto al selector de tipo de procedimiento en
+// AppointmentsForm.
 export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) {
     const { saveProcedure, submitting } = useProcedures();
 
-    // Se usa Controller en todos los campos porque Input/Textarea no
-    // reenvían el ref (sin forwardRef); Controller maneja value/onChange de
-    // forma controlada sin depender de esa referencia.
+    // Se usa Controller en todos los campos porque Input y Textarea no
+    // reenvían el ref (sin forwardRef). Controller maneja value y
+    // onChange de forma controlada sin depender de esa referencia.
     const { control, handleSubmit, reset, formState: { errors } } = useForm({ defaultValues });
 
     // Envía el procedimiento y notifica al formulario padre si se creó bien.
@@ -35,10 +36,12 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
             ...data,
             estimated_duration: Number(data.estimated_duration),
             price: Number(data.price),
-            materials: [] // Se manda vacío por defecto para el CRUD de tu amiga
+            // Se manda vacío por defecto, el CRUD de materiales se
+            // gestiona por separado.
+            materials: []
         });
 
-        // saveProcedure ya muestra su propio mensaje de éxito/error.
+        // saveProcedure ya muestra su propio mensaje de éxito o error.
         if (result) {
             if (onProcedureCreated) {
                 // Si el backend retorna el id real, se incluye en el objeto.
@@ -69,8 +72,9 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
-                {/* fieldset con display:contents — desactiva todos los inputs/botones que
-                    contiene de un solo golpe durante el envío, sin alterar el layout */}
+                {/* fieldset con display:contents. Desactiva todos los inputs y
+                    botones que contiene de un solo golpe durante el envío, sin
+                    alterar el layout */}
                 <fieldset disabled={submitting} className="contents">
                     {/* Nombre: obligatorio, mínimo 3 caracteres. */}
                     <div className="space-y-1">
@@ -173,7 +177,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                         </div>
                     </div>
 
-                    {/* Switch de "requiere enfermera", hecho con un checkbox oculto (sr-only). */}
+                    {/* Switch de requiere enfermera, hecho con un checkbox oculto (sr-only). */}
                     <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
                         <div>
                             <label htmlFor="requires_nurse" className="text-xs font-semibold text-gray-900 cursor-pointer">

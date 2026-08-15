@@ -30,7 +30,7 @@ const NursesPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nurseToEdit, setNurseToEdit] = useState(null);
 
-  // Selección automática de la primera fila al cargar
+  // Selecciona automaticamente la primera enfermera de la lista al cargar
   useEffect(() => {
     if (nurses && nurses.length > 0 && !selectedNurse) {
       selectNurse(nurses[0]);
@@ -57,7 +57,6 @@ const NursesPage = () => {
 
   return (
     <div className="p-8 bg-white min-h-screen w-full">
-      {/* SECCIÓN DEL ENCABEZADO */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Enfermeras</h1>
         <p className="text-sm text-slate-400 mt-1">
@@ -71,13 +70,12 @@ const NursesPage = () => {
         </div>
       )}
 
-      {/* Renderiza las tarjetas de estadísticas */}
       <NurseStatCards stats={stats} loading={loading} />
 
-      {/* CONTENEDOR EN REJILLA DE 12 COLUMNAS (SIMETRÍA EXACTA) */}
+      {/* Rejilla de 12 columnas: tabla a la izquierda, perfil a la derecha */}
       <div className="grid grid-cols-12 gap-6 mt-8">
-        
-        {/* COLUMNA DE LA IZQUIERDA (TABLA DE ENFERMERAS) */}
+
+        {/* Columna izquierda: tabla de enfermeras (col-span-9) */}
         <div className="col-span-9">
           <NurseTable
             nurses={nurses}
@@ -87,7 +85,7 @@ const NursesPage = () => {
           />
         </div>
 
-        {/* COLUMNA DE LA DERECHA (TARJETA DE PERFIL) */}
+        {/* Columna derecha: tarjeta de perfil (col-span-3) */}
         <div className="col-span-3">
           <NurseProfileCard
             nurse={selectedNurse}
@@ -101,7 +99,6 @@ const NursesPage = () => {
         </div>
       </div>
 
-      {/* MODAL DEL FORMULARIO */}
       <NurseFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

@@ -22,8 +22,8 @@ router
     receptionistsController.createReceptionist
   );
 
-// Hardcodeado al rol receptionist: editar el propio perfil debe funcionar siempre,
-// para todos los roles, sin depender de la matriz de permisos dinamica.
+// Fijo al rol receptionist: editar el propio perfil debe funcionar
+// siempre, sin depender de la matriz de permisos dinámica.
 router
   .route("/profile/update")
   .put(

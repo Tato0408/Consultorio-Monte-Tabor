@@ -4,6 +4,10 @@ const API_URL = "http://localhost:4000/api/appointments";
 
 const OPTS = { credentials: "include" };
 
+// Maneja el listado de citas y las operaciones CRUD contra la API
+// (crear, actualizar, eliminar, obtener por id). Mantiene el estado de
+// carga, envío, error y mensaje, y refresca la lista tras cada
+// operación que modifica datos.
 const useAppointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);

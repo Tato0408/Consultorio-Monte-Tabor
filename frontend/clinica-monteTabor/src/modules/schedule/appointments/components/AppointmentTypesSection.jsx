@@ -11,14 +11,17 @@ const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"
 
 const emptyType = () => ({ name: "", color: COLORS[0] });
 
-// Catálogo GLOBAL de tipos de cita (nombre + color) — solo lo ve/edita el rol admin (ver
-// ScheduleConfig.jsx). Alimenta la leyenda del calendario y el selector "Tipo de cita" al
-// agendar una cita (ver AppointmentsCalendar.jsx / AppointmentsForm.jsx). A diferencia del resto
-// de secciones de Horarios, esta no depende del botón "Guardar cambios": cada acción persiste de
-// inmediato contra su propio endpoint, porque ya no vive dentro del horario de un doctor
-// específico. Aun así, agregar/editar/eliminar sigue gateado por el modo edición de la PÁGINA
-// (prop "editing") para que la interfaz completa se sienta consistente: nada de eso se puede
-// hacer sin antes presionar "Editar horario".
+// Catálogo global de tipos de cita (nombre y color), solo lo ve y
+// edita el rol admin (ver ScheduleConfig.jsx). Alimenta la leyenda
+// del calendario y el selector de tipo de cita al agendar una cita
+// (ver AppointmentsCalendar.jsx y AppointmentsForm.jsx). A diferencia
+// del resto de secciones de Horarios, esta no depende del botón
+// Guardar cambios: cada acción persiste de inmediato contra su propio
+// endpoint, porque no vive dentro del horario de un doctor
+// específico. Aun así, agregar, editar y eliminar tipos sigue
+// controlado por el modo edición de la página (prop editing), para
+// que la interfaz completa se sienta consistente: nada de eso se
+// puede hacer sin antes presionar Editar horario.
 const AppointmentTypesSection = ({ editing }) => {
     const { getAppointmentTypes, createAppointmentType, updateAppointmentType, deleteAppointmentType } = useAppointmentTypes();
     const [types, setTypes] = useState([]);
@@ -106,7 +109,7 @@ const AppointmentTypesSection = ({ editing }) => {
                                     </td>
                                     <td className="py-2.5 text-right">
                                         {/* Deshabilitados mientras hay otra fila en edición: evita perder ese
-                                            borrador sin guardar, y evita que "rowEditing" (un índice) quede
+                                            borrador sin guardar, y evita que rowEditing (un índice) quede
                                             apuntando a la fila equivocada si el listado cambia de por medio. */}
                                         {editing && (
                                             <>

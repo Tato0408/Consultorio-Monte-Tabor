@@ -9,7 +9,7 @@ import TextFieldModal from "../global/TextFieldModal";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmDelete } from "@/lib/alerts";
 
-/* Color del badge de TIPO según su categoría */
+// Color del badge de tipo según su categoría.
 const TIPO_TONE = {
   crónico: "gray",
   cronico: "gray",
@@ -20,7 +20,7 @@ const TIPO_TONE = {
 };
 const toneFor = (tipo = "") => TIPO_TONE[tipo.toLowerCase()] || "gray";
 
-/* Botón azul "+ Agregar" */
+// Botón azul de agregar.
 function AddButton({ children, ...props }) {
   return (
     <button
@@ -34,7 +34,7 @@ function AddButton({ children, ...props }) {
   );
 }
 
-/* Tabla de antecedentes (3 columnas + acción) */
+// Tabla de antecedentes: tres columnas más una de acción.
 function AntecedentesTable({ headers, rows, onEdit, onDelete }) {
   const cols = "grid grid-cols-[1.3fr_1.3fr_1fr_64px] gap-2";
   return (
@@ -79,7 +79,7 @@ function AntecedentesTable({ headers, rows, onEdit, onDelete }) {
   );
 }
 
-/* Tarjeta de un signo vital (variantes: normal, blue, green) */
+// Tarjeta de un signo vital, con variantes normal, blue y green.
 function VitalMini({ label, value, unit, variant }) {
   if (variant === "green") {
     return (
@@ -108,7 +108,9 @@ export default function HistoriaClinicaTab({ patient = {}, onSaved }) {
   const [pathologicalModalOpen, setPathologicalModalOpen] = useState(false);
   const [vitalsModalOpen, setVitalsModalOpen] = useState(false);
   const [nonPathologicalModalOpen, setNonPathologicalModalOpen] = useState(false);
-  // null = el modal de agregar/editar está en modo agregar; con una fila, edita ese antecedente puntual.
+  // Cuando hereditaryEditEntry o pathologicalEditEntry es null, el modal
+  // de agregar o editar está en modo agregar. Con una fila, edita ese
+  // antecedente puntual.
   const [hereditaryEditEntry, setHereditaryEditEntry] = useState(null);
   const [pathologicalEditEntry, setPathologicalEditEntry] = useState(null);
 

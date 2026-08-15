@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "@/lib/apiClient";
 
-// Antes esto solo cargaba datos de muestra quemados (ver data/treatmentsData.js) tras un
-// setTimeout falso. Ahora consulta GET /api/treatments/follow-up, que arma el seguimiento real
-// de cada paciente a partir de su historial de procedimientos, y expone las 4 acciones del panel
-// del paciente (actualizar evolución, agregar nota, programar control, dar de alta).
+// Consulta GET /api/treatments/follow-up, que arma el seguimiento real de
+// cada paciente a partir de su historial de procedimientos, y expone las 4
+// acciones del panel del paciente: actualizar evolucion, agregar nota,
+// programar control y dar de alta.
 const useTreatmentsFollowUp = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -13,9 +13,10 @@ const useTreatmentsFollowUp = () => {
   const [chartData, setChartData] = useState([]);
   const [upcomingControls, setUpcomingControls] = useState([]);
 
-  // showLoading=false se usa después de una acción (guardar nota, programar control, etc.): ya
-  // hay datos en pantalla y el modal que disparó la acción tiene su propio spinner, así que no
-  // tiene sentido tapar toda la pantalla con el skeleton de carga inicial otra vez.
+  // showLoading en false se usa despues de una accion (guardar nota,
+  // programar control, etc.). Ya hay datos en pantalla y el modal que
+  // disparo la accion tiene su propio spinner, por lo que no hace falta
+  // tapar toda la pantalla con el skeleton de carga inicial otra vez.
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     setError(null);
@@ -40,9 +41,10 @@ const useTreatmentsFollowUp = () => {
     load(true);
   }, [load]);
 
-  // Las 4 acciones del panel de tratamiento — cada una llama al endpoint correspondiente y
-  // refresca la lista completa en silencio para que el paciente seleccionado, la tabla y las
-  // estadísticas queden al día con lo que se acaba de guardar.
+  // Las 4 acciones del panel de tratamiento llaman al endpoint
+  // correspondiente y refrescan la lista completa en silencio, para que el
+  // paciente seleccionado, la tabla y las estadisticas queden al dia con lo
+  // que se acaba de guardar.
   const updateEvolution = useCallback(
     async (patientId, result) => {
       await apiClient(`/treatments/${patientId}/evolution`, { method: "PATCH", body: { result } });
@@ -83,9 +85,10 @@ const useTreatmentsFollowUp = () => {
     [load]
   );
 
-  // A diferencia de las demás acciones, esta manda un archivo (FormData), no JSON — apiClient ya
-  // sabe distinguirlo (ver lib/apiClient.js) y omite el header Content-Type para que el navegador
-  // arme el boundary del multipart correctamente.
+  // A diferencia de las demas acciones, esta manda un archivo (FormData) y
+  // no JSON. apiClient ya sabe distinguirlo (ver lib/apiClient.js) y omite
+  // el header Content-Type para que el navegador arme el boundary del
+  // multipart correctamente.
   const uploadDocument = useCallback(
     async (patientId, file) => {
       const formData = new FormData();

@@ -22,21 +22,24 @@ const ConsultationForm = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
 
-    //si hay datos, se coloca en modo view solo para consultar la inforamcion
+    // Si viene el parámetro mode=view, el formulario queda en modo de
+    // solo lectura, para solo consultar la información.
     const readOnly = searchParams.get("mode") === "view";
 
     const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord } =
         useConsultation(appointmentId);
 
-    // Refleja al instante lo que se guarda en BloodTypeCard sin depender de recargar toda la
-    // cita — PatientHeader (solo lectura) y BloodTypeCard (la tarjeta editable) son hermanos,
-    // así que el valor se levanta hasta aquí para que ambos lo compartan.
+    // Refleja al instante lo que se guarda en BloodTypeCard sin
+    // depender de recargar toda la cita. PatientHeader (solo lectura)
+    // y BloodTypeCard (la tarjeta editable) son hermanos, así que el
+    // valor se levanta hasta aquí para que ambos lo compartan.
     const [bloodTypeOverride, setBloodTypeOverride] = useState(null);
 
 
-    // useForm sin defaultValues todavía: la cita aún no ha cargado en el
-    // primer render. Por eso usamos reset() en el useEffect de abajo en
-    // cuanto useConsultation termina de traer los datos.
+    // useForm arranca sin defaultValues porque la cita aún no ha
+    // cargado en el primer render. Por eso se usa reset() en el
+    // useEffect de abajo en cuanto useConsultation termina de traer
+    // los datos.
     const methods = useForm({ defaultValues });
 
     useEffect(() => {
@@ -46,11 +49,12 @@ const ConsultationForm = () => {
                 "Error de carga",
                 "No se pudo obtener el registro clínico. Por favor, vuelve a intentarlo."
             ).then(() => {
-                // Cuando el doctor le da "OK" al botón del SweetAlert, lo sacamos de aquí
+                // Cuando el doctor confirma el aviso, lo redirige fuera
+                // de esta pantalla.
                 navigate("/calendar/consultations");
             });
         } else {
-            // Si no hay error, cargamos los valores en el formulario normalmente
+            // Si no hay error, carga los valores en el formulario normalmente
             methods.reset(defaultValues);
         }
 
@@ -83,7 +87,9 @@ const ConsultationForm = () => {
     };
 
     const handlePreview = () => {
-        window.print(); // placeholder simple; se puede cambiar por un modal de PDF
+        // Implementación simple de vista previa, imprime la página
+        // tal cual en vez de abrir un modal con el PDF.
+        window.print();
     };
 
     if (isLoading) {
@@ -91,7 +97,7 @@ const ConsultationForm = () => {
     }
 
     return (
-        // FormProvider expone "methods" (control, register, etc.) a todos
+        // FormProvider expone methods (control, register, etc.) a todos
         // los hijos vía useFormContext(), sin tener que pasarlos por props.
         <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="p-4 sm:p-8">
@@ -113,10 +119,10 @@ const ConsultationForm = () => {
                     </div>
                 )}
 
-                {/* fieldset con display:contents — las tarjetas hijas solo reciben "readOnly"
-                    (nunca isSaving), así que sin esto todo el expediente quedaría editable
-                    mientras se envía. Desactiva todos los inputs/botones de un solo golpe,
-                    sin alterar el layout de grid. */}
+                {/* fieldset con display:contents. Las tarjetas hijas solo reciben
+                    readOnly (nunca isSaving), así que sin esto todo el expediente
+                    quedaría editable mientras se envía. Desactiva todos los inputs
+                    y botones de un solo golpe, sin alterar el layout de grid. */}
                 <fieldset disabled={isSaving} className="contents">
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
                     {/* Columna izquierda: flujo clínico principal */}

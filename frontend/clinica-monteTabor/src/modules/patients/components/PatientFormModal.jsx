@@ -86,9 +86,9 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
     setShowPassword(false);
   }, [patient, isOpen, reset]);
 
-  // Mascara de solo-letras (nombres/apellidos/referido) — mismo patron que
-  // handlePhoneMask/handleDuiMask: el onChange sobreescribe el del register y dispara la
-  // validacion manualmente.
+  // Mascara de solo letras (nombres, apellidos y referido). Igual que
+  // handlePhoneMask y handleDuiMask, el onChange sobreescribe el del
+  // register y dispara la validacion manualmente.
   const makeLettersMaskHandler = (field, max) => (e) =>
     setValue(field, maskLettersOnly(e.target.value, max), { shouldValidate: true });
 
@@ -140,9 +140,9 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
     }
   };
 
-  // Se dispara cuando el envío falla la validación (campos vacíos o con formato inválido);
-  // además del contorno rojo y el mensaje debajo de cada input, avisa arriba a la derecha
-  // qué campo(s) específicos hay que corregir.
+  // Se dispara cuando el envio falla la validacion (campos vacios o con
+  // formato invalido). Ademas del contorno rojo y el mensaje debajo de cada
+  // input, avisa arriba a la derecha que campos hay que corregir.
   const onInvalid = (formErrors) => {
     const invalidFields = Object.keys(formErrors).map((key) => FIELD_LABELS[key] || key);
     showError(`Revisa este/estos campo(s): ${invalidFields.join(", ")}`);
@@ -189,8 +189,9 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
         </h2>
 
         <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="w-full flex flex-col gap-4">
-          {/* fieldset con display:contents — desactiva todos los inputs/botones que contiene
-              de un solo golpe durante el envío, sin alterar el layout */}
+          {/* El fieldset usa display:contents para desactivar de un solo golpe
+              todos los inputs y botones que contiene durante el envio, sin
+              alterar el layout. */}
           <fieldset disabled={loading} className="contents">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -330,7 +331,7 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
               </div>
             </div>
 
-            {/* Estado — solo en edición */}
+            {/* Estado: solo en edicion */}
             {isEditMode && (
               <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label className="text-xs font-semibold text-gray-400">Estado de la cuenta</label>
@@ -362,7 +363,7 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
             )}
           </div>
 
-          {/* Contraseña — solo en creación */}
+          {/* Contraseña: solo en creacion */}
           {!isEditMode && (
             <div className="flex flex-col gap-3 w-full border-t border-gray-100 pt-4 mt-2">
               <div className="flex flex-col gap-1.5 relative">

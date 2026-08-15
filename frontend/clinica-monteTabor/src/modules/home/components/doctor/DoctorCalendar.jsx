@@ -5,6 +5,10 @@ import useDoctorDashboard from "../../hooks/useDoctorDashboard";
 const DAYS   = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
+// Calendario mensual del doctor. Marca con un punto los días que tienen
+// al menos una cita y resalta el día actual. Carga las fechas con citas
+// del año visible mediante useDoctorDashboard y evita recargarlas si el
+// año ya fue cargado antes.
 const DoctorCalendar = () => {
     const { getCalendar } = useDoctorDashboard();
     const [cur,      setCur]      = useState(new Date());
@@ -15,6 +19,8 @@ const DoctorCalendar = () => {
     const month = cur.getMonth();
     const today = new Date();
 
+    // Carga las fechas con citas del año actual solo cuando cambia el año
+    // y todavía no fue cargado.
     useEffect(() => {
         if (loadedYr === year) return;
         getCalendar(year)
@@ -25,7 +31,9 @@ const DoctorCalendar = () => {
             .catch(() => {});
     }, [year]);
 
-    // Build calendar grid
+    // Arma la grilla del mes: rellena con celdas vacías hasta el primer
+    // día de la semana del mes, agrega los días del mes y completa el
+    // final con celdas vacías para que el total sea múltiplo de 7.
     const firstDow    = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const cells = [
@@ -43,13 +51,13 @@ const DoctorCalendar = () => {
 
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col">
-            {/* Header */}
+            {/* Encabezado */}
             <div className="flex items-center gap-2 mb-5">
                 <CalendarDays className="w-4 h-4 text-slate-500" />
                 <p className="text-sm font-semibold text-slate-700">Calendario de citas</p>
             </div>
 
-            {/* Navigation */}
+            {/* Navegación de mes */}
             <div className="flex items-center justify-between mb-4">
                 <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
                     <ChevronLeft className="w-4 h-4 text-slate-500" />
@@ -70,7 +78,7 @@ const DoctorCalendar = () => {
                 </div>
             </div>
 
-            {/* Day headers */}
+            {/* Encabezados de los días de la semana */}
             <div className="grid grid-cols-7 mb-1">
                 {DAYS.map((d) => (
                     <div key={d} className="text-center text-xs font-semibold text-slate-400 py-1">
@@ -79,7 +87,7 @@ const DoctorCalendar = () => {
                 ))}
             </div>
 
-            {/* Calendar cells */}
+            {/* Celdas del calendario */}
             <div className="grid grid-cols-7 gap-y-0.5 flex-1">
                 {cells.map((day, i) => (
                     <div key={i} className="flex flex-col items-center py-0.5">
@@ -103,7 +111,7 @@ const DoctorCalendar = () => {
                 ))}
             </div>
 
-            {/* Legend */}
+            {/* Leyenda */}
             <div className="flex items-center gap-5 mt-4 pt-3 border-t border-slate-50">
                 <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-blue-500" />

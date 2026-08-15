@@ -3,14 +3,15 @@ import { Plus, Pencil, Trash2, X, CalendarDays, Tag, FileText, Clock3 } from "lu
 import InputField from "@/components/ui/InputField";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
-// Fecha de hoy en "YYYY-MM-DD" (hora local): ni la fecha de inicio ni la de fin de una
-// excepción pueden quedar en el pasado.
+// Fecha de hoy en formato YYYY-MM-DD (hora local). Ni la fecha de
+// inicio ni la de fin de una excepción pueden quedar en el pasado.
 const todayISO = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 const MIN_DATE_STR = todayISO();
-// Límite amplio pero real: evita años absurdos (5+ dígitos) al escribir la fecha a mano.
+// Límite amplio pero real, evita años absurdos (5 o más dígitos) al
+// escribir la fecha a mano.
 const MAX_DATE_STR = `${new Date().getFullYear() + 5}-12-31`;
 
 const TYPE_LABEL = {
@@ -26,7 +27,8 @@ const TYPE_COLOR = {
     other:         "bg-purple-100 text-purple-600",
 };
 
-// Etiqueta a mostrar en la tabla: si es "other" se muestra lo que el doctor escribió a mano.
+// Etiqueta a mostrar en la tabla: si el tipo es other, se muestra lo
+// que el doctor escribió a mano.
 const displayType = (ex) => (ex.type === "other" ? (ex.custom_type || TYPE_LABEL.other) : TYPE_LABEL[ex.type]);
 
 const emptyForm = () => ({
@@ -35,7 +37,8 @@ const emptyForm = () => ({
     type:          "non_working",
     custom_type:   "",
     description:   "",
-    // El horario ya no es texto libre: o es "todo el día" o un rango de horas concreto.
+    // El horario no es texto libre: es todo el día o un rango de horas
+    // concreto.
     allDay:        true,
     start_time:    "08:00",
     end_time:      "12:00",
@@ -54,8 +57,9 @@ const toMinutes = (t) => {
     return h * 60 + m;
 };
 
-// Recompone el schedule_info guardado ("HH:mm - HH:mm") de vuelta a los campos del toggle
-// al editar una excepción existente; si no coincide con ese formato, se asume "todo el día".
+// Recompone el schedule_info guardado (formato HH:mm - HH:mm) de
+// vuelta a los campos del toggle al editar una excepción existente.
+// Si no coincide con ese formato, se asume todo el día.
 const parseScheduleInfo = (info) => {
     const match = /^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/.exec(info || "");
     if (!match) return { allDay: true, start_time: "08:00", end_time: "12:00" };
@@ -83,9 +87,10 @@ const validate = (form) => {
     return errors;
 };
 
-// Mismo patrón visual del modal centrado de "Vista previa de tu agenda" (SchedulePreview.jsx):
-// overlay con blur + tarjeta redondeada, en vez del formulario dentro de una fila de tabla que
-// había antes (muy angosto para todos estos campos).
+// Modal centrado con overlay y blur, y tarjeta redondeada, con el
+// mismo patrón visual del modal de Vista previa de tu agenda
+// (SchedulePreview.jsx). Da más espacio para todos estos campos que
+// un formulario dentro de una fila de tabla.
 const ExceptionModal = ({ form, setForm, errors, setErrors, onSave, onClose, isEditing }) => {
     const setField = (field) => (value) => {
         setForm((p) => ({ ...p, [field]: value }));
@@ -239,9 +244,11 @@ const ExceptionModal = ({ form, setForm, errors, setErrors, onSave, onClose, isE
     );
 };
 
-// editing (prop): modo edición de la PÁGINA completa (ver ScheduleConfig.jsx) — controla si los
-// botones de agregar/editar/eliminar existen. rowEditing (state): qué excepción está siendo
-// editada ahora mismo ("new" | índice | null), solo alcanzable cuando editing=true.
+// editing (prop): modo edición de la página completa (ver
+// ScheduleConfig.jsx), controla si los botones de agregar, editar y
+// eliminar existen. rowEditing (state): qué excepción está siendo
+// editada ahora mismo (new, un índice, o null), solo alcanzable
+// cuando editing es true.
 const ExceptionsSection = ({ exceptions, onChange, editing }) => {
     const [rowEditing, setRowEditing] = useState(null);
     const [form, setForm]       = useState(emptyForm());

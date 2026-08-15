@@ -1,8 +1,8 @@
 import { useFormContext } from "react-hook-form";
 import SectionCard from "./SectionCard";
 
-// Rango fisiológico razonable por campo — evita valores absurdos (ej. SPO2 de 300%) sin
-// bloquear casos clínicos extremos reales.
+// Rango fisiológico razonable por campo, evita valores absurdos (por
+// ejemplo, SPO2 de 300%) sin bloquear casos clínicos extremos reales.
 const FIELDS = [
     { key: "blood_pressure", label: "Presión arterial", placeholder: "120/80", isBloodPressure: true, required: true },
     { key: "glucose", label: "Glucosa (mg/dL)", placeholder: "mg/dL", min: 0, max: 999 },
@@ -15,9 +15,10 @@ const FIELDS = [
 const TriageCard = ({ readOnly }) => {
     const { register, setValue, formState: { errors } } = useFormContext();
 
-    // Máscara de presión arterial: solo dígitos y una "/", tope de 3 dígitos por lado — mismo
-    // criterio que las máscaras de teléfono/DUI del resto del sistema (limpiar todo lo que no
-    // corresponda al formato en vez de solo validar al final).
+    // Máscara de presión arterial: solo dígitos y una barra, tope de
+    // 3 dígitos por lado. Mismo criterio que las máscaras de teléfono
+    // y DUI del resto del sistema (limpiar todo lo que no corresponda
+    // al formato en vez de solo validar al final).
     const handleBloodPressureMask = (e) => {
         const raw = e.target.value.replace(/[^0-9/]/g, "");
         const [systolicRaw, ...rest] = raw.split("/");

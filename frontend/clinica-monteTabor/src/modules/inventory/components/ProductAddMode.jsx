@@ -121,8 +121,10 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
       footer={footer}
       closeDisabled={loading}
     >
-      {/* El botón submit vive fuera de este <form> (footer del Modal, asociado por
-          form="form-producto"), por eso además se desactiva a mano arriba en el footer. */}
+      {/* El botón de envío vive fuera de este formulario (footer del
+          modal, enlazado mediante el atributo form con valor
+          form-producto). Por eso también se desactiva de forma
+          manual en el footer. */}
       <form id="form-producto" onSubmit={handleSubmit} className="flex flex-col gap-6">
       <fieldset disabled={loading} className="contents">
         {errors.general && (

@@ -9,16 +9,19 @@ const EMPTY = { procedure_id: "", doctor_id: "", date: "", diagnosis: "", result
 
 const TODAY_STR = new Date().toISOString().split("T")[0];
 const MIN_YEAR = 2000;
-// Tope amplio para el control de seguimiento (puede programarse varios años a futuro), pero
-// sigue siendo un año real de 4 dígitos — es justo el tipo de valor absurdo (años de 5+ dígitos)
-// que se cuela si no se limita el input de fecha.
+// Tope amplio para el control de seguimiento, que puede programarse
+// varios años a futuro, pero sigue siendo un año real de 4 dígitos. Es
+// justo el tipo de valor absurdo, años de 5 dígitos o más, que se cuela
+// si no se limita el input de fecha.
 const MAX_FOLLOW_UP_STR = `${new Date().getFullYear() + 5}-12-31`;
 const MAX_FIELD_LENGTH = 200;
 
-// Modal compacto para registrar un procedimiento ya realizado directamente en el expediente
-// (tab "Procedimientos") — mismo tamaño/criterio que ProcedureModal.jsx (la referencia que
-// pediste seguir): selects + un par de fechas + dos textos cortos, sin scroll vertical.
-// PUT /patients/:id (new_procedure) ya acepta exactamente estos campos.
+// Modal compacto para registrar un procedimiento ya realizado
+// directamente en el expediente, en la pestaña Procedimientos, del mismo
+// tamaño y con el mismo criterio que ProcedureModal.jsx: selects, un par
+// de fechas y dos textos cortos, sin scroll vertical.
+// El PUT del paciente (campo new_procedure) ya acepta exactamente estos
+// campos.
 const ProcedureRecordModal = ({ isOpen, onClose, patientId, onSaved }) => {
   const { procedures, loading: loadingProcedures, getProcedureById } = useProcedures();
   const { doctors, isLoading: loadingDoctors } = useDoctors();
@@ -137,8 +140,8 @@ const ProcedureRecordModal = ({ isOpen, onClose, patientId, onSaved }) => {
                   value={form.date}
                   onChange={(e) => {
                     const val = e.target.value;
-                    // Corta aquí mismo un año de más de 4 dígitos (el bug que reportaste) antes
-                    // de que ese valor roto llegue a entrar al estado del formulario.
+                    // Corta aquí mismo un año de más de 4 dígitos, antes de que
+                    // ese valor llegue a entrar al estado del formulario.
                     if (val && val.length !== 10) return;
                     if (val && (val < `${MIN_YEAR}-01-01` || val > TODAY_STR)) return;
                     set("date", val);

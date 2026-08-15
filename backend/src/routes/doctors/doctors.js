@@ -7,13 +7,13 @@ import { validateAuthCookie } from "../../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-// Catálogo liviano (mismos datos que GET "/", más los doctores espejo de los admins — ver
-// doctorsController.getDoctorsCatalog) que solo exige sesion iniciada, sin
-// authorize("users.doctors","view"): recepcion, doctores y enfermeras necesitan este catalogo
-// para agendar citas aunque su rol no tenga permiso sobre el modulo de administracion de
-// doctores. Antes esto vivía en GET "/" y dejaba ese permiso sin ningún efecto real en el backend
-// (togglear "Ver Doctores" en Roles y Permisos no bloqueaba nada). Ahora GET "/" sí exige el
-// permiso, y este catálogo separado cubre el caso de uso de agendar citas.
+// Catálogo liviano (mismos datos que GET "/", más los doctores espejo
+// de los admins, ver doctorsController.getDoctorsCatalog) que solo
+// exige sesión iniciada, sin el permiso authorize("users.doctors",
+// "view"). Recepción, doctores y enfermeras necesitan este catálogo
+// para agendar citas aunque su rol no tenga permiso sobre el módulo
+// de administración de doctores. GET "/" sí exige ese permiso, por
+// eso este catálogo separado cubre el caso de agendar citas.
 router
   .route("/catalog")
   .get(authenticate, doctorsController.getDoctorsCatalog);
@@ -33,8 +33,9 @@ router
   );
 
 
-// Cifras reales para las tarjetas de estadísticas de /users/doctors (mismo patrón que
-// /nurses/countAppointments, /nurses/countProcedures). Van antes de "/:id" para que Express no
+// Cifras reales para las tarjetas de estadísticas de /users/doctors
+// (mismo patrón que /nurses/countAppointments y
+// /nurses/countProcedures). Van antes de "/:id" para que Express no
 // las capture como si fueran un :id.
 router.route("/countPatients")
   .get(authenticate, authorize("users.doctors", "view"), doctorsController.countPatients);
@@ -45,10 +46,11 @@ router.route("/countAppointments")
 router.route("/countProcedures")
   .get(authenticate, authorize("users.doctors", "view"), doctorsController.countProcedures);
 
-// Hardcodeado al rol doctor: editar el propio perfil debe funcionar siempre, para todos los
-// roles, sin depender de la matriz de permisos dinamica (mismo patrón que
-// /nurses/profile/update y /receptionist/profile/update). Va antes de "/:id" para que Express
-// no lo capture como si "profile" fuera un :id.
+// Fijo al rol doctor: editar el propio perfil debe funcionar siempre,
+// sin depender de la matriz de permisos dinámica (mismo patrón que
+// /nurses/profile/update y /receptionist/profile/update). Va antes
+// de "/:id" para que Express no lo capture como si "profile" fuera
+// un :id.
 router
   .route("/profile/update")
   .put(

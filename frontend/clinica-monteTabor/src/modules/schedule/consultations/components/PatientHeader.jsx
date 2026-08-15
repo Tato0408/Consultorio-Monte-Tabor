@@ -1,8 +1,9 @@
 import { Calendar, Droplet, IdCard, Phone, Mail, Clock, Stethoscope } from "lucide-react";
 
-// bloodTypeOverride: lo pasa ConsultationForm.jsx para reflejar al instante lo que se guarda en
-// BloodTypeCard.jsx (la tarjeta de la columna derecha), sin depender de recargar toda la cita.
-// La edición del tipo de sangre vive ahí, no aquí — este encabezado es solo lectura.
+// bloodTypeOverride lo pasa ConsultationForm.jsx para reflejar al
+// instante lo que se guarda en BloodTypeCard.jsx (la tarjeta de la
+// columna derecha), sin depender de recargar toda la cita. La edición
+// del tipo de sangre vive ahí, no aquí, este encabezado es solo lectura.
 const PatientHeader = ({ appointment, bloodTypeOverride }) => {
     if (!appointment) return null;
 
@@ -11,7 +12,7 @@ const PatientHeader = ({ appointment, bloodTypeOverride }) => {
     const bloodType = bloodTypeOverride ?? patient?.clinical_history?.blood_type ?? null;
 
     // Calcula edad aproximada a partir de la fecha de nacimiento del paciente,
-    // si el backend la provee como "birth_date".
+    // si el backend la provee como birth_date.
     const getAge = (birthDate) => {
         if (!birthDate) return "—";
         const diff = Date.now() - new Date(birthDate).getTime();

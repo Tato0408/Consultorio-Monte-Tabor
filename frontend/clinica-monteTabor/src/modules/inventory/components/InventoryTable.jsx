@@ -10,6 +10,8 @@ const statusStyle = {
   Crítico:    "bg-red-50 text-red-700",
 };
 
+// Determina el estado del insumo según su stock actual comparado
+// con el stock mínimo definido.
 const getStatus = (item) => {
   if (item.stock <= 0) return "Crítico";
   if (item.stock <= item.min_stock) return "Bajo";
