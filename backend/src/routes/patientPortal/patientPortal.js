@@ -8,7 +8,8 @@ const router = express.Router();
 router.get("/doctors", patientPortalController.getDoctors);
 router.get("/procedures", patientPortalController.getProcedures);
 
-// Reutiliza el mismo cálculo de horarios libres que usa el personal de la clínica
+// Reutiliza el mismo cálculo de horarios libres que usa el
+// personal de la clínica
 router.get("/schedule/:doctorId/slots", scheduleController.getAvailableSlots);
 
 // Citas del propio paciente
@@ -16,10 +17,12 @@ router.get("/appointments", patientPortalController.getMyAppointments);
 router.post("/appointments", patientPortalController.bookAppointment);
 router.patch("/appointments/:id/cancel", patientPortalController.cancelMyAppointment);
 
-// Confirma (server-side, contra la propia API de Wompi) el pago en línea de una cita "pending"
+// Confirma, del lado del servidor y contra la propia API de Wompi,
+// el pago en línea de una cita en estado "pending".
 router.post("/appointments/:id/confirm-payment", patientPortalController.confirmAppointmentPayment);
 
-// Panel principal: resumen con próxima cita, contadores, actividad y recordatorios
+// Panel principal: resumen con próxima cita, contadores, actividad
+// y recordatorios
 router.get("/dashboard", patientPortalController.getDashboardSummary);
 
 // Recetas, incapacidades y referencias médicas del propio paciente.

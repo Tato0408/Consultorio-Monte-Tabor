@@ -3,11 +3,14 @@ import { verifyWebhookSignature, getTransactionStatus } from "../../utils/wompi.
 
 const wompiWebhookController = {};
 
-// POST /api/webhooks/wompi — Wompi avisa aquí cuando hay novedades en una transacción.
-// No requiere sesión (Wompi no tiene cookie de paciente); en su lugar se verifica que el
-// aviso realmente venga de Wompi comparando la firma HMAC del cuerpo crudo de la petición.
-// Es un respaldo para producción: en el flujo normal, la propia página de pago confirma el
-// resultado de inmediato llamando a /confirm-payment en cuanto termina de cobrar.
+// POST /api/webhooks/wompi, Wompi avisa aquí cuando hay novedades en
+// una transacción.
+// No requiere sesión (Wompi no tiene cookie de paciente), en su lugar
+// se verifica que el aviso realmente venga de Wompi comparando la
+// firma HMAC del cuerpo crudo de la petición. Es un respaldo para
+// producción: en el flujo normal, la propia página de pago confirma
+// el resultado de inmediato llamando a /confirm-payment en cuanto
+// termina de cobrar.
 wompiWebhookController.handle = async (req, res) => {
     try {
         const receivedHash = req.headers["wompi_hash"] || req.headers["wompi-hash"];
@@ -17,7 +20,8 @@ wompiWebhookController.handle = async (req, res) => {
         }
 
         const payload = req.body || {};
-        // El id de la cita se manda como "datosAdicionales.appointment_id" al cobrar
+        // El id de la cita se manda como datosAdicionales.appointment_id
+        // al cobrar.
         const appointmentId =
             payload?.datosAdicionales?.appointment_id ||
             payload?.DatosAdicionales?.appointment_id ||
@@ -33,8 +37,9 @@ wompiWebhookController.handle = async (req, res) => {
             return res.status(200).json({ message: "Nada que actualizar" });
         }
 
-        // Se vuelve a consultar la transacción directamente a Wompi en vez de confiar ciegamente
-        // en los campos del webhook, para tener una sola fuente de verdad del estado del pago
+        // Se vuelve a consultar la transacción directamente a Wompi en
+        // vez de confiar ciegamente en los campos del webhook, para
+        // tener una sola fuente de verdad del estado del pago.
         const transaccion = await getTransactionStatus(transactionId);
         if (transaccion.esAprobada === true) {
             appointment.wompi_transaction_id = transactionId;

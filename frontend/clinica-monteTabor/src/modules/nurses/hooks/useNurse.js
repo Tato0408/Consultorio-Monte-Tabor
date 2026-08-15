@@ -82,7 +82,7 @@ const useNurse = () => {
       setError(null);
       await apiClient(`/nurses/${nurse._id}`, { method: "DELETE" });
 
-      // Si la enfermera eliminada era la seleccionada, limpiar el panel
+      // Limpia el panel si la enfermera eliminada era la seleccionada
       if (selectedNurse?._id === nurse._id) {
         setSelectedNurse(null);
         setNextProcedure(null);
@@ -134,7 +134,7 @@ const useNurse = () => {
     clearSelection,
     createNurse,
     updateNurse,
-    deleteNurse,    // ← exportado
+    deleteNurse,
     refetch: fetchNurses,
   };
 };

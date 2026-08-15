@@ -30,7 +30,6 @@ nursesController.countNurses = async (req, res) => {
     }
 }
 
-// Asumiendo que tu controlador se llama nurseNotesController y tu modelo nurseNotesModel
 nursesController.countNotes = async (req, res) => {
     try {
         const count = await nurseNotesModel.countDocuments();
@@ -42,7 +41,7 @@ nursesController.countNotes = async (req, res) => {
 
 nursesController.countAppointments = async (req, res) => {
     try {
-        // Ajusta "completed" al estado real que uses en tu base de datos para citas atendidas
+        // Cuenta las citas cuyo estado es completed.
         const count = await appointmentsModel.countDocuments({ status: "completed" });
         return res.status(200).json({ count });
     } catch (error) {
@@ -89,27 +88,27 @@ nursesController.insertNurses = async (req, res) => {
         email = email?.trim()
         password = password?.trim()
 
-        //Valida el formato de telefono/correo/DUI (misma regla que las mascaras del frontend)
+        //Valida el formato de teléfono, correo y DUI (misma regla que las máscaras del frontend)
         const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
         if (formatError) {
             return res.status(400).json({ message: formatError });
         }
 
-        //Valida que la contraseña cumpla los requisitos de seguridad (incluye el caracter
-        //especial real, a diferencia de la validación anterior que comparaba contra alfanumérico)
+        //Valida que la contraseña cumpla los requisitos de seguridad (incluye un carácter
+        //especial real, no solo alfanumérico)
         const passwordError = getPasswordError(password);
         if (passwordError) {
             return res.status(400).json({ message: passwordError });
         }
 
         //La foto de perfil es obligatoria al crear una enfermera, igual que en el resto del
-        //staff — se valida aquí explícitamente para devolver un mensaje claro
+        //staff. Se valida aquí explícitamente para devolver un mensaje claro
         if (!req.file) {
             return res.status(400).json({ message: "La foto de perfil es requerida" });
         }
 
-        //Busca si el correo o el DUI ya están en uso por CUALQUIER rol de staff (admin, doctor,
-        //enfermera o recepcionista) — no solo dentro de la colección de enfermeras
+        //Busca si el correo o el DUI ya están en uso por cualquier rol de staff (admin, doctor,
+        //enfermera o recepcionista), no solo dentro de la colección de enfermeras
         const staffDuplicate = await findStaffDuplicate(email, dui);
         if (staffDuplicate) {
             return res.status(400).json(staffDuplicate);
@@ -152,10 +151,10 @@ nursesController.insertNurses = async (req, res) => {
 
 nursesController.deleteNurse = async (req, res) => {
     try {
-        // Primero se comprueba que la enfermera exista — antes se llamaba a Cloudinary con
-        // response.public_id sin este chequeo, así que un id ya borrado (doble clic, condición
-        // de carrera) tronaba con un TypeError ("Cannot read properties of null") en vez de
-        // devolver un simple 404.
+        // Primero comprueba que la enfermera exista, para no llamar a
+        // Cloudinary con un id ya borrado (por ejemplo, tras un doble
+        // clic o una condición de carrera) y terminar con un error
+        // genérico en vez de un 404 claro.
         const response = await nursesModel.findById(req.params.id)
         if (!response) {
             return res.status(404).json({ message: "Enfermera no encontrada" })
@@ -206,7 +205,7 @@ nursesController.updateNurse = async(req,res) => {
             return res.status(400).json({ message: formatError });
         }
 
-        // Mismo chequeo que ya hacen doctores/recepcionistas al editar: si el correo o DUI
+        // Mismo chequeo que ya hacen doctores y recepcionistas al editar: si el correo o DUI
         // editado ya lo usa otro miembro del staff, se avisa con un mensaje claro en vez de
         // reventar contra el índice único de Mongo con un 500 genérico. excludeId es la propia
         // enfermera, para no chocar contra sí misma.
@@ -230,15 +229,17 @@ nursesController.updateNurse = async(req,res) => {
             time_out: response.time_out
         }
 
-        // Si viene una nueva contraseña, la validamos y encriptamos antes de guardar.
-        // Por defecto se mantiene la actual (arriba), así que esto solo pisa el campo
-        // cuando realmente se pidió cambiarla.
+        // Si viene una nueva contraseña, la valida y encripta antes
+        // de guardar. Por defecto se mantiene la actual (arriba), así
+        // que esto solo pisa el campo cuando realmente se pidió
+        // cambiarla.
         if (password && password.trim() !== "") {
             const passwordError = getPasswordError(password);
             if (passwordError) {
                 return res.status(400).json({ message: passwordError });
             }
-            // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+            // Compara contra el hash actual para no permitir cambiarla
+            // por la misma contraseña de siempre.
             const samePassword = await bcrypt.compare(password, response.password);
             if (samePassword) {
                 return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
@@ -270,15 +271,15 @@ nursesController.updateOwnProfile = async (req, res) => {
     try {
         const nurseId = req.user.id;
 
-        // Buscamos a la enfermera en la base de datos
         const nurseFound = await nursesModel.findById(nurseId);
         if (!nurseFound) {
             return res.status(404).json({ message: "Perfil de la enfermera no encontrado" });
         }
 
-        // Excluimos 'is_active', 'is_verified' y 'time_out' por seguridad — esos los controla
-        // solo un admin. La contraseña sí se puede cambiar aquí (mismo criterio que
-        // adminController.updateAdmin / nursesController.updateNurse): solo si viene no vacía.
+        // Excluye is_active, is_verified y time_out por seguridad,
+        // esos los controla solo un admin. La contraseña sí se puede
+        // cambiar aquí (mismo criterio que adminController.updateAdmin
+        // y nursesController.updateNurse): solo si viene no vacía.
         const {
             name,
             last_name,
@@ -314,7 +315,7 @@ nursesController.updateOwnProfile = async (req, res) => {
         }
 
         if (req.file) {
-            // Borramos la imagen anterior solo si tiene un public_id registrado
+            // Borra la imagen anterior solo si tiene un public_id registrado.
             if (nurseFound.public_id) {
                 await cloudinary.uploader.destroy(nurseFound.public_id);
             }
@@ -322,8 +323,9 @@ nursesController.updateOwnProfile = async (req, res) => {
             payload.img_url = req.file.path;
             payload.public_id = req.file.filename;
         } else if (req.body.img_url === null || req.body.img_url === "null") {
-            // Eliminar foto (a diferencia de doctor/recepción, aquí la foto es opcional en el
-            // modelo). Mismo criterio que adminController.updateAdmin.
+            // Elimina la foto (a diferencia de doctor y recepción,
+            // aquí la foto es opcional en el modelo). Mismo criterio
+            // que adminController.updateAdmin.
             if (nurseFound.public_id) {
                 await cloudinary.uploader.destroy(nurseFound.public_id);
             }
@@ -331,7 +333,6 @@ nursesController.updateOwnProfile = async (req, res) => {
             payload.public_id = null;
         }
 
-        // Actualizamos el perfil de la enfermera autenticada
         const nurseUpdated = await nursesModel.findByIdAndUpdate(nurseId, payload, { new: true }).select("-password");
         if (!nurseUpdated) {
             return res.status(500).json({ message: "Error al actualizar tu perfil" });

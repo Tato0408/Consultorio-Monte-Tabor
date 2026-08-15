@@ -19,8 +19,9 @@ const useMedicalData = () => {
 
     const [patientsRes, doctorsRes, nursesRes, proceduresRes] = await Promise.allSettled([
       apiClient("/patients"),
-      // Catálogo liviano (no requiere el permiso "Ver Doctores" — cualquier rol autenticado
-      // necesita esta lista para agendar una cita, ver backend/src/routes/doctors/doctors.js).
+      // Catálogo liviano, no requiere el permiso Ver Doctores. Cualquier
+      // rol autenticado necesita esta lista para agendar una cita (ver
+      // backend/src/routes/doctors/doctors.js).
       apiClient("/doctors/catalog"),
       apiClient("/nurses"),
       apiClient("/procedures"),

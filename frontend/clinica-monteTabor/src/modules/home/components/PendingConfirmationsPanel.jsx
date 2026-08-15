@@ -3,8 +3,10 @@ import { Check, X, ChevronRight } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmCancelAppointment } from "@/lib/alerts";
 
-// "Confirmación / cancelación de citas": pestañas Pendientes/Confirmadas con acciones reales
-// contra PATCH /api/appointments/:id/status (el mismo endpoint que usa el módulo de Citas).
+// Panel de confirmación y cancelación de citas: pestañas de pendientes
+// y confirmadas, con acciones reales contra el endpoint
+// PATCH /api/appointments/:id/status, el mismo que usa el módulo de
+// Citas.
 const PendingConfirmationsPanel = ({ data, onChanged, onViewAll }) => {
     const [tab, setTab] = useState("pending");
     const [busyId, setBusyId] = useState(null);

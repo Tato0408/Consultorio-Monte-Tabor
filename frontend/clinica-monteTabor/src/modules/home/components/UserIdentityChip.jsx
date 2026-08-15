@@ -7,11 +7,13 @@ const ROLE_LABELS = {
     receptionist: "Recepcionista",
 };
 
-// Píldora de identidad del header de cada dashboard: foto de perfil real del usuario en sesión
-// (user.image, normalizado por rol en authController.getCurrentUser) con las iniciales como
-// respaldo si todavía no ha subido una. Mismo componente para los 4 roles, para que el header
-// se vea consistente en todas las interfaces. Es un botón: lleva a "Mi perfil"
-// (/system/profile), la misma pantalla para los 4 roles.
+// Píldora de identidad del encabezado de cada dashboard. Muestra la
+// foto de perfil real del usuario en sesión (user.image, normalizado
+// por rol en authController.getCurrentUser), con las iniciales como
+// respaldo si todavía no subió una foto. Es el mismo componente para
+// los cuatro roles, para que el encabezado se vea consistente en
+// todas las interfaces. Funciona como botón que lleva a la pantalla
+// de mi perfil (/system/profile), la misma para los cuatro roles.
 const UserIdentityChip = ({ user, userType }) => {
     const navigate = useNavigate();
     const displayName = user

@@ -5,8 +5,9 @@ import scheduleModel from "../../models/schedule/schedule.js";
 
 const receptionistDashboardController = {};
 
-// Mismo enum que valida appointmentsController.insertAppointment — "confirmada" en la UI
-// corresponde a "scheduled" en la base de datos.
+// Mismo enum que valida appointmentsController.insertAppointment. El
+// estado confirmada en la UI corresponde a scheduled en la base de
+// datos.
 const PENDING = "pending";
 const CONFIRMED = "scheduled";
 const COMPLETED = "completed";
@@ -129,9 +130,10 @@ receptionistDashboardController.getStats = async (req, res) => {
 };
 
 // GET /api/receptionist-dashboard/doctors-agenda?date=YYYY-MM-DD
-// Arma la línea de tiempo del día para cada doctor activo: bloques de 30 min marcados como
-// ocupados (con la cita), en descanso, o disponibles — para que el recepcionista pueda dar
-// clic directo en un espacio libre y agendar ahí.
+// Arma la línea de tiempo del día para cada doctor activo: bloques de
+// 30 minutos marcados como ocupados (con la cita), en descanso o
+// disponibles, para que el recepcionista pueda hacer clic directo en
+// un espacio libre y agendar ahí.
 receptionistDashboardController.getDoctorsAgenda = async (req, res) => {
     try {
         const dateStr = req.query.date || (() => {

@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "@/lib/apiClient";
 
+// Obtiene las estadísticas de citas (agendadas, en espera, completadas y
+// próxima cita) para la fecha indicada. Devuelve las estadísticas, el
+// estado de carga, el error y una función para volver a solicitar los
+// datos.
 function useAppointmentStats(date) {
     const [stats, setStats] = useState({
         scheduled: 0,

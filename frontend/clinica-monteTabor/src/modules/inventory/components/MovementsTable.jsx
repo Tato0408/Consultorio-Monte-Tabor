@@ -54,8 +54,8 @@ const MovementsTable = ({ movements, loading, onSelectMovement, onTableOffsetCha
     },
   ];
 
-  // Va en la misma fila que el buscador de GenericTable (prop headerLeft) — antes vivía en su
-  // propia fila arriba del buscador, dejando espacio en blanco a la derecha de ambos.
+  // Va en la misma fila que el buscador de GenericTable, mediante
+  // el prop headerLeft.
   const typeFilterControl = (
     <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl px-3 h-[42px] w-fit flex-shrink-0">
       <span className="text-xs text-slate-400 font-normal whitespace-nowrap">Filtrar por tipo</span>
@@ -85,8 +85,9 @@ const MovementsTable = ({ movements, loading, onSelectMovement, onTableOffsetCha
       extraRows={extraRows}
       onItemsPerPageChange={onItemsPerPageChange}
       headerLeft={typeFilterControl}
-      // La tabla rellena el espacio en blanco que deja debajo (ver extraRows más arriba), así
-      // que paginar de 5 en 5 no sirve de nada — siempre quedaría relleno con filas extra.
+      // La tabla rellena el espacio en blanco que deja debajo (ver
+      // extraRows más arriba), así que paginar de 5 en 5 no sirve
+      // de nada, ya que siempre quedaría relleno con filas extra.
       pageSizeOptions={[8, 10]}
     />
   );

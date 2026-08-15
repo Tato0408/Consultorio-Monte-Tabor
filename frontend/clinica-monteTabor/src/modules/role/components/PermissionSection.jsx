@@ -67,9 +67,12 @@ const PermissionSection = ({
                 viewOnly={VIEW_ONLY_MODULE_KEYS.includes(module.key)}
                 hiddenActions={HIDDEN_PERMISSION_ACTIONS[module.key] || []}
                 lockedActions={LOCKED_TRUE_PERMISSIONS[roleKey]?.[module.key] || []}
-                // Dependencias de OTROS módulos que a este le falten en "Ver" — se recalcula en
-                // cada render con el estado más reciente (incluye cambios aún sin guardar), así
-                // que el aviso aparece/desaparece al instante al togglear cualquiera de los dos.
+                // Dependencias de otros módulos a las que a este le
+                // falte el permiso de Ver. Se recalcula en cada render
+                // con el estado más reciente, incluidos los cambios
+                // aún sin guardar, así que el aviso aparece o
+                // desaparece al instante al togglear cualquiera de
+                // los dos.
                 missingDependencies={(MODULE_VIEW_DEPENDENCIES[module.key] || []).filter(
                   (dep) => !permissionsState[dep.moduleKey]?.view
                 )}

@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
-// Tipos para los que tiene sentido mostrar un contador de caracteres — solo campos de texto
-// libre que "agregan/editan algo". Se excluyen a propósito password/email (y cualquier tipo no
-// textual como date/time/number): son del tipo de entrada "estilo login" que el usuario pidió
-// dejar fuera, sin importar en qué formulario vivan (ej. el campo de correo dentro de
-// DoctorsForm sí es para "editar un doctor", pero sigue siendo un input de correo).
+// Tipos para los que tiene sentido mostrar un contador de caracteres: solo campos de texto
+// libre que agregan o editan algo. Quedan fuera intencionalmente los campos de tipo login
+// (password, email) y los no textuales (date, time, number), sin importar en qué formulario
+// vivan (ej. el campo de correo dentro de DoctorsForm sigue siendo un input de correo, aunque
+// el formulario en sí sea para editar un doctor).
 const COUNT_ELIGIBLE_TYPES = ["text", "tel", "search"];
 
 const InputField = ({
@@ -85,7 +85,7 @@ const InputField = ({
         )}
       </div>
 
-      {/* Error a la izquierda, contador de caracteres a la derecha — mismo renglón para no
+      {/* Error a la izquierda, contador de caracteres a la derecha: mismo renglón para no
           agregar alto extra al formulario cuando ambos aplican. */}
       {(error || showCount) && (
         <div className="flex items-start justify-between gap-2">

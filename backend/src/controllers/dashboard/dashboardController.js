@@ -20,10 +20,13 @@ dashboardController.getStats = async (req, res) => {
         const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
         lastDayLastMonth.setHours(23, 59, 59, 999);
 
-        // Ingreso real = anticipos efectivamente cobrados y confirmados vía Wompi desde el
-        // portal público del paciente (wompi_transaction_id solo queda así tras una confirmación
-        // aprobada — ver confirmAppointmentPayment). No se incluyen pagos en recepción (no dejan
-        // rastro digital de cobro) ni intentos de pago que quedaron en "pending" sin confirmarse.
+        // El ingreso real corresponde a los anticipos efectivamente
+        // cobrados y confirmados vía Wompi desde el portal público del
+        // paciente (wompi_transaction_id solo queda así tras una
+        // confirmación aprobada, ver confirmAppointmentPayment). No
+        // incluye pagos hechos en recepción (no dejan rastro digital de
+        // cobro) ni intentos de pago que quedaron en estado pending sin
+        // confirmarse.
         const paidOnlineMatch = { wompi_transaction_id: { $exists: true, $ne: null }, status: { $ne: "pending" } };
 
         const [
@@ -65,7 +68,7 @@ dashboardController.getStats = async (req, res) => {
             ? (((totalPatients - lastMonthPatients) / lastMonthPatients) * 100).toFixed(1)
             : 0;
 
-        // Sparklines: last 7 days per metric
+        // Series (sparklines) de los últimos 7 días para cada métrica.
         const days = Array.from({ length: 7 }, (_, i) => {
             const dayStart = new Date(today);
             dayStart.setDate(dayStart.getDate() - (6 - i));
@@ -142,9 +145,10 @@ dashboardController.getDoctorStatus = async (req, res) => {
             status: a.status,
         });
 
-        // Agenda completa del día (todas las citas de hoy, en orden cronológico) — para el
-        // panel "Agenda del día" del dashboard de admin, más completo que los recortes de
-        // "en consulta ahora" / "próxima hora" de arriba.
+        // Agenda completa del día (todas las citas de hoy, en orden
+        // cronológico), para el panel de agenda del día del dashboard
+        // de admin. Es más completa que los recortes de en consulta
+        // ahora y próxima hora de arriba.
         const schedule = [...todayAppointments]
             .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""))
             .map(mapAppt);
@@ -216,7 +220,7 @@ dashboardController.getReportStats = async (req, res) => {
         const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
         lastDayLastMonth.setHours(23, 59, 59, 999);
 
-        // Last 6 months data
+        // Datos de los últimos 6 meses.
         const monthlyPromises = Array.from({ length: 6 }, (_, i) => {
             const monthStart = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
             const monthEnd = new Date(now.getFullYear(), now.getMonth() - (5 - i) + 1, 0);

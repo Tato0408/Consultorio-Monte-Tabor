@@ -67,8 +67,9 @@ receptionistController.createReceptionist = async (req, res) => {
       return res.status(400).json({ message: "La foto de perfil es requerida" });
     }
 
-    //Busca si el correo o el DUI ya están en uso por CUALQUIER rol de staff (admin, doctor,
-    //enfermera o recepcionista) — no solo dentro de la colección de recepcionistas
+    // Busca si el correo o el DUI ya están en uso por cualquier rol
+    // de staff (admin, doctor, enfermera o recepcionista), no solo
+    // dentro de la colección de recepcionistas.
     const staffDuplicate = await findStaffDuplicate(email, dui);
     if (staffDuplicate) {
       return res.status(400).json(staffDuplicate);
@@ -177,7 +178,8 @@ receptionistController.updateReceptionist = async (req, res) => {
       if (passwordError) {
         return res.status(400).json({ message: passwordError });
       }
-      // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+      // Compara contra el hash actual para no permitir cambiarla por
+      // la misma contraseña de siempre.
       const samePassword = await bcryptjs.compare(password, receptionistFound.password);
       if (samePassword) {
         return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });

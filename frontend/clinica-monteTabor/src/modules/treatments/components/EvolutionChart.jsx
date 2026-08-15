@@ -1,9 +1,9 @@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
-// El sistema no guarda ningún campo que clasifique la evolución clínica de un paciente
-// (mejorando/sin cambios/empeorando) — eso era decoración del mock. La única serie que se puede
-// mostrar honestamente con datos reales es cuántos tratamientos nuevos empezaron cada semana
-// (ver treatmentsController.js -> chartData).
+// El sistema no guarda ningun campo que clasifique la evolucion clinica de
+// un paciente (mejorando, sin cambios, empeorando). La unica serie que se
+// puede mostrar con datos reales es cuantos tratamientos nuevos empezaron
+// cada semana (ver chartData en treatmentsController.js).
 const SERIES = [
   { key: "iniciados", label: "Tratamientos iniciados", color: "#0b66d6" },
 ];

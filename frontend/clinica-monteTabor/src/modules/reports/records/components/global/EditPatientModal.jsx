@@ -4,8 +4,9 @@ import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
 import { maskLettersOnly, isValidCalendarDate } from "@/lib/inputMasks";
 
-// Máscaras de teléfono/DUI: mismo criterio ya usado en Doctors/Nurses/Receptionist/Patients Form
-// (solo dígitos, formato fijo con guión).
+// Máscaras de teléfono y DUI: mismo criterio ya usado en Doctors,
+// Nurses, Receptionist y Patients Form (solo dígitos, formato fijo con
+// guión).
 const maskPhone = (raw) => {
   let digits = raw.replace(/\D/g, "").slice(0, 8);
   return digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
@@ -14,8 +15,9 @@ const maskDui = (raw) => {
   let digits = raw.replace(/\D/g, "").slice(0, 9);
   return digits.length > 8 ? `${digits.slice(0, 8)}-${digits.slice(8)}` : digits;
 };
-// Solo letras (con acentos/ñ), espacios, apóstrofes y guiones — igual que el resto de los
-// formularios de personas del sistema (Doctors/Nurses/Receptionist/Patients Form).
+// Permite solo letras (con acentos y eñe), espacios, apóstrofes y
+// guiones, igual que el resto de los formularios de personas del sistema
+// (Doctors, Nurses, Receptionist, Patients Form).
 const maskName = (raw) => maskLettersOnly(raw, 50);
 
 const TODAY_STR = new Date().toISOString().split("T")[0];
@@ -23,9 +25,10 @@ const MIN_BIRTH_YEAR = 1900;
 
 const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
-// Modal compacto para editar los datos personales del paciente — abierto desde el lápiz
-// "Editar expediente" del encabezado (RecordsLayout.jsx). PUT /patients/:id ya acepta todos
-// estos campos, no hizo falta backend nuevo.
+// Modal compacto para editar los datos personales del paciente, abierto
+// desde el botón de lápiz Editar expediente del encabezado
+// (RecordsLayout.jsx). El PUT del paciente ya acepta todos estos campos,
+// no hizo falta backend nuevo.
 const EditPatientModal = ({ isOpen, onClose, patient, onSaved }) => {
   const toInputDate = (d) => (d ? new Date(d).toISOString().split("T")[0] : "");
   const [form, setForm] = useState({
@@ -36,8 +39,9 @@ const EditPatientModal = ({ isOpen, onClose, patient, onSaved }) => {
     email: patient?.email || "",
     birth_date: toInputDate(patient?.birthDate),
     gender: patient?.sexo || "",
-    // patient.tipoSangre cae en "—" cuando no está definido (ver useRecords.js) — no es una
-    // opción válida del <select>, así que se trata como vacío.
+    // patient.tipoSangre cae en el valor de marcador de posición cuando no
+    // está definido (ver useRecords.js), que no es una opción válida del
+    // select, así que se trata como vacío.
     blood_type: BLOOD_TYPES.includes(patient?.tipoSangre) ? patient.tipoSangre : "",
   });
   const [errors, setErrors] = useState({});
@@ -48,17 +52,20 @@ const EditPatientModal = ({ isOpen, onClose, patient, onSaved }) => {
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const close = () => { if (!loading) onClose(); };
 
-  // La fecha de nacimiento es el input que reportaste que dejaba escribir más de 4 dígitos de
-  // año — se corta aquí mismo, en el onChange, antes de que ese valor roto llegue a entrar al
-  // estado del formulario (además de min/max en el propio <input>, que el navegador no siempre
-  // hace cumplir mientras se escribe).
+  // El campo de fecha de nacimiento permitía escribir más de 4 dígitos de
+  // año. Se corta aquí mismo, en el onChange, antes de que ese valor
+  // entre al estado del formulario (además de los atributos min y max del
+  // propio input, que el navegador no siempre hace cumplir mientras se
+  // escribe).
   const handleBirthDateChange = (e) => {
     const val = e.target.value;
-    if (val && val.length !== 10) return; // "YYYY-MM-DD" tiene que medir exactamente 10
+    // El formato YYYY-MM-DD tiene que medir exactamente 10 caracteres.
+    if (val && val.length !== 10) return;
     if (val) {
       const year = Number(val.slice(0, 4));
-      // isValidCalendarDate rechaza días de calendario inexistentes (ej. 30 de febrero), que el
-      // chequeo de longitud/rango de año por sí solo no detecta.
+      // isValidCalendarDate rechaza días de calendario inexistentes (por
+      // ejemplo, 30 de febrero), que el chequeo de longitud y de rango de
+      // año por sí solo no detecta.
       if (year < MIN_BIRTH_YEAR || val > TODAY_STR || !isValidCalendarDate(val)) return;
     }
     set("birth_date", val);

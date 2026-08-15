@@ -3,8 +3,9 @@ import { escapeRegex } from "../../utils/validators.js";
 
 const appointmentTypesController = {};
 
-// Evita dos tipos con el mismo nombre (insensible a mayúsculas/espacios) — mismo criterio que
-// procedimientos e inventario. excludeId se pasa al editar, para no chocar contra sí mismo.
+// Evita dos tipos con el mismo nombre (insensible a mayúsculas y
+// espacios), mismo criterio que procedimientos e inventario.
+// excludeId se pasa al editar, para no chocar contra sí mismo.
 const findDuplicateName = async (name, excludeId) => {
     const normalized = String(name || "").trim();
     if (!normalized) return null;
@@ -15,7 +16,8 @@ const findDuplicateName = async (name, excludeId) => {
     return found ? "Ya existe un tipo de cita con ese nombre" : null;
 };
 
-// GET — lectura abierta a cualquier rol autenticado (leyenda del calendario, selector al agendar).
+// GET, lectura abierta a cualquier rol autenticado (leyenda del
+// calendario, selector al agendar).
 appointmentTypesController.getAll = async (req, res) => {
     try {
         const types = await appointmentTypeModel.find().sort({ name: 1 });

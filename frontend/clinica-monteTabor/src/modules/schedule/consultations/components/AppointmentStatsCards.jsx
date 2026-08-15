@@ -23,9 +23,10 @@ const StatCard = ({ icon: Icon, iconBg, label, value, isLoading, onClick, isActi
 const formatPatientName = (patient) =>
     patient ? `${patient.name} ${patient.last_name}` : "Sin paciente";
 
-// onFilterClick(statusValue) filtra la tabla de abajo por ese estado y por "mis citas"
-// (doctor_id del usuario logueado) — activeFilter permite resaltar la tarjeta que
-// corresponde al filtro actualmente aplicado.
+// onFilterClick(statusValue) filtra la tabla de abajo por ese estado
+// y por las citas del usuario logueado (doctor_id). activeFilter
+// permite resaltar la tarjeta que corresponde al filtro actualmente
+// aplicado.
 const AppointmentStatsCards = ({ stats, isLoading, onFilterClick, activeFilter }) => {
     const next = stats.nextAppointment;
 

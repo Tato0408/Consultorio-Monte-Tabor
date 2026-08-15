@@ -17,9 +17,10 @@ const maskDui = (text) => {
     return digits.length > 8 ? `${digits.slice(0, 8)}-${digits.slice(8)}` : digits;
 };
 
-// "Registro de pacientes": versión condensada de PatientFormModal.jsx para el dashboard de
-// recepción — mismos campos y mismo endpoint (createPatient de usePatients.js), solo que
-// embebido inline en vez de un modal aparte.
+// Formulario de registro de pacientes: versión condensada de
+// PatientFormModal.jsx para el dashboard de recepción. Usa los mismos
+// campos y el mismo endpoint (createPatient de usePatients.js), solo
+// que va embebido en línea en vez de mostrarse en un modal aparte.
 const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
     const [form, setForm] = useState(EMPTY);
     const [errors, setErrors] = useState({});
@@ -30,8 +31,9 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
         setForm((f) => ({ ...f, [field]: e.target.value }));
         if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
     };
-    // Igual que "set" pero pasando el valor por una máscara (letras, teléfono, DUI) antes de
-    // guardarlo — el resto de los formularios de personas del sistema hacen exactamente esto.
+    // Funciona igual que set, pero pasa el valor por una máscara
+    // (letras, teléfono, DUI) antes de guardarlo. El resto de los
+    // formularios de personas del sistema hace lo mismo.
     const setMasked = (field, maskFn) => (e) => {
         setForm((f) => ({ ...f, [field]: maskFn(e.target.value) }));
         if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));

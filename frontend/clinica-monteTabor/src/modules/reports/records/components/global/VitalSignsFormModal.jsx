@@ -5,10 +5,10 @@ import { showSuccess, showError } from "@/lib/alerts";
 
 const EMPTY = { blood_pressure: "", glucose: "", weight: "", height: "", temperature: "", oxygen_saturation: "" };
 
-// Máscara de presión arterial: solo dígitos y una "/", tope de 3 dígitos por lado — mismo
-// criterio que TriageCard.jsx (la misma acción, ver comentario en RecordsHistoricalClinical.jsx
-// y RecordsVitalSigns.jsx: este modal es compartido entre esos dos botones, y ahora también
-// entre "Agregar" y "Editar").
+// Máscara de presión arterial: permite solo dígitos y una barra diagonal,
+// con un tope de 3 dígitos por lado, mismo criterio que usa TriageCard.jsx.
+// Este modal es compartido entre el botón de Historia clínica y el de
+// Signos vitales, y también entre los modos de agregar y editar.
 const maskBloodPressure = (raw) => {
   const cleaned = raw.replace(/[^0-9/]/g, "");
   const [systolicRaw, ...rest] = cleaned.split("/");
@@ -26,10 +26,12 @@ const maskDecimal = (raw) => {
 // Mismo formato que exige TriageCard.jsx para la presión arterial de una consulta.
 const BP_PATTERN = /^\d{2,3}\/\d{2,3}$/;
 
-// Mismos rangos fisiológicos razonables que usa TriageCard.jsx (y que ahora también exige el
-// backend en validators.js -> getVitalSignsError) — evita valores absurdos (ej. SPO2 de 300%)
-// sin bloquear casos clínicos extremos reales. La talla se valida en cm aquí (lo que el usuario
-// digita); el backend valida la misma talla ya convertida a metros.
+// Mismos rangos fisiológicos razonables que usa TriageCard.jsx, que el
+// backend también exige en validators.js, en la función
+// getVitalSignsError. Evitan valores absurdos (por ejemplo, un SPO2 de
+// 300%) sin bloquear casos clínicos extremos reales. La talla se valida
+// en centímetros aquí, que es lo que digita el usuario. El backend valida
+// la misma talla ya convertida a metros.
 const RANGES = {
   glucose: { min: 0, max: 999, label: "Glucosa" },
   weight: { min: 0, max: 500, label: "Peso" },
@@ -38,9 +40,10 @@ const RANGES = {
   oxygen_saturation: { min: 0, max: 100, label: "Saturación de O2" },
 };
 
-// Un mensaje por campo (no uno solo genérico) — mismo criterio que TriageCard.jsx, que muestra
-// el mínimo/máximo permitido justo debajo del input que falló, en vez de un aviso suelto al
-// final del formulario.
+// Devuelve un mensaje de error por campo, no uno solo genérico, mismo
+// criterio que usa TriageCard.jsx, que muestra el mínimo y el máximo
+// permitido justo debajo del input que falló, en vez de un aviso suelto
+// al final del formulario.
 const getFieldErrors = (form) => {
   const errors = {};
   if (form.blood_pressure && !BP_PATTERN.test(form.blood_pressure)) {
@@ -57,26 +60,31 @@ const getFieldErrors = (form) => {
   return errors;
 };
 
-// Modal compacto para registrar o editar una toma de signos vitales — comparte esta única forma
-// el botón "Actualizar" de Historia Clínica, el botón "Agregar" de Signos Vitales, y ahora
-// también el botón de editar de la tabla de Signos Vitales (pasando `editEntry`).
-// Sin `editEntry`: agrega una toma nueva (PUT /patients/:id, new_vital_signs — $push).
-// Con `editEntry` ({id, presion, glucosa, peso, altura, temp, spo2}, la fila ya formateada que
-// arma useRecords.js): edita esa toma puntual (PUT /patients/:patientId/vital-signs/:vitalSignId).
+// Modal compacto para registrar o editar una toma de signos vitales.
+// Comparte esta misma forma el botón Actualizar de Historia clínica, el
+// botón Agregar de Signos vitales y el botón de editar de la tabla de
+// Signos vitales (pasando la prop editEntry).
+// Sin editEntry agrega una toma nueva (PUT a patients por id, con
+// new_vital_signs). Con editEntry (la fila ya formateada por useRecords.js,
+// con id, presion, glucosa, peso, altura, temp y spo2) edita esa toma
+// puntual (PUT a la ruta de vital signs del paciente).
 const VitalSignsFormModal = ({ isOpen, onClose, patientId, onSaved, editEntry }) => {
   const [form, setForm] = useState(EMPTY);
-  // Error general (ej. "completa al menos un campo" o lo que rechace el backend) — no apunta a
-  // un input puntual, así que se muestra aparte de los errores por campo.
+  // Error general (por ejemplo, cuando no se completó ningún campo, o lo
+  // que rechace el backend). No apunta a un input puntual, así que se
+  // muestra aparte de los errores por campo.
   const [generalError, setGeneralError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Se recalcula en cada tecla (no solo al enviar) para que el label rojo aparezca/desaparezca
-  // al instante debajo del input que corresponde, igual que en TriageCard.jsx.
+  // Se recalcula con cada tecla, no solo al enviar, para que el label rojo
+  // aparezca o desaparezca al instante debajo del input que corresponde,
+  // igual que en TriageCard.jsx.
   const fieldErrors = useMemo(() => getFieldErrors(form), [form]);
   const hasFieldErrors = Object.keys(fieldErrors).length > 0;
 
-  // El componente se queda montado entre aperturas (el padre solo cambia "isOpen"), así que sin
-  // esto el formulario conservaría lo último escrito, o no se precargaría con la toma a editar.
+  // El componente se queda montado entre aperturas, el padre solo cambia
+  // isOpen, así que sin este efecto el formulario conservaría lo último
+  // escrito o no se precargaría con la toma a editar.
   useEffect(() => {
     if (!isOpen) return;
     setGeneralError(null);
@@ -85,7 +93,8 @@ const VitalSignsFormModal = ({ isOpen, onClose, patientId, onSaved, editEntry })
         blood_pressure: editEntry.presion !== "—" ? String(editEntry.presion) : "",
         glucose: editEntry.glucosa !== "—" ? String(editEntry.glucosa) : "",
         weight: editEntry.peso !== "—" ? String(editEntry.peso) : "",
-        // La tabla/el modelo guardan la talla en metros; el formulario la captura en cm.
+        // La tabla y el modelo guardan la talla en metros, el formulario la
+        // captura en centímetros.
         height: editEntry.altura !== "—" ? String(Math.round(Number(editEntry.altura) * 100)) : "",
         temperature: editEntry.temp !== "—" ? String(editEntry.temp) : "",
         oxygen_saturation: editEntry.spo2 !== "—" ? String(editEntry.spo2) : "",
@@ -115,8 +124,9 @@ const VitalSignsFormModal = ({ isOpen, onClose, patientId, onSaved, editEntry })
     setLoading(true);
     try {
       const weight = form.weight ? Number(form.weight) : undefined;
-      // Se captura en cm (más natural para digitar) y se convierte a metros, que es la unidad
-      // que usa el resto del expediente (ver useRecords.js: `${height} m`).
+      // Se captura en centímetros, más natural para digitar, y se convierte a
+      // metros, que es la unidad que usa el resto del expediente (ver
+      // useRecords.js).
       const heightM = form.height ? Number(form.height) / 100 : undefined;
       const imc = weight && heightM ? Math.round((weight / (heightM * heightM)) * 10) / 10 : undefined;
 

@@ -2,10 +2,11 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-// Cuando el textarea trae maxLength, se muestra un contador "actual/máximo" abajo a la
-// derecha — mismo criterio que InputField.jsx. Los textarea del sistema siempre son campos de
-// texto libre para agregar/editar algo (notas, motivo de cancelación, etc.), nunca del tipo
-// "login" (correo/contraseña), así que aquí no hace falta excluir por tipo.
+// Cuando el textarea trae maxLength, se muestra abajo a la derecha un contador de caracteres
+// actuales sobre el máximo, con el mismo criterio que InputField.jsx. Los textarea del
+// sistema siempre son campos de texto libre para agregar o editar algo (notas, motivo de
+// cancelación, etc.), nunca del tipo login (correo, contraseña), así que aquí no hace falta
+// excluir por tipo.
 function Textarea({
   className,
   value,

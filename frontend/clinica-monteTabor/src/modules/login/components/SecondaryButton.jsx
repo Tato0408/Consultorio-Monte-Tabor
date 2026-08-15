@@ -1,9 +1,12 @@
 import { Link } from "react-router-dom";
 
-// A diferencia de un <button>, un <Link> no tiene un concepto nativo de "disabled" — sin esto,
-// el usuario podía navegar fuera del formulario (o reiniciar el flujo) mientras una petición
-// seguía en curso. onClick con preventDefault bloquea la navegación; pointer-events-none es un
-// refuerzo a nivel CSS por si el evento se disparara de otra forma (teclado, etc.)
+// A diferencia de un botón, un enlace no cuenta con un estado
+// disabled nativo. Sin este control, el usuario podía navegar fuera
+// del formulario o reiniciar el flujo mientras una petición seguía
+// en curso. El evento onClick con preventDefault bloquea la
+// navegación, y la clase pointer events none actúa como refuerzo a
+// nivel CSS por si el evento se disparara de otra forma, como el
+// teclado.
 const SecondaryButton = ({ to, children, disabled }) => {
   return (
     <Link

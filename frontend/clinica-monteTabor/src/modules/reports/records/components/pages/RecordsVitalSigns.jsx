@@ -9,8 +9,8 @@ import VitalSignsFormModal from "../global/VitalSignsFormModal";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmDelete } from "@/lib/alerts";
 
-// Configuración de cada tarjeta clicable: a qué campo(s) de
-// `signosVitalesHistorial` corresponde y cómo graficarlo.
+// Configuración de cada tarjeta clicable: a qué campo o campos de
+// signosVitalesHistorial corresponde y cómo graficarlo.
 const METRICS = {
   presionArterial: { label: "Presión arterial", unit: "mmHg", color: "#3b82f6", type: "bp" },
   glucosa: { label: "Glucosa", unit: "mg/dL", color: "#ef4444", type: "single", field: "glucosa" },
@@ -41,13 +41,14 @@ const buildChartData = (historial, metricKey) => {
   });
 };
 
-// Espera `patient.signosVitales` (última toma) y
-// `patient.signosVitalesHistorial` (para el gráfico y la tabla).
+// Espera patient.signosVitales (última toma) y
+// patient.signosVitalesHistorial (para el gráfico y la tabla).
 const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
   const v = patient.signosVitales ?? {};
   const [selectedMetric, setSelectedMetric] = useState("imc");
   const [modalOpen, setModalOpen] = useState(false);
-  // null = el modal de "Agregar/Editar" está en modo agregar; con una fila, edita esa toma puntual.
+  // Cuando editEntry es null, el modal de agregar o editar está en modo
+  // agregar. Con una fila, edita esa toma puntual.
   const [editEntry, setEditEntry] = useState(null);
   const historial = useMemo(() => patient.signosVitalesHistorial ?? [], [patient.signosVitalesHistorial]);
 
@@ -76,9 +77,10 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
     setModalOpen(true);
   };
 
-  // Al guardar (agregar o editar) se refresca todo el expediente (onSaved, ver
-  // RecordDetailPage.jsx -> refreshAll) — como el gráfico y las tarjetas de arriba se derivan
-  // del mismo "historial" que llena esta tabla, quedan al día automáticamente sin lógica aparte.
+  // Al guardar (agregar o editar) se refresca todo el expediente mediante
+  // onSaved (ver refreshAll en RecordDetailPage.jsx). Como el gráfico y las
+  // tarjetas de arriba se derivan del mismo historial que llena esta tabla,
+  // quedan al día automáticamente sin lógica aparte.
   const handleDelete = async (row) => {
     const confirmed = await confirmDelete({
       title: "¿Eliminar esta toma de signos vitales?",

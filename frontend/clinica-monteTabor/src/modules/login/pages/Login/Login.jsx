@@ -8,12 +8,12 @@ import { useAuth } from "@/context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth(); //Metodo de autenticacion
+  const { login } = useAuth();
 
-  const [formData, setFormData] = useState({ email: "", password: "" }); // Datos del formulario
-  const [errors, setErrors] = useState({}); // Mensajes de validación de cliente
-  const [isLoading, setIsLoading] = useState(false); // Bloqueo de UI durante peticiones asíncronas
-  const [apiError, setApiError] = useState(""); // Control de errores directos del backend
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   //manejador dinámico que actualiza los inputs y limpia los errores en tiempo real
   const handleChange = (field) => (e) => {
@@ -22,9 +22,10 @@ const Login = () => {
     if (apiError) setApiError("");
   };
 
-  // validacion la estructura del correo; la contraseña solo se exige que no venga vacía —
-  // no tiene sentido decirle al usuario qué le falta a su contraseña en la pantalla de login
-  // (eso es útil al crearla, no al iniciar sesión con una que ya existe)
+  // Valida la estructura del correo. La contraseña solo se exige
+  // que no esté vacía, ya que en la pantalla de login no tiene
+  // sentido indicar qué requisito le falta a la contraseña (eso es
+  // útil al crearla, no al iniciar sesión con una que ya existe).
   const validate = () => {
     const newErrors = {};
     if (!formData.email.trim()) {
@@ -55,8 +56,10 @@ const Login = () => {
     toast: true,
     position: "top-end", 
     showConfirmButton: false, 
-    timer: 3000, // Se cierra automáticamente en 3 segundos
-    timerProgressBar: true, // Muestra la barrita de tiempo avanzando
+    // Se cierra automáticamente después de 3 segundos.
+    timer: 3000,
+    // Muestra la barra de progreso del tiempo restante.
+    timerProgressBar: true,
     didOpen: (toast) => {
       toast.onmouseenter = Swal.stopTimer;
       toast.onmouseleave = Swal.resumeTimer;
@@ -78,8 +81,9 @@ const Login = () => {
       });
         navigate("/home");
       }
-      // Si succes es false, login() (AuthContext) ya mostró su propia notificación de error —
-      // mostrar otra aquí duplicaba el aviso con un segundo mensaje distinto
+      // Si succes es false, login (desde AuthContext) ya mostró su
+      // propia notificación de error. Mostrar otra aquí duplicaría
+      // el aviso con un segundo mensaje distinto.
 
     } catch (error) {
       Toast.fire({

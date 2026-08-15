@@ -27,7 +27,8 @@ const ProductCombobox = ({ value, onSelect, error }) => {
 
   const search = async (val) => {
     setQuery(val);
-    onSelect(null); // limpiar selección mientras escribe
+    // Limpia la selección mientras el usuario escribe.
+    onSelect(null);
     if (val.length < 1) { setSuggestions([]); setOpen(false); return; }
     setLoading(true);
     try {
@@ -104,7 +105,8 @@ const InfoField = ({ label, value }) => (
 const ModalAdjustStock = ({ onClose, onSuccess }) => {
   const { adjustStock } = useInsumos();
   const [product, setProduct]       = useState(null);
-  const [adjustType, setAdjustType] = useState("aumentar"); // "aumentar" | "disminuir"
+  // Puede ser aumentar o disminuir.
+  const [adjustType, setAdjustType] = useState("aumentar");
   const [quantity, setQuantity]     = useState("");
   const [responsible, setResp]      = useState("");
   const [reason, setReason]         = useState("");
@@ -170,9 +172,10 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
       width="w-[480px]"
       closeDisabled={loading}
     >
-      {/* El botón submit vive fuera de este <form> (en el footer del Modal, asociado por el
-          atributo form="form-adjust"), así que el fieldset de aquí no lo alcanza — por eso
-          además se desactiva a mano arriba en el footer. */}
+      {/* El botón de envío vive fuera de este formulario (footer del
+          modal, enlazado mediante el atributo form con valor
+          form-adjust), así que el fieldset no lo alcanza. Por eso
+          también se desactiva de forma manual en el footer. */}
       <form id="form-adjust" onSubmit={handleSubmit} className="flex flex-col gap-6">
       <fieldset disabled={loading} className="contents">
         {errors.general && (

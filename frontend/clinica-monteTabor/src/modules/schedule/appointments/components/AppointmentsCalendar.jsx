@@ -15,10 +15,11 @@ const HOURS       = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => STAR
 const DAYS_ES     = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const MONTHS_ES   = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-// Color de respaldo para una cita sin "appointment_type" elegido (o cuyo tipo ya no existe en el
-// catálogo — ej. un admin lo borró). Antes había 4 tipos fijos con nombres que ninguna cita real
-// llegaba a tener ("Control", "Descanso"); ahora el color sale del catálogo global de tipos de
-// cita (ver AppointmentTypesSection.jsx), administrado por el rol admin.
+// Color de respaldo para una cita sin appointment_type elegido (o
+// cuyo tipo ya no existe en el catálogo, por ejemplo si un admin lo
+// borró). El color normalmente sale del catálogo global de tipos de
+// cita (ver AppointmentTypesSection.jsx), administrado por el rol
+// admin.
 const FALLBACK_COLOR = "#94a3b8";
 const CANCELLED_COLOR = "#f87171";
 
@@ -90,9 +91,11 @@ const getNowLabel = () => {
     return `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
 };
 
-// colorMap: { [nombreDelTipo]: colorHex } armado a partir del catálogo global de tipos de cita.
-// Se busca por "appointment_type" (el nuevo campo, solo categoriza/colorea), nunca por "type"
-// (que sigue siendo "Consulta Médica General"/"Procedimiento" y define precio/duración aparte).
+// colorMap: { [nombreDelTipo]: colorHex } armado a partir del
+// catálogo global de tipos de cita. Se busca por appointment_type
+// (el campo que solo categoriza y colorea), nunca por type (que
+// sigue siendo Consulta Médica General o Procedimiento y define
+// precio y duración aparte).
 const typeColors = (appointmentType, status, colorMap) => {
     if (status === "cancelled") return { color: CANCELLED_COLOR, cancelled: true };
     return { color: (appointmentType && colorMap?.[appointmentType]) || FALLBACK_COLOR, cancelled: false };
@@ -148,10 +151,12 @@ const ApptDot = ({ appt, col = 0, colIdx = 0, isSelected, onSelect, colorMap }) 
 
     const popupOnLeft = colIdx >= 5;
 
-    // z-[15] en hover: por encima de las tarjetas en reposo (z-10, para tapar a las de otros
-    // días) pero por debajo del encabezado sticky (z-20) — así, al pasar el mouse y hacer scroll
-    // a la vez, la tarjeta (y su tooltip, contenido en este mismo stacking context) queda tapada
-    // por el encabezado en vez de seguir traspasándolo.
+    // z-[15] en hover: por encima de las tarjetas en reposo (z-10,
+    // para tapar a las de otros días) pero por debajo del encabezado
+    // sticky (z-20). Así, al pasar el mouse y hacer scroll a la vez,
+    // la tarjeta (y su tooltip, contenido en este mismo stacking
+    // context) queda tapada por el encabezado en vez de seguir
+    // traspasándolo.
     return (
         <div
             className={`absolute ${hovered ? "z-[15]" : "z-10"}`}
@@ -215,10 +220,12 @@ const ApptCard = ({ appt, col = 0, totalCols = 1, colIdx = 0, isSelected, onSele
 
     const popupOnLeft = colIdx >= 5;
 
-    // z-[15] en hover: por encima de las tarjetas en reposo (z-10, para tapar a las de otros
-    // días) pero por debajo del encabezado sticky (z-20) — así, al pasar el mouse y hacer scroll
-    // a la vez, la tarjeta (y su tooltip, contenido en este mismo stacking context) queda tapada
-    // por el encabezado en vez de seguir traspasándolo.
+    // z-[15] en hover: por encima de las tarjetas en reposo (z-10,
+    // para tapar a las de otros días) pero por debajo del encabezado
+    // sticky (z-20). Así, al pasar el mouse y hacer scroll a la vez,
+    // la tarjeta (y su tooltip, contenido en este mismo stacking
+    // context) queda tapada por el encabezado en vez de seguir
+    // traspasándolo.
     return (
         <div
             className={`absolute ${hovered ? "z-[15]" : "z-10"}`}
@@ -331,7 +338,7 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAp
 
     return (
         <div className="fixed bottom-0 inset-x-0 z-50 h-[80vh] rounded-t-2xl md:relative md:inset-auto md:h-full md:w-72 md:rounded-none md:z-auto border-t md:border-t-0 md:border-l border-slate-100 bg-white overflow-y-auto flex-shrink-0">
-            {/* Drag handle — visible on mobile only */}
+            {/* Manija de arrastre, visible solo en mobile */}
             <div className="md:hidden flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 rounded-full bg-slate-200" />
             </div>
@@ -456,8 +463,9 @@ const AppointmentsCalendar = () => {
     const [doctors,      setDoctors]      = useState([]);
     const [refresh,      setRefresh]      = useState(0);
     const [scheduleData, setScheduleData] = useState(null);
-    // Catálogo global de tipos de cita (nombre + color), administrado por el rol admin desde
-    // Horarios — alimenta la leyenda, el filtro "Tipo de atención" y el color de cada cita.
+    // Catálogo global de tipos de cita (nombre y color), administrado
+    // por el rol admin desde Horarios. Alimenta la leyenda, el filtro
+    // Tipo de atención y el color de cada cita.
     const [appointmentTypes, setAppointmentTypes] = useState([]);
     const colorMap = useMemo(
         () => Object.fromEntries(appointmentTypes.map(t => [t.name, t.color])),
@@ -553,7 +561,7 @@ const AppointmentsCalendar = () => {
     return (
         <div className="flex flex-col bg-slate-50 overflow-hidden h-full">
 
-            {/* ── Top bar ── */}
+            {/* Barra superior */}
             <div className="px-3 sm:px-5 pt-3 sm:pt-4 pb-0 bg-white border-b border-slate-100 flex-shrink-0">
                 <div className="flex items-center justify-between mb-3">
                     <div>
@@ -606,7 +614,7 @@ const AppointmentsCalendar = () => {
                     )}
                 </div>
 
-                {/* Week nav */}
+                {/* Navegación de semana */}
                 <div className="flex flex-wrap items-center justify-between gap-y-1.5 pb-2">
                     <div className="flex items-center gap-1">
                         <button onClick={prevWeek} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
@@ -634,10 +642,10 @@ const AppointmentsCalendar = () => {
                 </div>
             </div>
 
-            {/* ── Body ── */}
+            {/* Cuerpo */}
             <div className="flex flex-1 overflow-hidden">
 
-                {/* Filters sidebar */}
+                {/* Barra lateral de filtros */}
                 <div className="w-40 border-r border-slate-100 bg-white overflow-y-auto flex-shrink-0 p-3 hidden md:flex flex-col">
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Filtros</p>
 
@@ -685,8 +693,8 @@ const AppointmentsCalendar = () => {
                         <RefreshCw className="w-3 h-3" /> Limpiar filtros
                     </button>
 
-                    {/* Legend — catálogo global de tipos de cita, administrado por el rol
-                        admin desde Horarios (ver AppointmentTypesSection.jsx). */}
+                    {/* Leyenda: catálogo global de tipos de cita, administrado por el
+                        rol admin desde Horarios (ver AppointmentTypesSection.jsx). */}
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Leyenda</p>
                     {appointmentTypes.length === 0 ? (
                         <p className="text-[11px] text-slate-400 mb-1.5">Sin tipos de cita configurados</p>
@@ -704,7 +712,7 @@ const AppointmentsCalendar = () => {
                     </div>
                 </div>
 
-                {/* Calendar */}
+                {/* Calendario */}
                 <div className="flex-1 overflow-auto">
                     {loading ? (
                         <div className="flex items-center justify-center h-full text-slate-400 text-sm">
@@ -712,7 +720,7 @@ const AppointmentsCalendar = () => {
                         </div>
                     ) : (
                         <div className="min-w-[560px]">
-                            {/* Day headers */}
+                            {/* Encabezados de los días */}
                             <div className="sticky top-0 z-20 bg-white border-b border-slate-100 grid"
                                 style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}>
                                 <div className="border-r border-slate-100" />
@@ -736,7 +744,7 @@ const AppointmentsCalendar = () => {
 
                             {/* Time grid */}
                             <div className="relative" style={{ height: `${HOURS.length * HOUR_HEIGHT}px` }}>
-                                {/* Hour lines + labels */}
+                                {/* Líneas y etiquetas de hora */}
                                 {HOURS.map((h, hi) => (
                                     <div key={h} className="absolute w-full flex items-start pointer-events-none"
                                         style={{ top: `${hi * HOUR_HEIGHT}px` }}>
@@ -747,13 +755,13 @@ const AppointmentsCalendar = () => {
                                     </div>
                                 ))}
 
-                                {/* Vertical day column borders */}
+                                {/* Bordes verticales de las columnas de días */}
                                 {weekDays.map((_, di) => (
                                     <div key={di} className="absolute top-0 bottom-0 border-l border-slate-100 pointer-events-none"
                                         style={{ left: `calc(48px + ${di} * (100% - 48px) / 7)`, width: `calc((100% - 48px) / 7)` }} />
                                 ))}
 
-                                {/* Current time line */}
+                                {/* Línea de la hora actual */}
                                 {nowOffset !== null && todayColIdx >= 0 && (
                                     <>
                                         <div className="absolute pointer-events-none z-[5] flex justify-end pr-1 items-center"
@@ -774,7 +782,7 @@ const AppointmentsCalendar = () => {
                                     </>
                                 )}
 
-                                {/* Appointment + break cards per day */}
+                                {/* Tarjetas de citas y descansos por día */}
                                 {weekDays.map((day, di) => {
                                     const key    = toISO(day);
                                     const appts  = byDay[key] || [];
@@ -837,7 +845,7 @@ const AppointmentsCalendar = () => {
                     )}
                 </div>
 
-                {/* Mobile backdrop for detail panel */}
+                {/* Fondo para mobile del panel de detalle */}
                 {selected && (
                     <div
                         className="fixed inset-0 bg-black/30 z-40 md:hidden"
@@ -845,7 +853,7 @@ const AppointmentsCalendar = () => {
                     />
                 )}
 
-                {/* Detail panel */}
+                {/* Panel de detalle */}
                 {selected && (
                     <DetailPanel
                         appt={selected}

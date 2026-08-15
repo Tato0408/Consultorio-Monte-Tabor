@@ -4,9 +4,13 @@ import adminModel from "../../models/admin/admins.js";
 import recepcionistModel from "../../models/receptionist/receptionist.js";
 import patientsModel from "../../models/patients/patients.js";
 
-//AuthConteoller se ejecuta cada vez que el usuario refresaca la pagina, abre una pestaña o cambia de ruta, esto permite no estar iniciando sesion durante el tiempo de vida de la cookie de inicio de sesion
+// authController se ejecuta cada vez que el usuario recarga la página,
+// abre una pestaña nueva o cambia de ruta. Permite mantener la sesión
+// activa mientras la cookie de autenticación siga vigente, sin pedir
+// las credenciales de nuevo.
 
-//Mapeo de roles, esto me permite poder acceder al modelo necesario dependiendo de su rol
+// Mapea cada tipo de usuario con su modelo correspondiente, para
+// acceder al modelo adecuado según el rol del usuario autenticado.
 const role_models = {
     admin: adminModel,
     doctor: doctorModel,
@@ -17,13 +21,16 @@ const role_models = {
 
 const authController = {};
 
-//Metodo que obtiene el perfil completo del usuario autenticado actual en la sesion, me devuelve al final la informacion del usuario necesaria
+// Obtiene el perfil completo del usuario autenticado en la sesión
+// actual y devuelve la información necesaria para el frontend.
 authController.getCurrentUser = async (req, res) => {
     try {
-        //Extraemos los datos del usuario, usamos req.user para saber quien esta haciendo la consulta, extrae directamente quien es, no deja que el usuario pueda reescribir quien hace la peticion
+        // Toma el id y el tipo de usuario desde req.user, que viene del
+        // token verificado, para evitar que el usuario pueda indicar
+        // quién hace la petición.
         const { id, userType } = req.user;
 
-        //Seleecionamos el modelo dependiendo del tipo de usuario
+        // Selecciona el modelo según el tipo de usuario.
         const model = role_models[userType];
         if (!model) {
             return res.status(400).json({ message: "Tipo de usuario inválido en el token" });
@@ -35,7 +42,7 @@ authController.getCurrentUser = async (req, res) => {
             return res.status(404).json({ message: "Usuario no encontrado" });
         }
 
-        //Estructuramos la respuesta, enviando los campos necesarios que usara el frotend
+        // Arma la respuesta con los campos que necesita el frontend.
         return res.status(200).json({
             userType,
             user: {
@@ -46,7 +53,8 @@ authController.getCurrentUser = async (req, res) => {
                 dui: userFound.dui,
                 birth_date: userFound.birth_date,
                 gender: userFound.gender,
-                // imagen — cada modelo usa un nombre diferente, devolvemos el que existe
+                // La imagen: cada modelo usa un nombre de campo distinto,
+                // se devuelve el primero que exista.
                 image: userFound.image || userFound.img_url || userFound.doctorImage || null,
                 public_id: userFound.public_id || userFound.img_public_id || null,
                 is_active: userFound.is_active,

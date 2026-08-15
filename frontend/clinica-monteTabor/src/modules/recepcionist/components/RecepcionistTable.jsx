@@ -1,7 +1,8 @@
 import GenericTable from "@/components/ui/GenericTable";
 
-// Las acciones de editar/eliminar ya no viven aquí — se movieron a botones dentro de
-// ReceptionistProfileCard.jsx (el panel de la derecha), para no necesitar un menú por fila.
+// Los botones de editar y eliminar viven en ReceptionistProfileCard.jsx (el
+// panel derecho), por lo que esta tabla no necesita un menu de acciones por
+// fila.
 const ReceptionistsTable = ({
   receptionists,
   loading,
@@ -9,12 +10,10 @@ const ReceptionistsTable = ({
   onSelect,
   onOpenForm,
 }) => {
-  //Si ocurre un error lo mostramos
   if (error) {
     return <p className="mt-5 text-red-500 text-sm text-center">Error: {error}</p>;
   }
 
-  //Definimos las columnas que tendra la tabla
   const columns = [
     {
       header: "Nombre",
@@ -37,7 +36,6 @@ const ReceptionistsTable = ({
       render: (receptionist) => <span className="text-gray-500">{receptionist.phone || "—"}</span>,
     },
     {
-      //Mostramos si el recepcionista esta activo o inactivo
       header: "Estado",
       align: "center",
       render: (receptionist) => (
@@ -53,7 +51,6 @@ const ReceptionistsTable = ({
     },
   ];
 
-  //Renderizamos la tabla generica enviandole toda la configuracion
   return (
     <GenericTable
       title="Administración de recepcionistas"

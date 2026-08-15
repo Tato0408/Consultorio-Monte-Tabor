@@ -24,9 +24,9 @@ const MODULE_KEYS = [
     "system.profile"
 ];
 
-// Cada entrada [view, create, update, delete] refleja EXACTAMENTE el comportamiento
-// actual del sistema (allowedRoles en app.js / rutas backend / menuConfig.js), no un
-// diseño nuevo. 
+// Cada entrada [view, create, update, delete] refleja exactamente el
+// comportamiento actual del sistema (allowedRoles en app.js, rutas del
+// backend, menuConfig.js), no un diseño nuevo.
 const ROLE_PERMISSIONS = {
     admin: {
         "dashboard": [true, true, true, true],
@@ -62,14 +62,16 @@ const ROLE_PERMISSIONS = {
         "users.nurses": [true, false, false, false],
         "procedures": [true, true, true, true],
         "reports.appointments": [true, false, false, false],
-        // CRUD completo: el doctor es quien emite/edita/elimina incapacidades desde el
-        // Expediente (la única acción real detrás de este moduleKey).
+        // CRUD completo: el doctor es quien emite, edita y elimina
+        // incapacidades desde el Expediente (la única acción real
+        // detrás de este moduleKey).
         "reports.records": [true, true, true, true],
         "reports.patients": [true, false, false, false],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],
-        // El doctor hace el seguimiento clínico del tratamiento (evolución, notas, controles,
-        // alta) desde /inventory/treatments — necesita las 4 acciones, no solo ver.
+        // El doctor hace el seguimiento clínico del tratamiento
+        // (evolución, notas, controles, alta) desde
+        // /inventory/treatments. Necesita las 4 acciones, no solo ver.
         "inventory.treatments": [true, true, true, true],
         "inventory.movements": [false, false, false, false],
         "inventory.reports": [false, false, false, false],
@@ -78,15 +80,18 @@ const ROLE_PERMISSIONS = {
     },
     nurse: {
         "dashboard": [true, false, false, false],
-        // A diferencia de recepción, la enfermera SÍ puede tener su propio horario (update=true)
-        //  es lo que permite que solo se le asignen citas dentro de ese horario.
+        // A diferencia de recepción, la enfermera sí puede tener su
+        // propio horario (update en true), lo que permite que solo se
+        // le asignen citas dentro de ese horario.
         "calendar.schedule": [true, false, true, false],
-        // La enfermera sí puede crear/confirmar/cancelar citas desde su dashboard
+        // La enfermera sí puede crear, confirmar y cancelar citas desde
+        // su dashboard.
         "calendar.appointments": [true, true, true, true],
         "calendar.consultations": [false, false, false, false],
         "users.doctors": [false, false, false, false],
-        // A diferencia de recepción, la enfermera NO registra pacientes nuevos — solo necesita
-        // verlos para buscarlos al agendar una cita.
+        // A diferencia de recepción, la enfermera no registra pacientes
+        // nuevos, solo necesita verlos para buscarlos al agendar una
+        // cita.
         "users.patients": [true, false, false, false],
         "users.receptionist": [false, false, false, false],
         "users.nurses": [false, false, false, false],
@@ -96,8 +101,9 @@ const ROLE_PERMISSIONS = {
         "reports.patients": [false, false, false, false],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],
-        // La enfermera también participa del seguimiento del tratamiento (curaciones,
-        // controles), así que tiene las mismas 4 acciones que el doctor aquí.
+        // La enfermera también participa del seguimiento del
+        // tratamiento (curaciones, controles), así que tiene las
+        // mismas 4 acciones que el doctor aquí.
         "inventory.treatments": [true, true, true, true],
         "inventory.movements": [false, false, false, false],
         "inventory.reports": [false, false, false, false],
@@ -119,7 +125,8 @@ const ROLE_PERMISSIONS = {
         "procedures": [true, false, false, false],
         "reports.appointments": [false, false, false, false],
         "reports.records": [false, false, false, false],
-        //La recepción SÍ registra pacientes nuevos (es parte central de su trabajo)
+        // La recepción sí registra pacientes nuevos (es parte central
+        // de su trabajo).
         "reports.patients": [true, true, true, true],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],

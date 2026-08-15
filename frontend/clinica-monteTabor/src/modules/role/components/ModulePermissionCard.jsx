@@ -41,25 +41,31 @@ const ModulePermissionCard = ({
   onChange,
   accentSolidClass,
   readOnly,
-  // true para módulos cuyo backend solo expone una ruta GET (ver VIEW_ONLY_MODULE_KEYS en
-  // rolesConfig.js) — Crear/Editar/Eliminar no tienen ningún endpoint real detrás, así que
-  // ni siquiera se muestran esos checkboxes en vez de dejarlos togglear sin efecto.
+  // true para módulos cuyo backend solo expone una ruta GET (ver
+  // VIEW_ONLY_MODULE_KEYS en rolesConfig.js). Crear, editar y eliminar
+  // no tienen ningún endpoint real detrás, así que ni siquiera se
+  // muestran esos checkboxes, en vez de dejarlos togglear sin efecto.
   viewOnly = false,
-  // Acciones puntuales (ej. ["create","delete"]) sin ningún endpoint real detrás para este
-  // módulo — ver HIDDEN_PERMISSION_ACTIONS en rolesConfig.js. A diferencia de viewOnly, oculta
-  // solo esas acciones puntuales, no todo menos "Ver".
+  // Acciones puntuales (por ejemplo [create, delete]) sin ningún
+  // endpoint real detrás para este módulo, ver
+  // HIDDEN_PERMISSION_ACTIONS en rolesConfig.js. A diferencia de
+  // viewOnly, oculta solo esas acciones puntuales, no todo menos Ver.
   hiddenActions = [],
-  // Acciones (ej. ["view","create"]) que para este rol+módulo el dashboard necesita en true
-  // siempre — ver LOCKED_TRUE_PERMISSIONS en rolesConfig.js. El backend impone lo mismo.
+  // Acciones (por ejemplo [view, create]) que para este rol y este
+  // módulo el dashboard necesita siempre en true, ver
+  // LOCKED_TRUE_PERMISSIONS en rolesConfig.js. El backend impone lo
+  // mismo.
   lockedActions = [],
-  // Módulos (con su label legible) cuyo "Ver" le falta a ESTE rol y que este módulo necesita
-  // para funcionar sin errores — ver MODULE_VIEW_DEPENDENCIES en rolesConfig.js.
+  // Módulos (con su label legible) cuyo permiso de Ver le falta a
+  // este rol y que este módulo necesita para funcionar sin errores,
+  // ver MODULE_VIEW_DEPENDENCIES en rolesConfig.js.
   missingDependencies = [],
 }) => {
   const handleToggle = (permKey) => {
     if (readOnly) return;
-    // Bloquea solo el apagado (ya está en true por invariante del backend); no bloquea si por
-    // algún motivo estuviera en false, para no dejar el permiso atascado.
+    // Bloquea solo el apagado, ya que está en true por invariante del
+    // backend. No bloquea si por algún motivo estuviera en false, para
+    // no dejar el permiso atascado.
     if (lockedActions.includes(permKey) && permissions[permKey]) return;
     const nextValue = !permissions[permKey];
     const updated = { ...permissions, [permKey]: nextValue };
@@ -86,7 +92,8 @@ const ModulePermissionCard = ({
         <h4 className="font-bold text-sm text-gray-900 leading-snug">{moduleLabel}</h4>
       </div>
 
-      {/* En móvil los 4 checks caben en 2 columnas; en pantallas muy pequeñas en 1 columna */}
+      {/* En móvil los 4 checks caben en 2 columnas. En pantallas muy
+          pequeñas caben en 1 columna. */}
       <div className="grid grid-cols-1 xs:grid-cols-2 gap-y-2.5 md:gap-y-3 gap-x-3 md:gap-x-4 pl-1">
         {visiblePermissionTypes.map((perm) => {
           const isLocked = lockedActions.includes(perm.key) && permissions[perm.key];
@@ -104,8 +111,9 @@ const ModulePermissionCard = ({
         })}
       </div>
 
-      {/* Solo se muestra si este módulo ya tiene "Ver" activado y le falta "Ver" en alguno de
-          los módulos de los que depende su pantalla — si "Ver" está apagado, no aplica todavía. */}
+      {/* Solo se muestra si este módulo ya tiene Ver activado y le falta Ver
+          en alguno de los módulos de los que depende su pantalla. Si Ver
+          está apagado, todavía no aplica. */}
       {permissions.view && missingDependencies.length > 0 && (
         <div className="mt-3 md:mt-4 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5">
           <TriangleAlert className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" strokeWidth={2.2} />

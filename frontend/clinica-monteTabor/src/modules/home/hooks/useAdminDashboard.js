@@ -1,5 +1,8 @@
 const BASE = "http://localhost:4000/api/dashboard";
 
+// Valida la respuesta del fetch: si no fue exitosa, intenta leer el
+// mensaje de error del cuerpo y lanza una excepción con ese mensaje.
+// Si fue exitosa, devuelve el cuerpo ya parseado como JSON.
 const handleResponse = async (res) => {
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -8,6 +11,8 @@ const handleResponse = async (res) => {
     return res.json();
 };
 
+// Agrupa las llamadas al API de dashboard administrativo: estadísticas
+// generales, estado de doctores, estadísticas de usuarios y de reportes.
 const useAdminDashboard = () => {
     const getStats = () =>
         fetch(`${BASE}/stats`, { credentials: "include" }).then(handleResponse);

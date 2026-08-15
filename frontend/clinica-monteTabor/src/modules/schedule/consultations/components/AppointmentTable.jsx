@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 
-// El ciclo real de una cita es pending -> scheduled -> completed / cancelled
-// (ver AppointmentsForm.jsx); "scheduled" ("Programada") equivale a "en espera".
-// Mismas etiquetas que STATUS_OPTIONS en AppointmentFilters.jsx, para que el filtro y la
-// insignia de estado de esta misma tabla usen exactamente el mismo texto en español.
+// El ciclo real de una cita es pending, scheduled, completed o
+// cancelled (ver AppointmentsForm.jsx). scheduled (Programada)
+// equivale a en espera. Usa las mismas etiquetas que STATUS_OPTIONS
+// en AppointmentFilters.jsx, para que el filtro y la insignia de
+// estado de esta misma tabla usen exactamente el mismo texto en
+// español.
 const STATUS_BADGE = {
     pending: { label: "Agendado (sin confirmar)", className: "bg-slate-100 text-slate-600" },
     scheduled: { label: "En espera", className: "bg-amber-100 text-amber-700" },
@@ -15,14 +17,17 @@ const STATUS_BADGE = {
 const formatPersonName = (person) =>
     person ? `${person.name} ${person.last_name}` : "—";
 
-// Anchos proporcionales al contenido real de cada columna (no grid-cols-5 parejo): Hora es
-// corta ("14:00"), Paciente/Médico llevan nombres completos, Estado lleva la etiqueta más larga
-// ("Agendado (sin confirmar)") y Acciones un botón. Con columnas iguales, las cortas dejaban
-// mucho espacio vacío alrededor de su contenido centrado — sobre todo en los extremos (Hora a
-// la izquierda, Acciones a la derecha), que es justo lo que se veía "vacío" en las esquinas.
-// px-8 (en vez de px-6) aleja además el contenido del borde de la card. Se define una sola vez
-// para que el encabezado y las filas usen exactamente la misma plantilla y las columnas
-// coincidan siempre entre sí.
+// Anchos proporcionales al contenido real de cada columna (no
+// grid-cols-5 parejo). Hora es corta (14:00), Paciente y Médico
+// llevan nombres completos, Estado lleva la etiqueta más larga
+// (Agendado sin confirmar) y Acciones un botón. Con columnas iguales,
+// las cortas dejan mucho espacio vacío alrededor de su contenido
+// centrado, sobre todo en los extremos (Hora a la izquierda, Acciones
+// a la derecha), que es justo lo que se ve vacío en las esquinas.
+// px-8 (en vez de px-6) aleja además el contenido del borde de la
+// card. Se define una sola vez para que el encabezado y las filas
+// usen exactamente la misma plantilla y las columnas coincidan
+// siempre entre sí.
 const ROW_GRID = "grid grid-cols-[0.7fr_1.3fr_1.3fr_1.2fr_1fr] gap-x-6 px-8";
 
 const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, completedCount }) => {
@@ -32,8 +37,8 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
     const canEdit = hasPermission("calendar.consultations", "update");
 
     const handleContinue = (appointmentId) => {
-        // Navega al formulario de consulta; el cambio de estado a "completed"
-        // ocurre al guardar la consulta, no en este click.
+        // Navega al formulario de consulta. El cambio de estado a
+        // completed ocurre al guardar la consulta, no en este click.
         navigate(`/calendar/consultations/${appointmentId}`);
     };
 
@@ -51,10 +56,11 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                 </span>
             </div>
 
-            {/* Mismo patrón de columnas que la tabla comparativa de Reportes (ReportsSection.jsx):
-                grid + padding horizontal, todo centrado respecto a su título — en vez de
-                <table>, que por defecto alinea cada celda a la izquierda y sin separación
-                simétrica entre columnas. Ver ROW_GRID arriba para los anchos por columna. */}
+            {/* Mismo patrón de columnas que la tabla comparativa de Reportes
+                (ReportsSection.jsx): grid y padding horizontal, todo centrado
+                respecto a su título, en vez de <table>, que por defecto alinea
+                cada celda a la izquierda y sin separación simétrica entre
+                columnas. Ver ROW_GRID arriba para los anchos por columna. */}
             <div className="overflow-x-auto">
                 <div className="min-w-[720px] text-sm">
                     <div className={`${ROW_GRID} py-2 border-b border-slate-100 text-slate-400`}>

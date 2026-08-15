@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Calendar, Filter, Search, X } from "lucide-react";
 
-// Límite amplio pero real: evita años absurdos (5+ dígitos) al escribir a mano en el filtro de
-// fechas, sin restringir la búsqueda a un rango demasiado corto.
+// Límite amplio pero real, evita años absurdos (5 o más dígitos) al
+// escribir a mano en el filtro de fechas, sin restringir la búsqueda
+// a un rango demasiado corto.
 const MIN_DATE_STR = "2000-01-01";
 const MAX_DATE_STR = `${new Date().getFullYear() + 5}-12-31`;
 
@@ -18,9 +19,11 @@ const STATUS_OPTIONS = [
 const AppointmentFilters = ({ filters, onChange }) => {
     const hasDateFilter = Boolean(filters.dateFrom || filters.dateTo);
 
-    // Texto del buscador, separado del filtro real: solo se aplica con el botón (o Enter),
-    // igual que el buscador de AppointmentsGrid. El backend ya resuelve "search" contra nombre
-    // y apellido tanto del paciente como del doctor (ver appointmentsController.getAppointments).
+    // Texto del buscador, separado del filtro real, solo se aplica con
+    // el botón (o Enter), igual que el buscador de AppointmentsGrid. El
+    // backend ya resuelve el parámetro search contra nombre y apellido
+    // tanto del paciente como del doctor (ver
+    // appointmentsController.getAppointments).
     const [searchInput, setSearchInput] = useState(filters.search || "");
 
     const handleSearch = () => {
@@ -40,9 +43,10 @@ const AppointmentFilters = ({ filters, onChange }) => {
                     Buscar por paciente o doctor
                 </div>
                 <div className="flex items-center gap-3">
-                    {/* El botón de búsqueda vive dentro del input (a la derecha); "pr-10" le
-                        reserva ese espacio para que el texto escrito nunca lo toque — el
-                        input nativo ya hace scroll del texto hacia la izquierda por su cuenta. */}
+                    {/* El botón de búsqueda vive dentro del input (a la derecha), la
+                        clase pr-10 reserva ese espacio para que el texto escrito nunca
+                        lo toque. El input nativo ya hace scroll del texto hacia la
+                        izquierda por su cuenta. */}
                     <div className="relative max-w-md w-full">
                         <input
                             type="text"
@@ -103,8 +107,8 @@ const AppointmentFilters = ({ filters, onChange }) => {
                             className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#0b66d6]"
                         />
                     </div>
-                    {/* Solo aparece si hay una fecha puesta — es la única forma de volver a la
-                        vista general una vez que se parametrizó el filtro. */}
+                    {/* Solo aparece si hay una fecha puesta, es la única forma de volver
+                        a la vista general una vez que se parametrizó el filtro. */}
                     {hasDateFilter && (
                         <button
                             type="button"

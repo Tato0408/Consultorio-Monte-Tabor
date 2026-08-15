@@ -3,21 +3,28 @@ import { X, Loader2, Info } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
 
-// Modal genérico y compacto para agregar o editar UN antecedente hereditario o patológico —
-// mismo tamaño que IncapacidadFormModal/ProcedureModal (3 campos: a, b y tipo; sin scroll).
-// `bodyKey` es "new_hereditary" o "new_pathological" (lo que acepta PUT /patients/:id para
-// crear); `fields` = [{key,label,placeholder}] de ese tipo, en el mismo orden que las columnas
-// a/b/tipo de AntecedentesTable (el tercer campo siempre corresponde a "Tipo").
-// Sin `editEntry`: agrega uno nuevo (PUT /patients/:id, $push). Con `editEntry` ({id, a, b, tipo},
-// la fila ya formateada que arma useRecords.js): edita ese antecedente puntual, vía
-// PUT /patients/:patientId/<hereditary|pathological>/:entryId — mismo patrón que
-// VitalSignsFormModal.jsx, el segmento de la URL sale de bodyKey quitándole el prefijo "new_".
-// Máximo de 30 caracteres por campo (parentesco, condición, enfermedad, diagnóstico, tipo) —
-// evita que alguien pegue un párrafo entero en un campo pensado para 2-3 palabras cortas.
+// Modal genérico y compacto para agregar o editar un antecedente
+// hereditario o patológico, del mismo tamaño que IncapacidadFormModal y
+// ProcedureModal (tres campos: a, b y tipo, sin scroll).
+// La prop bodyKey vale new_hereditary o new_pathological, el nombre que
+// espera el PUT de creación del paciente. La prop fields es una lista de
+// objetos con key, label y placeholder de ese tipo, en el mismo orden que
+// las columnas a, b y tipo de AntecedentesTable (el tercer campo siempre
+// corresponde a Tipo).
+// Sin editEntry agrega uno nuevo (PUT al paciente). Con editEntry (la
+// fila ya formateada por useRecords.js, con id, a, b y tipo) edita ese
+// antecedente puntual, mediante un PUT a la ruta de hereditary o
+// pathological del paciente según corresponda, mismo patrón que usa
+// VitalSignsFormModal.jsx: el segmento de la ruta sale de bodyKey
+// quitándole el prefijo new_.
+// El máximo de 30 caracteres por campo (parentesco, condición,
+// enfermedad, diagnóstico, tipo) evita que alguien pegue un párrafo
+// entero en un campo pensado para dos o tres palabras cortas.
 const MAX_FIELD_LENGTH = 30;
 
-// Solo letras (con acentos/ñ), espacios, apóstrofes y guiones — mismo criterio que el resto de
-// los formularios de personas/datos del sistema (Doctors/Nurses/Receptionist/Patients Form,
+// Permite solo letras (con acentos y eñe), espacios, apóstrofes y
+// guiones, mismo criterio que el resto de los formularios de personas y
+// datos del sistema (Doctors, Nurses, Receptionist, Patients Form,
 // EditPatientModal).
 const maskText = (raw) => raw.replace(/[^A-Za-zÀ-ÿ\s'-]/g, "").slice(0, MAX_FIELD_LENGTH);
 
@@ -27,8 +34,9 @@ const AntecedentFormModal = ({ isOpen, onClose, patientId, title, editTitle, bod
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // El componente se queda montado entre aperturas (el padre solo cambia "isOpen"), así que sin
-  // esto el formulario conservaría lo último escrito, o no se precargaría con el antecedente a editar.
+  // El componente se queda montado entre aperturas, el padre solo cambia
+  // isOpen, así que sin este efecto el formulario conservaría lo último
+  // escrito o no se precargaría con el antecedente a editar.
   useEffect(() => {
     if (!isOpen) return;
     setErrors({});
@@ -56,8 +64,9 @@ const AntecedentFormModal = ({ isOpen, onClose, patientId, title, editTitle, bod
     const hasSomething = fields.some((f) => values[f.key]?.trim());
     if (!hasSomething) return;
 
-    // Si un campo viene lleno, tiene que tener al menos 2 caracteres reales (no solo espacios)
-    // — un campo vacío sigue siendo válido (no todos son obligatorios a la vez).
+    // Si un campo viene lleno, tiene que tener al menos 2 caracteres reales
+    // y no solo espacios. Un campo vacío sigue siendo válido, porque no
+    // todos son obligatorios a la vez.
     const nextErrors = {};
     fields.forEach((f) => {
       const value = values[f.key]?.trim() || "";

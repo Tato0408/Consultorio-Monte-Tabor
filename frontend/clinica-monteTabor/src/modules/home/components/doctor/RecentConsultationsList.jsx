@@ -3,6 +3,8 @@ import { User } from "lucide-react";
 
 const BORDER_COLORS = ["border-blue-400", "border-teal-400", "border-indigo-400", "border-cyan-400", "border-violet-400"];
 
+// Formatea una fecha en formato dd/mm/aaaa según la configuración regional
+// de El Salvador. Devuelve cadena vacía si no recibe fecha.
 const fmtDate = (raw) => {
     if (!raw) return "";
     const d = new Date(raw);
@@ -39,7 +41,7 @@ const RecentConsultationsList = ({ consultations = [], doctorName = "" }) => {
                                 key={c._id}
                                 className={`flex items-center gap-3 p-3 rounded-xl border-l-4 bg-slate-50 ${borderCls}`}
                             >
-                                {/* Avatar */}
+                                {/* Foto del paciente */}
                                 {c.patient?.img_url
                                     ? <img src={c.patient.img_url} alt={patName} className="w-10 h-10 rounded-full object-cover flex-shrink-0 ring-2 ring-white" />
                                     : <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-violet-100 flex items-center justify-center flex-shrink-0">
@@ -47,7 +49,7 @@ const RecentConsultationsList = ({ consultations = [], doctorName = "" }) => {
                                       </div>
                                 }
 
-                                {/* Info */}
+                                {/* Datos de la consulta */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between gap-2">
                                         <p className="text-sm font-semibold text-slate-800 truncate">{patName}</p>
@@ -59,7 +61,7 @@ const RecentConsultationsList = ({ consultations = [], doctorName = "" }) => {
                                     )}
                                 </div>
 
-                                {/* Button */}
+                                {/* Botón para ver el detalle */}
                                 <button
                                     onClick={() => navigate("/calendar/appointments")}
                                     className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-colors font-medium"

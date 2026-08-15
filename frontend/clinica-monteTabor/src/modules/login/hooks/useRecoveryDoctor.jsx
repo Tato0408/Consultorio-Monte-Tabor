@@ -10,7 +10,7 @@ export const useRecoveryDoctor = () => {
   const [error, setError] =
     useState(null);
 
-  // ENVIAR CORREO
+  // Solicita el envío del código de recuperación al correo indicado.
   const requestCode = async (
     email
   ) => {
@@ -57,7 +57,7 @@ export const useRecoveryDoctor = () => {
     }
   };
 
-  // VERIFICAR CÓDIGO
+  // Verifica el código de recuperación ingresado por el usuario.
   const verifyCode = async (
     code
   ) => {
@@ -104,8 +104,8 @@ export const useRecoveryDoctor = () => {
     }
   };
 
-  //REENVIAR CÓDIGO
-  const resendCode = 
+  // Reenvía el código de recuperación al mismo correo de la solicitud.
+  const resendCode =
   async () => {
     try {
       setLoading(true);
@@ -147,7 +147,8 @@ export const useRecoveryDoctor = () => {
     }
   };
 
-  // CAMBIAR CONTRASEÑA
+  // Envía la nueva contraseña junto con su confirmación para
+  // completar el cambio de contraseña.
   const newPassword =
     async (
       newPassword,

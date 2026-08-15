@@ -24,10 +24,12 @@ const RecordsPage = () => {
       <RecordDetailPage
         record={getRecordById(selectedId)}
         onBack={() => setSelectedId(null)}
-        // getRecordById deriva del arreglo "patients" de useRecords, así que refrescarlo aquí
-        // (no solo usePatientRecordDetail, que trae consultas/citas/incapacidades aparte) es lo
-        // que hace que datos del propio documento del paciente (nombre, tipo de sangre,
-        // antecedentes, signos vitales, procedimientos) se reflejen tras guardar un modal.
+        // getRecordById deriva del arreglo patients que trae useRecords, así que
+        // refrescarlo aquí (y no solo usePatientRecordDetail, que trae aparte
+        // las consultas, las citas y las incapacidades) es lo que hace que los
+        // datos del propio documento del paciente (nombre, tipo de sangre,
+        // antecedentes, signos vitales, procedimientos) se reflejen después de
+        // guardar un modal.
         onPatientUpdated={refetch}
       />
     );

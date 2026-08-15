@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "@/lib/apiClient";
 
+// Obtiene el historial de citas para una fecha dada, limitado a
+// limit registros. Devuelve el historial, el estado de carga, el
+// error y una función para volver a solicitar los datos.
 function useAppointmentHistory(date, limit = 5) {
     const [history, setHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(true);

@@ -1,8 +1,7 @@
-// 1. Importamos Mailjet y el archivo config
 import Mailjet from "node-mailjet";
 import { config } from "../../config.js";
 
-// 2. Conectamos con la API de Mailjet usando las claves del .env
+// Conecta con la API de Mailjet usando las claves definidas en el .env.
 const mailjet = Mailjet.apiConnect(
   config.mailjet.apiKey,
   config.mailjet.secretKey

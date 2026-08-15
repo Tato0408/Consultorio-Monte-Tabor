@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { CalendarPlus, UserPlus, FileSearch, Package, BarChart3, Shield } from "lucide-react";
 
-// Mismos destinos reales que ya existen en el sidebar/rutas del sistema — ningún atajo
-// apunta a una pantalla nueva o inventada.
+// Los accesos apuntan a los mismos destinos reales que ya existen en
+// el menú lateral y las rutas del sistema. Ningún atajo lleva a una
+// pantalla nueva o inventada.
 const ACTIONS = [
     { icon: CalendarPlus, label: "Nueva cita",      route: "/calendar/appointments/new" },
     { icon: UserPlus,     label: "Nuevo paciente",  route: "/users/patients" },
@@ -16,19 +17,19 @@ const QuickActionsSection = () => {
     const navigate = useNavigate();
 
     return (
-        // h-full: para que, cuando el contenedor padre lo estire (ver AdminDashboard.jsx,
-        // donde reemplaza a "Estado del sistema" y absorbe el espacio sobrante para que su
-        // borde inferior quede alineado con el de la columna de Reportes y estadísticas), la
-        // card ocupe toda esa altura en vez de quedarse con su alto natural de contenido.
+        // La clase h-full hace que, cuando el contenedor padre la estire (ver
+        // AdminDashboard.jsx, donde absorbe el espacio sobrante para que su borde
+        // inferior quede alineado con el de la columna de Reportes y estadísticas),
+        // la tarjeta ocupe toda esa altura en vez de quedarse con su alto natural
+        // de contenido.
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 h-full flex flex-col">
-            {/* mb-2.5 (antes mb-4): la card ahora solo tiene la mitad del alto de la barra
-                lateral (repartido con Agenda del día, ver AdminDashboard.jsx) — menos margen
-                aquí le deja más aire real a la grilla de botones de abajo. */}
+            {/* La clase mb-2.5 deja un margen menor porque la tarjeta solo tiene
+                la mitad del alto de la barra lateral, repartida con Agenda del
+                día (ver AdminDashboard.jsx). Eso le da más aire a la grilla de
+                botones de abajo. */}
             <h2 className="text-sm font-bold text-slate-800 mb-2.5">Accesos rápidos</h2>
-            {/* Botones e íconos más chicos (antes p-3.5/w-9 h-9/w-4 h-4/text-xs) para que las 3
-                filas quepan sin cortarse dentro de esa mitad de alto — con el tamaño anterior el
-                contenido de cada botón (ícono + texto) era más alto que la celda que le tocaba
-                por fila, y se veía cortado. */}
+            {/* Los botones y los íconos son pequeños para que las tres filas
+                quepan sin cortarse dentro de esa mitad de alto de la tarjeta. */}
             <div className="grid grid-cols-2 grid-rows-3 gap-2 flex-1">
                 {ACTIONS.map(({ icon: Icon, label, route }) => (
                     <button

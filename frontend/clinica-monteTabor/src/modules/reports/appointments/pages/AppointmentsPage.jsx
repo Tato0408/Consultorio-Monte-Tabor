@@ -25,8 +25,9 @@ const SkeletonSection = () => (
   </div>
 );
 
-// Página del reporte de citas: encabezado con filtros/export, tarjetas y
-// secciones comparativas. Los datos y el PDF vienen del mismo fetch.
+// Página del reporte de citas: encabezado con filtros y exportación,
+// tarjetas y secciones comparativas. Los datos y el PDF vienen del mismo
+// fetch.
 const CitasPage = () => {
   const {
     loading, error, topCards, sections, pdfData,

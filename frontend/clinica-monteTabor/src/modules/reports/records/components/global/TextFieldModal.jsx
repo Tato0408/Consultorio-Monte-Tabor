@@ -3,10 +3,12 @@ import { X, Loader2, NotebookText } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
 
-// Modal minúsculo para editar un solo campo de texto libre del expediente (ej. "Antecedentes no
-// patológicos", que en Patients.clinical_history es un único string, no una lista) — un textarea,
-// nada de scroll vertical extra. `bodyKey` es el nombre que espera PUT /patients/:id
-// (ej. "non_pathological").
+// Modal minúsculo para editar un solo campo de texto libre del
+// expediente (por ejemplo, antecedentes no patológicos, que en
+// Patients.clinical_history es un único string, no una lista). Usa un
+// textarea, sin scroll vertical adicional. La prop bodyKey es el nombre
+// del campo que espera el PUT del paciente (por ejemplo,
+// non_pathological).
 const TextFieldModal = ({ isOpen, onClose, patientId, title, bodyKey, currentValue, onSaved }) => {
   const [value, setValue] = useState(currentValue || "");
   const [loading, setLoading] = useState(false);

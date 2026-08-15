@@ -79,8 +79,7 @@ const ReceptionistProfileCard = ({ receptionist, onEdit, onDelete, canUpdate = t
         </div>
       </div>
 
-      {/* Acciones: reemplazan el menú "..." que antes vivía en la tabla (RecepcionistTable.jsx) —
-          misma función (onEdit/onDelete), ahora aplicadas al recepcionista seleccionado. */}
+      {/* Botones para editar o eliminar el recepcionista seleccionado en la tarjeta. */}
       {(canUpdate || canDelete) && (
         <div className="grid grid-cols-2 gap-2.5 p-5 pt-0">
           {canUpdate && (

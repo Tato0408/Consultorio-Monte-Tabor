@@ -1,1 +1,1 @@
-//grafico
+// Componente pendiente de implementación, todavía no renderiza ningún gráfico.

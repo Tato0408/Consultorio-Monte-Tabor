@@ -2,6 +2,10 @@ import { useNavigate } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Label } from "recharts";
 import { User, Users, UserCheck, ChevronRight } from "lucide-react";
 
+// Tarjeta con gráfico de dona que compara dos categorías de un tipo de
+// usuario (por ejemplo activos e inactivos) contra el total. Recibe el
+// total, los valores de cada categoría y los datos para armar el
+// gráfico, la leyenda y el botón de navegación.
 const DonutCard = ({
     icon, iconBg, title,
     total, first, firstLabel, firstColor, lightColor,
@@ -9,18 +13,22 @@ const DonutCard = ({
     route, btnLabel, gradId,
 }) => {
     const navigate = useNavigate();
+    // Normaliza los valores recibidos a números válidos y calcula el
+    // porcentaje de cada categoría sobre el total.
     const safe  = (n) => (isNaN(n) || n == null ? 0 : n);
     const tot   = safe(total);
     const f     = safe(first);
     const s     = safe(second);
     const pct0  = tot > 0 ? Math.round((f / tot) * 100) : 0;
     const pct1  = tot > 0 ? Math.round((s / tot) * 100) : 0;
+    // Si una categoría llega en cero, se usa un valor mínimo para que el
+    // gráfico siempre dibuje ambos segmentos.
     const data  = [{ value: f || 0.001 }, { value: s || 0.001 }];
 
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
 
-            {/* Header */}
+            {/* Encabezado */}
             <div className="px-5 pt-5 pb-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
@@ -114,6 +122,9 @@ const DonutCard = ({
     );
 };
 
+// Sección con tres tarjetas de gestión de usuarios (pacientes, doctores
+// y recepcionistas), cada una con su gráfico de dona y acceso directo
+// al listado correspondiente.
 const UserManagementSection = ({ data }) => {
     const patients      = data?.patients      || { total: 0, active: 0, inactive: 0 };
     const doctors       = data?.doctors       || { total: 0, active: 0, pending: 0 };

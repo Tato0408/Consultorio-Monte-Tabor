@@ -36,7 +36,7 @@ const ProductCombobox = ({ value, onChange, onSelect, error }) => {
   const [loading, setLoading]         = useState(false);
   const wrapRef = useRef(null);
 
-  // Cerrar al hacer clic fuera
+  // Cierra las sugerencias al hacer clic fuera del componente.
   useEffect(() => {
     const handler = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
@@ -203,8 +203,10 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
       width="w-[480px]"
       closeDisabled={loading}
     >
-      {/* El botón submit vive fuera de este <form> (footer del Modal, asociado por
-          form="form-stock"), por eso además se desactiva a mano arriba en el footer. */}
+      {/* El botón de envío vive fuera de este formulario (footer del
+          modal, enlazado mediante el atributo form con valor
+          form-stock). Por eso también se desactiva de forma manual
+          en el footer. */}
       <form id="form-stock" onSubmit={handleSubmit} className="flex flex-col gap-6">
       <fieldset disabled={loading} className="contents">
         {errors.general && (

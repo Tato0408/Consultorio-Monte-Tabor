@@ -69,12 +69,12 @@ const doctorSchema = new Schema(
       type: Number,
       default: 0,
     },
-    // Un admin también ejerce como doctor (puede configurar su propio horario y ser asignado a
-    // citas), sin dejar de ser admin en el resto del sistema — para lograrlo sin duplicar toda la
-    // lógica de horarios/citas en otro lado, se le crea automáticamente este "doctor espejo"
-    // (ver doctorsController.syncAdminMirrorDoctor). Se excluye de la gestión de doctores
-    // (GET /doctors) para no confundirlo con personal médico real, pero sí aparece en el
-    // catálogo de agendamiento (GET /doctors/catalog).
+    // Indica si este doctor es una copia automática de un admin, creada
+    // para que el admin pueda configurar su propio horario y ser asignado
+    // a citas sin dejar de ser admin en el resto del sistema (ver
+    // doctorsController.syncAdminMirrorDoctor). Se excluye de la gestión
+    // de doctores (GET doctors) pero sí aparece en el catálogo de
+    // agendamiento (GET doctors catalog).
     is_admin_mirror: {
       type: Boolean,
       default: false,

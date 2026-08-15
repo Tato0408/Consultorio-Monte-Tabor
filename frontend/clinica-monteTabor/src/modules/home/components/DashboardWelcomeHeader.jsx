@@ -1,9 +1,10 @@
 import UserIdentityChip from "./UserIdentityChip";
 
-// Header de bienvenida compartido por los 4 dashboards (admin, doctor, enfermera,
-// recepcionista): acento decorativo + avatar grande con inicial + saludo, y a la derecha
-// la píldora de identidad (foto de perfil real, nombre y rol). Antes cada dashboard tenía
-// su propio header simple sin este diseño; ahora todos usan exactamente el mismo.
+// Encabezado de bienvenida compartido por los cuatro dashboards
+// (administración, doctor, enfermería y recepción). Muestra un acento
+// decorativo de fondo, un avatar grande con la inicial del usuario y
+// el saludo a la izquierda, y a la derecha la píldora de identidad
+// (foto de perfil real, nombre y rol).
 const DashboardWelcomeHeader = ({ displayName, subtitle, user, userType }) => {
     const initial = displayName?.[0]?.toUpperCase() || "?";
 
@@ -31,10 +32,12 @@ const DashboardWelcomeHeader = ({ displayName, subtitle, user, userType }) => {
                         </p>
                     </div>
                 </div>
-                {/* sm:mt-8 la baja a la misma altura que el botón "Guardar cambios" de Horarios
-                    (ver esa misma nota en ScheduleConfig.jsx) — para que no choque con la
-                    campana de notificaciones, que ya vive en MainLayout.jsx (fixed top-right,
-                    compartida por todas las páginas) y por eso no se repite aquí. */}
+                {/* La clase sm:mt-8 baja el chip a la misma altura que el botón de
+                    guardar cambios de Horarios (ver la misma nota en
+                    ScheduleConfig.jsx), para que no choque con la campana de
+                    notificaciones que vive en MainLayout.jsx (fija, arriba a la
+                    derecha, compartida por todas las páginas) y por eso no se
+                    repite aquí. */}
                 <div className="sm:mt-8">
                     <UserIdentityChip user={user} userType={userType} />
                 </div>

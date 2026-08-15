@@ -1,8 +1,9 @@
 import { BookOpen, PackagePlus, ClipboardList, ShoppingCart } from "lucide-react";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
-// "Acciones rápidas" — se quedó sola en el panel lateral tras mover "Alertas de inventario" y
-// "Próximos a vencer" debajo de la tabla (ver InventoryAlertsRow.jsx).
+// El bloque de acciones rápidas queda solo en el panel lateral, ya
+// que las alertas de inventario y los productos próximos a vencer
+// se muestran debajo de la tabla (ver InventoryAlertsRow.jsx).
 const QuickActionsCard = ({ onManualUsage, onStockEntry, onAdjust, defaultOpen = true }) => (
   <CollapsibleCard title="Acciones rápidas" defaultOpen={defaultOpen}>
     <div className="flex flex-col gap-1">

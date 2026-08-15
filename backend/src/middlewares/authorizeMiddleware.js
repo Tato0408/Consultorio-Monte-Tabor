@@ -1,7 +1,8 @@
 import { getModulePermission } from "../services/roleCache.js";
 
-// Requiere ejecutarse despues de authenticate (necesita req.user.role).
-// Resuelve contra la cache en memoria, nunca consulta la base de datos por request.
+// Requiere ejecutarse después de authenticate (necesita req.user.role).
+// Resuelve contra la caché en memoria, nunca consulta la base de datos
+// por request.
 export const authorize = (moduleKey, accion) => {
     return (req, res, next) => {
         const role = req.user?.role;

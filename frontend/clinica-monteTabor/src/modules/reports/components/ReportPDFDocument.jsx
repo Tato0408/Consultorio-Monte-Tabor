@@ -1,10 +1,11 @@
 import { Document, Page, View, Text, StyleSheet, Svg, Polygon, Polyline, Rect } from "@react-pdf/renderer";
 import { chartColor } from "../chartColors";
 
-// Plantilla de PDF compartida por los 4 reportes (citas/pacientes/doctores/inventario).
-// Recibe el mismo objeto `pdf` que ya devuelve cada endpoint de /api/reports/*, así que el
-// PDF siempre refleja exactamente los datos que están en pantalla (mismo rango de fecha o
-// modo general) en vez de recalcular nada por su cuenta.
+// Plantilla de PDF compartida por los cuatro reportes: citas, pacientes,
+// doctores e inventario. Recibe el mismo objeto pdf que ya devuelve cada
+// endpoint de reportes del backend, de modo que el PDF siempre refleja
+// exactamente los datos mostrados en pantalla (el mismo rango de fechas o
+// el modo general) en vez de recalcular nada por su cuenta.
 
 const COLORS = {
   primary: "#3B6FCA",
@@ -85,9 +86,10 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 7.5, color: COLORS.textGray, marginBottom: 3 },
 });
 
-// Gráfico de línea simple dibujado a mano con <Polyline>, sin depender de recharts
-// (react-pdf renderiza a un motor propio, no al DOM, así que no puede usar componentes React
-// pensados para SVG del navegador)
+// Gráfico de línea simple, dibujado a mano con Polyline en vez de usar
+// recharts. react-pdf renderiza sobre un motor propio y no sobre el DOM,
+// por lo que no puede usar componentes React pensados para SVG del
+// navegador.
 const LineChartSvg = ({ data, width = 220, height = 80, color = COLORS.primary }) => {
   if (!data || data.length === 0) {
     return <Text style={{ fontSize: 7, color: COLORS.textGray }}>Sin datos en este período</Text>;
@@ -105,8 +107,9 @@ const LineChartSvg = ({ data, width = 220, height = 80, color = COLORS.primary }
   );
 };
 
-// Cada barra usa un color distinto de la paleta (misma que "Control de roles"), en vez de un
-// único tono repetido, para que cada categoría/día se distinga a simple vista.
+// Cada barra usa un color distinto de la paleta, la misma que usa la
+// pantalla de control de roles, en vez de un único tono repetido, para
+// que cada categoría o día se distinga a simple vista.
 const BarChartSvg = ({ data, width = 220, height = 80 }) => {
   if (!data || data.length === 0) {
     return <Text style={{ fontSize: 7, color: COLORS.textGray }}>Sin datos en este período</Text>;
@@ -133,6 +136,8 @@ const BarChartSvg = ({ data, width = 220, height = 80 }) => {
   );
 };
 
+// Devuelve el color según el signo del valor de variación: rojo si es
+// negativo, verde si es positivo y gris si no hay dato o es neutro.
 const variationColor = (value) => {
   if (!value || value === "—") return COLORS.textGray;
   if (value.startsWith("-")) return COLORS.red;
@@ -140,6 +145,11 @@ const variationColor = (value) => {
   return COLORS.textGray;
 };
 
+// Componente de documento PDF (react-pdf) para los reportes. Recibe en la
+// prop data los datos ya calculados por el backend (estadísticas, series
+// para los gráficos, tabla de servicios e indicadores) y el nombre de la
+// clínica, y arma una página A4 con encabezado, tarjetas de estadísticas,
+// gráficos, tabla resumen, indicadores financieros y observaciones.
 const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }) => {
   const {
     reportTitle,
@@ -170,7 +180,7 @@ const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Encabezado: logo + nombre de la clínica a la izquierda, título del reporte a la derecha */}
+        {/* Encabezado: logo y nombre de la clínica a la izquierda, título del reporte a la derecha */}
         <View style={styles.headerRow}>
           <View style={styles.clinicRow}>
             <View style={styles.hexWrap}>
@@ -229,7 +239,7 @@ const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }
           </View>
         </View>
 
-        {/* Tabla resumen (servicios / tipo de atención / categorías, según el reporte) */}
+        {/* Tabla resumen: servicios, tipo de atención o categorías, según el reporte */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionHeader}>{serviceTableTitle}</Text>
           <View style={styles.tableHeaderRow}>
@@ -252,7 +262,7 @@ const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }
           ))}
         </View>
 
-        {/* Indicadores financieros — solo si el reporte trae un promedio real que mostrar */}
+        {/* Indicadores financieros, solo si el reporte trae un promedio real que mostrar */}
         {avgRevenuePerConsult && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionHeader}>Indicadores financieros</Text>
@@ -263,7 +273,7 @@ const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }
           </View>
         )}
 
-        {/* Observaciones + información adicional */}
+        {/* Observaciones e información adicional */}
         <View style={styles.twoColRow}>
           <View style={[styles.sectionCard, styles.col]}>
             <Text style={styles.sectionHeader}>Observaciones</Text>

@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import apiClient from "../../../../lib/apiClient";
 
-// Recetas, incapacidades, referencias, laboratorios, consultas, notas de
-// evolución e impresión diagnóstica se completan aparte por
-// `usePatientRecordDetail`, que las trae desde /consultations, /appointments
-// y /sick-leaves filtradas por paciente (esta función solo arma lo que ya
-// vive directamente en el documento del paciente).
+// Las recetas, incapacidades, referencias, laboratorios, consultas, notas
+// de evolución e impresión diagnóstica se completan aparte, en el hook
+// usePatientRecordDetail, que las trae desde los endpoints de consultas,
+// citas e incapacidades filtradas por paciente. Este archivo solo arma
+// los datos que ya viven directamente en el documento del paciente.
 const DEFAULT_DOCTOR = { nombre: "Sin asignar" };
 
 export const formatFecha = (date) =>
@@ -37,7 +37,8 @@ const getImcCategoria = (imc) => {
   return "Obesidad";
 };
 
-// El paciente más reciente se calcula por fecha, sin asumir que el arreglo venga ordenado.
+// Devuelve el elemento más reciente de una lista según su campo de
+// fecha, sin asumir que la lista venga ordenada.
 const getLatestByDate = (items = [], dateField) =>
   items.reduce((latest, item) => {
     if (!item[dateField]) return latest;
@@ -63,7 +64,7 @@ const toTableRow = (patient) => {
 const getVitalSignsHistory = (vitalSigns = []) =>
   [...vitalSigns].sort((a, b) => new Date(b.last_date_taken) - new Date(a.last_date_taken));
 
-// Forma completa que consume el detalle del expediente (RecordDetailPage / ResumenTab)
+// Forma completa que consume el detalle del expediente (RecordDetailPage y ResumenTab)
 const toRecordDetail = (patient) => {
   const { sexo, sexoCorto } = getGenderLabels(patient.gender);
   const procedures = patient?.clinical_history?.procedures || [];
@@ -93,8 +94,8 @@ const toRecordDetail = (patient) => {
     apellido: patient.last_name,
     dui: patient.dui,
     edad: age != null ? `${age} años` : "—",
-    // Fecha de nacimiento cruda (además de "edad" ya formateada) — la necesita
-    // EditPatientModal para precargar el campo de fecha al editar.
+    // Fecha de nacimiento sin formatear, además del campo edad ya formateado.
+    // La necesita EditPatientModal para precargar el campo de fecha al editar.
     birthDate: patient.birth_date || null,
     sexo,
     sexoCorto,
@@ -116,17 +117,19 @@ const toRecordDetail = (patient) => {
           altura: lastVital.height ? `${lastVital.height} m` : "—",
           imc: lastVital.imc ?? "—",
           imcCategoria: getImcCategoria(lastVital.imc),
-          // El modelo de paciente no registra un "estado general" calculado; se
+          // El modelo de paciente no registra un estado general calculado, se
           // deriva de forma simple a partir de la categoría de IMC.
           estadoGeneral: getImcCategoria(lastVital.imc) === "Normal" ? "Estable" : "En seguimiento",
           ultimoRegistro: formatFecha(lastVital.last_date_taken) || "—",
         }
       : {},
-    // Historial completo de tomas, más reciente primero (para la tabla de la
-    // pestaña "Signos vitales"). "id" es el _id real del subdocumento (Mongoose lo autogenera
-    // en cada elemento del array) — lo necesita el botón de editar/eliminar una toma puntual.
-    // Todos los valores van crudos (sin unidad pegada al string) para poder precargarlos tal
-    // cual en el modal de edición; la tabla le agrega la unidad solo al mostrarlos.
+    // Historial completo de tomas, ordenado del más reciente al más antiguo,
+    // para la tabla de la pestaña Signos vitales. El campo id es el _id real
+    // del subdocumento (Mongoose lo autogenera en cada elemento del arreglo)
+    // y lo necesitan los botones de editar y eliminar una toma puntual. Todos
+    // los valores van sin formatear, sin la unidad pegada al texto, para
+    // poder precargarlos tal cual en el modal de edición. La tabla agrega la
+    // unidad solo al mostrarlos.
     signosVitalesHistorial: vitalSignsHistory.map((v) => ({
       id: String(v._id),
       fecha: formatFecha(v.last_date_taken) || "—",
@@ -138,7 +141,7 @@ const toRecordDetail = (patient) => {
       temp: v.temperature ?? "—",
       spo2: v.spo2 ?? "—",
     })),
-    // El modelo no tiene una duración registrada por procedimiento; se deja
+    // El modelo no tiene una duración registrada por procedimiento, se deja
     // como dato predeterminado hasta que exista ese campo.
     procedimientos: procedures.map((p) => ({
       nombre: p.procedure_name || "Procedimiento",
@@ -147,11 +150,13 @@ const toRecordDetail = (patient) => {
       duracion: p.duration || "—",
     })),
     antecedentes,
-    // El modelo no clasifica el "tipo" (crónico/cardio/respiratorio/psicológico)
-    // de cada antecedente, así que se deja una categoría genérica por defecto.
+    // El modelo no clasifica el tipo de antecedente (crónico, cardiológico,
+    // respiratorio, psicológico), así que se deja una categoría genérica por
+    // defecto.
     historiaClinica: {
-      // "id" es el _id real del subdocumento (Mongoose lo autogenera en cada elemento del
-      // arreglo) — lo necesitan los botones de editar/eliminar un antecedente puntual.
+      // El campo id es el _id real del subdocumento (Mongoose lo autogenera en
+      // cada elemento del arreglo) y lo necesitan los botones de editar y
+      // eliminar un antecedente puntual.
       hereditarios: (patient?.clinical_history?.hereditary || []).map((h) => ({
         id: String(h._id),
         a: h.relationship || "—",
@@ -195,8 +200,9 @@ const useRecords = () => {
   // Filas para la tabla del listado, derivadas de los pacientes ya cargados
   const records = useMemo(() => patients.map(toTableRow), [patients]);
 
-  // Expediente completo de un paciente puntual, para el renderizado tipo SPA
-  // (no dispara una petición nueva: reutiliza los pacientes que ya trajo este hook)
+  // Expediente completo de un paciente puntual, para el renderizado tipo
+  // SPA. No dispara una petición nueva: reutiliza los pacientes que ya
+  // trajo este hook.
   const getRecordById = useCallback(
     (id) => {
       const patient = patients.find((p) => p._id === id);

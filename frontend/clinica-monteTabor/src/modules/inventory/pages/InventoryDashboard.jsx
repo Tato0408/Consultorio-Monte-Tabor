@@ -24,11 +24,14 @@ const InventoryDashboard = () => {
   const { getStats } = useInsumos();
   const [stats, setStats]           = useState(null);
   const [refresh, setRefresh]       = useState(0);
-  const [modal, setModal]           = useState(null); // "add" | "edit" | "stock" | "usage" | "adjust"
+  // Puede ser add, edit, stock, usage o adjust.
+  const [modal, setModal]           = useState(null);
   const [editItem, setEditItem]     = useState(null);
-  // Distancia (en px) entre el inicio de InventoryTable y el inicio real de su <table> (después
-  // de su fila de título/búsqueda) — reportada en vivo por GenericTable, para bajar "Acciones
-  // rápidas" exactamente lo mismo y que quede alineada con la tabla, no con esos controles.
+  // Distancia en píxeles entre el inicio de InventoryTable y el
+  // inicio real de su tabla interna (después de la fila de título y
+  // búsqueda), reportada en vivo por GenericTable. Sirve para bajar
+  // el bloque de acciones rápidas la misma distancia, de modo que
+  // quede alineado con la tabla y no con esos controles superiores.
   const [tableOffset, setTableOffset] = useState(0);
 
   const loadStats = useCallback(() => {
@@ -46,8 +49,9 @@ const InventoryDashboard = () => {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Inventario</h1>
           <p className="text-sm text-slate-400 mt-1">Gestiona los insumos médicos y el stock de tu clínica</p>
         </div>
-        {/* sm:mt-8 la baja a la misma altura que el botón "Guardar cambios" de Horarios, para
-            que no choque con la campana de notificaciones (fixed, ver MainLayout.jsx). */}
+        {/* La clase sm:mt-8 baja este bloque a la misma altura que el
+            botón Guardar cambios de Horarios, para que no choque con
+            la campana de notificaciones (fixed, ver MainLayout.jsx). */}
         <div className="flex items-center gap-3 sm:flex-shrink-0 sm:mt-8">
           <button className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">
             <Download className="w-4 h-4" />
@@ -69,8 +73,9 @@ const InventoryDashboard = () => {
 
       <InventoryStats stats={stats} />
 
-      {/* items-start: cada columna toma su propia altura de contenido en vez de estirarse a la
-          de la más alta — necesario para que la medición de arriba sea real. */}
+      {/* La clase items-start hace que cada columna tome su propia
+          altura de contenido en vez de estirarse a la más alta. Esto
+          es necesario para que la medición de arriba sea real. */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6 items-start">
         <div className="lg:col-span-8">
           <InventoryTable

@@ -6,13 +6,15 @@ import { showSuccess, showError } from "@/lib/alerts";
 
 const TODAY_STR = new Date().toISOString().split("T")[0];
 const MIN_YEAR = 2000;
-// Tope amplio (una incapacidad rara vez dura años, pero da margen razonable) — sigue siendo un
-// año real de 4 dígitos, que es justo lo que un <input type="date"> sin límite no garantiza.
+// Tope amplio: una incapacidad rara vez dura años, pero da margen
+// razonable. Sigue siendo un año real de 4 dígitos, que es justo lo que
+// un input de tipo fecha sin límite no garantiza.
 const MAX_DATE_STR = `${new Date().getFullYear() + 2}-12-31`;
 
-// Modal simple para crear una incapacidad (SickLeave) desde el expediente.
-// Es un recurso independiente (patient_id + doctor_id), no depende de una
-// consulta, por eso no reusa el flujo de /calendar/consultations.
+// Modal simple para crear una incapacidad (SickLeave) desde el
+// expediente. Es un recurso independiente, identificado por patient_id y
+// doctor_id, que no depende de una consulta. Por eso no reusa el flujo
+// del módulo de calendario y consultas.
 const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved }) => {
   const [loading, setLoading] = useState(false);
   const {
@@ -82,8 +84,9 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
-          {/* fieldset con display:contents — desactiva todos los inputs/botones que contiene
-              de un solo golpe durante el envío, sin alterar el layout */}
+          {/* El fieldset con display contents desactiva todos los inputs y
+              botones que contiene de un solo golpe durante el envío, sin alterar
+              el layout. */}
           <fieldset disabled={loading} className="contents">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-500">Diagnóstico</label>
@@ -115,9 +118,9 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved })
                 max={MAX_DATE_STR}
                 {...register("start_date", {
                   required: "Requerido",
-                  // Mismo problema que reportaste: un <input type="date"> deja escribir un año
-                  // de más de 4 dígitos si no se valida a mano (min/max del input no siempre lo
-                  // bloquea mientras se escribe).
+                  // Un input de tipo fecha deja escribir un año de más de 4
+                  // dígitos si no se valida a mano, los atributos min y max
+                  // del input no siempre lo bloquean mientras se escribe.
                   validate: (value) => {
                     if (!value) return true;
                     if (value.length !== 10) return "Fecha inválida";

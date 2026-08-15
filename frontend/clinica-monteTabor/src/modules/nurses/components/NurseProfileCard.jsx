@@ -103,8 +103,7 @@ const NurseProfileCard = ({ nurse, nextProcedure, loadingDetail, onEdit, onDelet
         </div>
       </div>
 
-      {/* Acciones: reemplazan el menú "..." que antes vivía en la tabla (NurseTable.jsx) —
-          misma función (onEdit/onDelete), ahora aplicadas a la enfermera seleccionada. */}
+      {/* Botones para editar o eliminar la enfermera seleccionada en la tarjeta. */}
       {(canUpdate || canDelete) && (
         <div className="grid grid-cols-2 gap-2.5 p-5 pt-0">
           {canUpdate && (

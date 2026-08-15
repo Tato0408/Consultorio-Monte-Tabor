@@ -95,8 +95,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
     }
   };
 
-  // Mascara de solo-letras (nombres/apellidos) — mismo patron que handlePhoneMask/handleDuiMask:
-  // el onChange sobreescribe el del register y dispara la validacion manualmente.
+  // Mascara de solo letras (nombres y apellidos). Igual que handlePhoneMask
+  // y handleDuiMask, el onChange sobreescribe el del register y dispara la
+  // validacion manualmente.
   const makeLettersMaskHandler = (field, max) => (e) =>
     setValue(field, maskLettersOnly(e.target.value, max), { shouldValidate: true });
 
@@ -118,8 +119,8 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
     if (loading) return;
     if (!isEditMode && !isPasswordValid) return;
 
-    // Al crear, la foto de perfil es obligatoria (el backend también lo exige); se avisa
-    // aquí antes de mandar la petición
+    // Al crear, la foto de perfil es obligatoria (el backend tambien lo
+    // exige). Se avisa aqui antes de mandar la peticion.
     if (!isEditMode && !imageFile) {
       setImageError("La foto de perfil es requerida");
       showError("Revisa este/estos campo(s): Foto de perfil");
@@ -157,9 +158,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
     }
   };
 
-  // Se dispara cuando el envío falla la validación (campos vacíos o con formato inválido);
-  // además del contorno rojo y el mensaje debajo de cada input, avisa arriba a la derecha
-  // qué campo(s) específicos hay que corregir.
+  // Se dispara cuando el envio falla la validacion (campos vacios o con
+  // formato invalido). Ademas del contorno rojo y el mensaje debajo de cada
+  // input, avisa arriba a la derecha que campos hay que corregir.
   const onInvalid = (formErrors) => {
     const invalidFields = Object.keys(formErrors).map((key) => FIELD_LABELS[key] || key);
     showError(`Revisa este/estos campo(s): ${invalidFields.join(", ")}`);
@@ -219,8 +220,9 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
         </h2>
 
         <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="w-full flex flex-col gap-4">
-          {/* fieldset con display:contents — desactiva todos los inputs/botones que contiene
-              de un solo golpe durante el envío, sin alterar el layout */}
+          {/* El fieldset usa display:contents para desactivar de un solo golpe
+              todos los inputs y botones que contiene durante el envio, sin
+              alterar el layout. */}
           <fieldset disabled={loading} className="contents">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -334,7 +336,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
               {errors.birth_date && <span className="text-[10px] text-red-500 font-medium px-1">{errors.birth_date.message}</span>}
             </div>
 
-            {/* Estado — solo en edición */}
+            {/* Estado: solo en edicion */}
             {isEditMode && (
               <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label className="text-xs font-semibold text-gray-400">Estado de la cuenta</label>
@@ -366,7 +368,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
             )}
           </div>
 
-          {/* Contraseña — solo en creación */}
+          {/* Contraseña: solo en creacion */}
           {!isEditMode && (
             <div className="flex flex-col gap-3 w-full border-t border-gray-100 pt-4 mt-2">
               <div className="flex flex-col gap-1.5 relative">
@@ -379,8 +381,8 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
                     maxLength={100}
                     {...register("password", {
                       required: "La contraseña es requerida",
-                      // La validación visual la manejan los ValidationRow,
-                      // pero bloqueamos el submit si no está completa
+                      // La validacion visual la muestran los ValidationRow,
+                      // pero el envio queda bloqueado si no esta completa.
                       validate: () =>
                         isPasswordValid || "La contraseña no cumple con los requisitos de seguridad",
                     })}

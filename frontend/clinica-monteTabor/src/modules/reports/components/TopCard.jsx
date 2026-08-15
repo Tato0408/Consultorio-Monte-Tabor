@@ -8,11 +8,13 @@ import { ExternalLink } from "lucide-react";
 import { chartColor } from "../chartColors";
 import { useAuth } from "@/context/AuthContext";
 
-// El backend manda el mismo linkLabel literal para cada reporte (reportsController.js), y cada
-// uno en realidad apunta a OTRO módulo del sistema, no al del propio reporte — por eso el enlace
-// solo debe verse/funcionar cuando el usuario tiene permiso de "Ver" en ese módulo relacionado
-// (mismo criterio que MODULE_VIEW_DEPENDENCIES usa para el Expediente, pero aquí el enlace
-// entero se oculta en vez de solo advertir).
+// El backend manda el mismo linkLabel literal para cada reporte
+// (reportsController.js), y cada uno en realidad apunta a otro módulo
+// del sistema, no al del propio reporte. Por eso el enlace solo debe
+// verse y funcionar cuando el usuario tiene permiso de ver ese módulo
+// relacionado (mismo criterio que usa MODULE_VIEW_DEPENDENCIES para el
+// Expediente, aunque aquí el enlace completo se oculta en vez de solo
+// mostrar una advertencia).
 const LINK_TARGETS = {
   "Ver todos los pacientes": { to: "/users/patients", moduleKey: "users.patients" },
   "Ver todos los doctores": { to: "/users/doctors", moduleKey: "users.doctors" },
@@ -163,9 +165,10 @@ const ListCard = ({ card }) => {
         ))}
       </ol>
 
-      {/* El enlace solo se muestra cuando el usuario tiene permiso de ver el módulo al que
-          apunta — si no, ni siquiera aparece (a diferencia del Expediente, que sí se muestra
-          pero con una advertencia). */}
+      {/* El enlace solo se muestra cuando el usuario tiene permiso de ver el
+          módulo al que apunta. Si no lo tiene, ni siquiera aparece, a
+          diferencia del Expediente, que sí se muestra pero con una
+          advertencia. */}
       {canFollowLink && (
         <button
           type="button"
@@ -180,7 +183,8 @@ const ListCard = ({ card }) => {
   );
 };
 
-// Actúa como router: según la forma del `card` recibido, elige qué variante renderizar
+// Actúa como router: según la forma del objeto card recibido, elige qué
+// variante renderizar.
 const TopCard = ({ card }) => {
   if (card.listItems) return <ListCard card={card} />;
   if (card.chartType === "pie") return <PieCard card={card} />;

@@ -1,7 +1,7 @@
 import GenericTable from "@/components/ui/GenericTable";
 
-// Las acciones de editar/eliminar ya no viven aquí — se movieron a botones dentro de
-// DoctorProfileCard.jsx (el panel de la derecha), para no necesitar un menú por fila.
+// Los botones de editar y eliminar viven en DoctorProfileCard.jsx (el panel
+// derecho), por lo que esta tabla no necesita un menu de acciones por fila.
 const DoctorsTable = ({
   doctors,
   loading,
@@ -9,12 +9,10 @@ const DoctorsTable = ({
   onSelectDoctor,
   onOpenForm,
 }) => {
-  // Si hay un error, lo seguimos manejando de manera limpia en la parte superior
   if (error) {
     return <p className="mt-5 text-red-500 text-sm text-center">Error: {error}</p>;
   }
 
-  // Definición de las columnas específicas para Doctores
   const columns = [
     {
       header: "Nombre",
@@ -55,7 +53,8 @@ const DoctorsTable = ({
       data={doctors}
       columns={columns}
       loading={loading}
-      searchFields={["name", "last_name", "email"]} // Filtra interactivamente usando estos campos
+      // Campos usados para filtrar la tabla en el buscador interactivo
+      searchFields={["name", "last_name", "email"]}
       onAdd={onOpenForm}
       addLabel="Agregar doctor"
       onRowClick={onSelectDoctor}

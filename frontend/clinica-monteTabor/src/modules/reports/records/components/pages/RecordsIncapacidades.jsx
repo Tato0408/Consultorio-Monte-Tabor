@@ -6,9 +6,11 @@ import { Badge } from "../global/ui";
 import { useAuth } from "@/context/AuthContext";
 import IncapacidadFormModal from "../global/IncapacidadFormModal";
 
-// Mismo patrón de tabla paginada que RecordsProcedures.jsx — las incapacidades pueden acumularse
-// con el tiempo, así que no van en un modal (ver PD del análisis del expediente).
-// Espera `patient.incapacidades` = [{ nombre, fecha, estado }] (de usePatientRecordDetail).
+// Mismo patrón de tabla paginada que usa RecordsProcedures.jsx. Las
+// incapacidades pueden acumularse con el tiempo, así que no van en un
+// modal (ver el análisis del expediente).
+// Espera que patient.incapacidades sea una lista de objetos con nombre,
+// fecha y estado, que arma usePatientRecordDetail.
 export default function IncapacidadesTab({ patient = {}, onSaved }) {
   const { hasPermission, user } = useAuth();
   const canCreate = hasPermission("reports.records", "create");

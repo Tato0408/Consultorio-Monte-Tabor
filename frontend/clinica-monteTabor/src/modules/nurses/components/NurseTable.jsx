@@ -1,9 +1,8 @@
 import GenericTable from "@/components/ui/GenericTable";
 
-// Las acciones de editar/eliminar ya no viven aquí — se movieron a botones dentro de
-// NurseProfileCard.jsx (el panel de la derecha), para no necesitar un menú por fila.
+// Los botones de editar y eliminar viven en NurseProfileCard.jsx (el panel
+// derecho), por lo que esta tabla no necesita un menu de acciones por fila.
 const NurseTable = ({ nurses, loading, onSelect, onAdd }) => {
-  // Definición de Columnas de la Tabla de Enfermeras
   const columns = [
     {
       header: "Nombre",
@@ -37,7 +36,6 @@ const NurseTable = ({ nurses, loading, onSelect, onAdd }) => {
     },
   ];
 
-  // Consumimos el componente base pasándole una fila clickeable personalizada si se requiere
   return (
     <GenericTable
       title="Administración de enfermeras"
@@ -45,7 +43,8 @@ const NurseTable = ({ nurses, loading, onSelect, onAdd }) => {
       data={nurses}
       columns={columns}
       loading={loading}
-      searchFields={["name", "last_name", "dui"]} // Campos para la búsqueda combinada full-name/dui
+      // Campos usados para filtrar la tabla en el buscador interactivo
+      searchFields={["name", "last_name", "dui"]}
       onAdd={onAdd}
       addLabel="Añadir enfermera"
       onRowClick={onSelect}

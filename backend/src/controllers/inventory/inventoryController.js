@@ -6,7 +6,7 @@ import { getNonNegativeError, escapeRegex } from "../../utils/validators.js";
 
 const inventoryController = {};
 
-// ── GET todos (paginación + filtros) ──────────────────────────────────────────
+// GET todos, con paginación y filtros.
 inventoryController.getAll = async (req, res) => {
   try {
     const { page = 1, limit = 8, category, status, search } = req.query;
@@ -45,7 +45,7 @@ inventoryController.getAll = async (req, res) => {
   }
 };
 
-// ── GET por ID ────────────────────────────────────────────────────────────────
+// GET por id.
 inventoryController.getById = async (req, res) => {
   try {
     const item = await inventoryModel.findById(req.params.id);
@@ -56,7 +56,7 @@ inventoryController.getById = async (req, res) => {
   }
 };
 
-// ── POST crear insumo ─────────────────────────────────────────────────────────
+// POST, crea un insumo.
 inventoryController.create = async (req, res) => {
   try {
     const {
@@ -105,7 +105,7 @@ inventoryController.create = async (req, res) => {
   }
 };
 
-// ── PUT actualizar insumo ─────────────────────────────────────────────────────
+// PUT, actualiza un insumo.
 inventoryController.update = async (req, res) => {
   try {
     const { id } = req.params;
@@ -141,7 +141,7 @@ inventoryController.update = async (req, res) => {
   }
 };
 
-// ── DELETE eliminar insumo ────────────────────────────────────────────────────
+// DELETE, elimina un insumo.
 inventoryController.remove = async (req, res) => {
   try {
     const item = await inventoryModel.findById(req.params.id);
@@ -161,7 +161,7 @@ inventoryController.remove = async (req, res) => {
   }
 };
 
-// ── GET estadísticas dashboard ────────────────────────────────────────────────
+// GET, estadísticas del dashboard.
 inventoryController.getStats = async (req, res) => {
   try {
     const total = await inventoryModel.countDocuments();
@@ -227,16 +227,19 @@ inventoryController.getStats = async (req, res) => {
 
     console.log("[stats] proximosAVencer:", expiringSoon);
 
-    // ── Tendencias reales de los últimos 7 días para las mini-gráficas (sparklines) de las
-    // tarjetas KPI de InventoryStats.jsx — antes eran arreglos fijos sin relación con los datos.
-    // No existe una colección de "snapshots" históricos de stock, así que se reconstruye a partir
-    // del stock ACTUAL de cada producto, deshaciendo hacia atrás los movimientos de la bitácora
-    // (movements.quantity ya es positivo=entrada / negativo=salida — ver models/inventory/movements.js).
+    // Tendencias reales de los últimos 7 días para las mini gráficas
+    // (sparklines) de las tarjetas KPI de InventoryStats.jsx. No
+    // existe una colección de snapshots históricos de stock, así que
+    // se reconstruye a partir del stock actual de cada producto,
+    // deshaciendo hacia atrás los movimientos de la bitácora
+    // (movements.quantity ya es positivo para entradas y negativo
+    // para salidas, ver models/inventory/movements.js).
     const MS_DAY = 24 * 60 * 60 * 1000;
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
-    // dayBoundaries[0] = fin de hoy (el "ahora" de cada producto, sin deshacer nada) ...
-    // dayBoundaries[6] = fin de hace 6 días.
+    // dayBoundaries[0] es el fin de hoy (el momento actual de cada
+    // producto, sin deshacer nada) y dayBoundaries[6] es el fin de
+    // hace 6 días.
     const dayBoundaries = Array.from({ length: 7 }, (_, i) =>
       new Date(startOfToday.getTime() + MS_DAY - 1 - i * MS_DAY)
     );
@@ -266,8 +269,9 @@ inventoryController.getStats = async (req, res) => {
       let ptr = 0;
       for (let i = 0; i < 7; i++) {
         const cutoff = dayBoundaries[i];
-        // Deshace (resta) los movimientos posteriores a este corte de día, para dejar "running"
-        // como el stock que tenía este producto justo al final de ese día.
+        // Deshace (resta) los movimientos posteriores a este corte de
+        // día, para dejar running como el stock que tenía este
+        // producto justo al final de ese día.
         while (ptr < itemMovements.length && itemMovements[ptr].date > cutoff) {
           running -= itemMovements[ptr].quantity;
           ptr++;
@@ -278,8 +282,9 @@ inventoryController.getStats = async (req, res) => {
       }
     }
 
-    // "Utilizados" no necesita reconstrucción: es la suma directa de movimientos de uso
-    // (Treatment use / Manual use) que realmente ocurrieron cada día.
+    // Utilizados no necesita reconstrucción: es la suma directa de
+    // movimientos de uso (Treatment use y Manual use) que realmente
+    // ocurrieron cada día.
     for (const m of recentMovements) {
       if (m.type !== "Treatment use" && m.type !== "Manual use") continue;
       const movementDayStart = new Date(m.date);
@@ -288,8 +293,8 @@ inventoryController.getStats = async (req, res) => {
       if (daysAgo >= 0 && daysAgo < 7) usedTrend[daysAgo] += Math.abs(m.quantity);
     }
 
-    // Etiquetas dd/mm en orden cronológico (hace 6 días -> hoy), mismo formato que dailyMovements
-    // en getCharts.
+    // Etiquetas en formato dd/mm en orden cronológico (de hace 6 días
+    // a hoy), mismo formato que dailyMovements en getCharts.
     const dayLabel = (daysAgo) => {
       const d = new Date(startOfToday.getTime() - daysAgo * MS_DAY);
       return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -322,7 +327,7 @@ inventoryController.getStats = async (req, res) => {
   }
 };
 
-// ── GET movimientos recientes ─────────────────────────────────────────────────
+// GET, movimientos recientes.
 inventoryController.getMovements = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
@@ -338,7 +343,7 @@ inventoryController.getMovements = async (req, res) => {
   }
 };
 
-// ── POST ajuste de inventario ─────────────────────────────────────────────────
+// POST, ajuste de inventario.
 inventoryController.adjustStock = async (req, res) => {
   try {
     const { id } = req.params;
@@ -376,7 +381,7 @@ inventoryController.adjustStock = async (req, res) => {
   }
 };
 
-// ── POST entrada de stock ─────────────────────────────────────────────────────
+// POST, entrada de stock.
 inventoryController.stockEntry = async (req, res) => {
   try {
     const { name, category, unit_measure, supplier, quantity, unit_cost, detalle } = req.body;
@@ -388,15 +393,17 @@ inventoryController.stockEntry = async (req, res) => {
     const qty  = Number(quantity);
     const cost = Number(unit_cost) || 0;
 
-    // Buscar si ya existe por nombre — comparación insensible a mayúsculas/minúsculas y a
-    // espacios extra ("Guantes" y "guantes " deben fusionar el mismo producto, no crear uno
-    // duplicado).
+    // Busca si ya existe por nombre, comparación insensible a
+    // mayúsculas y a espacios extra (Guantes y guantes con espacio
+    // deben fusionar el mismo producto, no crear uno duplicado).
     const normalizedName = String(name || "").trim();
     let item = await inventoryModel.findOne({ name: new RegExp(`^${escapeRegex(normalizedName)}$`, "i") });
 
-    // La categoría es obligatoria SOLO cuando esta entrada va a crear un producto nuevo (si ya
-    // existe, conserva la categoría con la que se registró la primera vez). Sin este chequeo, un
-    // producto podía quedar sin categoría y desaparecer del gráfico "por categoría".
+    // La categoría es obligatoria solo cuando esta entrada va a crear
+    // un producto nuevo (si ya existe, conserva la categoría con la
+    // que se registró la primera vez). Sin este chequeo, un producto
+    // podía quedar sin categoría y desaparecer del gráfico por
+    // categoría.
     if (!item && !String(category || "").trim()) {
       return res.status(400).json({ message: "La categoría es requerida para registrar un producto nuevo." });
     }
@@ -429,7 +436,7 @@ inventoryController.stockEntry = async (req, res) => {
   }
 };
 
-// ── POST uso manual ───────────────────────────────────────────────────────────
+// POST, uso manual.
 inventoryController.manualUsage = async (req, res) => {
   try {
     const { responsible, reason, patient, items } = req.body;
@@ -464,7 +471,7 @@ inventoryController.manualUsage = async (req, res) => {
   }
 };
 
-// ── POST descontar desde procedimiento ───────────────────────────────────────
+// POST, descuenta inventario desde un procedimiento.
 inventoryController.discountFromProcedure = async (req, res) => {
   try {
     const { patientName, responsible, procedureType, items } = req.body;
@@ -499,16 +506,16 @@ inventoryController.discountFromProcedure = async (req, res) => {
   }
 };
 
-// ── Descuento real de inventario al registrar un procedimiento en el Expediente ───────────────
-// Llamada directamente desde patientsController (no por HTTP) cuando se registra un procedimiento
-// nuevo en la ficha de un paciente (new_procedure). ProceduresForm.jsx siempre prometió "los
-// materiales serán descontados del inventario al asignar el procedimiento", pero ningún código lo
-// hacía realmente — solo se descontaba si, aparte, un doctor llenaba a mano "material_used" en
-// una consulta (ver applyMaterialUsageDelta, más abajo). Esto usa directamente el catálogo de
-// materiales YA definido en el procedimiento (Procedures.materials), sin depender de que alguien
-// los vuelva a escribir. Los materiales sin "insumo" vinculado (ver ProceduresForm.jsx — materiales
-// "legacy" con solo un nombre libre) se ignoran silenciosamente: no hay ningún insumo real que
-// descontar.
+// Descuento real de inventario al registrar un procedimiento en el
+// expediente.
+// Se llama directamente desde patientsController (no por HTTP) cuando
+// se registra un procedimiento nuevo en la ficha de un paciente
+// (new_procedure). Usa directamente el catálogo de materiales ya
+// definido en el procedimiento (Procedures.materials), sin depender
+// de que alguien los vuelva a escribir. Los materiales sin insumo
+// vinculado (materiales antiguos con solo un nombre libre, ver
+// ProceduresForm.jsx) se ignoran silenciosamente: no hay ningún
+// insumo real que descontar.
 inventoryController.discountMaterialsForProcedure = async ({ materials, patientName, responsible, procedureType }) => {
   for (const material of materials || []) {
     const quantity = Number(material.quantity) || 0;
@@ -534,9 +541,10 @@ inventoryController.discountMaterialsForProcedure = async ({ materials, patientN
   }
 };
 
-// ── Descuento real de inventario al guardar una consulta ──────────────────────
-// Suma la cantidad usada por insumo a través de todos los procedimientos de una consulta
-// (una misma consulta puede tener varios procedimientos, y cada uno varios materiales).
+// Descuento real de inventario al guardar una consulta.
+// Suma la cantidad usada por insumo a través de todos los
+// procedimientos de una consulta (una misma consulta puede tener
+// varios procedimientos, y cada uno varios materiales).
 const sumMaterialUsage = (procedureRows) => {
   const totals = new Map();
   for (const proc of procedureRows || []) {
@@ -549,11 +557,13 @@ const sumMaterialUsage = (procedureRows) => {
   return totals;
 };
 
-// Llamada directamente desde consultationController (no por HTTP) al crear o editar una
-// consulta, para que "material_used" deje de ser un dato inerte y realmente descuente stock.
-// Compara lo que la consulta usaba ANTES contra lo que usa AHORA y solo mueve la diferencia:
-// así, editar una consulta ya guardada no vuelve a descontar el total desde cero, y si el
-// doctor reduce/quita un material, la diferencia se repone automáticamente.
+// Se llama directamente desde consultationController (no por HTTP) al
+// crear o editar una consulta, para que material_used descuente
+// stock de verdad. Compara lo que la consulta usaba antes contra lo
+// que usa ahora y solo mueve la diferencia: así, editar una consulta
+// ya guardada no vuelve a descontar el total desde cero, y si el
+// doctor reduce o quita un material, la diferencia se repone
+// automáticamente.
 inventoryController.applyMaterialUsageDelta = async ({
   previousProcedureRows,
   procedureRows,
@@ -595,7 +605,7 @@ inventoryController.applyMaterialUsageDelta = async ({
   }
 };
 
-// ── GET datos para gráficas ───────────────────────────────────────────────────
+// GET, datos para gráficas.
 inventoryController.getCharts = async (req, res) => {
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

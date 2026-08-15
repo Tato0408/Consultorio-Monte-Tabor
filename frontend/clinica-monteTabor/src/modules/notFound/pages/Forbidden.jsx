@@ -2,8 +2,9 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { Home, ShieldCheck, Lock } from "lucide-react";
 
-// Misma ilustración (lupa con carita triste + nubes) que NotFound.jsx, reutilizada tal cual
-// para que ambas pantallas de error compartan identidad visual.
+// Misma ilustración (lupa con carita triste y nubes) que NotFound.jsx,
+// reutilizada tal cual para que ambas pantallas de error compartan
+// identidad visual.
 const SearchIllustration = () => (
   <svg viewBox="0 0 220 170" className="w-48 h-auto" fill="none" xmlns="http://www.w3.org/2000/svg">
     {/* Sombra */}
@@ -48,17 +49,20 @@ const SearchIllustration = () => (
   </svg>
 );
 
-// Pantalla 403: se muestra en vez del contenido real cuando el rol autenticado no tiene
-// permiso de "view" sobre el módulo de la ruta actual (ver RequirePermission.jsx). A
-// diferencia de NotFound.jsx (que puede toparse con un usuario sin sesión), aquí siempre
-// hay una sesión válida — solo falta el permiso — así que el botón principal manda
-// directo al panel en vez de a login/registro.
+// Pantalla 403, se muestra en vez del contenido real cuando el rol
+// autenticado no tiene permiso de vista sobre el módulo de la ruta
+// actual (ver RequirePermission.jsx). A diferencia de NotFound.jsx,
+// que puede toparse con un usuario sin sesión, aquí siempre hay una
+// sesión válida, solo falta el permiso, así que el botón principal
+// manda directo al panel en vez de a inicio de sesión o registro.
 //
-// A diferencia de NotFound.jsx (que es una ruta de nivel superior, fuera de MainLayout, y por
-// eso ya ocupa toda la pantalla sola), esta pantalla se renderiza DENTRO del <Outlet /> de
-// MainLayout — si no hiciera nada especial, quedaría encajada junto al sidebar como si fuera
-// una sección más. Un portal a document.body + position fixed la saca de ese layout y la pone
-// por encima de todo (sidebar incluido), logrando el mismo resultado de pantalla completa.
+// A diferencia de NotFound.jsx, que es una ruta de nivel superior
+// fuera de MainLayout y por eso ya ocupa toda la pantalla sola, esta
+// pantalla se renderiza dentro del Outlet de MainLayout. Sin hacer
+// nada especial quedaría encajada junto al sidebar como una sección
+// más. Un portal a document.body con position fixed la saca de ese
+// layout y la pone por encima de todo, incluido el sidebar, logrando
+// el mismo resultado de pantalla completa.
 const Forbidden = () => {
   return createPortal(
     <div className="fixed inset-0 z-[100] overflow-hidden bg-[#F7F8FC] flex flex-col">

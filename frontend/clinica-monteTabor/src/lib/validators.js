@@ -15,10 +15,10 @@ export const getMaxAdultBirthDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-// Interpreta "YYYY-MM-DD" como año/mes/día LOCALES. new Date("YYYY-MM-DD") a secas se interpreta
-// como medianoche UTC y luego getMonth()/getDate() la leen en hora local — en zonas horarias
-// detrás de UTC eso corre la fecha un día hacia atrás. El constructor (year, month, day) evita
-// ese corrimiento.
+// Interpreta "YYYY-MM-DD" como año, mes y día locales. new Date("YYYY-MM-DD") a secas se
+// interpreta como medianoche UTC, y luego getMonth() y getDate() la leen en hora local, lo
+// que en zonas horarias detrás de UTC corre la fecha un día hacia atrás. El constructor
+// (year, month, day) evita ese corrimiento.
 const parseDateOnly = (value) => {
   const datePart = String(value).trim().split("T")[0];
   const [year, month, day] = datePart.split("-").map(Number);

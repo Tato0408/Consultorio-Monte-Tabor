@@ -1,12 +1,3 @@
-/*
-patient_id,
-doctor_id,
-consultation_id,
-diagnosis,
-start_date,
-end_date,
-status
-*/
 import mongoose, { Schema, model } from "mongoose";
 
 const sickLeaveSchema = new Schema(

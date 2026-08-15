@@ -19,25 +19,23 @@ import {
 
 const reportsController = {};
 
-// Las citas solo tienen 2 valores reales de "type" (no existe un campo de
-// especialidad médica), así que son la agrupación de "servicio" más fiel a los datos.
+// Las citas solo tienen 2 valores reales de type (no existe un campo
+// de especialidad médica), así que son la agrupación de servicio más
+// fiel a los datos.
 const TYPE_GENERAL = "Consulta Médica General";
 const TYPE_PROCEDURE = "Procedimiento";
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/reports/appointments?dateFrom=&dateTo=&general=true
-// ─────────────────────────────────────────────────────────────────────────────
 reportsController.getAppointmentsReport = async (req, res) => {
     try {
         const range = resolveRange(req.query);
         const { isGeneral, start, end, prevStart, prevEnd } = range;
 
-        // Los 4 reportes (citas/pacientes/doctores/inventario) muestran siempre los datos
-        // generales de toda la clínica, sin importar el rol de quien los consulta — igual que
-        // getPatientsReport/getDoctorsReport/getInventoryReport, que nunca filtraron por
-        // usuario. Antes este reporte SÍ acotaba por doctor_id cuando el rol era "doctor", lo
-        // que además de la inconsistencia con los otros 3, dejaba a un doctor sin citas propias
-        // viendo el reporte completamente vacío aunque la clínica sí tuviera actividad.
+        // Los 4 reportes (citas, pacientes, doctores, inventario)
+        // muestran siempre los datos generales de toda la clínica,
+        // sin importar el rol de quien los consulta, igual que
+        // getPatientsReport, getDoctorsReport y getInventoryReport,
+        // que tampoco filtran por usuario.
         const curFilter = dateFilter("date", start, end);
         const prevFilter = isGeneral ? {} : dateFilter("date", prevStart, prevEnd);
         const countCur = (extra = {}) => appointmentsModel.countDocuments({ ...curFilter, ...extra });
@@ -73,12 +71,15 @@ reportsController.getAppointmentsReport = async (req, res) => {
             countCur({ status: "pending" }), countPrev({ status: "pending" }),
             countCur({ type: TYPE_GENERAL }), countPrev({ type: TYPE_GENERAL }),
             countCur({ type: TYPE_PROCEDURE }), countPrev({ type: TYPE_PROCEDURE }),
-            // Conteos SOLO de completadas por tipo, para el gráfico/tabla del PDF; la sección
-            // en pantalla "Tipo de atención" usa el conteo total porque mide volumen de reservas.
+            // Conteos solo de completadas por tipo, para el gráfico y
+            // la tabla del PDF. La sección en pantalla tipo de
+            // atención usa el conteo total porque mide volumen de
+            // reservas.
             countCur({ type: TYPE_GENERAL, status: "completed" }), countPrev({ type: TYPE_GENERAL, status: "completed" }),
             countCur({ type: TYPE_PROCEDURE, status: "completed" }), countPrev({ type: TYPE_PROCEDURE, status: "completed" }),
-            // Los ingresos solo cuentan citas COMPLETADAS — una cancelada o no-show no generó
-            // ingreso real aunque tenga un "total" (precio) guardado desde que se agendó.
+            // Los ingresos solo cuentan citas completadas, una
+            // cancelada o no-show no generó ingreso real aunque
+            // tenga un total (precio) guardado desde que se agendó.
             sumTotal({ ...curFilter, status: "completed" }), isGeneral ? Promise.resolve(0) : sumTotal({ ...prevFilter, status: "completed" }),
             sumTotal({ ...curFilter, status: "completed", type: TYPE_GENERAL }), isGeneral ? Promise.resolve(0) : sumTotal({ ...prevFilter, status: "completed", type: TYPE_GENERAL }),
             sumTotal({ ...curFilter, status: "completed", type: TYPE_PROCEDURE }), isGeneral ? Promise.resolve(0) : sumTotal({ ...prevFilter, status: "completed", type: TYPE_PROCEDURE }),
@@ -183,8 +184,9 @@ reportsController.getAppointmentsReport = async (req, res) => {
             },
         ];
 
-        // cur/prev son conteos de citas COMPLETADAS por tipo, así "Consultas" e "Ingresos"
-        // quedan consistentes en la misma fila: ambas reflejan solo lo atendido.
+        // cur y prev son conteos de citas completadas por tipo, así
+        // consultas e ingresos quedan consistentes en la misma fila:
+        // ambas reflejan solo lo atendido.
         const serviceRow = (servicio, cur, prev, revCur, revPrev) => ({
             servicio,
             consultas: cur,
@@ -242,9 +244,7 @@ reportsController.getAppointmentsReport = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/reports/patients?dateFrom=&dateTo=&general=true
-// ─────────────────────────────────────────────────────────────────────────────
 reportsController.getPatientsReport = async (req, res) => {
     try {
         const range = resolveRange(req.query);
@@ -271,8 +271,9 @@ reportsController.getPatientsReport = async (req, res) => {
         const distinctAttended = (filter, type) =>
             appointmentsModel.distinct("patient_id", { ...filter, status: "completed", ...(type ? { type } : {}) });
 
-        // Pacientes atendidos dentro del rango elegido — se usa para acotar pathologicalCount
-        // (más abajo) al mismo período que el resto del reporte, en vez de a toda la historia.
+        // Pacientes atendidos dentro del rango elegido, se usa para
+        // acotar pathologicalCount (más abajo) al mismo período que
+        // el resto del reporte, en vez de a toda la historia.
         const attendedPatientIdsCur = isGeneral ? null : await distinctAttended(curFilter);
 
         const [
@@ -297,12 +298,13 @@ reportsController.getPatientsReport = async (req, res) => {
             countAppt({ status: "no_show" }),
             genderBreakdown(curFilter),
             distinctAttended(curFilter, TYPE_GENERAL), distinctAttended(curFilter, TYPE_PROCEDURE),
-            // Los ingresos solo cuentan citas COMPLETADAS — una cancelada o no-show no generó
-            // ingreso real aunque tenga un "total" (precio) guardado desde que se agendó.
+            // Los ingresos solo cuentan citas completadas, una
+            // cancelada o no-show no generó ingreso real aunque
+            // tenga un total (precio) guardado desde que se agendó.
             appointmentsModel.aggregate([{ $match: { ...curFilter, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" } } }]).then((r) => r[0]?.total || 0),
             isGeneral ? Promise.resolve(0) : appointmentsModel.aggregate([{ $match: { ...prevFilter, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" } } }]).then((r) => r[0]?.total || 0),
-            // Antes contaba sobre TODA la base histórica, sin importar el rango de fechas elegido
-            // — ahora, igual que el resto de cifras de esta sección, se acota al período.
+            // Se acota al período elegido, igual que el resto de las
+            // cifras de esta sección.
             appointmentsModel.aggregate([
                 { $match: { ...curFilter, status: "completed" } },
                 { $group: { _id: "$patient_id", count: { $sum: 1 } } },
@@ -470,9 +472,7 @@ reportsController.getPatientsReport = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/reports/doctors?dateFrom=&dateTo=&general=true
-// ─────────────────────────────────────────────────────────────────────────────
 reportsController.getDoctorsReport = async (req, res) => {
     try {
         const range = resolveRange(req.query);
@@ -648,9 +648,7 @@ reportsController.getDoctorsReport = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/reports/inventory?dateFrom=&dateTo=&general=true
-// ─────────────────────────────────────────────────────────────────────────────
 const USAGE_TYPES = ["Treatment use", "Manual use"];
 
 reportsController.getInventoryReport = async (req, res) => {

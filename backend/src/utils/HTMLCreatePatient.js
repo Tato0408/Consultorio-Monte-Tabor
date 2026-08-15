@@ -1,4 +1,7 @@
-// utils/HTMLCreatePatient.js
+// Genera el HTML del correo de confirmación de cuenta enviado a un
+// paciente recién registrado. Recibe el nombre del paciente y el código
+// de verificación, y devuelve el string HTML completo del cuerpo del
+// correo.
 const HTMLCreatePatient = (name, code) => {
     return `
     <body style="margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; color: #1f2937;">

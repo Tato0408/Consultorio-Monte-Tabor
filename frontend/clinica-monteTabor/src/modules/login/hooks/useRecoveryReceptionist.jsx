@@ -7,10 +7,8 @@ export const useRecoveryReceptionist = () => {
 
     const [loading, setLoading] = useState(false);
 
-    // "loading" antes no se activaba en requestCode/verifyCode/newPassword (solo en
-    // resendCode) — así que las pantallas que lo usan para bloquear el formulario mientras
-    // se envía nunca lo veían pasar a true durante la petición real. Se agrega setLoading
-    // en las tres para que la protección contra doble clic funcione también con este rol.
+    // Activa el estado de carga mientras se solicita el código de
+    // recuperación al correo indicado.
     const requestCode = async (email) => {
         try {
             setLoading(true);
@@ -34,6 +32,7 @@ export const useRecoveryReceptionist = () => {
         }
     };
 
+    // Verifica el código de recuperación ingresado por el usuario.
     const verifyCode = async (code) => {
         try {
             setLoading(true);
@@ -56,9 +55,9 @@ export const useRecoveryReceptionist = () => {
         }
     };
 
-    
-  //REENVIAR CÓDIGO
-  const resendCode = 
+
+  // Reenvía el código de recuperación al mismo correo de la solicitud.
+  const resendCode =
   async () => {
     try {
       setLoading(true);
@@ -100,6 +99,8 @@ export const useRecoveryReceptionist = () => {
     }
   };
 
+    // Envía la nueva contraseña junto con su confirmación para
+    // completar el cambio de contraseña.
     const newPassword =
         async (password, confirmPassword) => {
             try {

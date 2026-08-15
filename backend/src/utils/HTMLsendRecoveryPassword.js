@@ -1,3 +1,6 @@
+// Genera el HTML del correo de recuperación de contraseña. Recibe el
+// código de verificación, arma una casilla visual por cada dígito y
+// devuelve el string HTML completo del cuerpo del correo.
 const HTMLRecoveryEmail = (code) => {
   const digits = String(code).split('');
   const boxes = digits.map(d => `

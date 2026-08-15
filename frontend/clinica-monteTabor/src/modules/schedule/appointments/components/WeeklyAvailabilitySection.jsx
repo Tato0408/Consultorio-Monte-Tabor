@@ -13,9 +13,10 @@ const TimeInput = ({ value, onChange }) => (
     />
 );
 
-// left-0.5 explícito + translate-x-4 (en vez de depender de la posición estática por defecto y
-// translate-x-5) — mismo ajuste que ScheduleSettingsSection: el punto siempre queda dentro del
-// track de 40px, nunca se sale al activarlo.
+// La clase left-0.5 explícita junto con translate-x-4 (en vez de
+// depender de la posición estática por defecto y translate-x-5) usa
+// el mismo ajuste que ScheduleSettingsSection: el punto siempre queda
+// dentro del track de 40px, nunca se sale al activarlo.
 const Toggle = ({ checked, onChange }) => (
     <button
         type="button"
@@ -29,10 +30,12 @@ const Toggle = ({ checked, onChange }) => (
 const fmtBlock = (b) => `${b.start_time}–${b.end_time}`;
 
 const WeeklyAvailabilitySection = ({ availability, onChange, editing }) => {
-    // Cada día disponible tiene su PROPIO despliegue (independiente del de los demás días) para
-    // que la card no se sienta tan larga — arrancan todos colapsados; solo se abre uno solo
-    // cuando el usuario recién activa ese día (ver toggleDay). Un Set de índices de día, no un
-    // objeto por día, porque solo importa "abierto o no", no su contenido.
+    // Cada día disponible tiene su propio despliegue, independiente
+    // del de los demás días, para que la card no se sienta tan larga.
+    // Todos arrancan colapsados y solo se abre uno cuando el usuario
+    // recién activa ese día (ver toggleDay). Usa un Set de índices de
+    // día, no un objeto por día, porque solo importa si está abierto
+    // o no, no su contenido.
     const [openDays, setOpenDays] = useState(() => new Set());
 
     const toggleOpen = (dayIdx) => {
@@ -55,8 +58,9 @@ const WeeklyAvailabilitySection = ({ availability, onChange, editing }) => {
                 ? [{ start_time: "08:00", end_time: "17:00" }]
                 : day?.time_blocks ?? [],
         });
-        // Recién activado: se abre solo para que el usuario vea/edite el bloque recién creado
-        // sin tener que buscar el despliegue. Al desactivar no hace falta tocar openDays — sin
+        // Al activar un día se abre su despliegue para que el usuario
+        // vea y edite el bloque recién creado sin tener que buscarlo.
+        // Al desactivar no hace falta tocar openDays, sin
         // is_available no se muestra el despliegue de todos modos.
         if (isAvailable) setOpenDays(prev => new Set(prev).add(dayIdx));
     };
@@ -99,8 +103,8 @@ const WeeklyAvailabilitySection = ({ availability, onChange, editing }) => {
                                 {!dayConfig.is_available && (
                                     <span className="text-xs text-slate-400">No disponible</span>
                                 )}
-                                {/* El despliegue por día solo existe si el día está activado — si no hay
-                                    bloques que mostrar, no hay nada que desplegar. */}
+                                {/* El despliegue por día solo existe si el día está activado, si
+                                    no hay bloques que mostrar, no hay nada que desplegar. */}
                                 {dayConfig.is_available && (
                                     <>
                                         {!isOpen && (
@@ -110,10 +114,11 @@ const WeeklyAvailabilitySection = ({ availability, onChange, editing }) => {
                                                     : "Sin bloques"}
                                             </span>
                                         )}
-                                        {/* div, no button: sigue siendo clickeable aunque la sección esté
-                                            dentro de un <fieldset disabled> en modo solo-lectura (ver
-                                            ScheduleConfig.jsx) — expandir/colapsar es solo visual, no edita
-                                            nada, así que no debe bloquearse junto con el resto del form. */}
+                                        {/* Usa un div y no un button para que siga siendo clickeable
+                                            aunque la sección esté dentro de un <fieldset disabled> en
+                                            modo de solo lectura (ver ScheduleConfig.jsx). Expandir o
+                                            colapsar es solo visual, no edita nada, así que no debe
+                                            bloquearse junto con el resto del formulario. */}
                                         <div
                                             role="button"
                                             tabIndex={0}

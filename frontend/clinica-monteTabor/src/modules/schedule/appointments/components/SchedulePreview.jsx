@@ -11,9 +11,10 @@ const fmt12 = (mins) => {
     return `${String(h % 12 || 12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
 };
 
-// Genera los bloques de UN día (start/end en minutos desde medianoche), igual que
-// scheduleController.getAvailableSlots del backend: duración fija + espacio de buffer_time entre
-// cada bloque, saltando los descansos configurados para ese día.
+// Genera los bloques de un día (start y end en minutos desde
+// medianoche), igual que scheduleController.getAvailableSlots del
+// backend: duración fija más el espacio de buffer_time entre cada
+// bloque, saltando los descansos configurados para ese día.
 const generateDaySlots = (dayConfig, breaks, bufferTime, duration) => {
     if (!dayConfig?.is_available) return [];
     const slots = [];
@@ -37,11 +38,11 @@ const generateDaySlots = (dayConfig, breaks, bufferTime, duration) => {
     return slots;
 };
 
-// Antes era un bloque de "chips" estático, calculado con una sola duración fija y sin forma de
-// ver los demás días — ahora es un botón que abre un modal parecido al selector de horarios de
-// "Agendar cita", donde el doctor puede alternar entre sus días disponibles y sus propias
-// duraciones de bloque configuradas (ver ScheduleSettingsSection.jsx) para ver cómo se combinan
-// con su tiempo entre citas real.
+// Botón que abre un modal parecido al selector de horarios de
+// Agendar cita, donde el doctor puede alternar entre sus días
+// disponibles y sus propias duraciones de bloque configuradas (ver
+// ScheduleSettingsSection.jsx) para ver cómo se combinan con su
+// tiempo entre citas real.
 const SchedulePreview = ({ availability, breaks, bufferTime, blockDurations }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [selectedDay, setSelectedDay] = useState(null);
@@ -118,8 +119,8 @@ const SchedulePreview = ({ availability, breaks, bufferTime, blockDurations }) =
                                     ))}
                                 </div>
 
-                                {/* Selector de duración — las mismas que configuró en "Duraciones de bloque
-                                    disponibles" (ScheduleSettingsSection.jsx). */}
+                                {/* Selector de duración, las mismas que se configuraron en
+                                    Duraciones de bloque disponibles (ScheduleSettingsSection.jsx). */}
                                 {durations.length > 1 && (
                                     <div className="flex items-center gap-2 mb-4">
                                         <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />

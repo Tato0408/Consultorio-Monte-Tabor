@@ -4,8 +4,9 @@ import SectionCard from "./SectionCard";
 const DiagnosisCard = ({ readOnly }) => {
     const { register, setValue, watch, formState: { errors } } = useFormContext();
 
-    // Máscara de CIE-10: solo letras/números/punto, en mayúsculas (ej. "J00", "E11.9") — mismo
-    // criterio de "limpiar mientras se escribe" que las demás máscaras del sistema.
+    // Máscara de CIE-10: solo letras, números y punto, en mayúsculas
+    // (por ejemplo J00 o E11.9). Mismo criterio de limpiar mientras
+    // se escribe que las demás máscaras del sistema.
     const handleIcdMask = (e) => {
         const masked = e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 8);
         setValue("clinical_data.icd_diagnosis", masked, { shouldValidate: true });

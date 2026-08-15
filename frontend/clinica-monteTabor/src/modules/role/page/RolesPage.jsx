@@ -16,7 +16,8 @@ import {
   MODULE_LABEL_BY_KEY,
 } from "../rolesConfig.js";
 
-// Iconos de respaldo si el campo "icon" del rol (guardado en la base de datos) no coincide con ningún ícono de lucide-react
+// Iconos de respaldo si el campo icon del rol, guardado en la base de
+// datos, no coincide con ningún ícono de lucide-react.
 const ROLE_ICON_FALLBACK = {
   admin: ShieldCheck,
   doctor: UserRound,
@@ -26,7 +27,8 @@ const ROLE_ICON_FALLBACK = {
 
 const EMPTY_PERMISSION = { view: false, create: false, update: false, delete: false };
 
-// Convierte el array de permisos de la API (uno por moduleKey) en un objeto indexado por moduleKey
+// Convierte el array de permisos de la API, uno por moduleKey, en un
+// objeto indexado por moduleKey.
 const toPermissionMap = (permissions = []) => {
   const map = {};
   permissions.forEach((p) => {
@@ -38,12 +40,16 @@ const toPermissionMap = (permissions = []) => {
 const getRoleIcon = (roleKey, iconName) => Icons[iconName] || ROLE_ICON_FALLBACK[roleKey] || ShieldCheck;
 
 const RolesPage = () => {
-  const [roles, setRoles] = useState([]); // roles crudos devueltos por la API
+  // Roles crudos devueltos por la API.
+  const [roles, setRoles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRoleKey, setSelectedRoleKey] = useState(null);
-  const [mobileView, setMobileView] = useState("list"); // "list" | "permissions"
-  const [pendingChanges, setPendingChanges] = useState({}); // { [moduleKey]: { [accion]: nuevoValor } }, solo del rol seleccionado
+  // Puede ser list o permissions.
+  const [mobileView, setMobileView] = useState("list");
+  // Cambios de permisos pendientes de guardar, solo del rol
+  // seleccionado, indexados por moduleKey y luego por acción.
+  const [pendingChanges, setPendingChanges] = useState({});
 
   const fetchRoles = useCallback(async () => {
     setIsLoading(true);
@@ -65,7 +71,8 @@ const RolesPage = () => {
   const selectedRoleRaw = roles.find((r) => r.roleKey === selectedRoleKey);
   const basePermissions = selectedRoleRaw ? toPermissionMap(selectedRoleRaw.permissions) : {};
 
-  // combina lo guardado con los cambios pendientes en memoria, para reflejar el toggle al instante sin esperar al guardado
+  // Combina lo guardado con los cambios pendientes en memoria, para
+  // reflejar el toggle al instante sin esperar al guardado.
   const effectivePermissions = { ...basePermissions };
   Object.entries(pendingChanges).forEach(([moduleKey, actions]) => {
     effectivePermissions[moduleKey] = { ...(effectivePermissions[moduleKey] || EMPTY_PERMISSION), ...actions };
@@ -82,7 +89,8 @@ const RolesPage = () => {
 
   const hasPendingChanges = Object.keys(pendingChanges).length > 0;
 
-  // calcula, para el módulo togueado, solo los campos que cambiaron respecto a lo guardado en la base de datos
+  // Calcula, para el módulo que cambió, solo los campos que son
+  // distintos respecto a lo guardado en la base de datos.
   const handleModuleChange = (moduleKey, updatedPermissions) => {
     if (!selectedRoleRaw || selectedRoleRaw.isProtected) return;
     const saved = basePermissions[moduleKey] || EMPTY_PERMISSION;
@@ -112,9 +120,11 @@ const RolesPage = () => {
 
   const handleDiscardChanges = () => setPendingChanges({});
 
-  // Revisa, contra el estado combinado (guardado + pendiente), si algún módulo con "Ver"
-  // activado le falta el "Ver" de algún módulo del que depende su pantalla (ver
-  // MODULE_VIEW_DEPENDENCIES) — devuelve un mensaje listo para mostrar, o null si todo está bien.
+  // Revisa, contra el estado combinado de lo guardado y lo pendiente,
+  // si algún módulo con Ver activado le falta el permiso de Ver de
+  // algún módulo del que depende su pantalla (ver
+  // MODULE_VIEW_DEPENDENCIES). Devuelve un mensaje listo para mostrar,
+  // o null si todo está bien.
   const findMissingDependenciesMessage = (permissions) => {
     const problems = Object.entries(MODULE_VIEW_DEPENDENCIES)
       .filter(([moduleKey]) => permissions[moduleKey]?.view)
@@ -131,13 +141,14 @@ const RolesPage = () => {
       .join(" ");
   };
 
-  // agrupa todos los toggles pendientes en un solo PATCH (un batchId por guardado)
+  // Agrupa todos los toggles pendientes en un solo PATCH.
   const handleSaveChanges = async () => {
     if (isSaving) return;
     if (!selectedRoleRaw || !hasPendingChanges) return;
 
-    // Bloquea el guardado (sin tocar nada) si la combinación resultante le rompería la
-    // pantalla a este rol — más vale avisar aquí que dejarlo descubrirlo con la app ya rota.
+    // Bloquea el guardado, sin tocar nada, si la combinación resultante
+    // le rompería la pantalla a este rol. Es mejor avisar aquí que
+    // dejar que se descubra con la app ya rota.
     const dependencyMessage = findMissingDependenciesMessage(effectivePermissions);
     if (dependencyMessage) {
       toast.error(dependencyMessage);
@@ -246,7 +257,7 @@ const RolesPage = () => {
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-6 bg-gray-50/50 min-h-screen">
 
-      {/* Header */}
+      {/* Encabezado */}
       <div className="border-b border-gray-100 pb-4 md:pb-5">
         <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-1">
           <span>Sistema</span>
@@ -259,13 +270,14 @@ const RolesPage = () => {
         </p>
       </div>
 
-      {/* MÓVIL / TABLET: navegación tipo stack */}
+      {/* Móvil y tablet: navegación tipo stack */}
       <div className="lg:hidden">
         {mobileView === "list" ? (
           <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <h3 className="font-bold text-blue-900 text-xs uppercase tracking-wider mb-4 px-1">Roles</h3>
-            {/* fieldset con display:contents — evita cambiar de rol o resetear permisos
-                mientras hay un guardado en curso, sin alterar el layout */}
+            {/* El fieldset usa display:contents. Evita cambiar de rol o
+                resetear permisos mientras hay un guardado en curso, sin
+                alterar el layout. */}
             <fieldset disabled={isSaving} className="contents">
             <div className="space-y-3">
               {roles.map((role) => {
@@ -328,8 +340,9 @@ const RolesPage = () => {
       <div className="hidden lg:grid lg:grid-cols-[300px_1fr] xl:grid-cols-[340px_1fr] gap-6 items-start">
         <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
           <h3 className="font-bold text-blue-900 text-xs uppercase tracking-wider mb-4 px-1">Roles</h3>
-          {/* fieldset con display:contents — evita cambiar de rol o resetear permisos
-              mientras hay un guardado en curso, sin alterar el layout */}
+          {/* El fieldset usa display:contents. Evita cambiar de rol o
+              resetear permisos mientras hay un guardado en curso, sin
+              alterar el layout. */}
           <fieldset disabled={isSaving} className="contents">
           <div className="space-y-3">
             {roles.map((role) => {

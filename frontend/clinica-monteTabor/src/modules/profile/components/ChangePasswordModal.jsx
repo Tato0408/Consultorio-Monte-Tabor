@@ -46,10 +46,13 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
     r.test(formData.contrasena, formData.confirmContrasena)
   );
 
-  // admin usa /admin/:id porque ahí solo depende de validateAuthCookie (ya es autoservicio);
-  // doctor/nurse/receptionist usan su ruta de autoservicio dedicada (/profile/update) — el
-  // endpoint genérico /:id de esos tres exige el permiso de ADMINISTRAR a otros usuarios de ese
-  // rol, que no tienen sobre sí mismos, y devolvía 403 (mismo criterio que useProfile.js).
+  // El rol admin usa /admin/:id porque ahí solo depende de
+  // validateAuthCookie, lo que ya lo hace autoservicio. Los roles
+  // doctor, nurse y receptionist usan su ruta de autoservicio dedicada
+  // (/profile/update), ya que el endpoint genérico /:id de esos tres
+  // exige el permiso de administrar a otros usuarios de ese rol,
+  // permiso que no tienen sobre sí mismos, y devolvía un error 403.
+  // Mismo criterio que useProfile.js.
   const getEndpoint = () => {
     const routes = {
       admin:        `/admin/${user?.id}`,
@@ -94,7 +97,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
         timerProgressBar: true,
       });
 
-      // Limpiar y cerrar
+      // Limpia el formulario y cierra el modal.
       setFormData({ contrasena: "", confirmContrasena: "" });
       onClose();
     } catch (err) {

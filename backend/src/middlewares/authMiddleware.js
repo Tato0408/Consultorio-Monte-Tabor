@@ -1,11 +1,16 @@
 import jsonwebToken from "jsonwebtoken";
 import { config } from "../../config.js";
 
+// Middleware que valida la cookie o el token de sesión y, opcionalmente,
+// restringe el acceso a una lista de tipos de usuario permitidos
+// (allowedTypes).
 export const validateAuthCookie = (allowedTypes = []) => {
   return (req, res, next) => {
     try {
-      //#1 Extraer el token: la web lo manda por cookie, la app móvil no tiene cookie jar y
-      //lo manda como "Authorization: Bearer <token>" — se acepta cualquiera de las dos
+      // Extrae el token de la cookie o del encabezado Authorization. La web
+      // lo manda por cookie, la app móvil no tiene cookie jar y lo manda
+      // como "Authorization: Bearer <token>". Se acepta cualquiera de los
+      // dos formatos.
       let token = req.cookies?.authCookie;
       if (!token) {
         const authHeader = req.headers.authorization;
@@ -20,10 +25,10 @@ export const validateAuthCookie = (allowedTypes = []) => {
           .json({ message: "No se encontró la cookie de sesión, se requiere autorización" });
       }
 
-      //#2 Extraer toda la informacion del token
+      // Decodifica el token para obtener los datos que contiene.
       const decoded = jsonwebToken.verify(token, config.JWT.secret);
 
-      //#3 Verificar si el rol de la cookie puede pasar o no
+      // Verifica que el rol del token esté dentro de los tipos permitidos.
       if (allowedTypes.length > 0 && !allowedTypes.includes(decoded.userType)) {
         return res.status(401).json({ message: "Acceso denegado" });
       }

@@ -1,6 +1,7 @@
-// Reglas de validación compartidas por los controllers de usuarios (doctores, recepcionistas,
-// pacientes, enfermeras). Los regex son EXACTAMENTE los mismos que usan las máscaras del
-// frontend, para que backend y frontend nunca queden desincronizados.
+// Reglas de validación compartidas por los controllers de usuarios
+// (doctores, recepcionistas, pacientes, enfermeras). Los regex son
+// exactamente los mismos que usan las máscaras del frontend, para que
+// backend y frontend nunca queden desincronizados.
 
 import adminModel from "../models/admin/admins.js";
 import doctorsModel from "../models/doctors/doctors.js";
@@ -21,13 +22,15 @@ const STAFF_MODELS = [
     { roleKey: "receptionist", model: receptionistsModel },
 ];
 
-// Busca si el correo o el DUI ya están en uso por CUALQUIER rol de staff (admin, doctor,
-// enfermera o recepcionista) al crear O EDITAR un usuario. Pacientes queda fuera a propósito:
-// sí puede repetir correo/DUI con el staff. loginCommonRole depende de que el correo sea único
-// entre estas 4 colecciones para saber a qué rol pertenece cada usuario al iniciar sesión —
-// por eso esta validación existe. excludeId se pasa al EDITAR, para que un usuario no choque
-// contra su propio registro cuando no cambió el correo/DUI. Devuelve { message } listo para
-// responder 400, o null si no hay colisión.
+// Busca si el correo o el DUI ya están en uso por cualquier rol de staff
+// (admin, doctor, enfermera o recepcionista) al crear o editar un
+// usuario. Los pacientes quedan fuera a propósito, sí pueden repetir
+// correo o DUI con el staff. loginCommonRole depende de que el correo
+// sea único entre estas 4 colecciones para saber a qué rol pertenece
+// cada usuario al iniciar sesión, por eso existe esta validación.
+// excludeId se pasa al editar, para que un usuario no choque contra su
+// propio registro cuando no cambió el correo ni el DUI. Devuelve
+// { message } listo para responder 400, o null si no hay colisión.
 export const findStaffDuplicate = async (email, dui, excludeId) => {
     for (const { roleKey, model } of STAFF_MODELS) {
         const found = await model.findOne({
@@ -44,23 +47,28 @@ export const findStaffDuplicate = async (email, dui, excludeId) => {
     return null;
 };
 
-// Escapa caracteres especiales de regex antes de usar un texto libre dentro de un $regex de
-// Mongo (ej. una búsqueda de nombre insensible a mayúsculas) — evita tanto errores de sintaxis
-// (un nombre con paréntesis) como que el texto se interprete como patrón en vez de texto literal.
+// Escapa caracteres especiales de regex antes de usar un texto libre
+// dentro de un $regex de Mongo (por ejemplo una búsqueda de nombre
+// insensible a mayúsculas). Evita tanto errores de sintaxis (un nombre
+// con paréntesis) como que el texto se interprete como patrón en vez de
+// texto literal.
 export const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PHONE_REGEX = /^\d{4}-\d{4}$/;
 export const DUI_REGEX = /^\d{8}-\d{1}$/;
 
-// Edad mínima para el staff (doctores, recepcionistas, enfermeras, admin). Los pacientes quedan
-// fuera de esta regla a propósito: la clínica sí atiende pacientes menores de edad.
+// Edad mínima para el staff (doctores, recepcionistas, enfermeras,
+// admin). Los pacientes quedan fuera de esta regla a propósito, la
+// clínica sí atiende pacientes menores de edad.
 export const MIN_STAFF_AGE = 18;
 
-// Interpreta "YYYY-MM-DD" (o un ISO datetime, tomando solo la parte de fecha) como año/mes/día
-// LOCALES. new Date("YYYY-MM-DD") a secas se interpreta como medianoche UTC, y luego
-// getMonth()/getDate() la leen en hora local — en zonas horarias detrás de UTC eso la corre un
-// día hacia atrás. Construir la fecha con el constructor (year, month, day) evita ese corrimiento.
+// Interpreta "YYYY-MM-DD" (o un ISO datetime, tomando solo la parte de
+// fecha) como año, mes y día locales. new Date("YYYY-MM-DD") a secas se
+// interpreta como medianoche UTC, y luego getMonth() y getDate() la leen
+// en hora local. En zonas horarias detrás de UTC eso corre la fecha un
+// día hacia atrás. Construir la fecha con el constructor (year, month,
+// day) evita ese corrimiento.
 const parseDateOnly = (value) => {
     const datePart = String(value).trim().split("T")[0];
     const [year, month, day] = datePart.split("-").map(Number);
@@ -69,8 +77,9 @@ const parseDateOnly = (value) => {
     return isNaN(date.getTime()) ? null : date;
 };
 
-// Calcula la edad exacta a partir de una fecha de nacimiento, tomando en cuenta si ya pasó el
-// cumpleaños de este año (no solo la diferencia de años).
+// Calcula la edad exacta a partir de una fecha de nacimiento, tomando en
+// cuenta si ya pasó el cumpleaños de este año (no solo la diferencia de
+// años).
 const calculateAge = (birthDate, today) => {
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -81,9 +90,10 @@ const calculateAge = (birthDate, today) => {
     return age;
 };
 
-// Devuelve un mensaje de error si la fecha de nacimiento corresponde a alguien menor de
-// MIN_STAFF_AGE años, o null si la persona ya es mayor de edad. Fechas con formato inválido no
-// se reportan aquí (eso ya lo cubre otro chequeo del caller).
+// Devuelve un mensaje de error si la fecha de nacimiento corresponde a
+// alguien menor de MIN_STAFF_AGE años, o null si la persona ya es mayor
+// de edad. Fechas con formato inválido no se reportan aquí, eso ya lo
+// cubre otro chequeo del caller.
 export const getAdultAgeError = (birthDateStr) => {
     const birthDate = parseDateOnly(birthDateStr);
     if (!birthDate) {
@@ -108,8 +118,9 @@ const FIELD_LABELS = {
     password: "Contraseña",
 };
 
-// Para endpoints de creación: confirma que cada campo de requiredKeys venga presente y no vacío.
-// Devuelve el mensaje del primer campo faltante, o null si todos están completos.
+// Para endpoints de creación, confirma que cada campo de requiredKeys
+// venga presente y no vacío. Devuelve el mensaje del primer campo
+// faltante, o null si todos están completos.
 export const getMissingRequiredField = (fields, requiredKeys) => {
     for (const key of requiredKeys) {
         const value = fields[key];
@@ -120,10 +131,12 @@ export const getMissingRequiredField = (fields, requiredKeys) => {
     return null;
 };
 
-// Valida formato de los campos básicos que vengan presentes en el body (name/last_name/phone/
-// email/dui/birth_date). No exige que existan — eso lo decide cada controller aparte con
-// getMissingRequiredField en creación; en actualización simplemente se ignora lo que no venga,
-// para no romper updates parciales (ej. solo agregar un signo vital a un paciente).
+// Valida el formato de los campos básicos que vengan presentes en el
+// body (name, last_name, phone, email, dui, birth_date). No exige que
+// existan, eso lo decide cada controller aparte con
+// getMissingRequiredField en creación. En actualización simplemente se
+// ignora lo que no venga, para no romper updates parciales (por ejemplo
+// agregar solo un signo vital a un paciente).
 export const validateUserFieldFormats = ({ name, last_name, phone, email, dui, birth_date }, { requireAdult = false } = {}) => {
     if (name !== undefined && !String(name).trim()) {
         return "El campo Nombres no puede estar vacío";
@@ -157,12 +170,14 @@ export const validateUserFieldFormats = ({ name, last_name, phone, email, dui, b
     return null;
 };
 
-// Valida la fortaleza de una contraseña nueva. Devuelve el mensaje del primer requisito
-// incumplido, o null si la contraseña cumple todos los requisitos (misma regla que el
-// checklist del frontend: al menos 8 caracteres, mayúscula, minúscula, número y símbolo).
+// Valida la fortaleza de una contraseña nueva. Devuelve el mensaje del
+// primer requisito incumplido, o null si la contraseña cumple todos los
+// requisitos (misma regla que el checklist del frontend: al menos 8
+// caracteres, mayúscula, minúscula, número y símbolo).
 export const getPasswordError = (password) => {
-    // 8, mínimo que exige el frontend en todos los formularios de contraseña (doctor/enfermera/
-    // recepcionista/paciente, registro, recuperación y cambio desde el perfil).
+    // 8 es el mínimo que exige el frontend en todos los formularios de
+    // contraseña (doctor, enfermera, recepcionista, paciente), tanto en
+    // registro como en recuperación y cambio desde el perfil.
     if (!password || password.length < 8) {
         return "La contraseña debe tener al menos 8 caracteres";
     }
@@ -181,14 +196,17 @@ export const getPasswordError = (password) => {
     return null;
 };
 
-// Mismo patrón que exige TriageCard.jsx (Consultas) y VitalSignsFormModal.jsx (Expediente) para
-// la presión arterial: sistólica/diastólica, 2-3 dígitos por lado.
+// Mismo patrón que exige TriageCard.jsx (Consultas) y
+// VitalSignsFormModal.jsx (Expediente) para la presión arterial: valor
+// sistólico sobre diastólico, de 2 a 3 dígitos por lado.
 const BLOOD_PRESSURE_PATTERN = /^\d{2,3}\/\d{2,3}$/;
 
-// Mismos rangos fisiológicos razonables que usan esos dos formularios en el frontend — se
-// repiten aquí porque el backend nunca debe confiar en que el frontend ya validó, sobre todo en
-// endpoints como éste que también se pueden llamar directo (ej. Swagger). OJO: "height" llega en
-// METROS (no cm) porque así lo manda el frontend después de convertir lo que el usuario digitó.
+// Mismos rangos fisiológicos razonables que usan esos dos formularios en
+// el frontend. Se repiten aquí porque el backend nunca debe confiar en
+// que el frontend ya validó, sobre todo en endpoints como este que
+// también se pueden llamar directo (por ejemplo Swagger). El campo
+// "height" llega en metros, no en centímetros, porque así lo manda el
+// frontend después de convertir lo que el usuario digitó.
 const VITAL_SIGNS_RANGES = {
     glucosa_mgdl: { min: 0, max: 999, label: "Glucosa" },
     weight: { min: 0, max: 500, label: "Peso" },
@@ -197,10 +215,12 @@ const VITAL_SIGNS_RANGES = {
     spo2: { min: 0, max: 100, label: "Saturación de O2" },
 };
 
-// Valida una toma de signos vitales (blood_pressure, glucosa_mgdl, weight, height, temperature,
-// spo2 — mismas llaves que usa Patients.clinical_history.vital_signs). Cada campo es opcional
-// (se puede guardar una toma parcial), pero si viene, tiene que tener formato/rango válido.
-// Devuelve el mensaje del primer problema encontrado, o null si todo está bien.
+// Valida una toma de signos vitales (blood_pressure, glucosa_mgdl,
+// weight, height, temperature, spo2, mismas llaves que usa
+// Patients.clinical_history.vital_signs). Cada campo es opcional (se
+// puede guardar una toma parcial), pero si viene, tiene que tener
+// formato y rango válidos. Devuelve el mensaje del primer problema
+// encontrado, o null si todo está bien.
 export const getVitalSignsError = (vitals = {}) => {
     const { blood_pressure } = vitals;
     if (blood_pressure !== undefined && blood_pressure !== null && blood_pressure !== "" && !BLOOD_PRESSURE_PATTERN.test(blood_pressure)) {
@@ -216,10 +236,12 @@ export const getVitalSignsError = (vitals = {}) => {
     return null;
 };
 
-// Campos mínimos para poder guardar una consulta (ver ConsultationForm.jsx): síntomas/evolución,
-// triage básico (presión arterial y temperatura) y diagnóstico completo (CIE-10, nombre y
-// descripción). El resto de la consulta (examen físico, procedimientos, receta, referencia,
-// antecedentes) queda opcional a propósito. Devuelve el mensaje del primer campo faltante, o null.
+// Campos mínimos para poder guardar una consulta (ver
+// ConsultationForm.jsx): síntomas y evolución, triage básico (presión
+// arterial y temperatura) y diagnóstico completo (CIE-10, nombre y
+// descripción). El resto de la consulta (examen físico, procedimientos,
+// receta, referencia, antecedentes) queda opcional a propósito. Devuelve
+// el mensaje del primer campo faltante, o null.
 export const getRequiredConsultationFieldsError = (clinical_data = {}) => {
     const isBlank = (value) => value === undefined || value === null || String(value).trim() === "";
 
@@ -244,11 +266,13 @@ export const getRequiredConsultationFieldsError = (clinical_data = {}) => {
     return null;
 };
 
-// Valida que un campo numérico (precio, stock, cantidad, duración, costo, etc.) no sea negativo.
-// value === undefined/null/"" se considera "no enviado" y no es un error aquí — cada controller
-// decide aparte si el campo es obligatorio. Mismo motivo que el resto de este archivo: el
-// frontend ya bloquea el signo "-" al escribir, pero el backend nunca debe confiar solo en eso
-// (ej. una llamada directa por Swagger).
+// Valida que un campo numérico (precio, stock, cantidad, duración,
+// costo, entre otros) no sea negativo. El valor undefined, null o
+// cadena vacía se considera "no enviado" y no es un error aquí, cada
+// controller decide aparte si el campo es obligatorio. Mismo motivo que
+// el resto de este archivo: el frontend ya bloquea el signo "-" al
+// escribir, pero el backend nunca debe confiar solo en eso (por ejemplo
+// una llamada directa por Swagger).
 export const getNonNegativeError = (value, label) => {
     if (value === undefined || value === null || value === "") return null;
     const num = Number(value);

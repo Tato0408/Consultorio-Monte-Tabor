@@ -27,9 +27,13 @@ const useInsumos = () => {
   const getStats = () =>
     fetch(`${BASE}/stats`, { credentials: "include" }).then(handleResponse);
 
+  // Obtiene el historial de movimientos de inventario, limitado a
+  // la cantidad indicada.
   const getMovements = (limit = 10) =>
     fetch(`${BASE}/movements?limit=${limit}`, { credentials: "include" }).then(handleResponse);
 
+  // Ajusta el stock de un insumo al valor indicado en el cuerpo de
+  // la petición.
   const adjustStock = (id, body) =>
     fetch(`${BASE}/${id}/adjust`, {
       method: "POST", credentials: "include",
@@ -37,6 +41,8 @@ const useInsumos = () => {
       body: JSON.stringify(body),
     }).then(handleResponse);
 
+  // Registra una entrada de stock, como una compra o un
+  // reabastecimiento.
   const stockEntry = (body) =>
     fetch(`${BASE}/stock-entry`, {
       method: "POST", credentials: "include",
@@ -44,6 +50,8 @@ const useInsumos = () => {
       body: JSON.stringify(body),
     }).then(handleResponse);
 
+  // Registra un uso manual de insumos, es decir, uno que no
+  // proviene de un tratamiento.
   const manualUsage = (body) =>
     fetch(`${BASE}/manual-usage`, {
       method: "POST", credentials: "include",
@@ -51,6 +59,8 @@ const useInsumos = () => {
       body: JSON.stringify(body),
     }).then(handleResponse);
 
+  // Obtiene los datos agregados para los gráficos del panel de
+  // inventario.
   const getCharts = () =>
     fetch(`${BASE}/charts`, { credentials: "include" }).then(handleResponse);
 

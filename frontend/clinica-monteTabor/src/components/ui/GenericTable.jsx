@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Search, Plus } from "lucide-react";
 import TablePagination from "./TablePagination";
-// Importamos los elementos de Shadcn UI que ya usas para los filtros
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 const GenericTable = ({
@@ -15,34 +14,35 @@ const GenericTable = ({
   addLabel = "Agregar",
   showNurseFilter = false,
   onRowClick,
-  // evenColumns: reparte las columnas en anchos iguales (table-layout: fixed) en vez del ancho
-  // automático por contenido — para tablas donde se quiere que los datos queden distribuidos de
-  // forma pareja en vez de amontonados a un lado. Opt-in para no afectar las tablas existentes
-  // que ya dependen del ancho automático.
+  // evenColumns reparte las columnas en anchos iguales (table-layout: fixed) en vez del ancho
+  // automático por contenido, para tablas donde se quiere que los datos queden distribuidos
+  // de forma pareja en vez de amontonados a un lado. Es opcional, para no afectar las tablas
+  // existentes que ya dependen del ancho automático.
   evenColumns = false,
   // Reporta (en px) la distancia entre el borde superior de este componente y el borde
-  // superior de la tabla real, es decir después de la barra de búsqueda/filtros de arriba —
+  // superior de la tabla real, es decir después de la barra de búsqueda y filtros de arriba,
   // para que quien lo use pueda alinear otro elemento (ej. un panel lateral) con el inicio de
   // la tabla en sí, no con el inicio de esos controles.
   onTableOffsetChange,
-  // Contenido extra (título, selects de filtro, etc.) que se muestra en la MISMA fila que el
-  // buscador, a su izquierda — para no gastar una fila completa aparte solo para eso, dejando
+  // Contenido extra (título, selects de filtro, etc.) que se muestra en la misma fila que el
+  // buscador, a su izquierda, para no gastar una fila completa aparte solo para eso, dejando
   // espacio en blanco a la derecha tanto de ese contenido como del buscador.
   headerLeft,
-  // Filas extra a mostrar por encima de itemsPerPage, sin cambiar de página — para rellenar un
+  // Filas extra a mostrar por encima de itemsPerPage, sin cambiar de página, para rellenar un
   // espacio vertical disponible (ej. un panel lateral más alto). La paginación (totalPages,
-  // qué fila "empieza" cada página) sigue calculándose con itemsPerPage normal; esto solo
+  // qué fila empieza cada página) sigue calculándose con itemsPerPage normal, esto solo
   // decide cuántas filas se muestran de más al final de la página actual.
   extraRows = 0,
-  // Avisa cuando cambia la cantidad de filas por página seleccionada — para que quien usa
+  // Avisa cuando cambia la cantidad de filas por página seleccionada, para que quien usa
   // extraRows pueda invalidar su cálculo (basado en la altura de la tabla con el tamaño de
-  // página ANTERIOR) y volver a medir con el nuevo.
+  // página anterior) y volver a medir con el nuevo.
   onItemsPerPageChange,
-  // Opciones del selector "Filas por página" — ver TablePagination.jsx.
+  // Opciones del selector "Filas por página", ver TablePagination.jsx.
   pageSizeOptions,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [nurseFilter, setNurseFilter] = useState("all"); // 'all' | 'yes' | 'no'
+  // Admite los valores all, yes o no.
+  const [nurseFilter, setNurseFilter] = useState("all");
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(8);
@@ -50,7 +50,7 @@ const GenericTable = ({
   const rootRef = useRef(null);
   const tableContainerRef = useRef(null);
 
-  // Volver a la página 1 si cambia cualquier filtro
+  // Vuelve a la página 1 si cambia cualquier filtro.
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, nurseFilter, itemsPerPage]);
@@ -81,13 +81,13 @@ const GenericTable = ({
   }
 
   const filteredData = data.filter((item) => {
-    // 1. Filtro de texto
+    // 1. Filtro de texto.
     const matchSearch = !searchQuery || searchFields.some((field) => {
       const value = item[field];
       return String(value || "").toLowerCase().includes(searchQuery.toLowerCase());
     });
 
-    // 2. Filtro de enfermera condicional
+    // 2. Filtro de enfermera condicional.
     let matchNurse = true;
     if (showNurseFilter && nurseFilter !== "all") {
       const needsNurse = nurseFilter === "yes";
@@ -97,7 +97,7 @@ const GenericTable = ({
     return matchSearch && matchNurse;
   });
 
-  // Lógica de paginación sobre los datos ya filtrados
+  // Lógica de paginación sobre los datos ya filtrados.
   const totalItems = filteredData.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
   const indexOfFirstItem = (currentPage - 1) * itemsPerPage;

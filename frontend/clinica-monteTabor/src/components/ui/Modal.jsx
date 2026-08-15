@@ -4,15 +4,16 @@ import { createPortal } from "react-dom";
 /**
  * Modal lateral (drawer) que se abre desde la derecha.
  * Props:
- *   title         — título en el header
- *   subtitle      — texto pequeño bajo el título (opcional)
- *   onClose       — función para cerrar
- *   children      — contenido (formulario, etc.)
- *   width         — clase tailwind de ancho (default "w-[520px]")
- *   footer        — nodo React para los botones de acción (opcional, sticky al fondo)
- *   closeDisabled — true mientras el formulario interno está enviando una petición: bloquea
- *                   tanto el botón X como el clic en el backdrop, para que no se pueda cerrar
- *                   (y perder el estado / disparar otra petición) a medio envío
+ * title: título mostrado en el header.
+ * subtitle: texto pequeño bajo el título (opcional).
+ * onClose: función que se invoca al cerrar el modal.
+ * children: contenido del modal (formulario, etc.).
+ * width: clase de tailwind para el ancho (por defecto "w-[520px]").
+ * footer: nodo React con los botones de acción (opcional, queda fijo al fondo).
+ * closeDisabled: true mientras el formulario interno está enviando una
+ * petición. Bloquea tanto el botón de cerrar como el clic en el fondo,
+ * para que no se pueda cerrar el modal y perder el estado, o disparar
+ * otra petición, a medio envío.
  */
 const Modal = ({ title, subtitle, onClose, children, footer, width = "w-[520px]", closeDisabled = false }) => {
   const handleClose = () => {

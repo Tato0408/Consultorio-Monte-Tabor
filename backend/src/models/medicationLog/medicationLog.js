@@ -1,12 +1,13 @@
 import mongoose, { Schema, model } from "mongoose";
 
-// Registra si el paciente marcó un medicamento como "tomado" en un día puntual.
-// Un registro por paciente + medicamento + día.
+// Registra si el paciente marcó un medicamento como tomado en un día
+// puntual. Hay un registro por combinación de paciente, medicamento y día.
 const medicationLogSchema = new Schema(
     {
         patient_id: { type: mongoose.Schema.Types.ObjectId, ref: "Patients", required: true },
         medication_id: { type: String, required: true },
-        date: { type: String, required: true }, // "YYYY-MM-DD"
+        // Fecha en formato AAAA MM DD.
+        date: { type: String, required: true },
         taken: { type: Boolean, default: false },
     },
     { timestamps: true }

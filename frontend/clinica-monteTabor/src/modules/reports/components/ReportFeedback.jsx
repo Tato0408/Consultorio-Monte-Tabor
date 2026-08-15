@@ -1,7 +1,8 @@
 import { AlertCircle, BarChart3, RefreshCw } from "lucide-react";
 
-// Estado vacío/error de un reporte (citas, pacientes, doctores, inventario): sin error, avisa
-// que no hay datos en el período; con error, muestra el mensaje y un botón de reintento.
+// Estado vacío o de error de un reporte (citas, pacientes, doctores,
+// inventario). Sin error, avisa que no hay datos en el período. Con
+// error, muestra el mensaje y un botón de reintento.
 const ReportFeedback = ({ error, onRetry, emptyTitle = "No hay datos en este período", emptyMessage = "Prueba con otro rango de fechas o consulta el reporte general." }) => {
   const hasError = Boolean(error);
 

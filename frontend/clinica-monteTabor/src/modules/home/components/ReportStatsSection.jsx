@@ -4,8 +4,9 @@ import { CalendarDays, Users, Stethoscope } from "lucide-react";
 
 const MONTH_ABBR = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
-// Etiquetas de mes para los últimos `count` meses terminando en el actual — mismo orden
-// cronológico ascendente en el que el backend arma monthlyData (dashboardController.getReportStats).
+// Genera las etiquetas de los últimos count meses, terminando en el
+// mes actual, en el mismo orden ascendente en que el backend arma
+// monthlyData (dashboardController.getReportStats).
 const getMonthLabels = (count) => {
     const now = new Date();
     return Array.from({ length: count }, (_, i) => {
@@ -14,8 +15,8 @@ const getMonthLabels = (count) => {
     });
 };
 
-// Una barra por mes real, con su etiqueta — antes se triplicaban y distorsionaban los valores
-// para simular 18 barras, lo que hacía imposible saber a qué correspondía cada una sin ejes.
+// Convierte los valores mensuales en las barras del gráfico, una por
+// mes real, cada una con su etiqueta de mes correspondiente.
 const toBars = (monthlyData) => {
     if (!monthlyData?.length) return [];
     const labels = getMonthLabels(monthlyData.length);
@@ -43,7 +44,7 @@ const ReportCard = ({
             className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow cursor-pointer"
             onClick={() => navigate(navigateTo)}
         >
-            {/* ── Info ── */}
+            {/* Información principal */}
             <div className="px-4 pt-4 pb-2 flex flex-col gap-1.5">
                 <div className="flex items-center gap-2.5">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
@@ -67,7 +68,7 @@ const ReportCard = ({
                 </div>
             </div>
 
-            {/* ── Bar chart / empty state ── */}
+            {/* Gráfico de barras o estado vacío */}
             {hasData ? (
                 <div className="h-28 w-full mt-1">
                     <ResponsiveContainer width="100%" height="100%">
@@ -83,8 +84,7 @@ const ReportCard = ({
                                 </linearGradient>
                             </defs>
 
-                            {/* Etiqueta de mes debajo de cada barra — antes no había ninguna
-                                referencia de a qué correspondía cada barra. */}
+                            {/* Etiqueta de mes debajo de cada barra. */}
                             <XAxis
                                 dataKey="label"
                                 axisLine={false}
@@ -110,9 +110,9 @@ const ReportCard = ({
                                 }
                             />
 
-                            {/* El mes actual (última barra) se resalta con el color pleno; los
-                                anteriores quedan en el tono claro — así el color deja de ser
-                                decorativo y pasa a distinguir "mes actual" vs. "meses previos". */}
+                            {/* El mes actual, la última barra, se resalta con el color
+                                pleno. Los meses anteriores quedan en un tono claro para
+                                distinguir el mes actual de los meses previos. */}
                             <Bar dataKey="v" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                                 {bars.map((_, i) => (
                                     <Cell

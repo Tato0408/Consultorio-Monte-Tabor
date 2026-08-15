@@ -2,17 +2,19 @@ import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/lib/alerts";
 
-// Modal genérico de "un textarea + guardar", reutilizado por los botones "Actualizar evolución"
-// y "Agregar nota" del panel de tratamiento — ambos son texto libre, solo cambian el título, el
-// ícono, el placeholder y qué endpoint se llama al guardar (eso lo decide quien use este modal
-// a través de onSubmit, que solo debe hacer la llamada a la API y nada más).
+// Modal generico de un textarea con boton guardar, reutilizado por los
+// botones "Actualizar evolución" y "Agregar nota" del panel de tratamiento.
+// Ambos son texto libre: solo cambian el titulo, el icono, el placeholder y
+// que endpoint se llama al guardar (eso lo decide quien use este modal a
+// traves de onSubmit, que solo debe hacer la llamada a la API).
 const TreatmentTextModal = ({ isOpen, onClose, icon: Icon, iconBg, title, placeholder, initialValue = "", submitLabel, successMessage, onSubmit }) => {
   const [value, setValue] = useState(initialValue);
   const [loading, setLoading] = useState(false);
 
-  // El componente se queda montado entre aperturas (el padre solo cambia "isOpen"), así que sin
-  // esto el textarea conservaría lo que quedó escrito la última vez en vez de partir del valor
-  // actual del paciente cada vez que se vuelve a abrir.
+  // El componente se queda montado entre aperturas (el padre solo cambia
+  // "isOpen"), asi que sin esto el textarea conservaria lo que quedo escrito
+  // la ultima vez, en vez de partir del valor actual del paciente cada vez
+  // que se vuelve a abrir.
   useEffect(() => {
     if (isOpen) setValue(initialValue);
     // eslint-disable-next-line react-hooks/exhaustive-deps

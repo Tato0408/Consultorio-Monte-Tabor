@@ -1,7 +1,7 @@
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 
-// ── Custom toast renderers ──────────────────────────────────────────────────
+// Renderizadores de toast personalizados
 
 const CloseBtn = ({ id }) => (
   <button onClick={() => toast.dismiss(id)} className="text-slate-300 hover:text-slate-500 transition-colors ml-1 flex-shrink-0">
@@ -46,7 +46,7 @@ const WarnIcon = () => (
   </svg>
 );
 
-// ── Exported helpers ────────────────────────────────────────────────────────
+// Funciones exportadas
 
 export const showSuccess = (message) =>
   new Promise(resolve =>
@@ -74,9 +74,10 @@ export const showWarning = (message) =>
     { duration: 3500 }
   );
 
-// Mismos colores que WarnIcon/AlertIcon del toast (amber-400 / red-500), para que la ventana
-// de confirmación se sienta parte del mismo sistema visual aunque sea un modal de SweetAlert2
-// y no un toast — SweetAlert2 no permite clonar el diseño de tarjeta del toast tal cual.
+// Usa los mismos colores que WarnIcon y AlertIcon del toast (amber 400, red 500), para que
+// la ventana de confirmación se sienta parte del mismo sistema visual aunque sea un modal de
+// SweetAlert2 y no un toast. SweetAlert2 no permite clonar el diseño de tarjeta del toast tal
+// cual.
 export const confirmDelete = async ({
   title = "¿Eliminar este registro?",
   text = "Esta acción no se puede deshacer.",

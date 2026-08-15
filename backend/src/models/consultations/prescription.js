@@ -1,20 +1,3 @@
-/*
-consultation_id,
-medications [{
-name,
-dose,
-frequency,
-duration,
-route_of_administration,
-instructions
-}],
-lab_orders [{
-test_name,
-notes
-}]
-post_operative_instructions,
-issued_at
-*/
 import mongoose, { Schema, model } from "mongoose";
 
 const prescriptionSchema = new Schema({
