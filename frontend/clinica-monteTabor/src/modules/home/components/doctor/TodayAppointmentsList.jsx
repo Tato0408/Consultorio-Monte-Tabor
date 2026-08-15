@@ -11,9 +11,15 @@ const STATUS_STYLES = {
     pending:      { label: "Pendiente",   cls: "bg-amber-100 text-amber-700" },
     pendiente:    { label: "Pendiente",   cls: "bg-amber-100 text-amber-700" },
     cancelled:    { label: "Cancelada",   cls: "bg-red-100   text-red-700"   },
+    completed:    { label: "Completada",  cls: "bg-slate-100 text-slate-600" },
+    no_show:      { label: "No se presentó", cls: "bg-slate-100 text-slate-500" },
+    expired:      { label: "Vencida",     cls: "bg-orange-100 text-orange-600" },
 };
 
-const getStatus = (raw = "") => STATUS_STYLES[raw.toLowerCase()] ?? { label: raw, cls: "bg-slate-100 text-slate-600" };
+// Fallback sin usar el valor crudo: todos los estados reales ya están en STATUS_STYLES, así
+// que esto solo protege contra un valor futuro no contemplado, sin arriesgarse a mostrar texto
+// en inglés en pantalla.
+const getStatus = (raw = "") => STATUS_STYLES[raw.toLowerCase()] ?? { label: "Otro estado", cls: "bg-slate-100 text-slate-600" };
 
 const todayLabel = () =>
     new Date().toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", year: "numeric" });

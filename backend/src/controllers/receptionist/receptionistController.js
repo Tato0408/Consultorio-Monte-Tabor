@@ -14,7 +14,8 @@ receptionistController.getReceptionists = async (req, res) => {
   try {
     //receptionistsModel.find() busca todos los documentos de la colección receptionists.
     //y lo guarda en la constante receptionists
-    const receptionists = await receptionistsModel.find();
+    //-password: nunca se envia el hash de la contraseña al cliente
+    const receptionists = await receptionistsModel.find().select("-password");
 
     //devulve un codigo 200 indiacndo que la peticion fue exitosa
     //y envia  a todos los recepcionistas encontrados en un json
@@ -25,7 +26,7 @@ receptionistController.getReceptionists = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -103,7 +104,7 @@ receptionistController.createReceptionist = async (req, res) => {
     console.log("error " + error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -135,7 +136,7 @@ receptionistController.updateReceptionist = async (req, res) => {
     //y devuelve un codigo 404 indicando que no fue encontrado
     if (!receptionistFound) {
       return res.status(404).json({
-        message: "Receptionist not found",
+        message: "Recepcionista no encontrado",
       });
     }
 
@@ -144,6 +145,16 @@ receptionistController.updateReceptionist = async (req, res) => {
     const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
     if (formatError) {
       return res.status(400).json({ message: formatError });
+    }
+
+    // Mismo chequeo que al crear: si el correo o DUI editado ya lo usa otro miembro del staff,
+    // se avisa con un mensaje claro en vez de reventar contra el índice único de Mongo con un
+    // 500 genérico. excludeId es el propio recepcionista, para no chocar contra sí mismo.
+    if (email || dui) {
+      const staffDuplicate = await findStaffDuplicate(email, dui, req.params.id);
+      if (staffDuplicate) {
+        return res.status(400).json(staffDuplicate);
+      }
     }
 
     //Crea una constante con el objeto de los datos que vamos a actualizar en el modelo
@@ -165,6 +176,11 @@ receptionistController.updateReceptionist = async (req, res) => {
       const passwordError = getPasswordError(password);
       if (passwordError) {
         return res.status(400).json({ message: passwordError });
+      }
+      // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+      const samePassword = await bcryptjs.compare(password, receptionistFound.password);
+      if (samePassword) {
+        return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
       }
       //Genera el nuevo hash encriptado de la contraseña con 10 rondas
       updatedData.password = await bcryptjs.hash(password, 10);
@@ -192,7 +208,7 @@ receptionistController.updateReceptionist = async (req, res) => {
     //devulve un codigo 200 indiacndo que la peticion fue exitosa
     //y que el recepcionista se actualizo de forma correcta
     return res.status(200).json({
-      message: "Receptionist updated",
+      message: "Recepcionista actualizado",
     });
   } catch (error) {
     //Si ocurre un error durante la actualizacion muestra une rror
@@ -200,7 +216,7 @@ receptionistController.updateReceptionist = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -217,7 +233,7 @@ receptionistController.deleteReceptionist = async (req, res) => {
     //Si no encuentra ningun recepcionista con ese id devuelve un codigo 404
     if (!receptionistFound) {
       return res.status(404).json({
-        message: "Receptionist not found",
+        message: "Recepcionista no encontrado",
       });
     }
 
@@ -231,7 +247,7 @@ receptionistController.deleteReceptionist = async (req, res) => {
 
     //devulve un codigo 200 indiacndo que la peticion fue exitosa y se borro el registro
     return res.status(200).json({
-      message: "Receptionist deleted",
+      message: "Recepcionista eliminado",
     });
   } catch (error) {
     //Si ocurre un error durante la eliminacion muestra une rror
@@ -239,7 +255,7 @@ receptionistController.deleteReceptionist = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -256,13 +272,13 @@ receptionistController.updateOwnProfile = async (req, res) => {
     //Si no encuentra el perfil de ese recepcionista en el sistema devuelve un codigo 404
     if (!receptionistFound) {
       return res.status(404).json({
-        message: "Receptionist profile not found",
+        message: "Perfil del recepcionista no encontrado",
       });
     }
     
     //Obtiene toda la informacion enviada desde el formulario del perfil
     //los datos vienen dentro del body de la peticion
-    const { name, last_name, dui, birth_date, phone, email } = req.body;
+    const { name, last_name, dui, birth_date, phone, email, password } = req.body;
 
     //Crea una constante con el objeto de los datos del propio perfil que se van a actualizar
     const updatedData = {
@@ -273,6 +289,20 @@ receptionistController.updateOwnProfile = async (req, res) => {
       phone,
       email,
     };
+
+    // Si viene una nueva contraseña, la validamos y encriptamos (mismo criterio que
+    // receptionistController.updateReceptionist / adminController.updateAdmin)
+    if (password && password.trim() !== "") {
+      const passwordError = getPasswordError(password);
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
+      }
+      const samePassword = await bcryptjs.compare(password, receptionistFound.password);
+      if (samePassword) {
+        return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+      }
+      updatedData.password = await bcryptjs.hash(password, 10);
+    }
 
     //Verifica si el recepcionista subio una nueva imagen para cambiar su foto de perfil
     if (req.files?.receptionistImage) {
@@ -295,7 +325,7 @@ receptionistController.updateOwnProfile = async (req, res) => {
     //devulve un codigo 200 indiacndo que la peticion fue exitosa
     //y envia un json con el mensaje y los datos del usuario actualizados
     return res.status(200).json({
-      message: "Your profile has been updated successfully",
+      message: "Tu perfil se actualizó correctamente",
       user: profileUpdated,
     });
   } catch (error) {
@@ -304,7 +334,7 @@ receptionistController.updateOwnProfile = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error updating your profile",
+      message: "Error interno del servidor al actualizar tu perfil",
     });
   }
 };
@@ -321,7 +351,8 @@ receptionistController.searchReceptionist = async (req, res) => {
     //Si el parametro search no existe o viene vacio solo con espacios en blanco
     if (!search || search.trim() === "") {
       //Busca todos los documentos de la coleccion de forma general sin filtros
-      const allReceptionists = await receptionistsModel.find();
+      //-password: nunca se envia el hash de la contraseña al cliente
+      const allReceptionists = await receptionistsModel.find().select("-password");
       
       //devulve un codigo 200 indiacndo que fue exitoso y manda a todos los recepcionistas en un json
       return res.status(200).json(allReceptionists);
@@ -340,7 +371,7 @@ receptionistController.searchReceptionist = async (req, res) => {
         { dui: { $regex: search, $options: "i" } },
         { phone: { $regex: search, $options: "i" } },
       ],
-    });
+    }).select("-password");
     //devulve un codigo 200 indiacndo exito y envia todos los recepcionistas filtrados en un json
     return res.status(200).json(results);
   } catch (error) {
@@ -349,7 +380,7 @@ receptionistController.searchReceptionist = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };

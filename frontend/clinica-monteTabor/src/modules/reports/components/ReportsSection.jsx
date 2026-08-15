@@ -35,7 +35,7 @@ const VariacionCell = ({ value }) => {
   );
 };
 
-const ReportSection = ({ section, defaultOpen = true }) => {
+const ReportSection = ({ section, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const Icon = SECTION_ICONS[section.icon] || Activity;
 
@@ -72,17 +72,17 @@ const ReportSection = ({ section, defaultOpen = true }) => {
             }`}
           >
             {/* Cabecera de tabla */}
-            <div className="grid grid-cols-[1fr_100px_120px_90px] gap-x-4 px-6 py-2 bg-slate-50 border-t border-slate-100">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+            <div className="grid grid-cols-4 gap-x-4 px-6 py-2 bg-slate-50 border-t border-slate-100">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
                 Proceso a comparar
               </span>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-right">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
                 Actual
               </span>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-right">
-                Período Anterior
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
+                Período anterior
               </span>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-right">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
                 Variación
               </span>
             </div>
@@ -91,17 +91,17 @@ const ReportSection = ({ section, defaultOpen = true }) => {
             {section.rows.map((row, i) => (
               <div
                 key={i}
-                className={`grid grid-cols-[1fr_100px_120px_90px] gap-x-4 px-6 py-3.5 items-center border-t border-slate-50 ${
+                className={`grid grid-cols-4 gap-x-4 px-6 py-3.5 items-center border-t border-slate-50 ${
                   i % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                 }`}
               >
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center justify-center gap-2 flex-wrap text-center">
                   <span className="text-sm text-slate-700">{row.proceso}</span>
                   {row.badge && <StatusBadge label={row.badge.label} color={row.badge.color} />}
                 </div>
-                <span className="text-sm font-semibold text-slate-800 text-right">{row.actual}</span>
-                <span className="text-sm text-slate-400 text-right">{row.anterior}</span>
-                <div className="text-right">
+                <span className="text-sm font-semibold text-slate-800 text-center">{row.actual}</span>
+                <span className="text-sm text-slate-400 text-center">{row.anterior}</span>
+                <div className="text-center">
                   <VariacionCell value={row.variacion} />
                 </div>
               </div>

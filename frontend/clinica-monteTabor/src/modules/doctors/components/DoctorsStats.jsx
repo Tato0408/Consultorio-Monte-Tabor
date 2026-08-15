@@ -6,7 +6,7 @@ import {
   BriefcaseMedical,
 } from "lucide-react";
 
-const DoctorsStats = ({ doctors, loading }) => {
+const DoctorsStats = ({ doctors, stats = {}, loading }) => {
   const cards = [
     {
       title: "Doctores",
@@ -15,17 +15,17 @@ const DoctorsStats = ({ doctors, loading }) => {
     },
     {
       title: "Pacientes",
-      value: 100,
+      value: loading ? "..." : (stats.patients ?? 0),
       icon: Users,
     },
     {
       title: "Citas atendidas",
-      value: 15,
+      value: loading ? "..." : (stats.appointments ?? 0),
       icon: Calendar,
     },
     {
       title: "Procedimientos",
-      value: 40,
+      value: loading ? "..." : (stats.procedures ?? 0),
       icon: BriefcaseMedical,
     },
   ];

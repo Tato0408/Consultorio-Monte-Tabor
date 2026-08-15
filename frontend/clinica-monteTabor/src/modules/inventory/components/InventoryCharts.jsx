@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -10,6 +11,7 @@ const PIE_COLORS  = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#94a3b8"];
 const LINE_COLOR  = "#3b82f6";
 
 const InventoryCharts = ({ refreshTrigger }) => {
+  const navigate = useNavigate();
   const { getCharts } = useInsumos();
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +88,11 @@ const InventoryCharts = ({ refreshTrigger }) => {
             </div>
           </div>
         )}
-        <button className="w-full mt-3 py-2 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 font-medium">
+        <button
+          type="button"
+          onClick={() => navigate("/inventory/reports")}
+          className="w-full mt-3 py-2 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 font-medium"
+        >
           Ver reporte completo
         </button>
       </div>

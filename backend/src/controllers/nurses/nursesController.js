@@ -3,9 +3,9 @@ import appointmentsModel from "../../models/appointments/appointments.js"
 import proceduresModel from "../../models/procedures/procedures.js"
 import nurseNotesModel from "../../models/nurse_notes/nurse_notes.js"
 import { v2 as cloudinary } from "cloudinary"
-import * as nodemailer from 'nodemailer'
 import bcrypt from 'bcryptjs'
 import { config } from "../../../config.js"
+import { sendEmail } from "../../utils/sendMailMailjet.js"
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js"
 const nursesController = {}
 
@@ -13,7 +13,7 @@ nursesController.getAllNurses = async (req, res) => {
     try {
         const response = await nursesModel.find();
         if (!response) {
-            return res.status(404).json({ message: "Nurse not found" });
+            return res.status(404).json({ message: "Enfermera no encontrada" });
         }
         return res.status(200).json(response);
     } catch (error) {
@@ -134,34 +134,17 @@ nursesController.insertNurses = async (req, res) => {
         })
         const savedNurse = await payload.save()
         if (!savedNurse) {
-            return res.status(500).json({ message: "Error while adding a nurse" })
+            return res.status(500).json({ message: "Error al agregar la enfermera" })
         }
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: config.email.user_email,
-                pass: config.email.user_password
-            }
-        });
-
-        const mailOptions = {
-            from: config.email.user_email,
-            to: email,
-            subject: `Su cuenta de enfermera ha sido creada`,
-            text: `Hola ${name} ${last_name}, su cuenta con el rol de enfermera ha sido creada exitosamente.
+        const htmlContent = `Hola ${name} ${last_name}, su cuenta con el rol de enfermera ha sido creada exitosamente.
                 Correo: ${email}
                 Contraseña: ${password}
-                Inicie sesión por primera vez dentro del sistema para cambiar su contraseña.`
-        };
+                Inicie sesión por primera vez dentro del sistema para cambiar su contraseña.`;
 
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.log(error);
-            } else {
-                console.log("Email sent: " + info.response);
-            }
-        });
-        return res.status(200).json({ message: "Nurse added succesfuly" })
+        sendEmail(email, "Su cuenta de enfermera ha sido creada", htmlContent)
+            .catch((error) => console.log(error));
+
+        return res.status(200).json({ message: "Enfermera agregada correctamente" })
     } catch (error) {
         return res.status(500).json({ message: error.message })
     }
@@ -169,25 +152,31 @@ nursesController.insertNurses = async (req, res) => {
 
 nursesController.deleteNurse = async (req, res) => {
     try {
-
+        // Primero se comprueba que la enfermera exista — antes se llamaba a Cloudinary con
+        // response.public_id sin este chequeo, así que un id ya borrado (doble clic, condición
+        // de carrera) tronaba con un TypeError ("Cannot read properties of null") en vez de
+        // devolver un simple 404.
         const response = await nursesModel.findById(req.params.id)
-        const deleteImage = await cloudinary.uploader.destroy(response.public_id)
         if (!response) {
-            return res.status(404).json({ message: "Nurse not found" })
+            return res.status(404).json({ message: "Enfermera no encontrada" })
         }
-        if (!deleteImage) {
-            const error = new Error("Error while deleting a nurse");
-            return res.status(500).json({ message: "Internal Server error", error: error.message })
+        // No todas las enfermeras tienen foto guardada (public_id puede venir vacío).
+        if (response.public_id) {
+            const deleteImage = await cloudinary.uploader.destroy(response.public_id)
+            if (!deleteImage) {
+                const error = new Error("Error while deleting a nurse");
+                return res.status(500).json({ message: "Error interno del servidor", error: error.message })
+            }
         }
         const nurseDeleted = await nursesModel.findByIdAndDelete(req.params.id)
         if(!nurseDeleted){
                 const error = new Error("Error deleting a nurse");
-                return res.status(500).json({message: "Internal Server error", error: error.message})
+                return res.status(500).json({message: "Error interno del servidor", error: error.message})
             }
-        return res.status(200).json({ message: "Nurse deleted succesfuly" })
+        return res.status(200).json({ message: "Enfermera eliminada correctamente" })
     } catch (error) {
         console.log(error)
-        return res.staus(500).json({ message: "Internal Server error" })
+        return res.status(500).json({ message: "Error interno del servidor" })
     }
 }
 
@@ -207,7 +196,7 @@ nursesController.updateNurse = async(req,res) => {
 
         const response = await nursesModel.findById(req.params.id)
         if(!response){
-            return res.status(404).json({message: "Nurse not found"})
+            return res.status(404).json({message: "Enfermera no encontrada"})
         }
 
         //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
@@ -215,6 +204,17 @@ nursesController.updateNurse = async(req,res) => {
         const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
         if (formatError) {
             return res.status(400).json({ message: formatError });
+        }
+
+        // Mismo chequeo que ya hacen doctores/recepcionistas al editar: si el correo o DUI
+        // editado ya lo usa otro miembro del staff, se avisa con un mensaje claro en vez de
+        // reventar contra el índice único de Mongo con un 500 genérico. excludeId es la propia
+        // enfermera, para no chocar contra sí misma.
+        if (email || dui) {
+            const staffDuplicate = await findStaffDuplicate(email, dui, req.params.id);
+            if (staffDuplicate) {
+                return res.status(400).json(staffDuplicate);
+            }
         }
 
         let payload = {
@@ -229,11 +229,27 @@ nursesController.updateNurse = async(req,res) => {
             is_verified: response.is_verified,
             time_out: response.time_out
         }
+
+        // Si viene una nueva contraseña, la validamos y encriptamos antes de guardar.
+        // Por defecto se mantiene la actual (arriba), así que esto solo pisa el campo
+        // cuando realmente se pidió cambiarla.
+        if (password && password.trim() !== "") {
+            const passwordError = getPasswordError(password);
+            if (passwordError) {
+                return res.status(400).json({ message: passwordError });
+            }
+            // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+            const samePassword = await bcrypt.compare(password, response.password);
+            if (samePassword) {
+                return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+            }
+            payload.password = await bcrypt.hash(password, 10);
+        }
         if(req.file){
             const updateImage = await cloudinary.uploader.destroy(response.public_id)
             if(!updateImage){
                 const error = new Error("Error updating a nurse");
-                return res.status(500).json({message: "Internal Server error", error: error.message})
+                return res.status(500).json({message: "Error interno del servidor", error: error.message})
             }
             payload.img_url = req.file.path
             payload.public_id = req.file.filename
@@ -241,12 +257,12 @@ nursesController.updateNurse = async(req,res) => {
         const nurseUpdated = await nursesModel.findByIdAndUpdate(req.params.id, payload, { new: true })
         if(!nurseUpdated){
             const error = new Error("Error updatinf a nurse");
-            return res.status(500).json({message: "Internal Server error", error: error.message})
+            return res.status(500).json({message: "Error interno del servidor", error: error.message})
         }
-        return res.status(200).json({message: "Nurse updates succesfuly", nurse: nurseUpdated})
+        return res.status(200).json({message: "Enfermera actualizada correctamente", nurse: nurseUpdated})
     } catch (error) {
         console.log("Error: ", error)
-        return res.status(500).json({message: "Internal Server error"})
+        return res.status(500).json({message: "Error interno del servidor"})
     }
 }
 
@@ -257,17 +273,20 @@ nursesController.updateOwnProfile = async (req, res) => {
         // Buscamos a la enfermera en la base de datos
         const nurseFound = await nursesModel.findById(nurseId);
         if (!nurseFound) {
-            return res.status(404).json({ message: "Nurse profile not found" });
+            return res.status(404).json({ message: "Perfil de la enfermera no encontrado" });
         }
 
-        // Excluimos 'is_active', 'is_verified', 'password' y 'time_out' por seguridad.
+        // Excluimos 'is_active', 'is_verified' y 'time_out' por seguridad — esos los controla
+        // solo un admin. La contraseña sí se puede cambiar aquí (mismo criterio que
+        // adminController.updateAdmin / nursesController.updateNurse): solo si viene no vacía.
         const {
             name,
             last_name,
             dui,
             phone,
             birth_date,
-            email
+            email,
+            password
         } = req.body;
 
         const payload = {
@@ -277,36 +296,55 @@ nursesController.updateOwnProfile = async (req, res) => {
             phone,
             birth_date,
             email,
-            password: nurseFound.password, // Mantenemos la contraseña actual intacta
             is_active: nurseFound.is_active,
             is_verified: nurseFound.is_verified,
             time_out: nurseFound.time_out
         };
+
+        if (password && password.trim() !== "") {
+            const passwordError = getPasswordError(password);
+            if (passwordError) {
+                return res.status(400).json({ message: passwordError });
+            }
+            const samePassword = await bcrypt.compare(password, nurseFound.password);
+            if (samePassword) {
+                return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+            }
+            payload.password = await bcrypt.hash(password, 10);
+        }
 
         if (req.file) {
             // Borramos la imagen anterior solo si tiene un public_id registrado
             if (nurseFound.public_id) {
                 await cloudinary.uploader.destroy(nurseFound.public_id);
             }
-            
+
             payload.img_url = req.file.path;
             payload.public_id = req.file.filename;
+        } else if (req.body.img_url === null || req.body.img_url === "null") {
+            // Eliminar foto (a diferencia de doctor/recepción, aquí la foto es opcional en el
+            // modelo). Mismo criterio que adminController.updateAdmin.
+            if (nurseFound.public_id) {
+                await cloudinary.uploader.destroy(nurseFound.public_id);
+            }
+            payload.img_url = null;
+            payload.public_id = null;
         }
 
         // Actualizamos el perfil de la enfermera autenticada
         const nurseUpdated = await nursesModel.findByIdAndUpdate(nurseId, payload, { new: true }).select("-password");
         if (!nurseUpdated) {
-            return res.status(500).json({ message: "Error updating your profile" });
+            return res.status(500).json({ message: "Error al actualizar tu perfil" });
         }
 
         return res.status(200).json({ 
-            message: "Your profile has been updated successfully", 
+            message: "Tu perfil se actualizó correctamente", 
             user: nurseUpdated 
         });
 
     } catch (error) {
         console.log("Error: ", error);
-        return res.status(500).json({ message: "Internal Server error updating your profile" });
+        return res.status(500).json({ message: "Error interno del servidor al actualizar tu perfil" });
     }
 };
 

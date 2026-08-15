@@ -58,8 +58,9 @@ const VerifyCode = () => {
   //Obtenemos el hook que corresponde al usuario actual
   const activeHook = getActiveRecoveryHook();
 
-  //Tomamos el estado de carga del hook activo
-  const loading = activeHook.loading;
+  // El "loading" del hook activo solo lo activa su propio resendCode() interno — ni verifyCode
+  // ni requestCode lo tocan — así que no sirve para bloquear ESTE formulario. Se controla aparte.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   //Reglas que debe cumplir el código antes de enviarlo
   const codeRules = [
@@ -108,6 +109,7 @@ const VerifyCode = () => {
   //Función para verificar el código ingresado
   const handleVerify = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     //Limpiamos errores anteriores
     setError("");
@@ -118,6 +120,7 @@ const VerifyCode = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       //Verificamos el código utilizando el hook correspondiente
       await activeHook.verifyCode(codeString);
@@ -132,16 +135,20 @@ const VerifyCode = () => {
 
       //Mostramos el mensaje si el código es inválido
       setError("Código incorrecto o expirado");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   //Función para reenviar el código al correo
   const handleResendCode = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     //Limpiamos errores anteriores
     setError("");
 
+    setIsSubmitting(true);
     try {
       //Obtenemos el correo guardado durante la recuperación
       const savedEmail = localStorage.getItem("recoveryEmail");
@@ -162,12 +169,14 @@ const VerifyCode = () => {
 
       //Mostramos el error correspondiente
       setError("Error al reenviar el código");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <AuthLayout
-      title="UN ÚLTIMO PASO"
+      title="Un último paso"
       subtitle="Hemos enviado un código de 6 dígitos a tu correo electrónico"
     >
       <div className="flex-1 flex flex-col justify-between px-8 sm:px-12 py-5">
@@ -187,78 +196,82 @@ const VerifyCode = () => {
 
             <form onSubmit={handleVerify} className="flex flex-col gap-5">
 
-              {/* Inputs donde el usuario escribe el código */}
-              <div className="flex justify-center gap-3">
-                {code.map((digit, index) => (
-                  <input
-                    key={index}
-                    id={`code-${index}`}
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleChange(e.target.value, index)}
-                    onKeyDown={(e) => handleKeyDown(e, index)}
-                    className="w-12 h-12 border rounded-lg text-center text-xl outline-none focus:border-blue-500 transition-colors"
-                  />
-                ))}
-              </div>
+              {/* fieldset nativo: desactiva de un solo golpe todos los inputs y botones que
+                  contiene mientras se verifica el código o se reenvía uno nuevo */}
+              <fieldset disabled={isSubmitting} className="flex flex-col gap-5 border-0 p-0 m-0 min-w-0">
+                {/* Inputs donde el usuario escribe el código */}
+                <div className="flex justify-center gap-3">
+                  {code.map((digit, index) => (
+                    <input
+                      key={index}
+                      id={`code-${index}`}
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleChange(e.target.value, index)}
+                      onKeyDown={(e) => handleKeyDown(e, index)}
+                      className="w-12 h-12 border rounded-lg text-center text-xl outline-none focus:border-blue-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-gray-50"
+                    />
+                  ))}
+                </div>
 
-              {/* Lista que muestra qué reglas ya se cumplen */}
-              <div className="flex flex-col gap-2 px-1">
-                {codeRules.map((rule) => {
-                  const passed = rule.test(codeString);
+                {/* Lista que muestra qué reglas ya se cumplen */}
+                <div className="flex flex-col gap-2 px-1">
+                  {codeRules.map((rule) => {
+                    const passed = rule.test(codeString);
 
-                  return (
-                    <div key={rule.id} className="flex items-center gap-2">
-                      {passed ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                      )}
+                    return (
+                      <div key={rule.id} className="flex items-center gap-2">
+                        {passed ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        ) : (
+                          <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                        )}
 
-                      <span
-                        className={`text-xs transition-colors duration-200 ${
-                          passed
-                            ? "text-emerald-600"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {rule.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+                        <span
+                          className={`text-xs transition-colors duration-200 ${
+                            passed
+                              ? "text-emerald-600"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {rule.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
 
-              {/* Mensaje de error si ocurre alguno */}
-              {error && (
-                <p className="text-red-500 text-sm text-center">
-                  {error}
-                </p>
-              )}
+                {/* Mensaje de error si ocurre alguno */}
+                {error && (
+                  <p className="text-red-500 text-sm text-center">
+                    {error}
+                  </p>
+                )}
 
-              {/* Botón para verificar el código */}
-              <PrimaryButton
-                loading={loading}
-                type="submit"
-                disabled={!allRulesPassed || loading}
-              >
-                Verificar código
-              </PrimaryButton>
-
-              {/* Opción para solicitar un nuevo código */}
-              <div className="text-sm text-gray-400 text-center">
-                ¿No recibiste el código?
-                <button
-                  type="button"
-                  className="text-blue-600 font-medium ml-1"
-                  onClick={handleResendCode}
+                {/* Botón para verificar el código */}
+                <PrimaryButton
+                  loading={isSubmitting}
+                  type="submit"
+                  disabled={!allRulesPassed || isSubmitting}
                 >
-                  Reenviar código
-                </button>
-              </div>
+                  Verificar código
+                </PrimaryButton>
 
-              {/* Botón para volver al login */}
-              <SecondaryButton to="/login">
+                {/* Opción para solicitar un nuevo código */}
+                <div className="text-sm text-gray-400 text-center">
+                  ¿No recibiste el código?
+                  <button
+                    type="button"
+                    className="text-blue-600 font-medium ml-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                    onClick={handleResendCode}
+                  >
+                    Reenviar código
+                  </button>
+                </div>
+              </fieldset>
+
+              {/* Un <Link> no es un control de formulario: fieldset no lo alcanza, se desactiva aparte */}
+              <SecondaryButton to="/login" disabled={isSubmitting}>
                 Volver al inicio de sesión
               </SecondaryButton>
 

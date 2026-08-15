@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit, Eye, Trash2, Ban, Plus, Loader2, Search, ArrowUp, ArrowDown } from "lucide-react";
+import { Edit, Eye, Trash2, Ban, Plus, Loader2, Search, ArrowUp, ArrowDown, X } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import useAppointments from "../hooks/useAppointment.js";
+import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import {
     confirmDelete,
     confirmCancelAppointment,
@@ -22,15 +23,23 @@ import {
     showError
 } from "@/lib/alerts";
 import { useAuth } from "@/context/AuthContext";
+import apiClient from "@/lib/apiClient";
 
 // Pantalla principal del módulo: lista de citas en tarjetas, con búsqueda,
 // filtros, orden, paginación y acciones (ver, editar, cancelar, eliminar).
 export default function AppointmentsGrid() {
     const navigate = useNavigate();
-    const { hasPermission } = useAuth();
+    const location = useLocation();
+    const { hasPermission, userType } = useAuth();
     const canCreate = hasPermission("calendar.appointments", "create");
     const canUpdate = hasPermission("calendar.appointments", "update");
     const canDelete = hasPermission("calendar.appointments", "delete");
+    // El doctor tiene su propio flujo dentro de "Citas" (aceptar/ver las
+    // suyas), distinto del CRUD normal de admin/recepcionista.
+    const isDoctor = userType === "doctor";
+    // El admin tiene el mismo flujo de "por aceptar", pero en vez de
+    // aceptar la cita él mismo, la asigna a un doctor.
+    const isAdmin = userType === "admin";
 
     const {
         appointments,
@@ -41,34 +50,191 @@ export default function AppointmentsGrid() {
         fetchAppointments,
         deleteAppointment,
         updateStatus,
+        acceptAppointment,
+        assignDoctor,
         updateFilters,
         goToPage
-    } = useAppointments();
+    } = useAppointments({ sortOrder: "desc" });
 
-    // Texto del buscador, separado del filtro real para no disparar una
-    // consulta en cada tecla.
+    // Texto del buscador, separado del filtro real: ya no se dispara solo al escribir, solo con
+    // el botón de buscar (o Enter) — ver handleSearch más abajo.
     const [searchInput, setSearchInput] = useState("");
 
-    // Aplica la búsqueda 400ms después de que se deja de escribir.
+    const handleSearch = () => {
+        updateFilters({ search: searchInput.trim() || undefined });
+    };
+
+    // Sub-pestaña del doctor: "pending" (por aceptar) o "mine" (resueltas);
+    // el backend ya limita doctor_id al propio, aquí solo se controla el status.
+    // Si se volvió desde el detalle de una cita (botón "X" de AppointmentsFormCalendar.jsx),
+    // location.state.initialTab trae la pestaña desde la que se abrió esa cita, para no perderla.
+    const [doctorTab, setDoctorTab] = useState(location.state?.initialTab || "pending");
+    // Misma idea para el admin: "pending" (por aceptar) o "assigned" (citas
+    // asignadas). El admin ve todas, no solo las de un doctor en particular.
+    const [adminTab, setAdminTab] = useState(location.state?.initialTab || "pending");
+    const [appointmentToAccept, setAppointmentToAccept] = useState(null);
+    const [appointmentToAssign, setAppointmentToAssign] = useState(null);
+    const [pendingAppointmentDetails, setPendingAppointmentDetails] = useState(null);
+    const [nurses, setNurses] = useState([]);
+    const [selectedNurseId, setSelectedNurseId] = useState("");
+    const [loadingNurses, setLoadingNurses] = useState(false);
+    const [doctors, setDoctors] = useState([]);
+    const [selectedDoctorId, setSelectedDoctorId] = useState("");
+    const [loadingDoctors, setLoadingDoctors] = useState(false);
+
+    // Catálogo del filtro "Doctor": solo doctores que ya tienen al menos una cita registrada
+    // (no el catálogo completo de doctores), para que el filtro nunca ofrezca una opción que de
+    // todos modos no devolvería ningún resultado.
+    const [doctorFilterOptions, setDoctorFilterOptions] = useState([]);
+    // Catálogo del filtro "Tipo de cita": el mismo catálogo global que define el admin y que
+    // aparece en la leyenda del calendario (antes eran dos opciones fijas — "Consulta Médica
+    // General"/"Procedimiento" — que ya no reflejan los tipos reales que el admin configura).
+    const { getAppointmentTypes } = useAppointmentTypes();
+    const [appointmentTypeOptions, setAppointmentTypeOptions] = useState([]);
+
     useEffect(() => {
-        const timeout = setTimeout(() => {
-            updateFilters({ search: searchInput.trim() || undefined });
-        }, 400);
-        return () => clearTimeout(timeout);
-    }, [searchInput, updateFilters]);
+        apiClient("/appointments/doctors-with-appointments")
+            .then((response) => setDoctorFilterOptions(Array.isArray(response) ? response : []))
+            .catch(() => setDoctorFilterOptions([]));
+        getAppointmentTypes()
+            .then((types) => setAppointmentTypeOptions(Array.isArray(types) ? types : []))
+            .catch(() => setAppointmentTypeOptions([]));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Estado combinado de la sub-pestaña activa (doctor o admin), para
+    // reutilizar la misma barra de pestañas y la misma lógica de filtros.
+    const activeTab = isDoctor ? doctorTab : adminTab;
+    const setActiveTab = isDoctor ? setDoctorTab : setAdminTab;
+    const secondTabValue = isDoctor ? "mine" : "assigned";
+    const secondTabLabel = isDoctor ? "Mis citas" : "Citas asignadas";
+
+    useEffect(() => {
+        if (!isDoctor) return;
+        updateFilters({
+            status: doctorTab === "pending" ? "pending" : "scheduled,completed,cancelled,no_show,expired",
+        });
+    }, [isDoctor, doctorTab, updateFilters]);
+
+    useEffect(() => {
+        if (!isAdmin) return;
+        updateFilters({
+            status: adminTab === "pending" ? "pending" : "scheduled,completed,cancelled,no_show,expired",
+        });
+    }, [isAdmin, adminTab, updateFilters]);
+
+    // Acepta una cita pendiente asignada al doctor; el backend revalida el
+    // horario y puede rechazar con un mensaje claro si ya no está libre.
+    const handleAceptar = async (id, nurseId) => {
+        try {
+            await acceptAppointment(id, nurseId);
+            showSuccess("Cita aceptada correctamente");
+            setAppointmentToAccept(null);
+            setSelectedNurseId("");
+        } catch (err) {
+            showError(err.message || "No se pudo aceptar la cita");
+        }
+    };
+
+    // Query params con la fecha/hora exacta de la cita: el backend solo devuelve enfermeras
+    // que tengan ese horario configurado como disponible (ver nurseScheduleController.js).
+    // appointment_id evita que la enfermera ya asignada a ESTA cita se filtre por "chocar"
+    // contra sí misma.
+    const nurseAvailabilityParams = (appointment) => ({
+        date: new Date(appointment.date).toISOString().split("T")[0],
+        start_time: appointment.start_time,
+        end_time: appointment.end_time,
+        appointment_id: appointment._id,
+    });
+
+    const requestAccept = async (appointment) => {
+        if (!appointment.procedure_id?.requires_nurse) {
+            return handleAceptar(appointment._id);
+        }
+        setAppointmentToAccept(appointment);
+        setSelectedNurseId("");
+        setLoadingNurses(true);
+        try {
+            const response = await apiClient("/appointments/nurses-for-acceptance", {
+                params: nurseAvailabilityParams(appointment),
+            });
+            setNurses(Array.isArray(response) ? response : response.data || []);
+        } catch (error) {
+            showError(error.message || "No se pudieron cargar las enfermeras.");
+            setAppointmentToAccept(null);
+        } finally {
+            setLoadingNurses(false);
+        }
+    };
+
+    // Asigna una cita pendiente a un doctor elegido por el admin; el backend
+    // revalida el horario para ese doctor igual que en la aceptación normal.
+    const handleAsignar = async (id, doctorId, nurseId) => {
+        try {
+            await assignDoctor(id, doctorId, nurseId);
+            showSuccess("Cita asignada correctamente");
+            setAppointmentToAssign(null);
+            setSelectedDoctorId("");
+            setSelectedNurseId("");
+        } catch (err) {
+            showError(err.message || "No se pudo asignar la cita");
+        }
+    };
+
+    // Abre el modal de asignación: carga el catálogo de doctores y, si el
+    // procedimiento requiere enfermera, también el de enfermeras.
+    const requestAssign = async (appointment) => {
+        setAppointmentToAssign(appointment);
+        setSelectedDoctorId("");
+        setSelectedNurseId("");
+        setLoadingDoctors(true);
+        try {
+            // Catálogo liviano — no requiere el permiso "Ver Doctores" (ver
+            // backend/src/routes/doctors/doctors.js).
+            const response = await apiClient("/doctors/catalog");
+            setDoctors(Array.isArray(response) ? response : response.data || []);
+        } catch (error) {
+            showError(error.message || "No se pudieron cargar los doctores.");
+            setAppointmentToAssign(null);
+            setLoadingDoctors(false);
+            return;
+        }
+        setLoadingDoctors(false);
+
+        if (appointment.procedure_id?.requires_nurse) {
+            setLoadingNurses(true);
+            try {
+                const response = await apiClient("/appointments/nurses-for-acceptance", {
+                    params: nurseAvailabilityParams(appointment),
+                });
+                setNurses(Array.isArray(response) ? response : response.data || []);
+            } catch (error) {
+                showError(error.message || "No se pudieron cargar las enfermeras.");
+            } finally {
+                setLoadingNurses(false);
+            }
+        }
+    };
 
     // Indica si hay algún filtro activo, para ajustar el mensaje de "sin datos".
-    const hasActiveFilters = Boolean(filters.search || filters.status || filters.type);
+    const hasActiveFilters = Boolean(filters.search || filters.status || filters.appointment_type || filters.doctor_id);
 
-    // Traducción de los status a texto legible. "no_show" lo asigna el
-    // backend automáticamente a una cita "pending" ya vencida.
+    // Traducción de los status a texto legible; "no_show" y "expired" los
+    // asigna el backend solo a una "pending" vencida o no aceptada a tiempo.
     const statusTranslations = {
         pending: "Pendiente",
         scheduled: "Programada",
         completed: "Completada",
         cancelled: "Cancelada",
-        no_show: "No se presentó"
+        no_show: "No se presentó",
+        expired: "Vencida",
     }
+
+    const emptyMessage = isDoctor
+        ? (doctorTab === "pending" ? "No tienes citas pendientes por aceptar." : "No tienes citas programadas todavía.")
+        : isAdmin
+            ? (adminTab === "pending" ? "No hay citas pendientes por asignar." : "No hay citas asignadas todavía.")
+            : (hasActiveFilters ? "No se encontraron citas con los filtros aplicados." : "No hay citas registradas en este momento.");
 
     // Elimina la cita por completo; pide confirmación por ser irreversible.
     const handleEliminar = async (id) => {
@@ -154,59 +320,136 @@ export default function AppointmentsGrid() {
 
                 {canCreate && (
                     <Button
-                        onClick={() => navigate("/calendar/appointments/new")}
+                        onClick={() => navigate("/calendar/appointments/new", { state: { fromView: "citas" } })}
                         className="bg-[#0b66d6] hover:bg-blue-700 text-white px-5 py-5 rounded-xl flex items-center gap-2 font-semibold shadow-md shadow-blue-100"
                     >
                         <Plus className="h-5 w-5" />
-                        Nueva Cita
+                        Nueva cita
                     </Button>
                 )}
             </div>
 
+            {/* Sub-pestañas del doctor y del admin: separan lo que aún hay
+                que aceptar/asignar de lo que ya está resuelto. El backend
+                filtra doctor_id al propio para el doctor; el admin ve todas. */}
+            {(isDoctor || isAdmin) && (
+                <div className="border-b border-slate-100 flex gap-6 text-sm font-medium mb-6">
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("pending")}
+                        className={`pb-3 transition-all ${activeTab === "pending"
+                            ? "text-blue-600 font-semibold border-b-2 border-blue-600"
+                            : "text-gray-500 hover:text-gray-800"
+                            }`}
+                    >
+                        Por aceptar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab(secondTabValue)}
+                        className={`pb-3 transition-all ${activeTab === secondTabValue
+                            ? "text-blue-600 font-semibold border-b-2 border-blue-600"
+                            : "text-gray-500 hover:text-gray-800"
+                            }`}
+                    >
+                        {secondTabLabel}
+                    </button>
+                </div>
+            )}
+
             {/* Búsqueda, filtros de estado/tipo y orden por fecha. Todo se
                 resuelve en el backend vía updateFilters (query params). */}
             <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 mb-6 flex flex-col md:flex-row gap-3 md:items-center">
-                {/* Búsqueda por paciente, doctor o descripción. */}
-                <div className="relative flex-1 min-w-[220px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        placeholder="Buscar por paciente, doctor o descripción..."
-                        className="pl-9 border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl h-10"
-                    />
+                {/* Búsqueda por paciente, doctor o descripción — ya no se dispara al escribir,
+                    solo al hacer clic en el botón (o presionar Enter). El botón vive dentro del
+                    propio input (a la derecha); "pr-10" le reserva ese espacio para que el texto
+                    escrito nunca llegue a tocarlo — un <input> nativo ya hace scroll del texto
+                    hacia la izquierda por su cuenta cuando se pasa de su ancho visible/relleno. */}
+                <div className="flex-1 min-w-[220px] flex flex-col">
+                    <div className="relative">
+                        <Input
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearch(); } }}
+                            placeholder="Buscar por paciente, doctor o descripción..."
+                            maxLength={100}
+                            className="pr-10 border-slate-200 focus-visible:ring-[#0b66d6] rounded-xl h-10"
+                        />
+                        <button
+                            type="button"
+                            onClick={handleSearch}
+                            aria-label="Buscar"
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#0b66d6] hover:bg-slate-100 transition-colors"
+                        >
+                            <Search className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <span className="self-end text-[11px] text-slate-400 mt-0.5">
+                        {searchInput.length}/100
+                    </span>
                 </div>
 
-                {/* Filtro por estado. */}
-                <Select
-                    value={filters.status || "all"}
-                    onValueChange={(value) => updateFilters({ status: value === "all" ? undefined : value })}
-                >
-                    <SelectTrigger className="w-full md:w-44 border-slate-200 rounded-xl h-10">
-                        <SelectValue>{statusTranslations[filters.status] || "Todos los estados"}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Todos los estados</SelectItem>
-                        <SelectItem value="pending">Pendiente</SelectItem>
-                        <SelectItem value="scheduled">Programada</SelectItem>
-                        <SelectItem value="completed">Completada</SelectItem>
-                        <SelectItem value="cancelled">Cancelada</SelectItem>
-                        <SelectItem value="no_show">No se presentó</SelectItem>
-                    </SelectContent>
-                </Select>
+                {/* Filtro por estado (lo controla la sub-pestaña para doctor/admin). */}
+                {!isDoctor && !isAdmin && (
+                    <Select
+                        value={filters.status || "all"}
+                        onValueChange={(value) => updateFilters({ status: value === "all" ? undefined : value })}
+                    >
+                        <SelectTrigger className="w-full md:w-44 border-slate-200 rounded-xl h-10">
+                            <SelectValue>{statusTranslations[filters.status] || "Todos los estados"}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los estados</SelectItem>
+                            <SelectItem value="pending">Pendiente</SelectItem>
+                            <SelectItem value="scheduled">Programada</SelectItem>
+                            <SelectItem value="completed">Completada</SelectItem>
+                            <SelectItem value="cancelled">Cancelada</SelectItem>
+                            <SelectItem value="no_show">No se presentó</SelectItem>
+                            <SelectItem value="expired">Vencida</SelectItem>
+                        </SelectContent>
+                    </Select>
+                )}
 
-                {/* Filtro por tipo de procedimiento. */}
+                {/* Filtro por doctor — solo lista doctores que ya tienen alguna cita. Un doctor
+                    viendo su propio listado no necesita filtrarse a sí mismo. */}
+                {!isDoctor && (
+                    <Select
+                        value={filters.doctor_id || "all"}
+                        onValueChange={(value) => updateFilters({ doctor_id: value === "all" ? undefined : value })}
+                    >
+                        <SelectTrigger className="w-full md:w-48 border-slate-200 rounded-xl h-10">
+                            <SelectValue>
+                                {(() => {
+                                    const selected = doctorFilterOptions.find((d) => d._id === filters.doctor_id);
+                                    return selected ? `Dr. ${selected.name} ${selected.last_name}` : "Todos los doctores";
+                                })()}
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los doctores</SelectItem>
+                            {doctorFilterOptions.map((d) => (
+                                <SelectItem key={d._id} value={d._id}>Dr. {d.name} {d.last_name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
+
+                {/* Filtro por tipo de cita — el mismo catálogo global que define el admin y que
+                    aparece en la leyenda del calendario. Filtra por "appointment_type" (el campo
+                    de catálogo), no por "type" (que solo distingue Consulta Médica General de
+                    Procedimiento). */}
                 <Select
-                    value={filters.type || "all"}
-                    onValueChange={(value) => updateFilters({ type: value === "all" ? undefined : value })}
+                    value={filters.appointment_type || "all"}
+                    onValueChange={(value) => updateFilters({ appointment_type: value === "all" ? undefined : value })}
                 >
                     <SelectTrigger className="w-full md:w-56 border-slate-200 rounded-xl h-10">
-                        <SelectValue>{filters.type || "Todos los tipos"}</SelectValue>
+                        <SelectValue>{filters.appointment_type || "Todos los tipos"}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todos los tipos</SelectItem>
-                        <SelectItem value="Consulta Médica General">Consulta Médica General</SelectItem>
-                        <SelectItem value="Procedimiento">Procedimiento</SelectItem>
+                        {appointmentTypeOptions.map((t) => (
+                            <SelectItem key={t._id} value={t.name}>{t.name}</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
 
@@ -226,9 +469,7 @@ export default function AppointmentsGrid() {
             {appointments.length === 0 ? (
                 <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
                     <p className="text-slate-400 font-medium">
-                        {hasActiveFilters
-                            ? "No se encontraron citas con los filtros aplicados."
-                            : "No hay citas registradas en este momento."}
+                        {emptyMessage}
                     </p>
                 </div>
             ) : (
@@ -249,9 +490,11 @@ export default function AppointmentsGrid() {
                                                 ? "bg-rose-50 text-rose-600"
                                                 : cita.status === "no_show"
                                                     ? "bg-slate-100 text-slate-500"
-                                                    : cita.status === "scheduled"
-                                                        ? "bg-blue-50 text-blue-600"
-                                                        : "bg-amber-50 text-amber-600"
+                                                    : cita.status === "expired"
+                                                        ? "bg-orange-50 text-orange-600"
+                                                        : cita.status === "scheduled"
+                                                            ? "bg-blue-50 text-blue-600"
+                                                            : "bg-amber-50 text-amber-600"
                                             }`}
                                     >
                                         {statusTranslations[cita.status] ||
@@ -351,65 +594,100 @@ export default function AppointmentsGrid() {
                                         </span>
                                     </div>
 
-                                    {/* Acciones: eliminar, editar, cancelar (condicional) y ver. */}
+                                    {/* Acciones: "Aceptar"/"Asignar" reemplaza el resto mientras esté pendiente;
+                                        si no, eliminar/editar/cancelar según permisos. Ver siempre está disponible. */}
                                     <div className="flex items-center gap-1">
-                                        {canDelete && (
+                                        {isDoctor && cita.status === "pending" ? (
                                             <Button
                                                 variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                                onClick={() =>
-                                                    handleEliminar(cita._id)
-                                                }
+                                                size="sm"
+                                                className="h-8 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-semibold"
+                                                onClick={() => requestAccept(cita)}
                                             >
-                                                <Trash2 className="h-4 w-4" />
+                                                Aceptar
                                             </Button>
-                                        )}
-
-                                        {/* Abre el formulario en modo edición (editMode: true). */}
-                                        {canUpdate && (
+                                        ) : isAdmin && cita.status === "pending" ? (
                                             <Button
                                                 variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-slate-400 hover:text-amber-600 hover:bg-amber-50"
-                                                onClick={() =>
-                                                    navigate(
-                                                        `/calendar/appointments/${cita._id}`,
-                                                        {
-                                                            state: {
-                                                                editMode: true
-                                                            }
+                                                size="sm"
+                                                className="h-8 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-semibold"
+                                                onClick={() => requestAssign(cita)}
+                                            >
+                                                Asignar
+                                            </Button>
+                                        ) : (
+                                            <>
+                                                {/* El doctor nunca elimina citas, sin importar el permiso. */}
+                                                {canDelete && !isDoctor && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                                        onClick={() =>
+                                                            handleEliminar(cita._id)
                                                         }
-                                                    )
-                                                }
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+
+                                                {/* Abre el formulario en modo edición (editMode: true). fromTab recuerda desde
+                                                    qué sub-pestaña (Por aceptar / Mis citas / Citas asignadas) se abrió, para
+                                                    que el botón "X" del formulario pueda regresar exactamente ahí. */}
+                                                {canUpdate && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-slate-400 hover:text-amber-600 hover:bg-amber-50"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/calendar/appointments/${cita._id}`,
+                                                                {
+                                                                    state: {
+                                                                        editMode: true,
+                                                                        fromView: "citas",
+                                                                        fromTab: (isDoctor || isAdmin) ? activeTab : undefined,
+                                                                    }
+                                                                }
+                                                            )
+                                                        }
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+
+                                                {/* Solo visible si la cita todavía se puede cancelar. */}
+                                                {canUpdate && cita.status !== "cancelled" && cita.status !== "completed" && cita.status !== "no_show" && cita.status !== "expired" && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                                        onClick={() =>
+                                                            handleCancelar(cita._id)
+                                                        }
+                                                    >
+                                                        <Ban className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </>
                                         )}
 
-                                        {/* Solo visible si la cita todavía se puede cancelar. */}
-                                        {canUpdate && cita.status !== "cancelled" && cita.status !== "completed" && cita.status !== "no_show" && (
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                                                onClick={() =>
-                                                    handleCancelar(cita._id)
-                                                }
-                                            >
-                                                <Ban className="h-4 w-4" />
-                                            </Button>
-                                        )}
-
-                                        {/* Abre el formulario en modo solo-lectura. */}
+                                        {/* Abre el formulario en modo solo-lectura. fromTab: ver nota en el botón de editar. */}
                                         <Button
                                             variant="ghost"
                                             className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center"
-                                            onClick={() =>
-                                                navigate(
-                                                    `/calendar/appointments/${cita._id}`
-                                                )
-                                            }
+                                            onClick={() => {
+                                                if ((isDoctor || isAdmin) && cita.status === "pending") {
+                                                    setPendingAppointmentDetails(cita);
+                                                    return;
+                                                }
+                                                navigate(`/calendar/appointments/${cita._id}`, {
+                                                    state: {
+                                                        fromView: "citas",
+                                                        fromTab: (isDoctor || isAdmin) ? activeTab : undefined,
+                                                    },
+                                                });
+                                            }}
                                         >
                                             <Eye className="h-4 w-4" />
                                         </Button>
@@ -442,7 +720,109 @@ export default function AppointmentsGrid() {
                     </div>
                 </div >
             )}
+            {appointmentToAccept && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+                        <h2 className="text-lg font-bold text-slate-900">Asignar enfermera</h2>
+                        <p className="mt-1 text-sm text-slate-500">Este procedimiento requiere enfermera. Elige quién apoyará la cita antes de aceptarla.</p>
+                        <select
+                            value={selectedNurseId}
+                            onChange={(event) => setSelectedNurseId(event.target.value)}
+                            disabled={loadingNurses}
+                            className="mt-5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                        >
+                            <option value="">{loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}</option>
+                            {nurses.map((nurse) => <option key={nurse._id} value={nurse._id}>{nurse.name} {nurse.last_name}</option>)}
+                        </select>
+                        <div className="mt-6 flex justify-end gap-3">
+                            <Button variant="outline" onClick={() => setAppointmentToAccept(null)}>Cancelar</Button>
+                            <Button disabled={!selectedNurseId || loadingNurses} onClick={() => handleAceptar(appointmentToAccept._id, selectedNurseId)} className="bg-emerald-600 hover:bg-emerald-700">Aceptar cita</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {appointmentToAssign && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+                        <h2 className="text-lg font-bold text-slate-900">Asignar a un doctor</h2>
+                        <p className="mt-1 text-sm text-slate-500">Elige el doctor que atenderá esta cita. Se le notificará junto con el paciente.</p>
+                        <select
+                            value={selectedDoctorId}
+                            onChange={(event) => setSelectedDoctorId(event.target.value)}
+                            disabled={loadingDoctors}
+                            className="mt-5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                        >
+                            <option value="">{loadingDoctors ? "Cargando doctores…" : "Selecciona un doctor"}</option>
+                            {doctors.map((doctor) => (
+                                <option key={doctor._id} value={doctor._id}>
+                                    Dr. {doctor.name} {doctor.last_name}{doctor.specialty ? ` — ${doctor.specialty}` : ""}
+                                </option>
+                            ))}
+                        </select>
+                        {appointmentToAssign.procedure_id?.requires_nurse && (
+                            <>
+                                <p className="mt-4 text-sm text-slate-500">Este procedimiento requiere enfermera.</p>
+                                <select
+                                    value={selectedNurseId}
+                                    onChange={(event) => setSelectedNurseId(event.target.value)}
+                                    disabled={loadingNurses}
+                                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                                >
+                                    <option value="">{loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}</option>
+                                    {nurses.map((nurse) => <option key={nurse._id} value={nurse._id}>{nurse.name} {nurse.last_name}</option>)}
+                                </select>
+                            </>
+                        )}
+                        <div className="mt-6 flex justify-end gap-3">
+                            <Button variant="outline" onClick={() => setAppointmentToAssign(null)}>Cancelar</Button>
+                            <Button
+                                disabled={!selectedDoctorId || loadingDoctors || (appointmentToAssign.procedure_id?.requires_nurse && !selectedNurseId)}
+                                onClick={() => handleAsignar(appointmentToAssign._id, selectedDoctorId, selectedNurseId || null)}
+                                className="bg-emerald-600 hover:bg-emerald-700"
+                            >
+                                Asignar cita
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {pendingAppointmentDetails && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+                    <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-amber-600">Solicitud pendiente</p>
+                                <h2 className="mt-1 text-lg font-bold text-slate-900">Detalle de la cita</h2>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => setPendingAppointmentDetails(null)} aria-label="Cerrar detalle">
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
+                        <div className="mt-5 space-y-3 rounded-xl bg-slate-50 p-4 text-sm">
+                            <p><span className="font-semibold text-slate-500">Paciente: </span>{pendingAppointmentDetails.patient_id ? `${pendingAppointmentDetails.patient_id.name} ${pendingAppointmentDetails.patient_id.last_name}` : "—"}</p>
+                            <p><span className="font-semibold text-slate-500">Servicio: </span>{pendingAppointmentDetails.procedure_id?.name || pendingAppointmentDetails.type}</p>
+                            <p><span className="font-semibold text-slate-500">Fecha: </span>{new Date(pendingAppointmentDetails.date).toLocaleDateString()}</p>
+                            <p><span className="font-semibold text-slate-500">Horario: </span>{pendingAppointmentDetails.start_time} - {pendingAppointmentDetails.end_time}</p>
+                            <p><span className="font-semibold text-slate-500">Duración: </span>{pendingAppointmentDetails.duration_minutes || 30} min</p>
+                            <p><span className="font-semibold text-slate-500">Notas: </span>{pendingAppointmentDetails.description || "Sin notas"}</p>
+                        </div>
+                        <div className="mt-6 flex justify-end gap-3">
+                            <Button variant="outline" onClick={() => setPendingAppointmentDetails(null)}>Cerrar</Button>
+                            <Button
+                                onClick={() => {
+                                    const appointment = pendingAppointmentDetails;
+                                    setPendingAppointmentDetails(null);
+                                    if (isAdmin) requestAssign(appointment);
+                                    else requestAccept(appointment);
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700"
+                            >
+                                {isAdmin ? "Asignar cita" : "Aceptar cita"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
-
     );
 }

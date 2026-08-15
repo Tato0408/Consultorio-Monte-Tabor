@@ -1,20 +1,91 @@
 import doctorsModel from "../../models/doctors/doctors.js";
+import adminModel from "../../models/admin/admins.js";
+import patientsModel from "../../models/patients/patients.js";
+import appointmentsModel from "../../models/appointments/appointments.js";
+import proceduresModel from "../../models/procedures/procedures.js";
+import consultationsModel from "../../models/consultations/consultation.js";
 import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js";
 
-//array de funciones, aqui agregamos las funciones y 
+//array de funciones, aqui agregamos las funciones y
 //al final del archivo este objeto lo exportaremos
 const doctorController = {};
 
-//GET ALL, obtiene todos los doctores registrados
+// Avatar genérico de respaldo cuando el admin no tiene foto propia — mismo placeholder ya usado
+// en AppointmentsGrid.jsx para doctores sin foto.
+const DEFAULT_AVATAR_URL = "https://res.cloudinary.com/dgpreaeg9/image/upload/images_gb0wco.png";
+
+// Crea o actualiza el "doctor espejo" de un admin (ver comentario en el modelo Doctors). Tanto la
+// foto como toda la información personal del espejo SIEMPRE vienen del perfil del admin — nunca
+// se editan sobre el propio doctor (bloqueado en updateDoctors/deleteDoctor más abajo), así que
+// se recalculan por completo en cada sincronización, se cree o no por primera vez.
+//
+// Primero se busca por linked_admin_id; si no existe, se busca por correo — pero solo se toma ese
+// resultado si YA es un espejo. Si el correo pertenece a un doctor real (la vieja convención
+// manual de "duplicar" al admin en Doctors, de antes de que existiera esta sincronización
+// automática), se deja intacto: nunca se sobreescriben los datos de un doctor real, y tampoco se
+// crea uno nuevo con el mismo correo (chocaría contra el índice único de email).
+const syncAdminMirrorDoctor = async (admin) => {
+  let mirror = await doctorsModel.findOne({ linked_admin_id: admin._id, is_admin_mirror: true });
+  if (!mirror) {
+    const existingByEmail = await doctorsModel.findOne({ email: admin.email });
+    if (existingByEmail) {
+      if (!existingByEmail.is_admin_mirror) return;
+      mirror = existingByEmail;
+    }
+  }
+
+  // Todo lo que el espejo muestra sale del admin, siempre — incluida la foto (si el admin no
+  // tiene una propia, se usa el avatar genérico, igual que un doctor real sin foto). Los campos
+  // que un admin no tiene (DUI, fecha de nacimiento) llevan un valor de relleno determinístico y
+  // único por admin mientras no los complete desde su propio perfil.
+  const syncedFields = {
+    name: admin.name,
+    last_name: admin.last_name,
+    email: admin.email,
+    dui: admin.dui || `ADMIN-${admin._id}`,
+    birth_date: admin.birth_date || new Date(1990, 0, 1),
+    img_url: admin.image || DEFAULT_AVATAR_URL,
+    is_active: admin.is_active !== false,
+    is_admin_mirror: true,
+    linked_admin_id: admin._id,
+  };
+
+  if (mirror) {
+    await doctorsModel.findByIdAndUpdate(mirror._id, syncedFields);
+    return;
+  }
+
+  // No hay ningún doctor con ese correo todavía: se crea el espejo completo. Los campos que un
+  // admin nunca tiene (licencia, teléfono, género) llevan un valor de relleno fijo — nunca se
+  // usan para nada real, solo satisfacen el esquema de Doctor, que no distingue entre un doctor
+  // real y uno espejo.
+  await doctorsModel.create({
+    ...syncedFields,
+    img_public_id: admin.public_id || `admin-mirror-${admin._id}`,
+    gender: "No especificado",
+    phone: "0000-0000",
+    license_number: `ADMIN-${admin._id}`,
+    license_url: DEFAULT_AVATAR_URL,
+    license_public_id: `admin-mirror-license-${admin._id}`,
+    password: admin.password,
+    is_verified: true,
+    loginAttempts: 0,
+  });
+};
+
+//GET ALL, obtiene todos los doctores registrados para la pantalla de gestión — excluye los
+//"doctores espejo" de los admins (ver is_admin_mirror en el modelo), esos solo deben verse en el
+//catálogo de agendamiento (getDoctorsCatalog), no aquí.
 doctorController.getDoctors = async (req, res) => {
   //Try sirve para capturar cualquier error que pueda ocurrir dentro
   // del bloque
   try {
     //doctorsModel.find() busca todos los documentos de la colección doctors.
     //y lo guarda en la constante doctors
-    const doctors = await doctorsModel.find();
+    //-password: nunca se envia el hash de la contraseña al cliente
+    const doctors = await doctorsModel.find({ is_admin_mirror: { $ne: true } }).select("-password");
 
     //devulve un codigo 200 indiacndo que la peticion fue exitosa
     //y envia  a todos los doctores encontrados en un json
@@ -25,8 +96,31 @@ doctorController.getDoctors = async (req, res) => {
 
     //500 porque fue un error interno de servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
+  }
+};
+
+// GET /doctors/catalog — catálogo liviano para agendar citas. Antes de responder, sincroniza el
+// doctor espejo de cada admin (crea el que falte, actualiza nombre/foto/estado de los que ya
+// existen), así el admin siempre aparece aquí como una opción más de doctor, con su propio
+// horario y disponibilidad, sin dejar de ser admin en el resto del sistema.
+doctorController.getDoctorsCatalog = async (req, res) => {
+  try {
+    const admins = await adminModel.find({ email: { $exists: true, $ne: "" } });
+    await Promise.all(
+      admins.map((admin) =>
+        syncAdminMirrorDoctor(admin).catch((err) =>
+          console.log(`No se pudo sincronizar el doctor espejo del admin ${admin._id}: ${err}`)
+        )
+      )
+    );
+
+    const doctors = await doctorsModel.find().select("-password");
+    return res.status(200).json(doctors);
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -143,7 +237,7 @@ doctorController.createDoctor = async (req, res) => {
 
     return res.status(500).json({
       message:
-        "Internal server error",
+        "Error interno del servidor",
     });
   }
 };
@@ -164,6 +258,7 @@ doctorController.updateDoctors = async (req, res) => {
       phone,
       license_number,
       email,
+      password,
       is_active,
       is_verified,
     } = req.body;
@@ -180,7 +275,17 @@ doctorController.updateDoctors = async (req, res) => {
     if (!doctorFound) {
       return res.status(404).json({
         message:
-          "Doctor not found",
+          "Doctor no encontrado",
+      });
+    }
+
+    // El doctor espejo de un admin se sincroniza automáticamente desde su propio perfil de admin
+    // (ver syncAdminMirrorDoctor) — editarlo aquí directamente quedaría sobreescrito en la
+    // siguiente sincronización, así que se bloquea con un mensaje claro en vez de dejar que
+    // parezca que el cambio se guardó.
+    if (doctorFound.is_admin_mirror) {
+      return res.status(400).json({
+        message: "Este doctor representa a un administrador del sistema; edita su perfil de administrador en su lugar.",
       });
     }
 
@@ -189,6 +294,17 @@ doctorController.updateDoctors = async (req, res) => {
     const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
     if (formatError) {
       return res.status(400).json({ message: formatError });
+    }
+
+    // Mismo chequeo que al crear: si el correo o DUI editado ya lo usa otro miembro del staff
+    // (admin/doctor/enfermera/recepcionista), se avisa con un mensaje claro en vez de dejar que
+    // reviente contra el índice único de Mongo con un error 500 genérico. excludeId es el propio
+    // doctor, para no chocar contra sí mismo si no cambió el correo/DUI.
+    if (email || dui) {
+      const staffDuplicate = await findStaffDuplicate(email, dui, req.params.id);
+      if (staffDuplicate) {
+        return res.status(400).json(staffDuplicate);
+      }
     }
 
     //Crea un objeto nuevo con todos los datos limpios y listos para ser actualizados en la base de datos
@@ -204,6 +320,22 @@ doctorController.updateDoctors = async (req, res) => {
       is_active,
       is_verified,
     };
+
+    // Si viene una nueva contraseña, la validamos y encriptamos antes de guardar.
+    // Sin este chequeo, cualquier actualización que NO incluya contraseña dejaría el
+    // campo fuera de updatedData, así que no hay riesgo de sobreescribirla por accidente.
+    if (password && password.trim() !== "") {
+      const passwordError = getPasswordError(password);
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
+      }
+      // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+      const samePassword = await bcryptjs.compare(password, doctorFound.password);
+      if (samePassword) {
+        return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+      }
+      updatedData.password = await bcryptjs.hash(password, 10);
+    }
 
     // FOTO PERFIL
     //Comprueba si el cliente envio un archivo nuevo bajo la clave 'doctorImage' dentro de req.files
@@ -260,7 +392,7 @@ doctorController.updateDoctors = async (req, res) => {
     //Retorna un estado 500 indicando un error imprevisto en el servidor junto con su respectivo mensaje
     return res.status(500).json({
       message:
-        "Internal server error",
+        "Error interno del servidor",
     });
   }
 };
@@ -276,7 +408,31 @@ doctorController.deleteDoctor = async (req, res) => {
     //Si findById no devuelve nada, significa que el registro no existe o ya fue eliminado, por lo que envia un estado 404
     if (!doctorFound) {
       return res.status(404).json({
-        message: "Doctor not found",
+        message: "Doctor no encontrado",
+      });
+    }
+
+    // El doctor espejo de un admin desaparece solo (o se recrea) según su cuenta de admin — no
+    // se elimina desde aquí directamente para no dejar citas/horario huérfanos mientras el admin
+    // sigue activo.
+    if (doctorFound.is_admin_mirror) {
+      return res.status(400).json({
+        message: "Este doctor representa a un administrador del sistema y no se puede eliminar directamente.",
+      });
+    }
+
+    // No se permite eliminar un doctor con citas o consultas relacionadas: doctor_id es una
+    // referencia obligatoria en esos registros, así que borrarlo de todos modos los dejaría
+    // apuntando a un doctor fantasma (Citas, Consultas y Reportes podrían fallar o mostrar el
+    // campo en blanco al intentar leerlo). Se revisa ANTES de tocar Cloudinary, para no borrar
+    // las fotos del doctor si al final la eliminación no procede.
+    const [hasAppointments, hasConsultations] = await Promise.all([
+      appointmentsModel.exists({ doctor_id: req.params.id }),
+      consultationsModel.exists({ "procedure.doctor_id": req.params.id }),
+    ]);
+    if (hasAppointments || hasConsultations) {
+      return res.status(400).json({
+        message: "Este doctor tiene citas o consultas relacionadas, por eso no se puede eliminar. Si ya no debe seguir activo, márcalo como inactivo en su lugar.",
       });
     }
 
@@ -300,7 +456,7 @@ doctorController.deleteDoctor = async (req, res) => {
 
     //Manda una respuesta con codigo 200 detallando que el doctor fue removido exitosamente del sistema
     return res.status(200).json({
-      message: "Doctor deleted",
+      message: "Doctor eliminado",
     });
 
   } catch (error) {
@@ -309,97 +465,10 @@ doctorController.deleteDoctor = async (req, res) => {
 
     //Se responde con codigo 500 para notificar que la base de datos o el servidor tuvieron un problema de ejecucion
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
-
-doctorController.updateOwnProfile = async (req, res) => {
-  //Bloque try para procesar de forma segura la actualizacion del perfil del usuario que inicio sesion
-  try {
-    //Toma el ID del doctor autenticado directamente desde la propiedad 'id' que inyecto el middleware del token en req.user
-    const doctorId = req.user.id; 
-
-    //Realiza una busqueda en la coleccion de doctores usando el ID obtenido del usuario logueado
-    const doctorFound = await doctorsModel.findById(doctorId);
-
-    //Si el doctor asociado al token no es localizado en la base de datos aborta y lanza un codigo 404
-    if (!doctorFound) {
-      return res.status(404).json({
-        message: "Doctor profile not found",
-      });
-    }
-
-    //Obtiene del cuerpo de la peticion (body) unicamente los campos generales que el doctor tiene permitido cambiarse a si mismo
-    const {
-      name,
-      last_name,
-      dui,
-      birth_date,
-      gender,
-      phone,
-      email,
-    } = req.body;
-
-    //Estructura un objeto temporal que almacena los valores basicos que seran reemplazados en el documento de MongoDB
-    const updatedData = {
-      name,
-      last_name,
-      dui,
-      birth_date,
-      gender,
-      phone,
-      email,
-    };
-
-    //Comprueba si el doctor decidio actualizar su fotografia de perfil mandando un archivo nuevo
-    if (req.files?.doctorImage) {
-      //Valida si el doctor ya contaba con un identificador de imagen previo guardado en la nube
-      if (doctorFound.img_public_id) {
-        //Elimina el archivo antiguo de Cloudinary para evitar acumular archivos huerfanos o duplicados
-        await cloudinary.uploader.destroy(doctorFound.img_public_id);
-      }
-      //Inserta la nueva ubicacion del archivo en disco/nube dentro del objeto de los datos modificados
-      updatedData.img_url = req.files["doctorImage"][0].path;
-      //Establece el nuevo id publico de la imagen generada por Cloudinary para control futuro
-      updatedData.img_public_id = req.files["doctorImage"][0].filename;
-    }
-
-    //Comprueba si el doctor decidio adjuntar un archivo para reemplazar su documento o fotografia de licencia medica
-    if (req.files?.licenseImage) {
-      //Verifica la existencia del identificador publico de la licencia actual dentro de la base de datos
-      if (doctorFound.license_public_id) {
-        //Invoca la destruccion del recurso antiguo en Cloudinary de manera asincrona
-        await cloudinary.uploader.destroy(doctorFound.license_public_id);
-      }
-      //Almacena la ruta de acceso de la nueva licencia subida en las propiedades de actualizacion
-      updatedData.license_url = req.files["licenseImage"][0].path;
-      //Actualiza el ID publico asignado a la nueva imagen de la licencia en Cloudinary
-      updatedData.license_public_id = req.files["licenseImage"][0].filename;
-    }
-
-    //Ejecuta la consulta de actualizacion sobre el ID del doctor logueado inyectandole todos los campos preparados en updatedData
-    const profileUpdated = await doctorsModel.findByIdAndUpdate(
-      doctorId,
-      updatedData,
-      { new: true }
-    );
-
-    //Responde con codigo de exito 200, adjuntando un texto informativo y el objeto completo del usuario ya modificado
-    return res.status(200).json({
-      message: "Your profile has been updated successfully",
-      user: profileUpdated
-    });
-
-  } catch (error) {
-    //Imprime el error capturado en los logs del servidor en caso de caer en el catch
-    console.log("error " + error);
-    //Manda una respuesta JSON con codigo de estado de error interno del servidor indicando el punto exacto de la falla
-    return res.status(500).json({
-      message: "Internal server error updating your profile",
-    }); // Cerrado correctamente el objeto y el método .json()
-  } // Cerrado correctamente el bloque catch
-}; // Cerrada correctamente la función asíncrona
 
 // =====================
 // SEARCH
@@ -413,14 +482,19 @@ doctorController.searchDoctors = async (req, res) => {
     //Evalua si la variable 'search' no fue enviada o si unicamente contiene espacios vacios o en blanco
     if (!search || search.trim() === "") {
       //Al no haber filtros especificos busca todos los documentos existentes en doctorsModel de manera general
-      const doctors = await doctorsModel.find();
+      //-password: nunca se envia el hash de la contraseña al cliente
+      //Excluye los doctores espejo de los admins (ver is_admin_mirror) — esta búsqueda es para la
+      //gestión de doctores, no para el catálogo de agendamiento.
+      const doctors = await doctorsModel.find({ is_admin_mirror: { $ne: true } }).select("-password");
 
       //Retorna la lista total de medicos encontrados con un codigo de estado exitoso 200
       return res.status(200).json(doctors);
     }
 
     //Si 'search' contiene texto, realiza una busqueda avanzada utilizando filtros condicionales dentro de Mongoose
+    //-password: nunca se envia el hash de la contraseña al cliente
     const doctors = await doctorsModel.find({
+      is_admin_mirror: { $ne: true },
       //$or asegura que el registro sera valido con que una sola de las propiedades internas coincida con el parametro
       $or: [
         {
@@ -467,7 +541,7 @@ doctorController.searchDoctors = async (req, res) => {
           },
         },
       ],
-    });
+    }).select("-password");
 
     //Manda de regreso al cliente la coleccion de doctores filtrados que cumplieron los criterios junto a un codigo 200
     return res.status(200).json(doctors);
@@ -477,8 +551,98 @@ doctorController.searchDoctors = async (req, res) => {
 
     //Manda una respuesta con codigo 500 informando al front que se ha producido un error interno del servidor
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
+  }
+};
+
+// Autoservicio de perfil: el propio doctor edita sus datos básicos y su foto, sin depender de
+// authorize("users.doctors","update") (ese permiso es para que un admin gestione a OTROS
+// doctores, no para que el doctor edite su propio registro). Mismo patrón que
+// nursesController.updateOwnProfile / receptionistController.updateOwnProfile.
+// img_url/img_public_id son obligatorios en el modelo (un doctor siempre debe tener foto), así
+// que a diferencia de enfermería aquí no se ofrece "eliminar foto", solo reemplazarla.
+doctorController.updateOwnProfile = async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+
+    const doctorFound = await doctorsModel.findById(doctorId);
+    if (!doctorFound) {
+      return res.status(404).json({ message: "Perfil del doctor no encontrado" });
+    }
+
+    const { name, last_name, dui, birth_date, phone, email, password } = req.body;
+
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+    if (formatError) {
+      return res.status(400).json({ message: formatError });
+    }
+
+    const updatedData = { name, last_name, dui, birth_date, phone, email };
+
+    // Si viene una nueva contraseña, la validamos y encriptamos (mismo criterio que
+    // doctorController.updateDoctors / adminController.updateAdmin)
+    if (password && password.trim() !== "") {
+      const passwordError = getPasswordError(password);
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
+      }
+      const samePassword = await bcryptjs.compare(password, doctorFound.password);
+      if (samePassword) {
+        return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+      }
+      updatedData.password = await bcryptjs.hash(password, 10);
+    }
+
+    if (req.file) {
+      if (doctorFound.img_public_id) {
+        await cloudinary.uploader.destroy(doctorFound.img_public_id);
+      }
+      updatedData.img_url = req.file.path;
+      updatedData.img_public_id = req.file.filename;
+    }
+
+    const doctorUpdated = await doctorsModel
+      .findByIdAndUpdate(doctorId, updatedData, { new: true })
+      .select("-password");
+    if (!doctorUpdated) {
+      return res.status(500).json({ message: "Error al actualizar tu perfil" });
+    }
+
+    return res.status(200).json({ message: "Tu perfil se actualizó correctamente", user: doctorUpdated });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor al actualizar tu perfil" });
+  }
+};
+
+// Mismo criterio que nursesController.countAppointments/countProcedures: cifras reales del
+// sistema para las tarjetas de estadísticas de /users/doctors (antes eran constantes fijas
+// en DoctorsStats.jsx, sin relación con los datos reales de la clínica).
+doctorController.countPatients = async (req, res) => {
+  try {
+    const count = await patientsModel.countDocuments();
+    return res.status(200).json({ count });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+doctorController.countAppointments = async (req, res) => {
+  try {
+    const count = await appointmentsModel.countDocuments({ status: "completed" });
+    return res.status(200).json({ count });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+doctorController.countProcedures = async (req, res) => {
+  try {
+    const count = await proceduresModel.countDocuments();
+    return res.status(200).json({ count });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };
 

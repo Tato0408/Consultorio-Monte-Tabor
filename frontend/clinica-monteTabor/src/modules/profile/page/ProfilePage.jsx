@@ -3,23 +3,30 @@ import { ChevronRight, LogOut, Trash2, Loader2 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext"; // Ajusta la ruta según tu proyecto
 import useProfile from '../hooks/useProfile'
 import ChangePasswordModal from "../components/ChangePasswordModal";
+import EditProfileModal from "../components/EditProfileModal";
 import {useState} from 'react'
 import { calculateAge } from "../../../lib/validators";
 
 
 const ProfilePage = () => {
   const { user, userType, logout, isLoading: authLoading } = useAuth();
-  const { submitting, uploadAvatar, deleteAvatar } = useProfile();
+  const { submitting, uploadAvatar, deleteAvatar, updateProfile } = useProfile();
   const fileInputRef = useRef(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
 
   const roleTranslations = {
     admin: "Administrador del sistema",
-    doctor: "Médico Especialista",
-    nurse: "Personal de Enfermería",
+    doctor: "Médico especialista",
+    nurse: "Personal de enfermería",
     receptionist: "Recepcionista del sistema",
   };
+
+  // doctor y recepcionista tienen la foto como campo obligatorio en su modelo (siempre se sube
+  // una al registrarlos) — a diferencia de admin/enfermería, eliminarla dejaría la cuenta en un
+  // estado que el propio backend no permite crear, así que aquí no se ofrece esa opción.
+  const canDeleteAvatar = userType === "admin" || userType === "nurse";
 
   const handleTriggerFileInput = () => {
     fileInputRef.current.click();
@@ -56,7 +63,7 @@ const ProfilePage = () => {
         className="hidden"
       />
 
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-gray-100 pb-5 gap-4">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between border-b border-gray-100 pb-5 gap-4">
         <div>
           <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-1">
             <span>Sistema</span>
@@ -69,9 +76,11 @@ const ProfilePage = () => {
           </p>
         </div>
 
+        {/* md:mt-8 la baja a la misma altura que el botón "Guardar cambios" de Horarios, para
+            que no choque con la campana de notificaciones (fixed, ver MainLayout.jsx). */}
         <button
           onClick={logout}
-          className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-all self-start md:self-center"
+          className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-all self-start md:mt-8"
         >
           <LogOut className="w-4 h-4" />
           Cerrar sesión
@@ -110,7 +119,7 @@ const ProfilePage = () => {
               >
                 Cambiar foto
               </button>
-              {user.image && (
+              {canDeleteAvatar && user.image && (
                 <button
                   onClick={deleteAvatar}
                   disabled={submitting}
@@ -158,9 +167,17 @@ const ProfilePage = () => {
         <div className="lg:col-span-2 space-y-6">
 
           <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-            <h3 className="font-bold text-blue-900 text-xs uppercase tracking-wider mb-6">
-              Datos personales
-            </h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-blue-900 text-xs uppercase tracking-wider">
+                Datos personales
+              </h3>
+              <button
+                onClick={() => setIsEditProfileModalOpen(true)}
+                className="px-4 py-2.5 border border-blue-600 text-blue-600 text-xs font-semibold rounded-xl hover:bg-blue-50 transition-colors"
+              >
+                Editar información
+              </button>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-6">
               <div>
@@ -222,6 +239,13 @@ const ProfilePage = () => {
       <ChangePasswordModal
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
+      />
+      <EditProfileModal
+        isOpen={isEditProfileModalOpen}
+        onClose={() => setIsEditProfileModalOpen(false)}
+        user={user}
+        userType={userType}
+        onSave={updateProfile}
       />
     </div>
 

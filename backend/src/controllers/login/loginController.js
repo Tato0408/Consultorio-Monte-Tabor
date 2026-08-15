@@ -27,7 +27,7 @@ loginController.loginCommonRole = async (req, res) => {
     if (!email || !password) {
       return res
         .status(400)
-        .json({ message: "Email and password are required." });
+        .json({ message: "El correo y la contraseña son requeridos." });
     }
 
     // 2. Sanitización de campos
@@ -47,7 +47,7 @@ loginController.loginCommonRole = async (req, res) => {
 
     // Si no se encontró el correo en ninguna de las colecciones, rechazamos la petición
     if (matchIndex === -1) {
-      return res.status(400).json({ message: "User not found" });
+      return res.status(400).json({ message: "Usuario no encontrado" });
     }
 
     // Extraemos el string del rol ("doctor", "nurse", "admin" o "receptionist".) basado en la posición donde hubo coincidencia
@@ -55,9 +55,17 @@ loginController.loginCommonRole = async (req, res) => {
     // Obtenemos el documento completo del usuario encontrado
     const userFound = results[matchIndex];
 
+    // 3.5 Una cuenta desactivada (doctor, recepcionista o enfermera) no puede iniciar sesión.
+    // El admin queda fuera de esta regla: es el único rol que no se puede desactivar.
+    if (userType !== "admin" && userFound.is_active === false) {
+      return res.status(403).json({
+        message: "Su cuenta ha sido desactivada. Si cree que esto es un error, comuníquese con el administrador.",
+      });
+    }
+
     // 4. Si el usuario tiene los 15 minutos de bloqueo rechaza el inicio de sesion
     if (userFound.time_out && userFound.time_out > Date.now()) {
-      return res.status(400).json({ message: "User is locked" });
+      return res.status(400).json({ message: "Usuario bloqueado" });
     }
 
     // 5. Compara las contraseñas, la que enviamos con la encriptada
@@ -73,12 +81,12 @@ loginController.loginCommonRole = async (req, res) => {
         userFound.time_out = Date.now() + 1000 * 60 * 15; // 15 minutos
         userFound.loginAttempts = 0;
         await userFound.save();
-        return res.status(400).json({ message: "User is locked" });
+        return res.status(400).json({ message: "Usuario bloqueado" });
       }
 
       //Si fallo pero el contador aun no es 5, solo se guarda el contador de intentos
       await userFound.save();
-      return res.status(400).json({ message: "Wrong password" });
+      return res.status(400).json({ message: "Contraseña incorrecta" });
     }
 
     // 6. Login correcto: reseteamos intentos fallidos y bloqueo
@@ -98,7 +106,7 @@ loginController.loginCommonRole = async (req, res) => {
 
     //Retornamos un estado exitoso junto con informacion que usara el frontend del usuario logeado
     return res.status(200).json({
-      message: "Login successful",
+      message: "Inicio de sesión exitoso",
       token,
       userType,
       user: {
@@ -111,13 +119,16 @@ loginController.loginCommonRole = async (req, res) => {
         gender: userFound.gender,
         is_active: userFound.is_active,
         is_verified: userFound.is_verified,
-        image: userFound.image,
-        public_id: userFound.public_id,
+        // Cada modelo usa un nombre distinto para la foto (admin: "image", doctor/enfermera/
+        // recepcionista: "img_url") — mismo fallback que ya usa authController.getCurrentUser,
+        // para que la foto se vea desde el primer momento del login y no solo tras un refresh.
+        image: userFound.image || userFound.img_url || null,
+        public_id: userFound.public_id || userFound.img_public_id || null,
       },
     });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

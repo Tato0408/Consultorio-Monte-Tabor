@@ -26,13 +26,13 @@ authController.getCurrentUser = async (req, res) => {
         //Seleecionamos el modelo dependiendo del tipo de usuario
         const model = role_models[userType];
         if (!model) {
-            return res.status(400).json({ message: "Invalid user type in token" });
+            return res.status(400).json({ message: "Tipo de usuario inválido en el token" });
         }
 
         //Busca el usuario por su id, excluyendo el campo de contraseña
         const userFound = await model.findById(id).select("-password");
         if (!userFound) {
-            return res.status(404).json({ message: "User not found" });
+            return res.status(404).json({ message: "Usuario no encontrado" });
         }
 
         //Estructuramos la respuesta, enviando los campos necesarios que usara el frotend
@@ -56,7 +56,7 @@ authController.getCurrentUser = async (req, res) => {
 
     } catch (error) {
         console.log(error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

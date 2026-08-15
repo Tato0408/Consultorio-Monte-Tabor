@@ -58,6 +58,7 @@ export const SIDEBAR_MODULES = [
     icon: ClipboardList,
     modules: [
       { key: "procedures", label: "Procedimientos", icon: ClipboardList },
+      { key: "inventory.treatments", label: "Tratamientos", icon: FlaskConical },
     ],
   },
   {
@@ -75,7 +76,6 @@ export const SIDEBAR_MODULES = [
     icon: Package,
     modules: [
       { key: "inventory.products", label: "Productos", icon: Boxes },
-      { key: "inventory.treatments", label: "Tratamientos", icon: FlaskConical },
       { key: "inventory.movements", label: "Movimientos", icon: ArrowLeftRight },
       { key: "inventory.reports", label: "Reportes de inventario", icon: TrendingUp },
     ],
@@ -89,9 +89,79 @@ export const ALL_MODULE_KEYS = SIDEBAR_MODULES.flatMap((section) =>
   section.modules.map((m) => m.key)
 );
 
+// Etiqueta legible de cada moduleKey (ej. "reports.records" -> "Expediente") — la usa el
+// mensaje de error de RolesPage cuando falta activar una dependencia (ver
+// MODULE_VIEW_DEPENDENCIES más abajo).
+export const MODULE_LABEL_BY_KEY = Object.fromEntries(
+  SIDEBAR_MODULES.flatMap((section) => section.modules.map((m) => [m.key, m.label]))
+);
+
+// Módulos que en el backend solo tienen una ruta GET (backend/src/routes/reports/reports.js
+// solo define .get() para estos cuatro, sin POST/PUT/DELETE) — activar Crear/Editar/Eliminar
+// ahí no tendría ningún efecto real, así que ModulePermissionCard oculta esos tres checkboxes
+// y deja únicamente "Ver". "reports.records" (Expediente) queda fuera a propósito: sí tiene
+// una acción real de creación (registrar incapacidades, ver ResumeTab.jsx), así que conserva
+// sus 4 checkboxes normales. "inventory.reports" entra por la misma razón que los otros tres:
+// GET /api/reports/inventory es su única ruta.
+export const VIEW_ONLY_MODULE_KEYS = ["reports.appointments", "reports.patients", "reports.doctors", "inventory.reports"];
+
+// Acciones puntuales sin ningún endpoint real detrás, para módulos que sí necesitan más de un
+// checkbox (a diferencia de VIEW_ONLY_MODULE_KEYS, que oculta todo menos "Ver"). Caso real:
+// Horarios (calendar.schedule) solo tiene GET (Ver) y PUT/upsert (Editar) en el backend — no
+// existe una ruta POST ni DELETE separada (backend/src/routes/schedule/schedule.js), así que
+// "Crear" y "Eliminar" se togglean sin ningún efecto real si se dejan visibles.
+export const HIDDEN_PERMISSION_ACTIONS = {
+  "calendar.schedule": ["create", "delete"],
+  // Movimientos de inventario: GET (Ver), POST /stock-entry, /manual-usage, /procedure-discount
+  // (Crear) y POST /:id/adjust (Editar) — no existe ninguna ruta DELETE para movimientos
+  // (backend/src/routes/inventory/inventory.js): son un registro histórico, no se borran.
+  "inventory.movements": ["delete"],
+};
+
+// Módulos cuya pantalla, aunque tengan su propio "Ver" activado, dependen del "Ver" de OTROS
+// módulos para no romperse — porque su pantalla llama a esos otros endpoints por separado.
+// Caso real: el Expediente (reports.records) solo controla si el rol puede abrir la pantalla y
+// gestionar Incapacidades; la ficha del paciente viene de users.patients, el historial de
+// consultas de calendar.consultations y las citas pendientes de calendar.appointments — si a
+// alguno de esos le falta "Ver", el Expediente carga pero esas secciones truenan con un 403.
+// ModulePermissionCard usa esto para avisar dentro de la propia card cuando falta alguno.
+export const MODULE_VIEW_DEPENDENCIES = {
+  "reports.records": [
+    { moduleKey: "users.patients", label: "Pacientes" },
+    { moduleKey: "calendar.consultations", label: "Consultas" },
+    { moduleKey: "calendar.appointments", label: "Citas" },
+  ],
+};
+
+// Permisos que, para ciertos roles, el propio dashboard de ese rol necesita en true para
+// funcionar (ej. el recepcionista no puede agendar citas si le apagan "ver horarios" o
+// "crear pacientes" — su propio panel principal quedaría roto). Se muestran marcados con un
+// candado y no se pueden destildar. El backend (rolesController.js) tiene la MISMA lista y es
+// quien realmente lo hace cumplir — esto solo evita la confusión de destildar algo que el
+// servidor va a rechazar de todas formas. A diferencia de "isProtected" (bloquea TODO el rol,
+// como admin), esto solo bloquea esos permisos puntuales.
+export const LOCKED_TRUE_PERMISSIONS = {
+  receptionist: {
+    "calendar.schedule": ["view"],
+    "calendar.appointments": ["view", "create", "update"],
+    "users.patients": ["view", "create"],
+  },
+  nurse: {
+    "calendar.schedule": ["view"],
+    "calendar.appointments": ["view", "create", "update"],
+    // La enfermera no tiene registro rápido de pacientes (a diferencia de recepción), solo
+    // necesita poder verlos para buscarlos al agendar una cita.
+    "users.patients": ["view"],
+  },
+};
+
 const FULL_CRUD = { view: true, create: true, update: true, delete: true };
 const NO_ACCESS = { view: false, create: false, update: false, delete: false };
 const VIEW_ONLY = { view: true, create: false, update: false, delete: false };
+// Ver + editar, sin crear/eliminar — el caso de "tener y poder editar mi propio horario"
+// (doctor y enfermera), donde el registro se crea implícitamente por upsert, no por un
+// botón "Crear" separado.
+const VIEW_UPDATE = { view: true, create: false, update: true, delete: false };
 
 // Valores predeterminados por rol, usados por el botón "Volver a los valores
 // predeterminados" de cada card. Solo cubre los moduleKey gestionables desde
@@ -109,21 +179,32 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     // una al agendar una cita.
     "users.nurses": VIEW_ONLY,
     "procedures": FULL_CRUD,
-    "reports.appointments": NO_ACCESS,
+    // El doctor sí puede ver estos dos reportes hoy (seedRoles.js: view=true) — antes este
+    // archivo decía NO_ACCESS, así que el botón "Restablecer a valores predeterminados" le
+    // habría quitado ese acceso real.
+    "reports.appointments": VIEW_ONLY,
+    // CRUD completo: el doctor es quien emite/edita/elimina incapacidades desde el Expediente
+    // (la única acción real detrás de este moduleKey — ver sickLeaves routes). seedRoles.js
+    // ahora coincide con esto (antes solo tenía view=true).
     "reports.records": FULL_CRUD,
-    "reports.patients": NO_ACCESS,
+    "reports.patients": VIEW_ONLY,
     "reports.doctors": NO_ACCESS,
     "inventory.products": NO_ACCESS,
-    "inventory.treatments": NO_ACCESS,
+    // El doctor hace el seguimiento clínico del tratamiento (evolución, notas, controles,
+    // alta) desde /inventory/treatments — necesita las 4 acciones, no solo ver.
+    "inventory.treatments": FULL_CRUD,
     "inventory.movements": NO_ACCESS,
     "inventory.reports": NO_ACCESS,
   },
   nurse: {
-    "calendar.schedule": NO_ACCESS,
+    // A diferencia de recepción, la enfermera SÍ puede tener y editar su propio horario —
+    // es lo que permite que solo se le asignen citas dentro de ese horario.
+    "calendar.schedule": VIEW_UPDATE,
     "calendar.appointments": FULL_CRUD,
     "calendar.consultations": NO_ACCESS,
     "users.doctors": NO_ACCESS,
-    "users.patients": NO_ACCESS,
+    // A diferencia de recepción, no registra pacientes nuevos — solo los busca al agendar
+    "users.patients": VIEW_ONLY,
     "users.receptionist": NO_ACCESS,
     "users.nurses": NO_ACCESS,
     "procedures": NO_ACCESS,
@@ -132,22 +213,34 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     "reports.patients": NO_ACCESS,
     "reports.doctors": NO_ACCESS,
     "inventory.products": NO_ACCESS,
-    "inventory.treatments": NO_ACCESS,
+    // La enfermera también participa del seguimiento del tratamiento (curaciones, controles),
+    // así que tiene las mismas 4 acciones que el doctor en /inventory/treatments.
+    "inventory.treatments": FULL_CRUD,
     "inventory.movements": NO_ACCESS,
     "inventory.reports": NO_ACCESS,
   },
   receptionist: {
-    "calendar.schedule": NO_ACCESS,
+    "calendar.schedule": VIEW_ONLY,
+    // Incluye Eliminar (seedRoles.js: [true,true,true,true]) — recepción sí cancela/elimina
+    // citas como parte de su trabajo diario.
     "calendar.appointments": FULL_CRUD,
-    "calendar.consultations": NO_ACCESS,
-    "users.doctors": NO_ACCESS,
-    "users.patients": NO_ACCESS,
+    // Antes decía NO_ACCESS, pero seedRoles.js sí le da "Ver" (recepción consulta el historial
+    // de consultas al atender a un paciente que ya tuvo cita).
+    "calendar.consultations": VIEW_ONLY,
+    "users.doctors": VIEW_ONLY,
+    // Antes era FULL_CRUD por error — seedRoles.js solo le da "Ver" (el registro real de
+    // pacientes nuevos ocurre a través de reports.patients, no de este moduleKey). El botón
+    // "Restablecer a valores predeterminados" no debe conceder Editar/Eliminar aquí: eso le
+    // daría a recepción permiso para editar o borrar el expediente de cualquier paciente.
+    "users.patients": VIEW_ONLY,
     "users.receptionist": NO_ACCESS,
-    "users.nurses": NO_ACCESS,
-    "procedures": NO_ACCESS,
+    "users.nurses": VIEW_ONLY,
+    "procedures": VIEW_ONLY,
     "reports.appointments": NO_ACCESS,
     "reports.records": NO_ACCESS,
-    "reports.patients": NO_ACCESS,
+    // Antes decía NO_ACCESS, pero seedRoles.js le da CRUD completo: es donde recepción
+    // efectivamente registra/edita/elimina pacientes nuevos ("es parte central de su trabajo").
+    "reports.patients": FULL_CRUD,
     "reports.doctors": NO_ACCESS,
     "inventory.products": NO_ACCESS,
     "inventory.treatments": NO_ACCESS,

@@ -103,7 +103,17 @@ export const AuthProvider = ({ children }) => {
             // mostrarlo también aquí duplicaba la notificación de éxito.
             return true;
         } catch (error) {
-            toast.error(error.message || "Credenciales incorrectas. Por favor, intenta de nuevo.");
+            // 403 = cuenta desactivada (ver loginController.js): se muestra un aviso específico,
+            // distinto del genérico de credenciales incorrectas, para que quede claro que la
+            // cuenta existe pero fue desactivada por un administrador.
+            if (error.status === 403) {
+                toast.error("Cuenta desactivada. Si considera que es un error, comuníquese con el administrador.");
+            } else {
+                // Antes se mostraba error.message tal cual (ej. "User not found", "Wrong password"
+                // sin traducir) — ahora siempre el mismo texto amigable, sin importar cuál de los
+                // dos falló, para no filtrar el mensaje crudo del backend al usuario.
+                toast.error("Credenciales incorrectas, verifica tu correo o contraseña.");
+            }
             setIsLoggedIn(false);
             return false;
         }

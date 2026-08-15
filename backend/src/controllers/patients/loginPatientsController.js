@@ -36,7 +36,7 @@ loginPatientsController.login = async (req, res) => {
                 return res.status(403).json({ message: "Blocked account for many attemps" });
             }
             await patientFound.save();
-            return res.status(400).json({ message: "Wrong password" })
+            return res.status(400).json({ message: "Contraseña incorrecta" })
         }
 
         //Reseteamos intentos si login es correcto
@@ -61,7 +61,7 @@ loginPatientsController.login = async (req, res) => {
 
     } catch (error) {
         console.log("error" + error)
-        return res.status(500).json({ message: "Internal server error" })
+        return res.status(500).json({ message: "Error interno del servidor" })
     }
 };
 

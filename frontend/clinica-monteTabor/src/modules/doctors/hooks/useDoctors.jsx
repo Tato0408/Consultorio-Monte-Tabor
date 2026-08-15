@@ -10,6 +10,9 @@ export const useDoctors = () => {
   const [loading, setLoading] = useState(false);
   //useState para atrapar y guardar cualquier mensaje de error que pueda ocurrir
   const [error, setError] = useState(null);
+  // Cifras reales para las tarjetas de estadísticas de /users/doctors (mismo patrón que
+  // useNurse.js: cuentas del sistema completo, no solo de este doctor).
+  const [stats, setStats] = useState({ patients: 0, appointments: 0, procedures: 0 });
 
   //GET ALL
   //useCallback sirve para memorizar la funcion y evitar que se vuelva a recrear
@@ -27,6 +30,19 @@ export const useDoctors = () => {
 
       //Guarda los datos devueltos por el api dentro de nuestro estado doctors
       setDoctors(data);
+
+      // Cifras reales para las tarjetas de estadísticas — si alguna falla (ej. sin permiso),
+      // se queda en 0 en vez de tumbar la carga de la lista de doctores.
+      const [patientsRes, appointmentsRes, proceduresRes] = await Promise.allSettled([
+        apiClient("/doctors/countPatients"),
+        apiClient("/doctors/countAppointments"),
+        apiClient("/doctors/countProcedures"),
+      ]);
+      setStats({
+        patients:     patientsRes.status === "fulfilled"     ? (patientsRes.value?.count     || 0) : 0,
+        appointments: appointmentsRes.status === "fulfilled" ? (appointmentsRes.value?.count || 0) : 0,
+        procedures:   proceduresRes.status === "fulfilled"   ? (proceduresRes.value?.count   || 0) : 0,
+      });
     } catch (err) {
       //Si ocurre un error durante la peticion muestra un mensaje en la consola
       console.error("Error al obtener los doctores:", err);
@@ -163,6 +179,7 @@ export const useDoctors = () => {
     doctors,
     loading,
     error,
+    stats,
     getDoctors,
     searchDoctors,
     getDoctorById,

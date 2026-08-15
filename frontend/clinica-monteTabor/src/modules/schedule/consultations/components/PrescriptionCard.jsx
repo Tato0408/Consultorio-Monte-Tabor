@@ -3,7 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import SectionCard from "./SectionCard";
 
 const PrescriptionCard = ({ readOnly }) => {
-    const { control, register } = useFormContext();
+    const { control, register, watch } = useFormContext();
     const { fields: rows, append, remove } = useFieldArray({
         control,
         name: "prescription.medications",
@@ -14,44 +14,68 @@ const PrescriptionCard = ({ readOnly }) => {
     });
 
     return (
-        <SectionCard title="Receta y Seguimiento">
+        <SectionCard title="Receta y seguimiento - opcional">
             <div className="space-y-3 mb-3">
                 {rows.map((row, index) => (
                     <div key={row.id} className="border border-slate-100 rounded-lg p-3">
                         {/* Fila 1: Medicamento y Dosis */}
                         <div className="grid grid-cols-2 gap-2 mb-2">
-                            <input
-                                type="text"
-                                placeholder="Medicamento"
-                                disabled={readOnly}
-                                {...register(`prescription.medications.${index}.name`)}
-                                className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Dosis"
-                                disabled={readOnly}
-                                {...register(`prescription.medications.${index}.dose`)}
-                                className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
-                            />
+                            <div className="flex flex-col gap-0.5">
+                                <input
+                                    type="text"
+                                    placeholder="Medicamento"
+                                    maxLength={100}
+                                    disabled={readOnly}
+                                    {...register(`prescription.medications.${index}.name`)}
+                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                />
+                                <span className="self-end text-[11px] text-gray-400">
+                                    {watch(`prescription.medications.${index}.name`)?.length ?? 0}/100
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                                <input
+                                    type="text"
+                                    placeholder="Dosis"
+                                    maxLength={50}
+                                    disabled={readOnly}
+                                    {...register(`prescription.medications.${index}.dose`)}
+                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                />
+                                <span className="self-end text-[11px] text-gray-400">
+                                    {watch(`prescription.medications.${index}.dose`)?.length ?? 0}/50
+                                </span>
+                            </div>
                         </div>
 
                         {/* Fila 2: Frecuencia y Duración */}
                         <div className="grid grid-cols-2 gap-2 mb-2">
-                            <input
-                                type="text"
-                                placeholder="Frecuencia"
-                                disabled={readOnly}
-                                {...register(`prescription.medications.${index}.frequency`)}
-                                className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Duración"
-                                disabled={readOnly}
-                                {...register(`prescription.medications.${index}.duration`)}
-                                className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
-                            />
+                            <div className="flex flex-col gap-0.5">
+                                <input
+                                    type="text"
+                                    placeholder="Frecuencia"
+                                    maxLength={50}
+                                    disabled={readOnly}
+                                    {...register(`prescription.medications.${index}.frequency`)}
+                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                />
+                                <span className="self-end text-[11px] text-gray-400">
+                                    {watch(`prescription.medications.${index}.frequency`)?.length ?? 0}/50
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                                <input
+                                    type="text"
+                                    placeholder="Duración"
+                                    maxLength={50}
+                                    disabled={readOnly}
+                                    {...register(`prescription.medications.${index}.duration`)}
+                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                />
+                                <span className="self-end text-[11px] text-gray-400">
+                                    {watch(`prescription.medications.${index}.duration`)?.length ?? 0}/50
+                                </span>
+                            </div>
                         </div>
 
                         {/* Fila 3: Botón eliminar al final a la derecha */}
@@ -84,20 +108,32 @@ const PrescriptionCard = ({ readOnly }) => {
                 {labRows.map((row, index) => (
                     <div key={row.id} className="border border-slate-100 rounded-lg p-3">
                         <div className="grid grid-cols-2 gap-2 mb-2">
-                            <input
-                                type="text"
-                                placeholder="Examen / estudio"
-                                disabled={readOnly}
-                                {...register(`prescription.lab_orders.${index}.test_name`)}
-                                className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Notas"
-                                disabled={readOnly}
-                                {...register(`prescription.lab_orders.${index}.notes`)}
-                                className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
-                            />
+                            <div className="flex flex-col gap-0.5">
+                                <input
+                                    type="text"
+                                    placeholder="Examen / estudio"
+                                    maxLength={100}
+                                    disabled={readOnly}
+                                    {...register(`prescription.lab_orders.${index}.test_name`)}
+                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                />
+                                <span className="self-end text-[11px] text-gray-400">
+                                    {watch(`prescription.lab_orders.${index}.test_name`)?.length ?? 0}/100
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                                <input
+                                    type="text"
+                                    placeholder="Notas"
+                                    maxLength={200}
+                                    disabled={readOnly}
+                                    {...register(`prescription.lab_orders.${index}.notes`)}
+                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                />
+                                <span className="self-end text-[11px] text-gray-400">
+                                    {watch(`prescription.lab_orders.${index}.notes`)?.length ?? 0}/200
+                                </span>
+                            </div>
                         </div>
 
                         {!readOnly && (
@@ -128,14 +164,22 @@ const PrescriptionCard = ({ readOnly }) => {
             <label className="text-xs text-slate-500 block mb-1">Indicaciones de seguimiento</label>
             <textarea
                 rows={2}
+                maxLength={500}
                 disabled={readOnly}
                 {...register("prescription.indications")}
-                className="w-full border border-slate-200 rounded-lg p-2 text-sm mb-3 disabled:bg-slate-50"
+                className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />
+            <div className="flex justify-end mb-3">
+                <span className="text-[11px] text-gray-400">
+                    {watch("prescription.indications")?.length ?? 0}/500
+                </span>
+            </div>
 
             <label className="text-xs text-slate-500 block mb-1">Próxima cita sugerida</label>
             <input
                 type="date"
+                min={new Date().toISOString().split("T")[0]}
+                max={`${new Date().getFullYear() + 2}-12-31`}
                 disabled={readOnly}
                 {...register("prescription.next_appointment_suggested")}
                 className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"

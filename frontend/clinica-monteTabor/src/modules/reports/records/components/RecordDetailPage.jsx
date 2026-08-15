@@ -1,27 +1,68 @@
 "use client";
 
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import apiClient from "@/lib/apiClient";
+import { confirmDelete, showSuccess, showError } from "@/lib/alerts";
 import ExpedienteLayout from "./global/RecordsLayout";
 import ResumenTab from "./pages/ResumeTab";
 import HistoriaClinicaTab from "./pages/RecordsHistoricalClinical";
 import ProcedimientosTab from "./pages/RecordsProcedures";
 import SignosVitalesTab from "./pages/RecordsVitalSigns";
 import ConsultasTab from "./pages/RecordsConsultations";
+import IncapacidadesTab from "./pages/RecordsIncapacidades";
 import usePatientRecordDetail from "../hooks/usePatientRecordDetail";
+
+const TAB_LABELS = ["Resumen", "Historia clínica", "Procedimientos", "Signos vitales", "Consultas", "Incapacidades"];
 
 // Se renderiza dentro de RecordsPage al hacer clic en un paciente de la tabla:
 // no navega a una ruta nueva, solo intercambia qué se muestra dentro del SPA.
 // `record` trae lo que ya vive en el documento del paciente (useRecords);
 // usePatientRecordDetail completa aparte lo que depende de consultas/citas/
 // incapacidades reales, y se fusiona antes de pasarlo a cada pestaña.
-const RecordDetailPage = ({ record, onBack }) => {
+// `onPatientUpdated` refresca el documento base del paciente (lo que trae useRecords) después de
+// guardar cualquiera de los modales del expediente (datos personales, antecedentes, signos
+// vitales, procedimientos) — usePatientRecordDetail.refetch por sí solo no alcanza porque ese
+// hook solo trae consultas/citas/incapacidades, no el documento del paciente en sí.
+const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
   const fullName = `${record?.nombre || ""} ${record?.apellido || ""}`.trim();
   const { extra, loading, error, refetch } = usePatientRecordDetail(record?.id, fullName);
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const canAttend = hasPermission("calendar.consultations", "create");
+  const canEdit = hasPermission("calendar.consultations", "update");
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Elimina una consulta médica ya atendida (documento Consultation real, no la cita). Existe
+  // sobre todo para poder limpiar consultas huérfanas: si su cita se borró por separado, la
+  // consulta sobrevive apuntando solo al paciente y bloquea "Eliminar paciente" sin dar ninguna
+  // pista de por qué — este botón es el único lugar del sistema donde se puede quitar.
+  const handleEliminarConsulta = async (c) => {
+    const ok = await confirmDelete({
+      title: "¿Eliminar esta consulta?",
+      text: "Se borrará el registro clínico (diagnóstico, notas, receta). Esta acción no se puede deshacer.",
+    });
+    if (!ok) return;
+    try {
+      await apiClient(`/consultations/${c.id}`, { method: "DELETE" });
+      showSuccess("Consulta eliminada correctamente");
+      refreshAll();
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar la consulta");
+    }
+  };
+
+  // Refresca tanto el documento del paciente como las consultas/citas/incapacidades — los
+  // modales del expediente solo tocan el primero, pero es más simple refrescar ambos siempre
+  // que reimplementar "cuál lo necesita" en cada callback.
+  const refreshAll = () => {
+    onPatientUpdated?.();
+    refetch();
+  };
+
+  const goToTab = (label) => setActiveTab(TAB_LABELS.indexOf(label));
 
   if (!record) {
     return (
@@ -54,25 +95,40 @@ const RecordDetailPage = ({ record, onBack }) => {
   };
 
   const tabs = [
-    { label: "Resumen", content: <ResumenTab patient={patient} onSaved={refetch} /> },
-    { label: "Historia clínica", content: <HistoriaClinicaTab patient={patient} /> },
-    { label: "Procedimientos", content: <ProcedimientosTab patient={patient} /> },
-    { label: "Signos vitales", content: <SignosVitalesTab patient={patient} /> },
+    {
+      label: "Resumen",
+      content: <ResumenTab patient={patient} onSaved={refreshAll} onNavigateTab={goToTab} />,
+    },
+    { label: "Historia clínica", content: <HistoriaClinicaTab patient={patient} onSaved={refreshAll} /> },
+    { label: "Procedimientos", content: <ProcedimientosTab patient={patient} onSaved={refreshAll} /> },
+    { label: "Signos vitales", content: <SignosVitalesTab patient={patient} onSaved={refreshAll} /> },
     {
       label: "Consultas",
       content: (
         <ConsultasTab
           patient={patient}
           canAttend={canAttend}
+          canEdit={canEdit}
           onContinuar={(c) => c.appointmentId && navigate(`/calendar/consultations/${c.appointmentId}`)}
-          onVerRegistro={(c) => c.appointmentId && navigate(`/calendar/consultations/${c.appointmentId}?mode=view`)}
+          onVerRegistro={(c) =>
+            c.appointmentId &&
+            navigate(`/calendar/consultations/${c.appointmentId}${canEdit ? "" : "?mode=view"}`)
+          }
         />
       ),
     },
+    { label: "Incapacidades", content: <IncapacidadesTab patient={patient} onSaved={refreshAll} /> },
   ];
 
   return (
-    <ExpedienteLayout patient={patient} tabs={tabs} onBack={onBack}>
+    <ExpedienteLayout
+      patient={patient}
+      tabs={tabs}
+      onBack={onBack}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      onPatientUpdated={refreshAll}
+    >
       {error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600">
           {error}

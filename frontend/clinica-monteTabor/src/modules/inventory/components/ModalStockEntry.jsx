@@ -75,6 +75,7 @@ const ProductCombobox = ({ value, onChange, onSelect, error }) => {
           className={`w-full border rounded-lg px-3 py-2.5 pr-9 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500
             ${error ? "border-red-400" : "border-gray-200"}`}
           placeholder="Buscar o escribir nombre de producto..."
+          maxLength={100}
           value={value}
           onChange={(e) => search(e.target.value)}
           onFocus={() => { if (suggestions.length) setOpen(true); }}
@@ -149,6 +150,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
   const validate = () => {
     const e = {};
     if (!form.name.trim())  e.name         = "Requerido";
+    if (!form.category)     e.category     = "Requerido";
     if (!form.quantity)     e.quantity      = "Requerido";
     if (!form.unit_measure) e.unit_measure  = "Requerido";
     return e;
@@ -156,6 +158,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     const ve = validate();
     if (Object.keys(ve).length) { setErrors(ve); return; }
     setLoading(true);
@@ -180,8 +183,8 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
 
   const footer = (
     <>
-      <button type="button" onClick={onClose}
-        className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">
+      <button type="button" onClick={onClose} disabled={loading}
+        className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
         Cancelar
       </button>
       <button type="submit" form="form-stock" disabled={loading}
@@ -198,8 +201,12 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
       onClose={onClose}
       footer={footer}
       width="w-[480px]"
+      closeDisabled={loading}
     >
+      {/* El botón submit vive fuera de este <form> (footer del Modal, asociado por
+          form="form-stock"), por eso además se desactiva a mano arriba en el footer. */}
       <form id="form-stock" onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <fieldset disabled={loading} className="contents">
         {errors.general && (
           <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
             {errors.general}
@@ -218,9 +225,10 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
               error={errors.name}
             />
 
-            <SelectField label="Categoría"
+            <SelectField label="Categoría" required
               value={form.category} onChange={set("category")}
-              options={CATEGORIAS} placeholder="Selecciona una categoría" />
+              options={CATEGORIAS} placeholder="Selecciona una categoría"
+              error={errors.category} />
 
             <SelectField label="Unidad de medida" required
               value={form.unit_measure} onChange={set("unit_measure")}
@@ -229,6 +237,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
 
             <InputField label="Proveedor (opcional)" id="supplier"
               placeholder="Nombre del proveedor"
+              maxLength={100}
               value={form.supplier} onChange={set("supplier")} />
           </div>
         </section>
@@ -237,13 +246,16 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
         <section>
           <SectionTitle>Cantidad y costo</SectionTitle>
           <div className="grid grid-cols-2 gap-4">
-            <InputField label="Cantidad recibida *" id="quantity" type="number"
+            <InputField label="Cantidad recibida *" id="quantity" type="number" min={0} max={100000}
               placeholder="Ej. 100"
-              value={form.quantity} onChange={set("quantity")} error={errors.quantity} />
+              value={form.quantity} onChange={set("quantity")}
+              onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
+              error={errors.quantity} />
 
-            <InputField label="Costo unitario (opcional)" id="unit_cost" type="number"
+            <InputField label="Costo unitario (opcional)" id="unit_cost" type="number" min={0} max={999999} step="0.01"
               placeholder="$0.00"
-              value={form.unit_cost} onChange={set("unit_cost")} />
+              value={form.unit_cost} onChange={set("unit_cost")}
+              onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }} />
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-4">
@@ -264,6 +276,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
             </div>
           </div>
         </section>
+      </fieldset>
       </form>
     </Modal>
   );

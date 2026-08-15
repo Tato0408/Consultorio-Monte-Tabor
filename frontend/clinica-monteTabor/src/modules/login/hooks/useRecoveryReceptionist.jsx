@@ -7,40 +7,53 @@ export const useRecoveryReceptionist = () => {
 
     const [loading, setLoading] = useState(false);
 
+    // "loading" antes no se activaba en requestCode/verifyCode/newPassword (solo en
+    // resendCode) — así que las pantallas que lo usan para bloquear el formulario mientras
+    // se envía nunca lo veían pasar a true durante la petición real. Se agrega setLoading
+    // en las tres para que la protección contra doble clic funcione también con este rol.
     const requestCode = async (email) => {
+        try {
+            setLoading(true);
+            const response =
+                await fetch(
+                    `${API_URL}/requestCode`,
+                    {
+                        method: "POST",
+                        credentials: "include",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            email
+                        })
 
-        const response =
-            await fetch(
-                `${API_URL}/requestCode`,
-                {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        email
-                    })
-
-                });
-        return await response.json();
+                    });
+            return await response.json();
+        } finally {
+            setLoading(false);
+        }
     };
 
     const verifyCode = async (code) => {
-        const response =
-            await fetch(
-                `${API_URL}/verifyCode`,
-                {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        code
-                    })
-                });
-        return await response.json();
+        try {
+            setLoading(true);
+            const response =
+                await fetch(
+                    `${API_URL}/verifyCode`,
+                    {
+                        method: "POST",
+                        credentials: "include",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            code
+                        })
+                    });
+            return await response.json();
+        } finally {
+            setLoading(false);
+        }
     };
 
     
@@ -89,25 +102,30 @@ export const useRecoveryReceptionist = () => {
 
     const newPassword =
         async (password, confirmPassword) => {
-            const response =
-                await fetch(
-                    `${API_URL}/newPassword`,
-                    {
-                        method: "POST",
-                        credentials: "include",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
+            try {
+                setLoading(true);
+                const response =
+                    await fetch(
+                        `${API_URL}/newPassword`,
+                        {
+                            method: "POST",
+                            credentials: "include",
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
 
 
-                        body: JSON.stringify({
+                            body: JSON.stringify({
 
-                            newPassword: password,
-                            confirmNewPassword: confirmPassword
-                        })
+                                newPassword: password,
+                                confirmNewPassword: confirmPassword
+                            })
 
-                    });
-            return await response.json();
+                        });
+                return await response.json();
+            } finally {
+                setLoading(false);
+            }
         };
     return {
         loading,

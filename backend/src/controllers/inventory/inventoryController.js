@@ -1,6 +1,8 @@
 import inventoryModel from "../../models/inventory/inventory.js";
 import movementModel from "../../models/inventory/movements.js";
 import { v2 as cloudinary } from "cloudinary";
+import { notifyLowStockAdmins } from "../../services/notificationService.js";
+import { getNonNegativeError, escapeRegex } from "../../utils/validators.js";
 
 const inventoryController = {};
 
@@ -62,6 +64,11 @@ inventoryController.create = async (req, res) => {
       price, min_stock, expiration_date, supplier,
     } = req.body;
 
+    const numberError = getNonNegativeError(stock, "El stock")
+      || getNonNegativeError(price, "El precio")
+      || getNonNegativeError(min_stock, "El stock mínimo");
+    if (numberError) return res.status(400).json({ message: numberError });
+
     const newItem = new inventoryModel({
       name, description, category,
       stock:           Number(stock),
@@ -78,6 +85,7 @@ inventoryController.create = async (req, res) => {
     }
 
     await newItem.save();
+    await notifyLowStockAdmins(newItem).catch((error) => console.log("Error notificando inventario:", error));
 
     // Registrar movimiento inicial si hay stock
     if (Number(stock) > 0) {
@@ -104,6 +112,11 @@ inventoryController.update = async (req, res) => {
     const item = await inventoryModel.findById(id);
     if (!item) return res.status(404).json({ message: "Insumo no encontrado" });
 
+    const numberError = getNonNegativeError(req.body.stock, "El stock")
+      || getNonNegativeError(req.body.price, "El precio")
+      || getNonNegativeError(req.body.min_stock, "El stock mínimo");
+    if (numberError) return res.status(400).json({ message: numberError });
+
     const updateData = { ...req.body };
     if (updateData.stock)           updateData.stock           = Number(updateData.stock);
     if (updateData.price)           updateData.price           = Number(updateData.price);
@@ -121,6 +134,7 @@ inventoryController.update = async (req, res) => {
     }
 
     const updatedItem = await inventoryModel.findByIdAndUpdate(id, updateData, { new: true });
+    await notifyLowStockAdmins(updatedItem).catch((error) => console.log("Error notificando inventario:", error));
     return res.status(200).json({ message: "Insumo actualizado", item: updatedItem });
   } catch (error) {
     return res.status(500).json({ message: "Error al actualizar", error: error.message });
@@ -213,6 +227,86 @@ inventoryController.getStats = async (req, res) => {
 
     console.log("[stats] proximosAVencer:", expiringSoon);
 
+    // ── Tendencias reales de los últimos 7 días para las mini-gráficas (sparklines) de las
+    // tarjetas KPI de InventoryStats.jsx — antes eran arreglos fijos sin relación con los datos.
+    // No existe una colección de "snapshots" históricos de stock, así que se reconstruye a partir
+    // del stock ACTUAL de cada producto, deshaciendo hacia atrás los movimientos de la bitácora
+    // (movements.quantity ya es positivo=entrada / negativo=salida — ver models/inventory/movements.js).
+    const MS_DAY = 24 * 60 * 60 * 1000;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    // dayBoundaries[0] = fin de hoy (el "ahora" de cada producto, sin deshacer nada) ...
+    // dayBoundaries[6] = fin de hace 6 días.
+    const dayBoundaries = Array.from({ length: 7 }, (_, i) =>
+      new Date(startOfToday.getTime() + MS_DAY - 1 - i * MS_DAY)
+    );
+    const windowStart = new Date(startOfToday.getTime() - 6 * MS_DAY);
+
+    const [allItems, recentMovements] = await Promise.all([
+      inventoryModel.find().select("stock min_stock price").lean(),
+      movementModel.find({ date: { $gte: windowStart } }).select("item quantity date type").sort({ date: -1 }).lean(),
+    ]);
+
+    const movementsByItem = new Map();
+    for (const m of recentMovements) {
+      const key = String(m.item);
+      if (!movementsByItem.has(key)) movementsByItem.set(key, []);
+      movementsByItem.get(key).push(m);
+    }
+
+    // Índice 0 = hoy ... 6 = hace 6 días (se invierte al armar la respuesta, más abajo).
+    const stockTrend = new Array(7).fill(0);
+    const lowStockTrend = new Array(7).fill(0);
+    const valueTrend = new Array(7).fill(0);
+    const usedTrend = new Array(7).fill(0);
+
+    for (const item of allItems) {
+      const itemMovements = movementsByItem.get(String(item._id)) || [];
+      let running = item.stock;
+      let ptr = 0;
+      for (let i = 0; i < 7; i++) {
+        const cutoff = dayBoundaries[i];
+        // Deshace (resta) los movimientos posteriores a este corte de día, para dejar "running"
+        // como el stock que tenía este producto justo al final de ese día.
+        while (ptr < itemMovements.length && itemMovements[ptr].date > cutoff) {
+          running -= itemMovements[ptr].quantity;
+          ptr++;
+        }
+        stockTrend[i] += running;
+        valueTrend[i] += running * (item.price || 0);
+        if (running <= (item.min_stock || 0)) lowStockTrend[i] += 1;
+      }
+    }
+
+    // "Utilizados" no necesita reconstrucción: es la suma directa de movimientos de uso
+    // (Treatment use / Manual use) que realmente ocurrieron cada día.
+    for (const m of recentMovements) {
+      if (m.type !== "Treatment use" && m.type !== "Manual use") continue;
+      const movementDayStart = new Date(m.date);
+      movementDayStart.setHours(0, 0, 0, 0);
+      const daysAgo = Math.round((startOfToday - movementDayStart) / MS_DAY);
+      if (daysAgo >= 0 && daysAgo < 7) usedTrend[daysAgo] += Math.abs(m.quantity);
+    }
+
+    // Etiquetas dd/mm en orden cronológico (hace 6 días -> hoy), mismo formato que dailyMovements
+    // en getCharts.
+    const dayLabel = (daysAgo) => {
+      const d = new Date(startOfToday.getTime() - daysAgo * MS_DAY);
+      return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+    };
+    const toSeries = (arr) =>
+      Array.from({ length: 7 }, (_, i) => {
+        const daysAgo = 6 - i;
+        return { day: dayLabel(daysAgo), total: arr[daysAgo] };
+      });
+
+    const trends = {
+      stock: toSeries(stockTrend),
+      lowStock: toSeries(lowStockTrend),
+      used: toSeries(usedTrend),
+      value: toSeries(valueTrend),
+    };
+
     return res.status(200).json({
       total,
       bajoStock:       lowStock,
@@ -221,6 +315,7 @@ inventoryController.getStats = async (req, res) => {
       utilizadosHoy,
       proximosAVencer: expiringSoon,
       alertas:         alerts,
+      trends,
     });
   } catch (error) {
     return res.status(500).json({ message: "Error al obtener estadísticas" });
@@ -249,6 +344,9 @@ inventoryController.adjustStock = async (req, res) => {
     const { id } = req.params;
     const { quantity, adjustType, reason, responsible, notes } = req.body;
 
+    const quantityError = getNonNegativeError(quantity, "La cantidad");
+    if (quantityError) return res.status(400).json({ message: quantityError });
+
     const item = await inventoryModel.findById(id);
     if (!item) return res.status(404).json({ message: "Insumo no encontrado" });
 
@@ -260,6 +358,7 @@ inventoryController.adjustStock = async (req, res) => {
     }
 
     await item.save();
+    await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
 
     await new movementModel({
       type:     "Inventory adjustment",
@@ -282,21 +381,37 @@ inventoryController.stockEntry = async (req, res) => {
   try {
     const { name, category, unit_measure, supplier, quantity, unit_cost, detalle } = req.body;
 
+    const numberError = getNonNegativeError(quantity, "La cantidad")
+      || getNonNegativeError(unit_cost, "El costo unitario");
+    if (numberError) return res.status(400).json({ message: numberError });
+
     const qty  = Number(quantity);
     const cost = Number(unit_cost) || 0;
 
-    // Buscar si ya existe por nombre
-    let item = await inventoryModel.findOne({ name });
+    // Buscar si ya existe por nombre — comparación insensible a mayúsculas/minúsculas y a
+    // espacios extra ("Guantes" y "guantes " deben fusionar el mismo producto, no crear uno
+    // duplicado).
+    const normalizedName = String(name || "").trim();
+    let item = await inventoryModel.findOne({ name: new RegExp(`^${escapeRegex(normalizedName)}$`, "i") });
+
+    // La categoría es obligatoria SOLO cuando esta entrada va a crear un producto nuevo (si ya
+    // existe, conserva la categoría con la que se registró la primera vez). Sin este chequeo, un
+    // producto podía quedar sin categoría y desaparecer del gráfico "por categoría".
+    if (!item && !String(category || "").trim()) {
+      return res.status(400).json({ message: "La categoría es requerida para registrar un producto nuevo." });
+    }
 
     if (item) {
       item.stock += qty;
       item.price  = cost;
       await item.save();
+      await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
     } else {
       item = await new inventoryModel({
-        name, category, unit_measure,
+        name: normalizedName, category, unit_measure,
         stock: qty, min_stock: 5, price: cost, supplier,
       }).save();
+      await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
     }
 
     await new movementModel({
@@ -320,6 +435,9 @@ inventoryController.manualUsage = async (req, res) => {
     const { responsible, reason, patient, items } = req.body;
     // items: [{ insumoId, quantity }]
 
+    const quantityError = (items || []).map((entry) => getNonNegativeError(entry.quantity, "La cantidad")).find(Boolean);
+    if (quantityError) return res.status(400).json({ message: quantityError });
+
     for (const entry of items) {
       const item = await inventoryModel.findById(entry.insumoId);
       if (!item) continue;
@@ -327,6 +445,7 @@ inventoryController.manualUsage = async (req, res) => {
       item.stock     = Math.max(0, item.stock - Number(entry.quantity));
       item.last_used = new Date();
       await item.save();
+      await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
 
       await new movementModel({
         type:     "Manual use",
@@ -351,6 +470,9 @@ inventoryController.discountFromProcedure = async (req, res) => {
     const { patientName, responsible, procedureType, items } = req.body;
     // items: [{ insumoId, quantity }]
 
+    const quantityError = (items || []).map((entry) => getNonNegativeError(entry.quantity, "La cantidad")).find(Boolean);
+    if (quantityError) return res.status(400).json({ message: quantityError });
+
     for (const entry of items) {
       const item = await inventoryModel.findById(entry.insumoId);
       if (!item) continue;
@@ -358,6 +480,7 @@ inventoryController.discountFromProcedure = async (req, res) => {
       item.stock     = Math.max(0, item.stock - Number(entry.quantity));
       item.last_used = new Date();
       await item.save();
+      await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
 
       await new movementModel({
         type:     "Treatment use",
@@ -373,6 +496,102 @@ inventoryController.discountFromProcedure = async (req, res) => {
     return res.status(200).json({ message: "Inventario descontado del procedimiento" });
   } catch (error) {
     return res.status(500).json({ message: "Error al descontar inventario", error: error.message });
+  }
+};
+
+// ── Descuento real de inventario al registrar un procedimiento en el Expediente ───────────────
+// Llamada directamente desde patientsController (no por HTTP) cuando se registra un procedimiento
+// nuevo en la ficha de un paciente (new_procedure). ProceduresForm.jsx siempre prometió "los
+// materiales serán descontados del inventario al asignar el procedimiento", pero ningún código lo
+// hacía realmente — solo se descontaba si, aparte, un doctor llenaba a mano "material_used" en
+// una consulta (ver applyMaterialUsageDelta, más abajo). Esto usa directamente el catálogo de
+// materiales YA definido en el procedimiento (Procedures.materials), sin depender de que alguien
+// los vuelva a escribir. Los materiales sin "insumo" vinculado (ver ProceduresForm.jsx — materiales
+// "legacy" con solo un nombre libre) se ignoran silenciosamente: no hay ningún insumo real que
+// descontar.
+inventoryController.discountMaterialsForProcedure = async ({ materials, patientName, responsible, procedureType }) => {
+  for (const material of materials || []) {
+    const quantity = Number(material.quantity) || 0;
+    if (!material.insumo || quantity <= 0) continue;
+
+    const item = await inventoryModel.findById(material.insumo);
+    if (!item) continue;
+
+    item.stock = Math.max(0, item.stock - quantity);
+    item.last_used = new Date();
+    await item.save();
+    notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
+
+    await new movementModel({
+      type: "Treatment use",
+      item: item._id,
+      itemName: item.name,
+      quantity: -quantity,
+      detail: `Procedimiento: ${procedureType || "Procedimiento"}`,
+      user: responsible || "Sistema",
+      patient: patientName || null,
+    }).save();
+  }
+};
+
+// ── Descuento real de inventario al guardar una consulta ──────────────────────
+// Suma la cantidad usada por insumo a través de todos los procedimientos de una consulta
+// (una misma consulta puede tener varios procedimientos, y cada uno varios materiales).
+const sumMaterialUsage = (procedureRows) => {
+  const totals = new Map();
+  for (const proc of procedureRows || []) {
+    for (const m of proc?.material_used || []) {
+      if (!m?.inventory_id || !Number(m.quantity)) continue;
+      const key = String(m.inventory_id);
+      totals.set(key, (totals.get(key) || 0) + Number(m.quantity));
+    }
+  }
+  return totals;
+};
+
+// Llamada directamente desde consultationController (no por HTTP) al crear o editar una
+// consulta, para que "material_used" deje de ser un dato inerte y realmente descuente stock.
+// Compara lo que la consulta usaba ANTES contra lo que usa AHORA y solo mueve la diferencia:
+// así, editar una consulta ya guardada no vuelve a descontar el total desde cero, y si el
+// doctor reduce/quita un material, la diferencia se repone automáticamente.
+inventoryController.applyMaterialUsageDelta = async ({
+  previousProcedureRows,
+  procedureRows,
+  patientName,
+  responsible,
+  procedureType,
+  session,
+}) => {
+  const previousTotals = sumMaterialUsage(previousProcedureRows);
+  const newTotals = sumMaterialUsage(procedureRows);
+  const inventoryIds = new Set([...previousTotals.keys(), ...newTotals.keys()]);
+
+  for (const inventoryId of inventoryIds) {
+    const delta = (newTotals.get(inventoryId) || 0) - (previousTotals.get(inventoryId) || 0);
+    if (!delta) continue;
+
+    const item = await inventoryModel.findById(inventoryId).session(session);
+    if (!item) continue;
+
+    item.stock = Math.max(0, item.stock - delta);
+    if (delta > 0) item.last_used = new Date();
+    await item.save({ session });
+
+    await new movementModel({
+      type:     delta > 0 ? "Treatment use" : "Inventory adjustment",
+      item:     item._id,
+      itemName: item.name,
+      quantity: -delta,
+      detail:   delta > 0
+        ? `Procedimiento: ${procedureType || "Consulta médica"}`
+        : `Ajuste por edición de consulta (se redujo el material usado): ${procedureType || "Consulta médica"}`,
+      user:     responsible || "Sistema",
+      patient:  patientName || null,
+    }).save({ session });
+
+    // Fuera de la transacción a propósito: si notificar falla, no debe tumbar el guardado
+    // de la consulta (mismo criterio que el resto de este controlador).
+    notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
   }
 };
 

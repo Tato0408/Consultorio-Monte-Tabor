@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { ChevronRight, Pencil } from "lucide-react";
 import { Badge } from "./ui";
+import EditPatientModal from "./EditPatientModal";
 
 // Contiene lo que se mantiene fijo al navegar entre pestañas: breadcrumb,
 // tabs (navegadas por índice) y la barra del paciente.
 // Props: tabs = [{ label, content }] -> content es lo que se renderiza debajo;
 // activeTab/onTabChange opcionales para controlar el índice desde afuera;
 // onBack opcional, si se pasa el breadcrumb "Expedientes" vuelve al listado.
-export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, onTabChange, onBack, children }) {
+// onPatientUpdated refresca el registro tras editar los datos del paciente (lápiz).
+export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, onTabChange, onBack, onPatientUpdated, children }) {
   const [internalTab, setInternalTab] = useState(0);
   const current = activeTab ?? internalTab;
   const setTab = onTabChange ?? setInternalTab;
@@ -55,7 +57,7 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
       </div>
 
       {/* Barra del paciente */}
-      <PatientBar patient={patient} />
+      <PatientBar patient={patient} onPatientUpdated={onPatientUpdated} />
 
       {/* Banner opcional (error/loading) para lo que se trae aparte, ej. usePatientRecordDetail */}
       {children && <div className="mt-6">{children}</div>}
@@ -66,7 +68,8 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
   );
 }
 
-function PatientBar({ patient }) {
+function PatientBar({ patient, onPatientUpdated }) {
+  const [editOpen, setEditOpen] = useState(false);
   const female = (patient.sexo || patient.sexoCorto || "").toLowerCase().startsWith("f");
 
   return (
@@ -114,12 +117,20 @@ function PatientBar({ patient }) {
         </div>
         <button
           type="button"
+          onClick={() => setEditOpen(true)}
           className="rounded-lg border border-slate-200 p-2 text-blue-500 hover:bg-slate-50"
           aria-label="Editar expediente"
         >
           <Pencil className="h-4 w-4" />
         </button>
       </div>
+
+      <EditPatientModal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        patient={patient}
+        onSaved={onPatientUpdated}
+      />
     </div>
   );
 }

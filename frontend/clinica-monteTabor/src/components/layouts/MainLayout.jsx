@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { Menu } from "lucide-react";
 import SideBar from "./SideBar";
+import NotificationBell from "./NotificationBell";
 import { useAuth } from "../../context/AuthContext";
 
 
@@ -37,27 +38,40 @@ const MainLayout = () => {
             </div>
 
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                {/* Mobile top bar */}
-                <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 shrink-0 z-20">
-                    <button
-                        onClick={() => setSideOpen(true)}
-                        className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
-                        aria-label="Abrir menú"
-                    >
-                        <Menu className="w-5 h-5" />
-                    </button>
-                    <div
-                        className="w-7 h-7 bg-[#0b66d6] text-white flex items-center justify-center font-bold text-sm"
-                        style={{ clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)" }}
-                    >
-                        T
+                {/* Top bar: en móvil trae el botón de menú + logo; la
+                    campana de notificaciones se muestra en ambos tamaños. */}
+                <header className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 shrink-0 md:hidden">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setSideOpen(true)}
+                            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                            aria-label="Abrir menú"
+                        >
+                            <Menu className="w-5 h-5" />
+                        </button>
+                        <div
+                            className="w-7 h-7 bg-[#0b66d6] text-white flex items-center justify-center font-bold text-sm"
+                            style={{ clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)" }}
+                        >
+                            T
+                        </div>
+                        <span className="font-bold text-slate-800 text-sm">Monte Tabor</span>
                     </div>
-                    <span className="font-bold text-slate-800 text-sm">Monte Tabor</span>
                 </header>
 
                 <main className="flex-1 overflow-y-auto p-4 sm:p-6 relative">
                     <Outlet />
                 </main>
+            </div>
+
+            {/* sm:top-14 alinea verticalmente con el botón "Guardar cambios" de Horarios (ver
+                nota de sm:mt-8 ahí). sm:right-12 = el padding derecho doble que separa ese botón
+                del borde de la pantalla (sm:p-6 de <main> + sm:p-6 del contenedor de la página),
+                para que la campana quede justo arriba de su borde derecho. Como esta campana es
+                fixed y global (MainLayout), esa misma posición se mantiene igual en todas las
+                interfaces del sistema. */}
+            <div className="fixed top-4 sm:top-8 right-9 sm:right-14 z-30">
+                <NotificationBell />
             </div>
         </div>
     );

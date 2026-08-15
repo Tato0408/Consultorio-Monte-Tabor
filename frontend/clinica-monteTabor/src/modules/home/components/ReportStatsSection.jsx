@@ -1,16 +1,25 @@
 import { useNavigate } from "react-router-dom";
-import { BarChart, Bar, ResponsiveContainer, Cell, Tooltip, YAxis } from "recharts";
+import { BarChart, Bar, ResponsiveContainer, Cell, Tooltip, XAxis, YAxis } from "recharts";
 import { CalendarDays, Users, Stethoscope } from "lucide-react";
 
-// 18 bars: 3 per month × 6 months from real data; returns [] when all zeros
+const MONTH_ABBR = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+// Etiquetas de mes para los últimos `count` meses terminando en el actual — mismo orden
+// cronológico ascendente en el que el backend arma monthlyData (dashboardController.getReportStats).
+const getMonthLabels = (count) => {
+    const now = new Date();
+    return Array.from({ length: count }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - (count - 1 - i), 1);
+        return MONTH_ABBR[d.getMonth()];
+    });
+};
+
+// Una barra por mes real, con su etiqueta — antes se triplicaban y distorsionaban los valores
+// para simular 18 barras, lo que hacía imposible saber a qué correspondía cada una sin ejes.
 const toBars = (monthlyData) => {
     if (!monthlyData?.length) return [];
-    return monthlyData.slice(0, 6).flatMap((monthVal, mi) => {
-        const avg = (monthVal || 0) / 3;
-        return [0.85, 1.15, 1.0].map((factor) => ({
-            v: Math.max(0, Math.round(avg * factor * (0.65 + (mi / 6) * 0.7))),
-        }));
-    });
+    const labels = getMonthLabels(monthlyData.length);
+    return monthlyData.map((v, i) => ({ v: Math.max(0, v || 0), label: labels[i] }));
 };
 
 const ReportCard = ({
@@ -60,12 +69,12 @@ const ReportCard = ({
 
             {/* ── Bar chart / empty state ── */}
             {hasData ? (
-                <div className="h-24 w-full mt-1">
+                <div className="h-28 w-full mt-1">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                             data={bars}
-                            barCategoryGap="18%"
-                            margin={{ top: 6, right: 14, left: 14, bottom: 4 }}
+                            barCategoryGap="30%"
+                            margin={{ top: 6, right: 10, left: 10, bottom: 0 }}
                         >
                             <defs>
                                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -74,7 +83,16 @@ const ReportCard = ({
                                 </linearGradient>
                             </defs>
 
-                            <YAxis domain={[0, maxVal * 1.12]} hide />
+                            {/* Etiqueta de mes debajo de cada barra — antes no había ninguna
+                                referencia de a qué correspondía cada barra. */}
+                            <XAxis
+                                dataKey="label"
+                                axisLine={false}
+                                tickLine={false}
+                                interval={0}
+                                tick={{ fontSize: 9, fill: "#94a3b8" }}
+                            />
+                            <YAxis domain={[0, maxVal * 1.15]} hide />
 
                             <Tooltip
                                 cursor={{ fill: `${mainColor}18` }}
@@ -85,19 +103,22 @@ const ReportCard = ({
                                                 className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white shadow-md"
                                                 style={{ backgroundColor: mainColor }}
                                             >
-                                                {payload[0].value}
+                                                {payload[0].payload.label}: {payload[0].value}
                                             </div>
                                         )
                                         : null
                                 }
                             />
 
+                            {/* El mes actual (última barra) se resalta con el color pleno; los
+                                anteriores quedan en el tono claro — así el color deja de ser
+                                decorativo y pasa a distinguir "mes actual" vs. "meses previos". */}
                             <Bar dataKey="v" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                                 {bars.map((_, i) => (
                                     <Cell
                                         key={i}
-                                        fill={i % 2 === 0 ? `url(#${gradientId})` : lightColor}
-                                        fillOpacity={i % 2 === 0 ? 1 : 0.6}
+                                        fill={i === bars.length - 1 ? `url(#${gradientId})` : lightColor}
+                                        fillOpacity={i === bars.length - 1 ? 1 : 0.5}
                                     />
                                 ))}
                             </Bar>
@@ -105,7 +126,7 @@ const ReportCard = ({
                     </ResponsiveContainer>
                 </div>
             ) : (
-                <div className="h-24 flex items-center justify-center mt-1">
+                <div className="h-28 flex items-center justify-center mt-1">
                     <p className="text-xs text-slate-300 font-medium">Sin datos en los últimos 6 meses</p>
                 </div>
             )}
@@ -114,7 +135,6 @@ const ReportCard = ({
 };
 
 const ReportStatsSection = ({ data }) => {
-    const navigate = useNavigate();
     const appt    = data?.appointments  || { total: 0, thisMonth: 0, growth: 0, monthlyData: [] };
     const pts     = data?.patients      || { thisMonth: 0, growth: 0, monthlyData: [] };
     const consult = data?.consultations || { thisMonth: 0, growth: 0, monthlyData: [] };
@@ -123,12 +143,6 @@ const ReportStatsSection = ({ data }) => {
         <div>
             <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-bold text-slate-800">Reportes y estadísticas</h2>
-                <button
-                    onClick={() => navigate("/reports/appointments")}
-                    className="text-xs text-blue-600 font-semibold hover:underline"
-                >
-                    Ver todos los reportes →
-                </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

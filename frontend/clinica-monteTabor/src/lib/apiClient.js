@@ -31,7 +31,11 @@ async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     if (!response.ok) {
         //Extrae el mensaje enviado del backend
         const message = data?.message || `Error ${response.status}`;
-        throw new Error(message);
+        const error = new Error(message);
+        // Se expone el status para que quien llame pueda distinguir casos puntuales
+        // (ej. 403 = cuenta desactivada) sin depender del texto exacto del mensaje.
+        error.status = response.status;
+        throw error;
     }
 
     //Si la peticion fue exitosa retorna los datos parseados par autilizarlos como el endpoint

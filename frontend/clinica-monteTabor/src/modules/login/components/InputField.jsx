@@ -7,6 +7,7 @@ const InputField = ({
   onChange,
   icon,
   error,
+  disabled,
 }) => {
 
   return (
@@ -55,6 +56,8 @@ const InputField = ({
 
           onChange={onChange}
 
+          disabled={disabled}
+
 
           className={`
             w-full
@@ -72,6 +75,8 @@ const InputField = ({
               ? "border-red-500 focus:border-red-500"
               : "border-gray-300 focus:border-blue-500"
             }
+
+            ${disabled ? "opacity-60 cursor-not-allowed bg-gray-50" : ""}
 
           `}
 

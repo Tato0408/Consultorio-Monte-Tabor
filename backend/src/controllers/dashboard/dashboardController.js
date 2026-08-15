@@ -20,6 +20,12 @@ dashboardController.getStats = async (req, res) => {
         const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
         lastDayLastMonth.setHours(23, 59, 59, 999);
 
+        // Ingreso real = anticipos efectivamente cobrados y confirmados vía Wompi desde el
+        // portal público del paciente (wompi_transaction_id solo queda así tras una confirmación
+        // aprobada — ver confirmAppointmentPayment). No se incluyen pagos en recepción (no dejan
+        // rastro digital de cobro) ni intentos de pago que quedaron en "pending" sin confirmarse.
+        const paidOnlineMatch = { wompi_transaction_id: { $exists: true, $ne: null }, status: { $ne: "pending" } };
+
         const [
             revenueAgg,
             lastMonthRevenueAgg,
@@ -30,14 +36,17 @@ dashboardController.getStats = async (req, res) => {
             totalPatients,
             lastMonthPatients,
         ] = await Promise.all([
-            appointmentsModel.aggregate([{ $group: { _id: null, total: { $sum: "$total" } } }]),
             appointmentsModel.aggregate([
-                { $match: { date: { $gte: firstDayLastMonth, $lte: lastDayLastMonth } } },
-                { $group: { _id: null, total: { $sum: "$total" } } },
+                { $match: paidOnlineMatch },
+                { $group: { _id: null, total: { $sum: "$deposit_amount" } } },
             ]),
             appointmentsModel.aggregate([
-                { $match: { date: { $gte: firstDayThisMonth } } },
-                { $group: { _id: null, total: { $sum: "$total" } } },
+                { $match: { ...paidOnlineMatch, date: { $gte: firstDayLastMonth, $lte: lastDayLastMonth } } },
+                { $group: { _id: null, total: { $sum: "$deposit_amount" } } },
+            ]),
+            appointmentsModel.aggregate([
+                { $match: { ...paidOnlineMatch, date: { $gte: firstDayThisMonth } } },
+                { $group: { _id: null, total: { $sum: "$deposit_amount" } } },
             ]),
             doctorsModel.countDocuments({ is_active: true }),
             appointmentsModel.countDocuments({ date: { $gte: today, $lt: tomorrow } }),
@@ -82,7 +91,7 @@ dashboardController.getStats = async (req, res) => {
         });
     } catch (error) {
         console.error("dashboard.getStats:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -133,6 +142,13 @@ dashboardController.getDoctorStatus = async (req, res) => {
             status: a.status,
         });
 
+        // Agenda completa del día (todas las citas de hoy, en orden cronológico) — para el
+        // panel "Agenda del día" del dashboard de admin, más completo que los recortes de
+        // "en consulta ahora" / "próxima hora" de arriba.
+        const schedule = [...todayAppointments]
+            .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""))
+            .map(mapAppt);
+
         res.status(200).json({
             counts: {
                 inConsultation: inConsultation.length,
@@ -142,10 +158,11 @@ dashboardController.getDoctorStatus = async (req, res) => {
             },
             inConsultation: inConsultation.map(mapAppt),
             upcoming: upcoming.map(mapAppt),
+            schedule,
         });
     } catch (error) {
         console.error("dashboard.getDoctorStatus:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -186,7 +203,7 @@ dashboardController.getUserStats = async (req, res) => {
         });
     } catch (error) {
         console.error("dashboard.getUserStats:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -245,7 +262,7 @@ dashboardController.getReportStats = async (req, res) => {
         });
     } catch (error) {
         console.error("dashboard.getReportStats:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

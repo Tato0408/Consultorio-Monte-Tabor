@@ -4,23 +4,23 @@ import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, X, RefreshCw } from "
 import { useAuth } from "@/context/AuthContext";
 import useAppointmentsApi from "../hooks/useAppointmentsApi";
 import useSchedule from "../hooks/useSchedule";
+import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import { confirmDelete, showError } from "@/lib/alerts";
 
 
-const HOUR_HEIGHT = 64; 
+const HOUR_HEIGHT = 64;
 const START_HOUR  = 7;
 const END_HOUR    = 20;
 const HOURS       = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 const DAYS_ES     = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const MONTHS_ES   = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-const TYPE_COLORS = {
-    "Consulta":            { dot: "bg-blue-500",    card: "bg-blue-50 border-l-[3px] border-blue-400 text-blue-900" },
-    "Control":             { dot: "bg-emerald-500", card: "bg-emerald-50 border-l-[3px] border-emerald-400 text-emerald-900" },
-    "Control/Seguimiento": { dot: "bg-emerald-500", card: "bg-emerald-50 border-l-[3px] border-emerald-400 text-emerald-900" },
-    "Procedimiento":       { dot: "bg-orange-500",  card: "bg-orange-50 border-l-[3px] border-orange-400 text-orange-900" },
-    "Descanso":            { dot: "bg-yellow-400",  card: "bg-yellow-50 border-l-[3px] border-yellow-400 text-yellow-900" },
-};
+// Color de respaldo para una cita sin "appointment_type" elegido (o cuyo tipo ya no existe en el
+// catálogo — ej. un admin lo borró). Antes había 4 tipos fijos con nombres que ninguna cita real
+// llegaba a tener ("Control", "Descanso"); ahora el color sale del catálogo global de tipos de
+// cita (ver AppointmentTypesSection.jsx), administrado por el rol admin.
+const FALLBACK_COLOR = "#94a3b8";
+const CANCELLED_COLOR = "#f87171";
 
 const STATUS_BADGES = {
     scheduled: "bg-blue-100 text-blue-700",
@@ -28,6 +28,8 @@ const STATUS_BADGES = {
     completed: "bg-slate-100 text-slate-600",
     cancelled: "bg-red-100 text-red-600",
     pending:   "bg-amber-100 text-amber-700",
+    no_show:   "bg-slate-100 text-slate-500",
+    expired:   "bg-orange-100 text-orange-600",
 };
 const STATUS_LABELS = {
     scheduled: "Programada",
@@ -35,6 +37,8 @@ const STATUS_LABELS = {
     completed: "Completada",
     cancelled: "Cancelada",
     pending:   "Pendiente",
+    no_show:   "No se presentó",
+    expired:   "Vencida",
 };
 
 
@@ -86,9 +90,12 @@ const getNowLabel = () => {
     return `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
 };
 
-const typeColors = (type, status) => {
-    if (status === "cancelled") return { dot: "bg-red-400", card: "bg-red-50 border-l-[3px] border-red-300 text-red-800 opacity-60" };
-    return TYPE_COLORS[type] ?? { dot: "bg-slate-400", card: "bg-slate-50 border-l-[3px] border-slate-300 text-slate-700" };
+// colorMap: { [nombreDelTipo]: colorHex } armado a partir del catálogo global de tipos de cita.
+// Se busca por "appointment_type" (el nuevo campo, solo categoriza/colorea), nunca por "type"
+// (que sigue siendo "Consulta Médica General"/"Procedimiento" y define precio/duración aparte).
+const typeColors = (appointmentType, status, colorMap) => {
+    if (status === "cancelled") return { color: CANCELLED_COLOR, cancelled: true };
+    return { color: (appointmentType && colorMap?.[appointmentType]) || FALLBACK_COLOR, cancelled: false };
 };
 
 
@@ -131,25 +138,32 @@ const computeColumns = (appts) => {
 };
 
 
-const ApptDot = ({ appt, col = 0, colIdx = 0, isSelected, onSelect }) => {
+const ApptDot = ({ appt, col = 0, colIdx = 0, isSelected, onSelect, colorMap }) => {
     const [hovered, setHovered] = useState(false);
     const startMins = timeToMins(appt.start_time);
     const topPx     = ((startMins - START_HOUR * 60) / 60) * HOUR_HEIGHT;
-    const colors    = typeColors(appt.type, appt.status);
+    const colors    = typeColors(appt.appointment_type, appt.status, colorMap);
 
     if (topPx < 0 || topPx > HOURS.length * HOUR_HEIGHT) return null;
 
     const popupOnLeft = colIdx >= 5;
 
+    // z-[15] en hover: por encima de las tarjetas en reposo (z-10, para tapar a las de otros
+    // días) pero por debajo del encabezado sticky (z-20) — así, al pasar el mouse y hacer scroll
+    // a la vez, la tarjeta (y su tooltip, contenido en este mismo stacking context) queda tapada
+    // por el encabezado en vez de seguir traspasándolo.
     return (
         <div
-            className={`absolute ${hovered ? "z-30" : "z-10"}`}
+            className={`absolute ${hovered ? "z-[15]" : "z-10"}`}
             style={{ top: `${topPx + 4}px`, left: `${6 + col * 14}px` }}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             onClick={e => { e.stopPropagation(); onSelect(appt); }}
         >
-            <div className={`w-4 h-4 rounded-full cursor-pointer border-2 border-white shadow-sm transition-transform ${colors.dot} ${isSelected ? "ring-2 ring-offset-1 ring-blue-500 scale-125" : "hover:scale-125"}`} />
+            <div
+                className={`w-4 h-4 rounded-full cursor-pointer border-2 border-white shadow-sm transition-transform ${colors.cancelled ? "opacity-60" : ""} ${isSelected ? "ring-2 ring-offset-1 ring-blue-500 scale-125" : "hover:scale-125"}`}
+                style={{ backgroundColor: colors.color }}
+            />
 
             {hovered && (
                 <div
@@ -161,8 +175,8 @@ const ApptDot = ({ appt, col = 0, colIdx = 0, isSelected, onSelect }) => {
                     }}
                 >
                     <div className="flex items-center gap-1.5 mb-2">
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
-                        <span className="text-xs font-semibold text-slate-800 flex-1 truncate">{appt.type}</span>
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colors.color }} />
+                        <span className="text-xs font-semibold text-slate-800 flex-1 truncate">{appt.appointment_type || appt.type}</span>
                         <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STATUS_BADGES[appt.status] || "bg-slate-100 text-slate-600"}`}>
                             {STATUS_LABELS[appt.status] || appt.status}
                         </span>
@@ -189,21 +203,25 @@ const ApptDot = ({ appt, col = 0, colIdx = 0, isSelected, onSelect }) => {
 };
 
 
-const ApptCard = ({ appt, col = 0, totalCols = 1, colIdx = 0, isSelected, onSelect }) => {
+const ApptCard = ({ appt, col = 0, totalCols = 1, colIdx = 0, isSelected, onSelect, colorMap }) => {
     const [hovered, setHovered] = useState(false);
     const startMins = timeToMins(appt.start_time);
     const endMins   = timeToMins(appt.end_time);
     const topPx     = ((startMins - START_HOUR * 60) / 60) * HOUR_HEIGHT;
     const heightPx  = Math.max(((endMins - startMins) / 60) * HOUR_HEIGHT, 22);
-    const colors    = typeColors(appt.type, appt.status);
+    const colors    = typeColors(appt.appointment_type, appt.status, colorMap);
 
     if (topPx < 0 || topPx > HOURS.length * HOUR_HEIGHT) return null;
 
     const popupOnLeft = colIdx >= 5;
 
+    // z-[15] en hover: por encima de las tarjetas en reposo (z-10, para tapar a las de otros
+    // días) pero por debajo del encabezado sticky (z-20) — así, al pasar el mouse y hacer scroll
+    // a la vez, la tarjeta (y su tooltip, contenido en este mismo stacking context) queda tapada
+    // por el encabezado en vez de seguir traspasándolo.
     return (
         <div
-            className={`absolute ${hovered ? "z-30" : "z-10"}`}
+            className={`absolute ${hovered ? "z-[15]" : "z-10"}`}
             style={{
                 top:    `${topPx}px`,
                 height: `${heightPx}px`,
@@ -214,9 +232,12 @@ const ApptCard = ({ appt, col = 0, totalCols = 1, colIdx = 0, isSelected, onSele
             onMouseLeave={() => setHovered(false)}
             onClick={e => { e.stopPropagation(); onSelect(appt); }}
         >
-            <div className={`w-full h-full rounded-md px-1.5 py-0.5 cursor-pointer overflow-hidden text-xs transition-shadow ${colors.card} ${isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:shadow-sm"}`}>
+            <div
+                className={`w-full h-full rounded-md px-1.5 py-0.5 cursor-pointer overflow-hidden text-xs transition-shadow text-slate-800 ${colors.cancelled ? "opacity-60" : ""} ${isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:shadow-sm"}`}
+                style={{ backgroundColor: `${colors.color}1A`, borderLeft: `3px solid ${colors.color}` }}
+            >
                 <p className="font-semibold leading-tight truncate">{appt.start_time} – {appt.end_time}</p>
-                {heightPx > 28 && <p className="text-[10px] leading-tight truncate">{appt.type}</p>}
+                {heightPx > 28 && <p className="text-[10px] leading-tight truncate">{appt.appointment_type || appt.type}</p>}
                 {heightPx > 44 && (
                     <p className="text-[10px] leading-tight truncate opacity-75">
                         {appt.patient_id ? `${appt.patient_id.name} ${appt.patient_id.last_name}` : ""}
@@ -234,8 +255,8 @@ const ApptCard = ({ appt, col = 0, totalCols = 1, colIdx = 0, isSelected, onSele
                     }}
                 >
                     <div className="flex items-center gap-1.5 mb-2">
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
-                        <span className="text-xs font-semibold text-slate-800 flex-1 truncate">{appt.type}</span>
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colors.color }} />
+                        <span className="text-xs font-semibold text-slate-800 flex-1 truncate">{appt.appointment_type || appt.type}</span>
                         <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STATUS_BADGES[appt.status] || "bg-slate-100 text-slate-600"}`}>
                             {STATUS_LABELS[appt.status] || appt.status}
                         </span>
@@ -287,7 +308,7 @@ const BreakCard = ({ brk }) => {
 };
 
 
-const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAppt }) => {
+const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAppt, colorMap }) => {
     const { updateAppointmentStatus } = useAppointmentsApi();
     const [cancelling, setCancelling] = useState(false);
 
@@ -306,7 +327,7 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAp
         }
     };
 
-    const colors = typeColors(appt.type, appt.status);
+    const colors = typeColors(appt.appointment_type, appt.status, colorMap);
 
     return (
         <div className="fixed bottom-0 inset-x-0 z-50 h-[80vh] rounded-t-2xl md:relative md:inset-auto md:h-full md:w-72 md:rounded-none md:z-auto border-t md:border-t-0 md:border-l border-slate-100 bg-white overflow-y-auto flex-shrink-0">
@@ -317,8 +338,9 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAp
             <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors.card.includes("blue") ? "bg-blue-100 text-blue-700" : ""} ${STATUS_BADGES[appt.status] || "bg-slate-100 text-slate-600"}`}>
-                            {appt.type}
+                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colors.color }} />
+                            {appt.appointment_type || appt.type}
                         </span>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGES[appt.status]}`}>
                             {STATUS_LABELS[appt.status]}
@@ -384,14 +406,14 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAp
                 <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Acciones</p>
                     <button
-                        onClick={() => navigate(`/calendar/appointments/calendar/${appt._id}`)}
+                        onClick={() => navigate(`/calendar/appointments/${appt._id}`, { state: { fromView: "calendar" } })}
                         className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                     >
                         Ver expediente
                     </button>
                     {canUpdateAppt && (
                         <button
-                            onClick={() => navigate(`/calendar/appointments/calendar/${appt._id}`, { state: { editMode: true } })}
+                            onClick={() => navigate(`/calendar/appointments/${appt._id}`, { state: { editMode: true, fromView: "calendar" } })}
                             className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium rounded-lg transition-colors"
                         >
                             Reagendar cita
@@ -421,6 +443,7 @@ const AppointmentsCalendar = () => {
     const canUpdateAppt = hasPermission("calendar.appointments", "update");
     const { getAppointments, getAppointmentsStats } = useAppointmentsApi();
     const { getSchedule } = useSchedule();
+    const { getAppointmentTypes } = useAppointmentTypes();
 
     const [weekStart,    setWeekStart]    = useState(() => getWeekStart(new Date()));
     const [appointments, setAppointments] = useState([]);
@@ -433,6 +456,13 @@ const AppointmentsCalendar = () => {
     const [doctors,      setDoctors]      = useState([]);
     const [refresh,      setRefresh]      = useState(0);
     const [scheduleData, setScheduleData] = useState(null);
+    // Catálogo global de tipos de cita (nombre + color), administrado por el rol admin desde
+    // Horarios — alimenta la leyenda, el filtro "Tipo de atención" y el color de cada cita.
+    const [appointmentTypes, setAppointmentTypes] = useState([]);
+    const colorMap = useMemo(
+        () => Object.fromEntries(appointmentTypes.map(t => [t.name, t.color])),
+        [appointmentTypes]
+    );
 
     const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
     const weekEnd  = useMemo(() => {
@@ -441,6 +471,10 @@ const AppointmentsCalendar = () => {
     const today = toISO(new Date());
 
  
+    useEffect(() => {
+        getAppointmentTypes().then(setAppointmentTypes).catch(() => setAppointmentTypes([]));
+    }, []);
+
     useEffect(() => {
         if (isDoctor) return;
         fetch("http://localhost:4000/api/doctors", { credentials: "include" })
@@ -493,7 +527,7 @@ const AppointmentsCalendar = () => {
     const byDay = useMemo(() => {
         const map = {};
         for (const a of appointments) {
-            if (filterType && a.type !== filterType) continue;
+            if (filterType && a.appointment_type !== filterType) continue;
             const key = a.date?.split("T")[0];
             if (!map[key]) map[key] = [];
             map[key].push(a);
@@ -528,7 +562,7 @@ const AppointmentsCalendar = () => {
                     </div>
                     {canCreateAppt && (
                         <button
-                            onClick={() => navigate("/calendar/appointments/calendar/new")}
+                            onClick={() => navigate("/calendar/appointments/new", { state: { fromView: "calendar" } })}
                             className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-lg whitespace-nowrap flex-shrink-0"
                         >
                             <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -636,13 +670,13 @@ const AppointmentsCalendar = () => {
                     </div>
 
                     <div className="mb-3">
-                        <label className="text-xs font-medium text-slate-600 block mb-1">Tipo de atención</label>
+                        <label className="text-xs font-medium text-slate-600 block mb-1">Tipo de cita</label>
                         <select value={filterType} onChange={e => setFilterType(e.target.value)}
                             className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white">
                             <option value="">Todos</option>
-                            <option value="Consulta">Consulta</option>
-                            <option value="Control/Seguimiento">Control</option>
-                            <option value="Procedimiento">Procedimiento</option>
+                            {appointmentTypes.map(t => (
+                                <option key={t._id} value={t.name}>{t.name}</option>
+                            ))}
                         </select>
                     </div>
 
@@ -651,16 +685,21 @@ const AppointmentsCalendar = () => {
                         <RefreshCw className="w-3 h-3" /> Limpiar filtros
                     </button>
 
-                    {/* Legend */}
+                    {/* Legend — catálogo global de tipos de cita, administrado por el rol
+                        admin desde Horarios (ver AppointmentTypesSection.jsx). */}
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Leyenda</p>
-                    {Object.entries(TYPE_COLORS).map(([type, c]) => (
-                        <div key={type} className="flex items-center gap-2 mb-1.5">
-                            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${c.dot}`} />
-                            <span className="text-xs text-slate-600">{type}</span>
-                        </div>
-                    ))}
+                    {appointmentTypes.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 mb-1.5">Sin tipos de cita configurados</p>
+                    ) : (
+                        appointmentTypes.map((t) => (
+                            <div key={t._id} className="flex items-center gap-2 mb-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
+                                <span className="text-xs text-slate-600">{t.name}</span>
+                            </div>
+                        ))
+                    )}
                     <div className="flex items-center gap-2 mb-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-red-400" />
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: CANCELLED_COLOR }} />
                         <span className="text-xs text-slate-600">Cancelada</span>
                     </div>
                 </div>
@@ -674,7 +713,7 @@ const AppointmentsCalendar = () => {
                     ) : (
                         <div className="min-w-[560px]">
                             {/* Day headers */}
-                            <div className="sticky top-0 z-10 bg-white border-b border-slate-100 grid"
+                            <div className="sticky top-0 z-20 bg-white border-b border-slate-100 grid"
                                 style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}>
                                 <div className="border-r border-slate-100" />
                                 {weekDays.map((day, i) => {
@@ -752,7 +791,7 @@ const AppointmentsCalendar = () => {
                                                 left:  `calc(48px + ${di} * (100% - 48px) / 7)`,
                                                 width: `calc((100% - 48px) / 7)`,
                                             }}
-                                            onClick={() => { if (isCellDisabled) return; navigate(`/calendar/appointments/calendar/new?date=${toISO(day)}`); }}
+                                            onClick={() => { if (isCellDisabled) return; navigate(`/calendar/appointments/new?date=${toISO(day)}`, { state: { fromView: "calendar" } }); }}
                                         >
                                             {(isDayOff || isPast) && (
                                                 <div className="absolute inset-0 pointer-events-none z-10"
@@ -775,6 +814,7 @@ const AppointmentsCalendar = () => {
                                                         colIdx={di}
                                                         isSelected={selected?._id === appt._id}
                                                         onSelect={setSelected}
+                                                        colorMap={colorMap}
                                                     />
                                                 ) : (
                                                     <ApptCard
@@ -785,6 +825,7 @@ const AppointmentsCalendar = () => {
                                                         colIdx={di}
                                                         isSelected={selected?._id === appt._id}
                                                         onSelect={setSelected}
+                                                        colorMap={colorMap}
                                                     />
                                                 );
                                             })}
@@ -813,6 +854,7 @@ const AppointmentsCalendar = () => {
                         onRefresh={triggerRefresh}
                         navigate={navigate}
                         canUpdateAppt={canUpdateAppt}
+                        colorMap={colorMap}
                     />
                 )}
             </div>

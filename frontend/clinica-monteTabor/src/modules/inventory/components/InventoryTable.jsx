@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Clock, Package, MoreVertical, Edit2, Trash2, Pencil } from "lucide-react";
 import useInsumos from "../hooks/useInsumos";
 import GenericTable from "@/components/ui/GenericTable";
+import { showError } from "@/lib/alerts";
 
 const statusStyle = {
   Disponible: "bg-green-50 text-green-700",
@@ -25,7 +26,7 @@ const fmtDate = (d) => {
   });
 };
 
-const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, canDelete = true }) => {
+const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, canDelete = true, onTableOffsetChange }) => {
   const { getInsumos, deleteInsumo } = useInsumos();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -51,10 +52,15 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
 
   const handleDelete = async (id) => {
     if (!confirm("¿Eliminar este producto?")) return;
-    await deleteInsumo(id);
-    onRefresh?.();
-    load();
-    setActiveMenuId(null);
+    try {
+      await deleteInsumo(id);
+      onRefresh?.();
+      load();
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar el producto.");
+    } finally {
+      setActiveMenuId(null);
+    }
   };
 
   const columns = [
@@ -165,7 +171,7 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
                             className="w-full px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
                           >
                             <Edit2 className="w-3.5 h-3.5 text-gray-400" />
-                            Editar Completo
+                            Editar completo
                           </button>
                         )}
 
@@ -204,6 +210,12 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
       columns={columns}
       loading={loading}
       searchFields={["name", "category", "description"]}
+      onTableOffsetChange={onTableOffsetChange}
+      headerLeft={
+        <h2 className="text-base font-semibold text-slate-800 whitespace-nowrap flex-shrink-0">
+          Productos / Insumos
+        </h2>
+      }
     />
   );
 };

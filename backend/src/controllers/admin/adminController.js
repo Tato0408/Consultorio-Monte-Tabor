@@ -1,11 +1,11 @@
 import adminModel from "../../models/admin/admins.js";
 import { v2 as cloudinary } from "cloudinary";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
 import jsonwebtoken from "jsonwebtoken";
 import { config } from "../../../config.js";
 import bcrypt from "bcryptjs";
-import { validateUserFieldFormats } from "../../utils/validators.js";
+import { validateUserFieldFormats, getPasswordError } from "../../utils/validators.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
 
 //Array de funciones
 const adminController = {};
@@ -16,13 +16,13 @@ adminController.getAdmins = async (req, res) => {
         const admins = await adminModel.find();
         const adminCount = await adminModel.countDocuments();
         if (adminCount === 0) {
-            return res.status(404).json({ message: "No admins found" });
+            return res.status(404).json({ message: "No se encontraron administradores" });
         }
         return res.status(200).json(admins);
     } catch (error) {
         console.log("error " + error);
 
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -44,7 +44,7 @@ adminController.updateAdmin = async (req, res) => {
         const adminFound = await adminModel.findById(req.params.id);
 
         if (!adminFound) {
-            return res.status(404).json({ message: "Admin not found" });
+            return res.status(404).json({ message: "Administrador no encontrado" });
         }
 
         //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
@@ -54,17 +54,31 @@ adminController.updateAdmin = async (req, res) => {
             return res.status(400).json({ message: formatError });
         }
 
-        const passwordHashed = await bcrypt.hash(password, 10);
         const updatedData = {
             name,
             last_name,
             dui,
             birth_date,
             gender,
-            password: passwordHashed,
             is_active,
             is_verified,
         };
+
+        // Si viene una nueva contraseña, la validamos y encriptamos antes de guardar. Antes esto
+        // se hacía sin condición, así que CUALQUIER edición sin contraseña (ej. solo cambiar el
+        // nombre) terminaba hasheando "undefined" y dejaba al admin sin poder volver a iniciar sesión.
+        if (password && password.trim() !== "") {
+            const passwordError = getPasswordError(password);
+            if (passwordError) {
+                return res.status(400).json({ message: passwordError });
+            }
+            // Compara contra el hash actual para no permitir "cambiarla" por la misma de siempre
+            const samePassword = await bcrypt.compare(password, adminFound.password);
+            if (samePassword) {
+                return res.status(400).json({ message: "La nueva contraseña debe ser diferente a la actual" });
+            }
+            updatedData.password = await bcrypt.hash(password, 10);
+        }
 
         //Nueva imagen
         if (req.file) {
@@ -92,7 +106,7 @@ adminController.updateAdmin = async (req, res) => {
 
         //Si el correo es el mismo, no hay mas que hacer
         if (!email || email === adminFound.email) {
-            return res.status(200).json({ message: "Admin updated" })
+            return res.status(200).json({ message: "Administrador actualizado" })
         }
 
         //#1 si el correo es diferente hay que verificarlo antes de actualizarlo
@@ -101,7 +115,7 @@ adminController.updateAdmin = async (req, res) => {
         const emailInUse = await adminModel.findOne({ email });
 
         if (emailInUse) {
-            return res.status(400).json({ message: "Email already in use" });
+            return res.status(400).json({ message: "El correo ya está en uso" });
         }
 
         //Generamos un codigo
@@ -121,37 +135,24 @@ adminController.updateAdmin = async (req, res) => {
         res.cookie("emailChangeCookie", token, { maxAge: 15 * 60 * 1000 });
 
         //Enviamos el código al nuevo correo
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: config.email.user_email,
-                pass: config.email.user_password,
-            },
-        });
+        const htmlContent =
+            "Para confirmar tu nuevo correo utiliza este código: " +
+            randomCode +
+            ". Expira en 15 minutos.";
 
-        const mailOptions = {
-            from: config.email.user_email,
-            to: email,
-            subject: "Verificación de cambio de correo",
-            text:
-                "Para confirmar tu nuevo correo utiliza este código: " +
-                randomCode +
-                ". Expira en 15 minutos.",
-        };
+        try {
+            await sendEmail(email, "Verificación de cambio de correo", htmlContent);
+        } catch (error) {
+            console.log("error " + error);
 
-        await transporter.sendMail(mailOptions, (error) => {
-            if (error) {
-                console.log("error " + error);
+            return res.status(500).json({ message: "Error al enviar el correo" });
+        }
 
-                return res.status(500).json({ message: "Error sending email" });
-            }
-        });
-
-        return res.status(200).json({ message: "Admin updated" });
+        return res.status(200).json({ message: "Administrador actualizado" });
 
     } catch (error) {
         console.log("error:", error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -167,7 +168,7 @@ adminController.verifyEmailChange = async (req, res) => {
         const { admin_id, newEmail, randomCode: storedCode } = decoded;
 
         if (verificationCodeRequest !== storedCode) {
-            return res.status(400).json({ message: "Invalid code" });
+            return res.status(400).json({ message: "Código inválido" });
         }
 
         await adminModel.findByIdAndUpdate(
@@ -178,11 +179,11 @@ adminController.verifyEmailChange = async (req, res) => {
 
         res.clearCookie("emailChangeCookie");
 
-        return res.status(200).json({ message: "Email updated" });
+        return res.status(200).json({ message: "Correo actualizado" });
 
     } catch (error) {
         console.log("error " + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 }
 
@@ -194,7 +195,7 @@ adminController.deleteAdmin = async (req, res) => {
             await adminModel.findById(req.params.id);
 
         if (!adminFound) {
-            return res.status(404).json({ message: "Admin not found" });
+            return res.status(404).json({ message: "Administrador no encontrado" });
         }
 
         //Borrar la imagen
@@ -202,11 +203,11 @@ adminController.deleteAdmin = async (req, res) => {
 
         await adminModel.findByIdAndDelete(req.params.id,);
 
-        return res.status(200).json({ message: "Admin deleted" });
+        return res.status(200).json({ message: "Administrador eliminado" });
 
     } catch (error) {
         console.log("error", error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -215,7 +216,7 @@ adminController.checkAdminExists = async (req, res) => {
         const count = await adminModel.countDocuments();
         return res.status(200).json({ exists: count > 0 });
     } catch (error) {
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

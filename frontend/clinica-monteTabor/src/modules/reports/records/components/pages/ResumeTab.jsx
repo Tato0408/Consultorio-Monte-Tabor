@@ -38,7 +38,7 @@ function VitalCard({ label, value, unit, badge }) {
   );
 }
 
-export default function ResumenTab({ patient = {}, onSaved }) {
+export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
   const v = patient.signosVitales ?? {};
   const navigate = useNavigate();
   const { hasPermission, user } = useAuth();
@@ -60,9 +60,9 @@ export default function ResumenTab({ patient = {}, onSaved }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <VitalCard label="Presión Arterial" value={v.presionArterial} unit="mmHg" />
+        <VitalCard label="Presión arterial" value={v.presionArterial} unit="mmHg" />
         <VitalCard label="Glucosa" value={v.glucosa} unit="mg/dL" />
-        <VitalCard label="Peso / Altura" value={v.peso} unit={v.altura} />
+        <VitalCard label="Peso / altura" value={v.peso} unit={v.altura} />
         <VitalCard label="IMC" value={v.imc} badge={v.imcCategoria} />
         <div className="col-span-2 flex flex-col items-center justify-center rounded-2xl bg-blue-600 p-4 text-center text-white shadow-sm sm:col-span-1">
           <Clock className="h-5 w-5 opacity-90" />
@@ -74,7 +74,7 @@ export default function ResumenTab({ patient = {}, onSaved }) {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard title="Procedimientos recientes" action={<VerTodos />}>
+        <SectionCard title="Procedimientos recientes" action={<VerTodos onClick={() => onNavigateTab?.("Procedimientos")} />}>
           <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-6 gap-y-4 text-sm">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Procedimiento</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Fecha</span>
@@ -94,7 +94,7 @@ export default function ResumenTab({ patient = {}, onSaved }) {
           </div>
         </SectionCard>
 
-        <SectionCard title="Antecedentes hereditarios" action={<VerTodos />}>
+        <SectionCard title="Antecedentes hereditarios" action={<VerTodos onClick={() => onNavigateTab?.("Historia clínica")} />}>
           <div className="space-y-3">
             {(patient.antecedentes ?? []).map((a, i) => (
               <div key={i} className="rounded-xl border-l-4 border-emerald-500 bg-slate-50 p-4">
@@ -121,7 +121,7 @@ export default function ResumenTab({ patient = {}, onSaved }) {
           action={
             <div className="flex items-center gap-2">
               {canAttend && <AddButton onClick={handleAgregarClinico} />}
-              <VerTodos>Ver todas</VerTodos>
+              <VerTodos onClick={() => onNavigateTab?.("Consultas")}>Ver todas</VerTodos>
             </div>
           }
         >
@@ -145,7 +145,7 @@ export default function ResumenTab({ patient = {}, onSaved }) {
           action={
             <div className="flex items-center gap-2">
               {canCreateSickLeave && <AddButton onClick={() => setIncapacidadModalOpen(true)} />}
-              <VerTodos>Ver todas</VerTodos>
+              <VerTodos onClick={() => onNavigateTab?.("Incapacidades")}>Ver todas</VerTodos>
             </div>
           }
         >
@@ -167,7 +167,7 @@ export default function ResumenTab({ patient = {}, onSaved }) {
           action={
             <div className="flex items-center gap-2">
               {canAttend && <AddButton onClick={handleAgregarClinico} />}
-              <VerTodos>Ver todas</VerTodos>
+              <VerTodos onClick={() => onNavigateTab?.("Consultas")}>Ver todas</VerTodos>
             </div>
           }
         >
@@ -186,11 +186,11 @@ export default function ResumenTab({ patient = {}, onSaved }) {
       </div>
 
       <SectionCard
-        title="Resultados de Laboratorio y Exámenes"
+        title="Resultados de laboratorio y exámenes"
         action={
           <div className="flex items-center gap-2">
             {canAttend && <AddButton onClick={handleAgregarClinico} />}
-            <VerTodos />
+            <VerTodos onClick={() => onNavigateTab?.("Consultas")} />
           </div>
         }
       >
@@ -207,7 +207,16 @@ export default function ResumenTab({ patient = {}, onSaved }) {
                   <p className="text-[11px] text-slate-400">{l.fecha}</p>
                 </div>
                 <Badge tone={completado ? "green" : "blue"}>{l.estado}</Badge>
-                {completado && <Eye className="h-4 w-4 text-blue-500" />}
+                {completado && (
+                  <button
+                    type="button"
+                    onClick={() => onNavigateTab?.("Consultas")}
+                    title="Ver detalle en la consulta"
+                    className="text-blue-500 hover:text-blue-700"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             );
           })}
@@ -215,7 +224,7 @@ export default function ResumenTab({ patient = {}, onSaved }) {
       </SectionCard>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard title="Notas de Evolución" action={<VerTodos>Ver más</VerTodos>}>
+        <SectionCard title="Notas de evolución" action={<VerTodos onClick={() => onNavigateTab?.("Consultas")}>Ver más</VerTodos>}>
           <div className="rounded-xl border-l-4 border-blue-500 bg-slate-50 p-4">
             <p className="text-sm leading-relaxed text-slate-600">
               {patient.notasEvolucion?.texto ?? "—"}
@@ -228,7 +237,7 @@ export default function ResumenTab({ patient = {}, onSaved }) {
           </div>
         </SectionCard>
 
-        <SectionCard title="Impresión Diagnóstica">
+        <SectionCard title="Impresión diagnóstica">
           <div className="flex items-center gap-4 rounded-xl bg-slate-50 p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-[11px] font-bold text-blue-600">
               {patient.impresionDiagnostica?.codigo ?? "CIE"}

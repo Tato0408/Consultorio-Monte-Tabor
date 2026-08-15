@@ -60,7 +60,7 @@ doctorDashboardController.getStats = async (req, res) => {
         });
     } catch (error) {
         console.error("doctorDashboard.getStats:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -79,7 +79,7 @@ doctorDashboardController.getCalendar = async (req, res) => {
         res.status(200).json({ dates: uniqueDates });
     } catch (error) {
         console.error("doctorDashboard.getCalendar:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -98,7 +98,7 @@ doctorDashboardController.getTodayAppointments = async (req, res) => {
         })));
     } catch (error) {
         console.error("doctorDashboard.getTodayAppointments:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -134,7 +134,7 @@ doctorDashboardController.getConsultationsAndRecords = async (req, res) => {
         res.status(200).json({ recentConsultations, records });
     } catch (error) {
         console.error("doctorDashboard.getConsultationsAndRecords:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -170,7 +170,7 @@ doctorDashboardController.getAnalytics = async (req, res) => {
         });
     } catch (error) {
         console.error("doctorDashboard.getAnalytics:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

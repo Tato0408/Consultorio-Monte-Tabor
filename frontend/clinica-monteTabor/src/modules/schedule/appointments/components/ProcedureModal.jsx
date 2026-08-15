@@ -30,6 +30,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
 
     // Envía el procedimiento y notifica al formulario padre si se creó bien.
     const onSubmit = async (data) => {
+        if (submitting) return;
         const result = await saveProcedure(null, {
             ...data,
             estimated_duration: Number(data.estimated_duration),
@@ -57,18 +58,23 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[480px] rounded-2xl bg-white p-6 shadow-xl border-0">
+        // Sin este guard, hacer clic en el backdrop o presionar Escape mientras se envía
+        // cerraría el diálogo (y perdería el estado) a medio envío.
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open && submitting) return; onClose(); }}>
+            <DialogContent closeDisabled={submitting} className="sm:max-w-[480px] rounded-2xl bg-white p-6 shadow-xl border-0">
                 <DialogHeader>
                     <DialogTitle className="text-lg font-bold text-gray-900">
-                        Creación Rápida de Procedimiento
+                        Creación rápida de procedimiento
                     </DialogTitle>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
+                {/* fieldset con display:contents — desactiva todos los inputs/botones que
+                    contiene de un solo golpe durante el envío, sin alterar el layout */}
+                <fieldset disabled={submitting} className="contents">
                     {/* Nombre: obligatorio, mínimo 3 caracteres. */}
                     <div className="space-y-1">
-                        <Label className="text-xs font-semibold text-gray-600">Nombre del Procedimiento *</Label>
+                        <Label className="text-xs font-semibold text-gray-600">Nombre del procedimiento *</Label>
                         <Controller
                             name="name"
                             control={control}
@@ -77,17 +83,25 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                 validate: (value) => value.trim().length >= 3 || "El nombre debe tener al menos 3 caracteres.",
                             }}
                             render={({ field }) => (
-                                <Input
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    placeholder="Ej. Limpieza Dental Profunda"
-                                    className="bg-gray-50 border-gray-200 rounded-lg h-10 focus-visible:ring-[#0b66d6]"
-                                />
+                                <>
+                                    <Input
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        placeholder="Ej. Limpieza dental profunda"
+                                        maxLength={100}
+                                        className="bg-gray-50 border-gray-200 rounded-lg h-10 focus-visible:ring-[#0b66d6]"
+                                    />
+                                    <div className="flex items-start justify-between gap-2">
+                                        {errors.name ? (
+                                            <p className="text-xs text-rose-500">{errors.name.message}</p>
+                                        ) : <span />}
+                                        <span className="text-[11px] text-gray-400 flex-shrink-0 ml-auto">
+                                            {String(field.value ?? "").length}/100
+                                        </span>
+                                    </div>
+                                </>
                             )}
                         />
-                        {errors.name && (
-                            <p className="text-xs text-rose-500">{errors.name.message}</p>
-                        )}
                     </div>
 
                     {/* Duración y precio: no se aceptan valores en 0, negativos ni NaN. */}
@@ -103,12 +117,16 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                         validate: (value) => {
                                             const num = Number(value);
                                             if (Number.isNaN(num) || num <= 0) return "La duración debe ser mayor a 0.";
+                                            if (num > 480) return "La duración no puede superar 480 minutos (8 horas).";
                                             return true;
                                         },
                                     }}
                                     render={({ field }) => (
                                         <Input
                                             type="number"
+                                            min={1}
+                                            max={480}
+                                            onKeyDown={(e) => { if (["-", "e", "E", "+", "."].includes(e.key)) e.preventDefault(); }}
                                             value={field.value}
                                             onChange={field.onChange}
                                             className="bg-gray-50 border-gray-200 rounded-lg h-10 pl-9 focus-visible:ring-[#0b66d6]"
@@ -138,6 +156,10 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                     render={({ field }) => (
                                         <Input
                                             type="number"
+                                            min={0}
+                                            max={999999}
+                                            step="0.01"
+                                            onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
                                             value={field.value}
                                             onChange={field.onChange}
                                             className="bg-gray-50 border-gray-200 rounded-lg h-10 pl-9 focus-visible:ring-[#0b66d6]"
@@ -188,6 +210,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                     value={field.value}
                                     onChange={field.onChange}
                                     placeholder="Objetivos o notas del procedimiento..."
+                                    maxLength={500}
                                     className="bg-gray-50 border-gray-200 rounded-lg min-h-[50px] resize-none focus-visible:ring-[#0b66d6]"
                                 />
                             )}
@@ -196,7 +219,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
 
                     {/* Indicaciones post-operatorias: opcional. */}
                     <div className="space-y-1">
-                        <Label className="text-xs font-semibold text-gray-600">Indicaciones Post-Operatorias</Label>
+                        <Label className="text-xs font-semibold text-gray-600">Indicaciones post-operatorias</Label>
                         <Controller
                             name="post_operative_instructions"
                             control={control}
@@ -205,6 +228,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                     value={field.value}
                                     onChange={field.onChange}
                                     placeholder="Ej. No ingerir alimentos sólidos por 2 horas..."
+                                    maxLength={500}
                                     className="bg-gray-50 border-gray-200 rounded-lg min-h-[50px] resize-none focus-visible:ring-[#0b66d6]"
                                 />
                             )}
@@ -221,6 +245,7 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                             {submitting ? "Guardando..." : "Registrar"}
                         </Button>
                     </DialogFooter>
+                </fieldset>
                 </form>
             </DialogContent>
         </Dialog>

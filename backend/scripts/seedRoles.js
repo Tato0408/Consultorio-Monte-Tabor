@@ -26,7 +26,7 @@ const MODULE_KEYS = [
 
 // Cada entrada [view, create, update, delete] refleja EXACTAMENTE el comportamiento
 // actual del sistema (allowedRoles en app.js / rutas backend / menuConfig.js), no un
-// diseño nuevo. Ver conversación de migración para el detalle de cada mapeo.
+// diseño nuevo. 
 const ROLE_PERMISSIONS = {
     admin: {
         "dashboard": [true, true, true, true],
@@ -52,7 +52,7 @@ const ROLE_PERMISSIONS = {
     doctor: {
         "dashboard": [true, false, false, false],
         "calendar.schedule": [true, false, true, false],
-        "calendar.appointments": [true, true, true, true],
+        "calendar.appointments": [true, false, true, true],
         "calendar.consultations": [true, true, true, true],
         "users.doctors": [false, false, false, false],
         "users.patients": [true, false, true, true],
@@ -62,11 +62,15 @@ const ROLE_PERMISSIONS = {
         "users.nurses": [true, false, false, false],
         "procedures": [true, true, true, true],
         "reports.appointments": [true, false, false, false],
-        "reports.records": [true, false, false, false],
+        // CRUD completo: el doctor es quien emite/edita/elimina incapacidades desde el
+        // Expediente (la única acción real detrás de este moduleKey).
+        "reports.records": [true, true, true, true],
         "reports.patients": [true, false, false, false],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],
-        "inventory.treatments": [false, false, false, false],
+        // El doctor hace el seguimiento clínico del tratamiento (evolución, notas, controles,
+        // alta) desde /inventory/treatments — necesita las 4 acciones, no solo ver.
+        "inventory.treatments": [true, true, true, true],
         "inventory.movements": [false, false, false, false],
         "inventory.reports": [false, false, false, false],
         "system.roles": [false, false, false, false],
@@ -74,11 +78,16 @@ const ROLE_PERMISSIONS = {
     },
     nurse: {
         "dashboard": [true, false, false, false],
-        "calendar.schedule": [false, false, false, false],
-        "calendar.appointments": [false, false, false, false],
+        // A diferencia de recepción, la enfermera SÍ puede tener su propio horario (update=true)
+        //  es lo que permite que solo se le asignen citas dentro de ese horario.
+        "calendar.schedule": [true, false, true, false],
+        // La enfermera sí puede crear/confirmar/cancelar citas desde su dashboard
+        "calendar.appointments": [true, true, true, true],
         "calendar.consultations": [false, false, false, false],
         "users.doctors": [false, false, false, false],
-        "users.patients": [false, false, false, false],
+        // A diferencia de recepción, la enfermera NO registra pacientes nuevos — solo necesita
+        // verlos para buscarlos al agendar una cita.
+        "users.patients": [true, false, false, false],
         "users.receptionist": [false, false, false, false],
         "users.nurses": [false, false, false, false],
         "procedures": [false, false, false, false],
@@ -87,7 +96,9 @@ const ROLE_PERMISSIONS = {
         "reports.patients": [false, false, false, false],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],
-        "inventory.treatments": [false, false, false, false],
+        // La enfermera también participa del seguimiento del tratamiento (curaciones,
+        // controles), así que tiene las mismas 4 acciones que el doctor aquí.
+        "inventory.treatments": [true, true, true, true],
         "inventory.movements": [false, false, false, false],
         "inventory.reports": [false, false, false, false],
         "system.roles": [false, false, false, false],
@@ -95,17 +106,21 @@ const ROLE_PERMISSIONS = {
     },
     receptionist: {
         "dashboard": [true, false, false, false],
-        "calendar.schedule": [false, false, false, false],
+        // Recepción no administra los horarios, pero necesita consultarlos al
+        // asignar una cita a un doctor desde el módulo de Citas.
+        "calendar.schedule": [true, false, false, false],
         "calendar.appointments": [true, true, true, true],
         "calendar.consultations": [true, false, false, false],
-        "users.doctors": [false, false, false, false],
-        "users.patients": [true, false, true, true],
+        // Catálogos necesarios exclusivamente para completar una cita.
+        "users.doctors": [true, false, false, false],
+        "users.patients": [true, false, false, false],
         "users.receptionist": [false, false, false, false],
-        "users.nurses": [false, false, false, false],
-        "procedures": [false, false, false, false],
+        "users.nurses": [true, false, false, false],
+        "procedures": [true, false, false, false],
         "reports.appointments": [false, false, false, false],
         "reports.records": [false, false, false, false],
-        "reports.patients": [false, false, false, false],
+        //La recepción SÍ registra pacientes nuevos (es parte central de su trabajo)
+        "reports.patients": [true, true, true, true],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],
         "inventory.treatments": [false, false, false, false],

@@ -115,7 +115,6 @@ const DonutCard = ({
 };
 
 const UserManagementSection = ({ data }) => {
-    const navigate      = useNavigate();
     const patients      = data?.patients      || { total: 0, active: 0, inactive: 0 };
     const doctors       = data?.doctors       || { total: 0, active: 0, pending: 0 };
     const receptionists = data?.receptionists || { total: 0, active: 0, inactive: 0 };
@@ -124,12 +123,6 @@ const UserManagementSection = ({ data }) => {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6">
             <div className="flex items-center justify-between mb-5">
                 <h2 className="text-base font-bold text-slate-800">Gestión de usuarios</h2>
-                <button
-                    onClick={() => navigate("/users/patients")}
-                    className="flex items-center gap-1 text-xs text-blue-600 font-semibold hover:underline"
-                >
-                    Ver todos los usuarios <ChevronRight className="w-3.5 h-3.5" />
-                </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

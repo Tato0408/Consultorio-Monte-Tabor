@@ -87,10 +87,16 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
             <label className="text-xs text-slate-500 block mb-1">Notas del procedimiento</label>
             <textarea
                 rows={2}
+                maxLength={500}
                 disabled={readOnly}
                 {...register(`procedure.${index}.notes`)}
-                className="w-full border border-slate-200 rounded-lg p-2 text-sm mb-3 disabled:bg-slate-50"
+                className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />
+            <div className="flex justify-end mb-3">
+                <span className="text-[11px] text-gray-400">
+                    {watch(`procedure.${index}.notes`)?.length ?? 0}/500
+                </span>
+            </div>
 
             <label className="text-xs text-slate-500 block mb-1">Material utilizado</label>
             <div className="space-y-2 mb-2">
@@ -114,10 +120,16 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
                         <input
                             type="number"
                             min={1}
+                            step={1}
                             placeholder="Cant."
                             disabled={readOnly}
+                            // Los <input type="number"> nativos igual dejan escribir "e", "+", "-" y "."
+                            // (no son dígitos pero sí caracteres válidos de notación numérica) —
+                            // se bloquean explícitamente para que solo entren enteros positivos.
+                            onKeyDown={(e) => { if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault(); }}
                             {...register(`procedure.${index}.material_used.${materialIndex}.quantity`, {
                                 valueAsNumber: true,
+                                min: { value: 1, message: "Debe ser al menos 1" },
                             })}
                             className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
                         />

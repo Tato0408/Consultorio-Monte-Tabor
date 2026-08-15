@@ -1,4 +1,3 @@
-import nodemailer from "nodemailer";
 import crypto from "crypto";
 import jsonwebtoken from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
@@ -6,6 +5,7 @@ import bcryptjs from "bcryptjs";
 import receptionistsModel from "../../models/receptionist/receptionist.js";
 
 import { config } from "../../../config.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
 
 //array de funciones, aqui agregamos las funciones y 
 //al final del archivo este objeto lo exportaremos
@@ -33,14 +33,14 @@ registerReceptionistController.register =
         timeOut,
       } = req.body;
 
-      // IMbirth_dateN PERFIL
+      // IMAGEN PERFIL
       //Guarda la ruta de la imagen del recepcionista que proporciona el middleware de subida
       const img_url =
-        req.files["receptionistImbirth_date"][0].path;
+        req.files["receptionistImage"][0].path;
 
       //Guarda el nombre o id publico unico de la imagen generado en cloudinary
       const img_public_id =
-        req.files["receptionistImbirth_date"][0].filename;
+        req.files["receptionistImage"][0].filename;
 
       //#2- Validar si el correo existe
       //Busca en la coleccion si ya existe un documento con ese mismo correo electronico
@@ -53,8 +53,8 @@ registerReceptionistController.register =
       //y devuelve un codigo 400 indicando que el recepcionista ya existe
       if (existsReceptionist) {
         return res.status(400).json({
-          messbirth_date:
-            "Receptionist already exists",
+          message:
+            "El recepcionista ya existe",
         });
       }
 
@@ -109,73 +109,40 @@ registerReceptionistController.register =
         "registrationCookie",
         token,
         {
-          maxbirth_date: 15 * 60 * 1000,
+          maxAge: 15 * 60 * 1000,
           httpOnly: true,
         },
       );
 
-      // TRANSPORTER
-      //Configura el objeto transportador de nodemailer indicando que usara el servicio de gmail
-      //y mete las credenciales de correo y contraseña desde el archivo de configuracion
-      const transporter =
-        nodemailer.createTransport({
-          service: "gmail",
-
-          auth: {
-            user:
-              config.email.user_email,
-
-            pass:
-              config.email.user_password,
-          },
-        });
-
       // EMAIL
-      //Define las opciones del correo como el remitente, el destinatario, el asunto
-      //and el texto que lleva el codigo aleatorio de verificacion que expira en 15 minutos
-      const mailOptions = {
-        from: config.email.user_email,
-
-        to: email,
-
-        subject:
-          "Verificación de cuenta",
-
-        text:
-          "Para verificar tu cuenta utiliza este código: " +
-          randomCode +
-          ". Expira en 15 minutos.",
-      };
+      //Define el contenido del correo con el codigo aleatorio de verificacion que expira en 15 minutos
+      const htmlContent =
+        "Para verificar tu cuenta utiliza este código: " +
+        randomCode +
+        ". Expira en 15 minutos.";
 
       // SE ENVÍA EMAIL
-      //Envia el correo utilizando el objeto transportador configurado y las opciones del email
-      transporter.sendMail(
-        mailOptions,
-        (error, info) => {
+      //Envia el correo utilizando Mailjet
+      try {
+        await sendEmail(
+          email,
+          "Verificación de cuenta",
+          htmlContent,
+        );
+      } catch (error) {
+        //Muestra el error exacto en la consola para saber que fallo
+        console.log("error " + error);
 
-          //Si ocurre algun problema o fallo al enviar el correo entra a esta condicion
-          if (error) {
-            //Muestra el error exacto en la consola para saber que fallo
-            console.log(
-              "error " + error,
-            );
+        //500 porque fue un error interno de servidor al intentar mandar el email
+        return res.status(500).json({
+          message: "Error al enviar el correo",
+        });
+      }
 
-            //500 porque fue un error interno de servidor al intentar mandar el email
-            return res
-              .status(500)
-              .json({
-                messbirth_date:
-                  "Error sending email",
-              });
-          }
-
-          //devulve un codigo 200 indiacndo que la peticion fue exitosa y el correo de verificacion se envio
-          return res.status(200).json({
-            messbirth_date:
-              "Verification email sent",
-          });
-        },
-      );
+      //devulve un codigo 200 indiacndo que la peticion fue exitosa y el correo de verificacion se envio
+      return res.status(200).json({
+        message: "Correo de verificación enviado",
+      });
 
     } catch (error) {
       //Si ocurre un error durante todo el proceso de registro muestra une rror
@@ -183,7 +150,7 @@ registerReceptionistController.register =
 
       //500 porque fue un error interno de servidor
       return res.status(500).json({
-        messbirth_date: "Internal server error",
+        message: "Error interno del servidor",
       });
     }
   };
@@ -239,7 +206,7 @@ registerReceptionistController.verifyCode =
       ) {
         //Si no coinciden los codigos cancela el proceso y devuelve un codigo 400 de error
         return res.status(400).json({
-          messbirth_date: "Invalid code",
+          message: "Código inválido",
         });
       }
 
@@ -277,8 +244,8 @@ registerReceptionistController.verifyCode =
 
       //devulve un codigo 200 indiacndo que la peticion fue exitosa y el recepcionista fue registrado
       return res.status(200).json({
-        messbirth_date:
-          "Receptionist registered",
+        message:
+          "Recepcionista registrado",
       });
 
     } catch (error) {
@@ -287,7 +254,7 @@ registerReceptionistController.verifyCode =
 
       //500 porque fue un error interno de servidor
       return res.status(500).json({
-        messbirth_date: "Internal server error",
+        message: "Error interno del servidor",
       });
     }
   };

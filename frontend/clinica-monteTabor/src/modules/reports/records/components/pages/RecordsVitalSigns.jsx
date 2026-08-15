@@ -3,8 +3,11 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, LabelList,
 } from "recharts";
-import { Plus, MoreVertical } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Card, SectionCard } from "../global/ui";
+import VitalSignsFormModal from "../global/VitalSignsFormModal";
+import apiClient from "@/lib/apiClient";
+import { showSuccess, showError, confirmDelete } from "@/lib/alerts";
 
 // Configuración de cada tarjeta clicable: a qué campo(s) de
 // `signosVitalesHistorial` corresponde y cómo graficarlo.
@@ -40,9 +43,12 @@ const buildChartData = (historial, metricKey) => {
 
 // Espera `patient.signosVitales` (última toma) y
 // `patient.signosVitalesHistorial` (para el gráfico y la tabla).
-const HistorialSignosVitales = ({ patient = {}, onAgregar }) => {
+const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
   const v = patient.signosVitales ?? {};
   const [selectedMetric, setSelectedMetric] = useState("imc");
+  const [modalOpen, setModalOpen] = useState(false);
+  // null = el modal de "Agregar/Editar" está en modo agregar; con una fila, edita esa toma puntual.
+  const [editEntry, setEditEntry] = useState(null);
   const historial = useMemo(() => patient.signosVitalesHistorial ?? [], [patient.signosVitalesHistorial]);
 
   const metrics = [
@@ -60,13 +66,41 @@ const HistorialSignosVitales = ({ patient = {}, onAgregar }) => {
   );
   const isImc = selectedMetric === "imc";
 
+  const openAddModal = () => {
+    setEditEntry(null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (row) => {
+    setEditEntry(row);
+    setModalOpen(true);
+  };
+
+  // Al guardar (agregar o editar) se refresca todo el expediente (onSaved, ver
+  // RecordDetailPage.jsx -> refreshAll) — como el gráfico y las tarjetas de arriba se derivan
+  // del mismo "historial" que llena esta tabla, quedan al día automáticamente sin lógica aparte.
+  const handleDelete = async (row) => {
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar esta toma de signos vitales?",
+      text: `Se borrará el registro del ${row.fecha}. Esta acción no se puede deshacer.`,
+    });
+    if (!confirmed) return;
+    try {
+      await apiClient(`/patients/${patient.id}/vital-signs/${row.id}`, { method: "DELETE" });
+      showSuccess("Registro eliminado correctamente");
+      onSaved?.();
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar el registro");
+    }
+  };
+
   return (
     <div className="space-y-5">
 
       {/* Encabezado */}
       <div className="flex justify-end">
         <button
-          onClick={onAgregar}
+          onClick={openAddModal}
           className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm"
         >
           Agregar <Plus size={16} />
@@ -186,7 +220,7 @@ const HistorialSignosVitales = ({ patient = {}, onAgregar }) => {
           </thead>
           <tbody>
             {historial.map((r) => (
-              <tr key={r.fecha} className="border-t border-slate-100 text-slate-600">
+              <tr key={r.id} className="border-t border-slate-100 text-slate-600">
                 <td className="py-3 pr-4 whitespace-nowrap">{r.fecha}</td>
                 <td className="py-3 pr-4">{r.presion}</td>
                 <td className="py-3 pr-4">{r.glucosa}</td>
@@ -194,17 +228,47 @@ const HistorialSignosVitales = ({ patient = {}, onAgregar }) => {
                 <td className="py-3 pr-4">{r.altura}</td>
                 <td className="py-3 pr-4">{r.imc}</td>
                 <td className="py-3 pr-4">{r.temp}</td>
-                <td className="py-3 pr-4">{r.spo2}</td>
-                <td className="py-3 text-center">
-                  <button className="text-slate-400 hover:text-slate-600 inline-flex justify-center">
-                    <MoreVertical size={16} />
-                  </button>
+                <td className="py-3 pr-4">{r.spo2 !== "—" ? `${r.spo2}%` : "—"}</td>
+                <td className="py-3">
+                  <div className="flex items-center justify-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(r)}
+                      title="Editar"
+                      className="p-1.5 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(r)}
+                      title="Eliminar"
+                      className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
+            {historial.length === 0 && (
+              <tr>
+                <td colSpan={9} className="py-6 text-center text-slate-400">
+                  Sin tomas de signos vitales registradas todavía.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </Card>
+
+      <VitalSignsFormModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        patientId={patient.id}
+        editEntry={editEntry}
+        onSaved={onSaved}
+      />
     </div>
   );
 };

@@ -19,9 +19,8 @@ import {
 
 const reportsController = {};
 
-// Las citas solo tienen 2 valores reales de "type" (ver AppointmentsForm.jsx) — no existe un
-// campo de especialidad médica en el sistema, así que estos 2 tipos son la agrupación de
-// "servicio" más fiel a los datos reales disponibles.
+// Las citas solo tienen 2 valores reales de "type" (no existe un campo de
+// especialidad médica), así que son la agrupación de "servicio" más fiel a los datos.
 const TYPE_GENERAL = "Consulta Médica General";
 const TYPE_PROCEDURE = "Procedimiento";
 
@@ -33,6 +32,12 @@ reportsController.getAppointmentsReport = async (req, res) => {
         const range = resolveRange(req.query);
         const { isGeneral, start, end, prevStart, prevEnd } = range;
 
+        // Los 4 reportes (citas/pacientes/doctores/inventario) muestran siempre los datos
+        // generales de toda la clínica, sin importar el rol de quien los consulta — igual que
+        // getPatientsReport/getDoctorsReport/getInventoryReport, que nunca filtraron por
+        // usuario. Antes este reporte SÍ acotaba por doctor_id cuando el rol era "doctor", lo
+        // que además de la inconsistencia con los otros 3, dejaba a un doctor sin citas propias
+        // viendo el reporte completamente vacío aunque la clínica sí tuviera actividad.
         const curFilter = dateFilter("date", start, end);
         const prevFilter = isGeneral ? {} : dateFilter("date", prevStart, prevEnd);
         const countCur = (extra = {}) => appointmentsModel.countDocuments({ ...curFilter, ...extra });
@@ -68,10 +73,8 @@ reportsController.getAppointmentsReport = async (req, res) => {
             countCur({ status: "pending" }), countPrev({ status: "pending" }),
             countCur({ type: TYPE_GENERAL }), countPrev({ type: TYPE_GENERAL }),
             countCur({ type: TYPE_PROCEDURE }), countPrev({ type: TYPE_PROCEDURE }),
-            // Conteos SOLO de citas completadas por tipo — para el gráfico/tabla del PDF, que
-            // muestra "visitas reales" junto a los ingresos (también completadas-only). La
-            // sección en pantalla "Tipo de atención" sigue usando el conteo de todas las citas
-            // (generalCur/procedureCur arriba), porque ahí el foco es volumen de reservas.
+            // Conteos SOLO de completadas por tipo, para el gráfico/tabla del PDF; la sección
+            // en pantalla "Tipo de atención" usa el conteo total porque mide volumen de reservas.
             countCur({ type: TYPE_GENERAL, status: "completed" }), countPrev({ type: TYPE_GENERAL, status: "completed" }),
             countCur({ type: TYPE_PROCEDURE, status: "completed" }), countPrev({ type: TYPE_PROCEDURE, status: "completed" }),
             // Los ingresos solo cuentan citas COMPLETADAS — una cancelada o no-show no generó
@@ -165,6 +168,9 @@ reportsController.getAppointmentsReport = async (req, res) => {
                 key: "medicos",
                 title: "Médicos y duración de consultas",
                 icon: "user",
+                // Ahora todos los roles ven el reporte general de toda la clínica (ver
+                // curFilter/prevFilter más arriba), así que esta fila ya aporta lo mismo para
+                // cualquier usuario que la consulte, no solo para admin.
                 rows: [
                     buildRow("Doctores con citas asignadas", doctorsCur.length, doctorsPrev.length, isGeneral),
                     {
@@ -177,9 +183,8 @@ reportsController.getAppointmentsReport = async (req, res) => {
             },
         ];
 
-        // cur/prev aquí son conteos de citas COMPLETADAS por tipo (generalCompletedCur, etc.) —
-        // así "Consultas" e "Ingresos" quedan consistentes en la misma fila: ambas reflejan
-        // solo visitas que sí se atendieron, no todo lo agendado.
+        // cur/prev son conteos de citas COMPLETADAS por tipo, así "Consultas" e "Ingresos"
+        // quedan consistentes en la misma fila: ambas reflejan solo lo atendido.
         const serviceRow = (servicio, cur, prev, revCur, revPrev) => ({
             servicio,
             consultas: cur,
@@ -233,7 +238,7 @@ reportsController.getAppointmentsReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getAppointmentsReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -266,6 +271,10 @@ reportsController.getPatientsReport = async (req, res) => {
         const distinctAttended = (filter, type) =>
             appointmentsModel.distinct("patient_id", { ...filter, status: "completed", ...(type ? { type } : {}) });
 
+        // Pacientes atendidos dentro del rango elegido — se usa para acotar pathologicalCount
+        // (más abajo) al mismo período que el resto del reporte, en vez de a toda la historia.
+        const attendedPatientIdsCur = isGeneral ? null : await distinctAttended(curFilter);
+
         const [
             totalPatientsNow, totalPatientsPrevEnd,
             newPatientsCur, newPatientsPrev,
@@ -292,13 +301,21 @@ reportsController.getPatientsReport = async (req, res) => {
             // ingreso real aunque tenga un "total" (precio) guardado desde que se agendó.
             appointmentsModel.aggregate([{ $match: { ...curFilter, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" } } }]).then((r) => r[0]?.total || 0),
             isGeneral ? Promise.resolve(0) : appointmentsModel.aggregate([{ $match: { ...prevFilter, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" } } }]).then((r) => r[0]?.total || 0),
+            // Antes contaba sobre TODA la base histórica, sin importar el rango de fechas elegido
+            // — ahora, igual que el resto de cifras de esta sección, se acota al período.
             appointmentsModel.aggregate([
-                { $match: { status: "completed" } },
+                { $match: { ...curFilter, status: "completed" } },
                 { $group: { _id: "$patient_id", count: { $sum: 1 } } },
                 { $match: { count: { $gte: 2 } } },
                 { $count: "total" },
             ]).then((r) => r[0]?.total || 0),
-            patientsModel.countDocuments({ "clinical_history.pathological.0": { $exists: true } }),
+            // Mismo problema: no hay fecha propia en cada antecedente patológico, así que se acota
+            // a los pacientes efectivamente atendidos dentro del período elegido (en vez de a
+            // todos los pacientes que alguna vez tuvieron un antecedente registrado).
+            patientsModel.countDocuments({
+                ...(isGeneral ? {} : { _id: { $in: attendedPatientIdsCur } }),
+                "clinical_history.pathological.0": { $exists: true },
+            }),
             buildTimeSeries(appointmentsModel, "date", { status: "completed" }, range),
             prescriptionModel.aggregate([
                 ...(isGeneral ? [] : [{ $match: { issued_at: { $gte: start, $lte: end } } }]),
@@ -449,7 +466,7 @@ reportsController.getPatientsReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getPatientsReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -627,7 +644,7 @@ reportsController.getDoctorsReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getDoctorsReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -802,7 +819,7 @@ reportsController.getInventoryReport = async (req, res) => {
         res.status(200).json({ topCards, sections, pdf, meta: rangeMeta(range) });
     } catch (error) {
         console.error("reports.getInventoryReport:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
