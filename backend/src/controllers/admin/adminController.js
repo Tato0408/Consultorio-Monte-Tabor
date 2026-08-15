@@ -1,11 +1,11 @@
 import adminModel from "../../models/admin/admins.js";
 import { v2 as cloudinary } from "cloudinary";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
 import jsonwebtoken from "jsonwebtoken";
 import { config } from "../../../config.js";
 import bcrypt from "bcryptjs";
 import { validateUserFieldFormats, getPasswordError } from "../../utils/validators.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
 
 //Array de funciones
 const adminController = {};
@@ -135,31 +135,18 @@ adminController.updateAdmin = async (req, res) => {
         res.cookie("emailChangeCookie", token, { maxAge: 15 * 60 * 1000 });
 
         //Enviamos el código al nuevo correo
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: config.email.user_email,
-                pass: config.email.user_password,
-            },
-        });
+        const htmlContent =
+            "Para confirmar tu nuevo correo utiliza este código: " +
+            randomCode +
+            ". Expira en 15 minutos.";
 
-        const mailOptions = {
-            from: config.email.user_email,
-            to: email,
-            subject: "Verificación de cambio de correo",
-            text:
-                "Para confirmar tu nuevo correo utiliza este código: " +
-                randomCode +
-                ". Expira en 15 minutos.",
-        };
+        try {
+            await sendEmail(email, "Verificación de cambio de correo", htmlContent);
+        } catch (error) {
+            console.log("error " + error);
 
-        await transporter.sendMail(mailOptions, (error) => {
-            if (error) {
-                console.log("error " + error);
-
-                return res.status(500).json({ message: "Error al enviar el correo" });
-            }
-        });
+            return res.status(500).json({ message: "Error al enviar el correo" });
+        }
 
         return res.status(200).json({ message: "Administrador actualizado" });
 

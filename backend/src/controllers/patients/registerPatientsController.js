@@ -1,10 +1,10 @@
-import nodemailer from "nodemailer";
 import crypto from "crypto";
 import jsonwebtoken from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
 import patientsModel from "../../models/patients/patients.js"
 import { config } from "../../../config.js"
 import HTMLCreatePatient from "../../utils/HTMLCreatePatient.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
 
 //Array de funciones
 const registerPatientController = {};
@@ -62,33 +62,15 @@ registerPatientController.register = async (req, res) => {
         res.cookie("registrationCookie", token, { maxAge: 15 * 60 * 1000 });
 
         //#7 Enviar un correo electronico
+        const htmlContent = HTMLCreatePatient(name, randomCode);
 
-        //#1 ¿Quien lo envia?
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: config.email.user_email,
-                pass: config.email.user_password
-            }
-        });
-
-        //#2 ¿Quíen lo recibe?
-        const mailOptions = {
-            from: config.email.user_email,
-            to: email,
-            subject: "Verificación de cuenta",
-            body: "El codigo vence en 15 minutos",
-            html: HTMLCreatePatient(name, randomCode),
-        };
-
-        //#3 Enviar el correo electronico
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.log("error" + error);
-                return res.status(500).json({ message: "Error al enviar el correo" });
-            }
-            return res.status(200).json({ message: "Correo enviado" });
-        });
+        try {
+            await sendEmail(email, "Verificación de cuenta", htmlContent);
+        } catch (error) {
+            console.log("error" + error);
+            return res.status(500).json({ message: "Error al enviar el correo" });
+        }
+        return res.status(200).json({ message: "Correo enviado" });
     } catch (error) {
         console.log("error" + error);
         return res.status(500).json({ message: "Error interno del servidor" });

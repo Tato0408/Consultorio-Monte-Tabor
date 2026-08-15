@@ -18,5 +18,11 @@ export const config = {
         cloudinary_name: process.env.CLOUDINARY_CLOUD_NAME,
         cloudinary_api_key: process.env.CLOUDINARY_API_KEY,
         cloudinary_api_secret: process.env.CLOUDINARY_API_SECRET
-    }
+    },
+    mailjet: {
+        apiKey: process.env.API_KEY_MAILJET,
+        secretKey: process.env.API_SECRET_MAILJET,
+        fromEmail: process.env.MAILJET_FROM_EMAIL,
+        fromName: process.env.MAILJET_FROM_NAME,
+    },
 }

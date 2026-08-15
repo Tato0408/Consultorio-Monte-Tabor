@@ -1,7 +1,8 @@
 import jsonwebtoken from "jsonwebtoken"; //Generar tokens
 import bcrypt from "bcryptjs"; //Encriptar la contraseña
 import crypto from "crypto"; //Generar códigos aleatorios
-import nodemailer from "nodemailer"; //Enviar correos
+
+import { sendEmail } from "../../utils/sendMailMailjet.js"; //Enviar correos
 
 import HTMLRecoveryEmail from "../../utils/HTMLsendRecoveryPassword.js";
 
@@ -40,32 +41,15 @@ recoveryPasswordController.requestCode = async (req, res) => {
     res.cookie("recoveryCookie", token, { maxAge: 15 * 60 * 1000 });
 
     //Enviar el código por correo electrónico
-    //#1- ¿Quien lo envía?
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: config.email.user_email,
-        pass: config.email.user_password,
-      },
-    });
+    const htmlContent = HTMLRecoveryEmail(randomCode);
 
-    //#2- ¿Quién lo recibe y como lo recibe?
-    const mailOptions = {
-      from: config.email.user_email,
-      to: email,
-      subject: "Recuperación de contraseña",
-      body: "El código vence en 15 minutos",
-      html: HTMLRecoveryEmail(randomCode),
-    };
-
-    //#3- Enviar correo electrónico
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.log("error" + error);
-        return res.status(500).json({ message: "Error al enviar el correo" });
-      }
-      return res.status(200).json({ message: "Correo enviado" });
-    });
+    try {
+      await sendEmail(email, "Recuperación de contraseña", htmlContent);
+    } catch (error) {
+      console.log("error" + error);
+      return res.status(500).json({ message: "Error al enviar el correo" });
+    }
+    return res.status(200).json({ message: "Correo enviado" });
   } catch (error) {
     console.log("error" + error);
     return res.status(500).json({ message: "Error interno del servidor" });
@@ -180,29 +164,15 @@ recoveryPasswordController.resendCode = async (req, res) => {
     res.cookie("recoveryCookie", newToken, { maxAge: 30 * 60 * 1000 });
 
     // Enviamos el nuevo código por correo
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: config.email.user_email,
-        pass: config.email.user_password,
-      },
-    });
+    const htmlContent = HTMLRecoveryEmail(randomCode);
 
-    const mailOptions = {
-      from: config.email.user_email,
-      to: email,
-      subject: "Recuperación de contraseña - Nuevo código",
-      body: "El código vence en 15 minutos",
-      html: HTMLRecoveryEmail(randomCode),
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.log("error" + error);
-        return res.status(500).json({ message: "Error al enviar el correo" });
-      }
-      return res.status(200).json({ message: "Código reenviado correctamente" });
-    });
+    try {
+      await sendEmail(email, "Recuperación de contraseña - Nuevo código", htmlContent);
+    } catch (error) {
+      console.log("error" + error);
+      return res.status(500).json({ message: "Error al enviar el correo" });
+    }
+    return res.status(200).json({ message: "Código reenviado correctamente" });
 
   } catch (error) {
     // Si el token expiró, la cookie ya no es válida

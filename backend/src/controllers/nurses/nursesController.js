@@ -3,9 +3,9 @@ import appointmentsModel from "../../models/appointments/appointments.js"
 import proceduresModel from "../../models/procedures/procedures.js"
 import nurseNotesModel from "../../models/nurse_notes/nurse_notes.js"
 import { v2 as cloudinary } from "cloudinary"
-import * as nodemailer from 'nodemailer'
 import bcrypt from 'bcryptjs'
 import { config } from "../../../config.js"
+import { sendEmail } from "../../utils/sendMailMailjet.js"
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js"
 const nursesController = {}
 
@@ -136,31 +136,14 @@ nursesController.insertNurses = async (req, res) => {
         if (!savedNurse) {
             return res.status(500).json({ message: "Error al agregar la enfermera" })
         }
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: config.email.user_email,
-                pass: config.email.user_password
-            }
-        });
-
-        const mailOptions = {
-            from: config.email.user_email,
-            to: email,
-            subject: `Su cuenta de enfermera ha sido creada`,
-            text: `Hola ${name} ${last_name}, su cuenta con el rol de enfermera ha sido creada exitosamente.
+        const htmlContent = `Hola ${name} ${last_name}, su cuenta con el rol de enfermera ha sido creada exitosamente.
                 Correo: ${email}
                 Contraseña: ${password}
-                Inicie sesión por primera vez dentro del sistema para cambiar su contraseña.`
-        };
+                Inicie sesión por primera vez dentro del sistema para cambiar su contraseña.`;
 
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.log(error);
-            } else {
-                console.log("Email sent: " + info.response);
-            }
-        });
+        sendEmail(email, "Su cuenta de enfermera ha sido creada", htmlContent)
+            .catch((error) => console.log(error));
+
         return res.status(200).json({ message: "Enfermera agregada correctamente" })
     } catch (error) {
         return res.status(500).json({ message: error.message })

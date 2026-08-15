@@ -1,4 +1,3 @@
-import nodemailer from "nodemailer";
 import crypto from "crypto";
 import jsonwebtoken from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
@@ -6,6 +5,7 @@ import bcryptjs from "bcryptjs";
 import doctorsModel from "../../models/doctors/doctors.js";
 
 import { config } from "../../../config.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
 
 // array de funcioness
 const registerDoctorController = {};
@@ -104,47 +104,30 @@ registerDoctorController.register = async (req, res) => {
       httpOnly: true,
     });
 
-    //TRANSPORTER
-    const transporter =
-      nodemailer.createTransport({
-        service: "gmail",
-
-        auth: {
-          user: config.email.user_email,
-          pass: config.email.user_password,
-        },
-      });
-
     //EMAIL
-    const mailOptions = {
-      from: config.email.user_email,
-      to: email,
-      subject: "Verificación de cuenta",
-
-      text:
-        "Para verificar tu cuenta utiliza este código: " +
-        randomCode +
-        ". Expira en 15 minutos.",
-    };
+    const htmlContent =
+      "Para verificar tu cuenta utiliza este código: " +
+      randomCode +
+      ". Expira en 15 minutos.";
 
     //Se envia el email
-    transporter.sendMail(
-      mailOptions,
-      (error, info) => {
+    try {
+      await sendEmail(
+        email,
+        "Verificación de cuenta",
+        htmlContent,
+      );
+    } catch (error) {
+      console.log("error " + error);
 
-        if (error) {
-          console.log("error " + error);
+      return res.status(500).json({
+        message: "Error al enviar el correo",
+      });
+    }
 
-          return res.status(500).json({
-            message: "Error al enviar el correo",
-          });
-        }
-
-        return res.status(200).json({
-          message: "Correo de verificación enviado",
-        });
-      },
-    );
+    return res.status(200).json({
+      message: "Correo de verificación enviado",
+    });
 
   } catch (error) {
     console.log("error " + error);
