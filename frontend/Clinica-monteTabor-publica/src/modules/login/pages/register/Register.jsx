@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { User, Mail, Lock, Calendar, CheckCircle2, Circle } from "lucide-react";
 import InputField from "@/components/ui/InputField";
@@ -6,9 +6,12 @@ import FooterLogin from "../../components/Footer";
 import { useAuth } from "@/context/AuthContext";
 import { showSuccess, showError } from "@/lib/alerts";
 
+// Tope máximo seleccionable en el input de fecha (hoy), para no dejar elegir una fecha futura
+const HOY_STR = new Date().toISOString().split("T")[0];
+
 const Register = () => {
   const navigate = useNavigate();
-  const { registerPatient } = useAuth();
+  const { registerPatient, isLoggedIn, isLoading: sessionLoading } = useAuth();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -20,6 +23,12 @@ const Register = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Si ya hay una sesión activa, lo manda directo al dashboard en vez de mostrarle
+  // el formulario de registro de nuevo
+  useEffect(() => {
+    if (!sessionLoading && isLoggedIn) navigate("/dashboard", { replace: true });
+  }, [sessionLoading, isLoggedIn, navigate]);
 
   const passwordRules = [
     { id: "length", label: "La contraseña tiene más de 8 dígitos", test: (p) => p.length > 8 },
@@ -40,6 +49,11 @@ const Register = () => {
     if (!formData.last_name.trim()) e.last_name = "Requerido";
 
     if (!formData.birthdate) e.birthdate = "Requerido";
+    else {
+      const fecha = new Date(`${formData.birthdate}T00:00:00`);
+      if (fecha > new Date()) e.birthdate = "La fecha no puede ser futura";
+      else if (new Date().getFullYear() - fecha.getFullYear() > 120) e.birthdate = "Ingresa una fecha de nacimiento válida";
+    }
 
     if (!formData.email.trim()) e.email = "Requerido";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = "Correo inválido";
@@ -84,6 +98,19 @@ const Register = () => {
       setIsLoading(false);
     }
   };
+
+  // Mientras se confirma si ya hay sesión activa, no se muestra el formulario para
+  // evitar el parpadeo de "registro -> ya tenía sesión -> dashboard"
+  if (sessionLoading || isLoggedIn) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-white">
+        <svg className="animate-spin h-10 w-10 text-[#3B6FCA]" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+        </svg>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex bg-white overflow-hidden">
@@ -140,7 +167,7 @@ const Register = () => {
                   icon={<User className="w-4 h-4" />} error={errors.last_name} disabled={isLoading} />
               </div>
 
-              <InputField label="Fecha de nacimiento" id="birthdate" type="date"
+              <InputField label="Fecha de nacimiento" id="birthdate" type="date" max={HOY_STR}
                 value={formData.birthdate} onChange={handleChange("birthdate")}
                 icon={<Calendar className="w-4 h-4" />} error={errors.birthdate} disabled={isLoading} />
 

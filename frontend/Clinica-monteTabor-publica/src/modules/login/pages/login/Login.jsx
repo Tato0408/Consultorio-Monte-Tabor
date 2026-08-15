@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock } from "lucide-react";
 import InputField from "@/components/ui/InputField";
@@ -8,12 +8,18 @@ import { showSuccess, showError } from "@/lib/alerts";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isLoggedIn, isLoading: sessionLoading } = useAuth();
 
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState("");
+
+  // Si ya hay una sesión activa (ej. el usuario navegó manualmente a /login estando
+  // logueado), lo manda directo al dashboard en vez de mostrarle el formulario de nuevo
+  useEffect(() => {
+    if (!sessionLoading && isLoggedIn) navigate("/dashboard", { replace: true });
+  }, [sessionLoading, isLoggedIn, navigate]);
 
   const handleChange = (field) => (e) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
@@ -62,6 +68,19 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+
+  // Mientras se confirma si ya hay sesión activa, no se muestra el formulario para
+  // evitar el parpadeo de "login -> ya tenía sesión -> dashboard"
+  if (sessionLoading || isLoggedIn) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-white">
+        <svg className="animate-spin h-10 w-10 text-[#3B6FCA]" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+        </svg>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-white overflow-hidden">

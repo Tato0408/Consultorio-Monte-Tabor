@@ -9,6 +9,12 @@ import Dashboard from './modules/dashboard/pages/Dashboard';
 import Home from './modules/home/pages/Home';
 import PatientAppointments from './modules/appointments/pages/PatientAppointments';
 import PatientAppointmentForm from './modules/appointments/pages/PatientAppointmentForm';
+import NewAppointment from './modules/appointments/pages/NewAppointment';
+import MyAppointments from './modules/appointments/pages/MyAppointments';
+import PayAppointment from './modules/appointments/pages/PayAppointment';
+import Prescriptions from './modules/records/pages/Prescriptions';
+import Documents from './modules/records/pages/Documents';
+import Medications from './modules/records/pages/Medications';
 
 function App() {
   return (
@@ -33,6 +39,60 @@ function App() {
           <Route path="/appointments" element={<ProtectedRoute><PatientAppointments /></ProtectedRoute>} />
           <Route path="/appointments/new" element={<ProtectedRoute><PatientAppointmentForm /></ProtectedRoute>} />
           <Route path="/appointments/:id/edit" element={<ProtectedRoute><PatientAppointmentForm /></ProtectedRoute>} />
+
+          <Route
+            path="/agendar-cita"
+            element={
+              <ProtectedRoute>
+                <NewAppointment />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/agendar-cita/pagar"
+            element={
+              <ProtectedRoute>
+                <PayAppointment />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/mis-citas"
+            element={
+              <ProtectedRoute>
+                <MyAppointments />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/mis-recetas"
+            element={
+              <ProtectedRoute>
+                <Prescriptions />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/documentos"
+            element={
+              <ProtectedRoute>
+                <Documents />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/medicamentos"
+            element={
+              <ProtectedRoute>
+                <Medications />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

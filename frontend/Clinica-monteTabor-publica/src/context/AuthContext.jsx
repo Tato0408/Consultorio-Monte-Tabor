@@ -22,7 +22,11 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const initSession = async () => {
             const pathname = window.location.pathname;
-            if (pathname === "/" || pathname.startsWith("/login") || pathname.startsWith("/register")) {
+            // "/" no necesita saber si hay sesión, y "/register/verify" usa una cookie
+            // temporal aparte (no la de sesión), así que ninguna de las dos la revisa.
+            // Login y Register SÍ la revisan, para poder mandar directo al dashboard
+            // a quien ya tenga sesión iniciada en vez de mostrarle el formulario de nuevo.
+            if (pathname === "/" || pathname === "/register/verify") {
                 setIsLoading(false);
                 return;
             }

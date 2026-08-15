@@ -25,4 +25,16 @@ export const config = {
         fromEmail: process.env.MAILJET_FROM_EMAIL,
         fromName: process.env.MAILJET_FROM_NAME,
     },
+    wompi: {
+        grantType: process.env.GRANT_TYPE,
+        audience: process.env.AUDIENCE,
+        clientId: process.env.CLIENT_ID,
+        clientSecret: process.env.CLIENT_SECRET,
+    },
+    // URL pública del sitio del paciente, para armar el link de retorno tras pagar
+    frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+    // URL pública de este backend, para que Wompi pueda avisarnos por webhook
+    // (en desarrollo local Wompi no puede alcanzarla; el resultado se confirma
+    // igual consultando el estado directamente al volver del pago)
+    backendPublicUrl: process.env.BACKEND_PUBLIC_URL || "http://localhost:4000",
 }

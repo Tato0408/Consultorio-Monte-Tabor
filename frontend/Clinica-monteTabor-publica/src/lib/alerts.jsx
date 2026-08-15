@@ -47,15 +47,19 @@ const WarnIcon = () => (
 
 // ── Exported helpers ────────────────────────────────────────────────────────
 
-export const showSuccess = (message) =>
-  new Promise(resolve =>
-    toast.custom(
-      t => <ToastCard t={t} message={message}
-        borderColor="border-emerald-100" iconBg="bg-emerald-500" shadowColor="shadow-emerald-50/60"
-        icon={<CheckIcon />} />,
-      { duration: 2500, onAutoClose: resolve, onDismiss: resolve }
-    )
+// Nota: "onAutoClose"/"onDismiss" no son opciones reales de react-hot-toast (se ignoran),
+// así que no hay forma de saber cuándo se cierra el toast. Como el Toaster vive en App.jsx
+// por encima de las rutas, el toast sigue visible aunque se navegue a otra página, así que
+// no hace falta esperarlo: se muestra y la función resuelve de inmediato.
+export const showSuccess = (message) => {
+  toast.custom(
+    t => <ToastCard t={t} message={message}
+      borderColor="border-emerald-100" iconBg="bg-emerald-500" shadowColor="shadow-emerald-50/60"
+      icon={<CheckIcon />} />,
+    { duration: 2500 }
   );
+  return Promise.resolve();
+};
 
 export const showError = (message) =>
   toast.custom(
@@ -72,3 +76,53 @@ export const showWarning = (message) =>
       icon={<WarnIcon />} />,
     { duration: 3500 }
   );
+
+const ConfirmCard = ({ t, message, confirmLabel, cancelLabel, danger, onConfirm, onCancel }) => (
+  <div
+    style={{
+      opacity: t.visible ? 1 : 0,
+      transform: t.visible ? "translateY(0) scale(1)" : "translateY(-10px) scale(0.97)",
+      transition: "all 0.2s cubic-bezier(.34,1.56,.64,1)",
+    }}
+    className="bg-white border border-gray-100 rounded-2xl shadow-lg shadow-gray-200/60 p-4 max-w-sm w-full"
+  >
+    <p className="text-sm font-semibold text-gray-800 leading-snug">{message}</p>
+    <div className="flex justify-end gap-2 mt-4">
+      <button
+        onClick={onCancel}
+        className="px-3.5 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+      >
+        {cancelLabel}
+      </button>
+      <button
+        onClick={onConfirm}
+        className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white transition-colors ${
+          danger ? "bg-red-500 hover:bg-red-600" : "bg-[#3B6FCA] hover:bg-[#2d5ab5]"
+        }`}
+      >
+        {confirmLabel}
+      </button>
+    </div>
+  </div>
+);
+
+// Confirmación en el mismo estilo del sistema de notificaciones, en vez del cuadro nativo
+// del navegador (window.confirm, que no respeta el diseño del sistema). Devuelve una
+// promesa que resuelve true si se confirma y false si se cancela o se cierra sin elegir.
+export const confirmAction = (message, { confirmLabel = "Confirmar", cancelLabel = "Cancelar", danger = false } = {}) =>
+  new Promise((resolve) => {
+    toast.custom(
+      (t) => (
+        <ConfirmCard
+          t={t}
+          message={message}
+          confirmLabel={confirmLabel}
+          cancelLabel={cancelLabel}
+          danger={danger}
+          onConfirm={() => { toast.dismiss(t.id); resolve(true); }}
+          onCancel={() => { toast.dismiss(t.id); resolve(false); }}
+        />
+      ),
+      { duration: Infinity }
+    );
+  });
