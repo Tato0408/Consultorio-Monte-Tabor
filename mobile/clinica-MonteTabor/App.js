@@ -30,8 +30,11 @@ import AddPathologicalScreen from './src/screens/profile/addPathologicalScreen';
 import LifestyleScreen from './src/screens/profile/lifeStyleScreen';
 
 import MedicationsScreen from './src/screens/medication/medicationScreen';
-import AppointmentsScreen from './src/screens/AppointmentsScreen';
+import AppointmentsScreen from './src/screens/appointments/AppointmentsScreen';
 import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
+import NewAppointmentScreen from './src/screens/appointments/NewAppointmentScreen';
+import NotificationsScreen from './src/screens/notifications/NotificationsScreen';
+import AppointmentDetailScreen from './src/screens/appointments/AppointmentDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -58,6 +61,9 @@ function RootNavigator() {
         <>
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
           <Stack.Screen name="Appointments" component={AppointmentsScreen} />
+          <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
 
           {/* ---------- Perfil ---------- */}
           <Stack.Screen name="Profile" component={ProfileScreen} />

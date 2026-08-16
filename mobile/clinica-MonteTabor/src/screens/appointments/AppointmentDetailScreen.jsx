@@ -15,9 +15,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import apiClient from "../lib/apiClient";
-import { showError, showSuccess } from "../lib/toast";
-import styles from "../styles/appointmentDetailStyle";
+import apiClient from "../../lib/apiClient";
+import { showError, showSuccess } from "../../lib/toast";
+import styles from "../../styles/appointments/appointmentDetailStyle";
 
 const STATUS = {
   pending: { label: "Pendiente de asignación", color: "#A16207", bg: "#FFF7D6" },

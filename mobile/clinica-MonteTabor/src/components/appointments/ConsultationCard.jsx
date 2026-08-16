@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import styles, { badgeTones, statusTones } from "../../styles/appointmentsStyle";
+import styles, { badgeTones, statusTones } from "../../styles/appointments/appointmentsStyle";
 import { colors } from "../../styles/profile/profileStyle";
 import { formatLongDate, formatTime12h } from "../../utils/date";
 

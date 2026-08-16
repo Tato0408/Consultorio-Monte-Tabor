@@ -3,9 +3,9 @@ import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import apiClient from "../lib/apiClient";
-import { confirmDelete, showError, showSuccess } from "../lib/toast";
-import styles from "../styles/notificationsStyle";
+import apiClient from "../../lib/apiClient";
+import { confirmDelete, showError, showSuccess } from "../../lib/toast";
+import styles from "../../styles/notifications/notificationsStyle";
 
 const relativeDate = (value) => {
   const date = new Date(value);
