@@ -1,12 +1,4 @@
-const BASE = "https://clinica-monte-tabor.onrender.com/api/nurse-schedule";
-
-// Parsea la respuesta como JSON y lanza un error con el mensaje del
-// servidor si la solicitud no fue exitosa.
-const handleResponse = async (res) => {
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Error en la solicitud");
-    return data;
-};
+import apiClient from "@/lib/apiClient";
 
 // Funciona igual que useSchedule.js pero gestiona el horario de una
 // enfermera. No incluye getAvailableSlots porque esa función solo la
@@ -14,16 +6,14 @@ const handleResponse = async (res) => {
 const useNurseSchedule = () => {
     // Obtiene la configuración de horario guardada para la enfermera.
     const getSchedule = (nurseId) =>
-        fetch(`${BASE}/${nurseId}`, { credentials: "include" }).then(handleResponse);
+        apiClient(`/nurse-schedule/${nurseId}`);
 
     // Guarda o reemplaza la configuración de horario de la enfermera.
     const saveSchedule = (nurseId, body) =>
-        fetch(`${BASE}/${nurseId}`, {
+        apiClient(`/nurse-schedule/${nurseId}`, {
             method: "PUT",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-        }).then(handleResponse);
+            body,
+        });
 
     return { getSchedule, saveSchedule };
 };

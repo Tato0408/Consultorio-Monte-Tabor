@@ -1,32 +1,28 @@
 import { useState } from "react";
+import apiClient from "@/lib/apiClient";
 
-const API_URL =
-    "https://clinica-monte-tabor.onrender.com/api/recoveryReceptionist";
 
 export const useRecoveryReceptionist = () => {
-
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
     // Activa el estado de carga mientras se solicita el código de
     // recuperación al correo indicado.
     const requestCode = async (email) => {
         try {
             setLoading(true);
-            const response =
-                await fetch(
-                    `${API_URL}/requestCode`,
-                    {
-                        method: "POST",
-                        credentials: "include",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            email
-                        })
+            setError(null);
 
-                    });
-            return await response.json();
+            const data = await apiClient("/recoveryReceptionist/requestCode", {
+                method: "POST",
+                body: { email },
+            });
+
+            return data;
+        } catch (error) {
+            console.error("Error enviando código:", error);
+            setError(error.message);
+            throw error;
         } finally {
             setLoading(false);
         }
@@ -36,105 +32,73 @@ export const useRecoveryReceptionist = () => {
     const verifyCode = async (code) => {
         try {
             setLoading(true);
-            const response =
-                await fetch(
-                    `${API_URL}/verifyCode`,
-                    {
-                        method: "POST",
-                        credentials: "include",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            code
-                        })
-                    });
-            return await response.json();
+            setError(null);
+
+            const data = await apiClient("/recoveryReceptionist/verifyCode", {
+                method: "POST",
+                body: { code },
+            });
+
+            return data;
+        } catch (error) {
+            console.error("Error verificando código:", error);
+            setError(error.message);
+            throw error;
         } finally {
             setLoading(false);
         }
     };
 
+    // Reenvía el código de recuperación al mismo correo de la solicitud.
+    const resendCode = async () => {
+        try {
+            setLoading(true);
+            setError(null);
 
-  // Reenvía el código de recuperación al mismo correo de la solicitud.
-  const resendCode =
-  async () => {
-    try {
-      setLoading(true);
-      setError(null);
+            const data = await apiClient("/recoveryReceptionist/resendCode", {
+                method: "POST",
+            });
 
-      const response = await fetch(
-        `${API_URL}/resendCode`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+            return data;
+        } catch (error) {
+            console.error("Error reenviando código:", error);
+            setError(error.message);
+            throw error;
+        } finally {
+            setLoading(false);
         }
-      );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            `Error HTTP: ${response.status}`
-        );
-      }
-
-      return data;
-    } catch (error) {
-      console.error(
-        "Error reenviando código:",
-        error
-      );
-
-      setError(error.message);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
     // Envía la nueva contraseña junto con su confirmación para
     // completar el cambio de contraseña.
-    const newPassword =
-        async (password, confirmPassword) => {
-            try {
-                setLoading(true);
-                const response =
-                    await fetch(
-                        `${API_URL}/newPassword`,
-                        {
-                            method: "POST",
-                            credentials: "include",
-                            headers: {
-                                "Content-Type": "application/json"
-                            },
+    const newPassword = async (password, confirmPassword) => {
+        try {
+            setLoading(true);
+            setError(null);
 
+            const data = await apiClient("/recoveryReceptionist/newPassword", {
+                method: "POST",
+                body: {
+                    newPassword: password,
+                    confirmNewPassword: confirmPassword,
+                },
+            });
 
-                            body: JSON.stringify({
-
-                                newPassword: password,
-                                confirmNewPassword: confirmPassword
-                            })
-
-                        });
-                return await response.json();
-            } finally {
-                setLoading(false);
-            }
-        };
+            return data;
+        } catch (error) {
+            console.error("Error cambiando contraseña:", error);
+            setError(error.message);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
     return {
         loading,
+        error,
         requestCode,
         verifyCode,
+        resendCode,
         newPassword
-
     };
-
-
 };

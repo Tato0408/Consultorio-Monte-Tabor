@@ -1,34 +1,26 @@
-const BASE = "https://clinica-monte-tabor.onrender.com/api/doctor-dashboard";
+import apiClient from "@/lib/apiClient";
 
 // Valida la respuesta del fetch: si no fue exitosa, intenta leer el
 // mensaje de error del cuerpo y lanza una excepción con ese mensaje.
 // Si fue exitosa, devuelve el cuerpo ya parseado como JSON.
-const handleResponse = async (res) => {
-    if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || `Error ${res.status}`);
-    }
-    return res.json();
-};
-
 // Agrupa las llamadas al API del dashboard del doctor: estadísticas,
 // calendario de citas por año, citas del día, historial de consultas
 // y registros clínicos, y datos de analítica (enfermedades, tratamientos).
 const useDoctorDashboard = () => {
     const getStats = () =>
-        fetch(`${BASE}/stats`, { credentials: "include" }).then(handleResponse);
+        apiClient("/doctor-dashboard/stats");
 
     const getCalendar = (year) =>
-        fetch(`${BASE}/calendar?year=${year}`, { credentials: "include" }).then(handleResponse);
+        apiClient("/doctor-dashboard/calendar", { params: { year } });
 
     const getTodayAppointments = () =>
-        fetch(`${BASE}/today-appointments`, { credentials: "include" }).then(handleResponse);
+        apiClient("/doctor-dashboard/today-appointments");
 
     const getConsultationsAndRecords = () =>
-        fetch(`${BASE}/consultations-records`, { credentials: "include" }).then(handleResponse);
+        apiClient("/doctor-dashboard/consultations-records");
 
     const getAnalytics = () =>
-        fetch(`${BASE}/analytics`, { credentials: "include" }).then(handleResponse);
+        apiClient("/doctor-dashboard/analytics");
 
     return { getStats, getCalendar, getTodayAppointments, getConsultationsAndRecords, getAnalytics };
 };

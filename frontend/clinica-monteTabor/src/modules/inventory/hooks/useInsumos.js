@@ -1,4 +1,4 @@
-const BASE = "https://clinica-monte-tabor.onrender.com/api/inventory";
+import apiClient from "@/lib/apiClient";
 
 const handleResponse = async (res) => {
   const data = await res.json();
@@ -7,62 +7,48 @@ const handleResponse = async (res) => {
 };
 
 const useInsumos = () => {
-  const getInsumos = (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return fetch(`${BASE}?${query}`, { credentials: "include" }).then(handleResponse);
-  };
+  const getInsumos = (params = {}) =>
+    apiClient("/inventory", { params });
 
   const getInsumoById = (id) =>
-    fetch(`${BASE}/${id}`, { credentials: "include" }).then(handleResponse);
+    apiClient(`/inventory/${id}`);
 
   const createInsumo = (formData) =>
-    fetch(BASE, { method: "POST", credentials: "include", body: formData }).then(handleResponse);
+    apiClient("/inventory", { method: "POST", body: formData });
 
   const updateInsumo = (id, formData) =>
-    fetch(`${BASE}/${id}`, { method: "PUT", credentials: "include", body: formData }).then(handleResponse);
+    apiClient(`/inventory/${id}`, { method: "PUT", body: formData });
 
   const deleteInsumo = (id) =>
-    fetch(`${BASE}/${id}`, { method: "DELETE", credentials: "include" }).then(handleResponse);
+    apiClient(`/inventory/${id}`, { method: "DELETE" });
 
   const getStats = () =>
-    fetch(`${BASE}/stats`, { credentials: "include" }).then(handleResponse);
+    apiClient("/inventory/stats");
 
   // Obtiene el historial de movimientos de inventario, limitado a
   // la cantidad indicada.
   const getMovements = (limit = 10) =>
-    fetch(`${BASE}/movements?limit=${limit}`, { credentials: "include" }).then(handleResponse);
+    apiClient("/inventory/movements", { params: { limit } });
 
   // Ajusta el stock de un insumo al valor indicado en el cuerpo de
-  // la petición.
+  // la petición. apiClient detecta que es JSON y lo procesa.
   const adjustStock = (id, body) =>
-    fetch(`${BASE}/${id}/adjust`, {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then(handleResponse);
+    apiClient(`/inventory/${id}/adjust`, { method: "POST", body });
 
   // Registra una entrada de stock, como una compra o un
   // reabastecimiento.
   const stockEntry = (body) =>
-    fetch(`${BASE}/stock-entry`, {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then(handleResponse);
+    apiClient("/inventory/stock-entry", { method: "POST", body });
 
   // Registra un uso manual de insumos, es decir, uno que no
   // proviene de un tratamiento.
   const manualUsage = (body) =>
-    fetch(`${BASE}/manual-usage`, {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then(handleResponse);
+    apiClient("/inventory/manual-usage", { method: "POST", body });
 
   // Obtiene los datos agregados para los gráficos del panel de
   // inventario.
   const getCharts = () =>
-    fetch(`${BASE}/charts`, { credentials: "include" }).then(handleResponse);
+    apiClient("/inventory/charts");
 
   return {
     getInsumos,
