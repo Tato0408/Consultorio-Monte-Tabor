@@ -1,10 +1,4 @@
-const BASE = "https://clinica-monte-tabor.onrender.com/appointment-types";
-
-const handleResponse = async (res) => {
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Error en la solicitud");
-    return data;
-};
+import apiClient from "@/lib/apiClient";
 
 // Catálogo global de tipos de cita (nombre y color), usado por todos
 // los roles (la leyenda del calendario y el selector de tipo de cita
@@ -13,26 +7,24 @@ const handleResponse = async (res) => {
 // botones a quien no puede usarlos.
 const useAppointmentTypes = () => {
     const getAppointmentTypes = () =>
-        fetch(BASE, { credentials: "include" }).then(handleResponse);
+        apiClient("/appointment-types");
 
     const createAppointmentType = (body) =>
-        fetch(BASE, {
+        apiClient("/appointment-types", {
             method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-        }).then(handleResponse);
+            body
+        });
 
     const updateAppointmentType = (id, body) =>
-        fetch(`${BASE}/${id}`, {
+        apiClient(`/appointment-types/${id}`, {
             method: "PUT",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-        }).then(handleResponse);
+            body
+        });
 
     const deleteAppointmentType = (id) =>
-        fetch(`${BASE}/${id}`, { method: "DELETE", credentials: "include" }).then(handleResponse);
+        apiClient(`/appointment-types/${id}`, {
+            method: "DELETE"
+        });
 
     return { getAppointmentTypes, createAppointmentType, updateAppointmentType, deleteAppointmentType };
 };

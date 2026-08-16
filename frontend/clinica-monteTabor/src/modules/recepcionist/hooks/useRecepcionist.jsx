@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import apiClient from "@/lib/apiClient";
 
-const API_URL = "https://clinica-monte-tabor.onrender.com/api/recepcionist";
 
 export const useReceptionist = () => {
   const [receptionists, setReceptionists] = useState([]);
@@ -13,24 +13,14 @@ export const useReceptionist = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(API_URL, {
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // apiClient por defecto hace un GET y sabe a dónde apuntar
+      const data = await apiClient("/recepcionist");
 
       setReceptionists(data);
-
       return data;
     } catch (error) {
       console.error("Error al obtener los recepcionistas:", error);
-
       setError(error.message);
-
       throw error;
     } finally {
       setLoading(false);
@@ -40,15 +30,8 @@ export const useReceptionist = () => {
   // Obtiene los datos de un solo recepcionista a partir de su id.
   const getReceptionistById = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
-      return await response.json();
+      const data = await apiClient(`/recepcionist/${id}`);
+      return data;
     } catch (error) {
       console.error(`Error al obtener el recepcionista ${id}:`, error);
       throw error;
@@ -58,18 +41,10 @@ export const useReceptionist = () => {
   // Registra un recepcionista nuevo enviando el formulario (datos e imagen).
   const createReceptionist = async (formData) => {
     try {
-      const response = await fetch(API_URL, {
+      const data = await apiClient("/recepcionist", {
         method: "POST",
-        credentials: "include",
-        body: formData,
+        body: formData, // apiClient detecta automáticamente el FormData
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || `Error HTTP: ${response.status}`);
-      }
-
       return data;
     } catch (error) {
       console.error("Error al crear el recepcionista:", error);
@@ -80,18 +55,10 @@ export const useReceptionist = () => {
   // Actualiza los datos de un recepcionista existente.
   const updateReceptionist = async (id, formData) => {
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
+      const data = await apiClient(`/recepcionist/${id}`, {
         method: "PUT",
-        credentials: "include",
-        body: formData,
+        body: formData, // apiClient detecta automáticamente el FormData
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || `Error HTTP: ${response.status}`);
-      }
-
       return data;
     } catch (error) {
       console.error(`Error al actualizar el recepcionista ${id}:`, error);
@@ -110,23 +77,14 @@ export const useReceptionist = () => {
         return await getReceptionists();
       }
 
-      const response = await fetch(
-        `${API_URL}/search?search=${encodeURIComponent(search)}`,
-        {
-          credentials: "include",
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || `Error HTTP: ${response.status}`);
-      }
+      // Aprovechamos la propiedad "params" de tu apiClient
+      const data = await apiClient("/recepcionist/search", {
+        params: { search }
+      });
 
       setReceptionists(data);
     } catch (err) {
       console.error("Error al buscar recepcionistas:", err);
-
       setError(err.message);
     } finally {
       setLoading(false);
@@ -136,17 +94,9 @@ export const useReceptionist = () => {
   // Elimina un recepcionista por su id.
   const deleteReceptionist = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
+      const data = await apiClient(`/recepcionist/${id}`, {
         method: "DELETE",
-        credentials: "include",
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || `Error HTTP: ${response.status}`);
-      }
-
       return data;
     } catch (error) {
       console.error(`Error al eliminar el recepcionista ${id}:`, error);
