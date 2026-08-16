@@ -2,17 +2,13 @@
   "openapi": "3.0.3",
   "info": {
     "title": "PTC API",
-    "description": "Documentación de la API de la Clínica Monte Tabor (PTC), generada a partir de las rutas y modelos del backend.",
+    "description": "Documentación completa de la API de la Clínica Monte Tabor, construida a partir de app.js, todas las rutas, controladores y modelos del backend actual.",
     "version": "1.0.0"
   },
   "servers": [
     {
       "url": "https://virtserver.swaggerhub.com/montetabor-60e/ptc-api/1.0.0",
       "description": "SwaggerHub API Auto Mocking"
-    },
-    {
-      "url": "http://localhost:4000",
-      "description": "Desarrollo local"
     }
   ],
   "tags": [
@@ -75,6 +71,27 @@
     },
     {
       "name": "Notificaciones"
+    },
+    {
+      "name": "Tipos de cita"
+    },
+    {
+      "name": "Cuenta del paciente"
+    },
+    {
+      "name": "Horarios de enfermería"
+    },
+    {
+      "name": "Tratamientos"
+    },
+    {
+      "name": "Portal del paciente"
+    },
+    {
+      "name": "Pagos Wompi"
+    },
+    {
+      "name": "Webhooks"
     }
   ],
   "paths": {
@@ -145,7 +162,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/loginDoctors": {
@@ -181,7 +199,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/loginPatient/login": {
@@ -217,7 +236,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/logout": {
@@ -287,7 +307,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryDoctor/verifyCode": {
@@ -323,7 +344,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryDoctor/newPassword": {
@@ -359,7 +381,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryDoctor/resendCode": {
@@ -395,7 +418,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryAdminPassword/requestCode": {
@@ -431,7 +455,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryAdminPassword/verifyCode": {
@@ -467,7 +492,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryAdminPassword/newPassword": {
@@ -503,7 +529,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryAdminPassword/resendCode": {
@@ -539,7 +566,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryReceptionist/requestCode": {
@@ -575,7 +603,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryReceptionist/verifyCode": {
@@ -611,7 +640,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryReceptionist/newPassword": {
@@ -647,7 +677,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryNursePassword/requestCode": {
@@ -683,7 +714,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryNursePassword/verifyCode": {
@@ -719,7 +751,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryNursePassword/newPassword": {
@@ -755,7 +788,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryNursePassword/resendCode": {
@@ -791,7 +825,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryPatientPassword/requestCode": {
@@ -827,7 +862,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryPatientPassword/verifyCode": {
@@ -863,7 +899,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryPatientPassword/newPassword": {
@@ -899,7 +936,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/recoveryPatientPassword/resendCode": {
@@ -935,7 +973,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/registerAdmin": {
@@ -971,7 +1010,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/registerAdmin/verifyCodeEmail": {
@@ -1007,7 +1047,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/registerDoctors": {
@@ -1219,7 +1260,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/registerPatient/verifyCodeEmail": {
@@ -1255,7 +1297,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/doctors": {
@@ -1281,7 +1324,15 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -1455,7 +1506,15 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/recepcionist": {
@@ -1619,7 +1678,15 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/recepcionist/search": {
@@ -2267,7 +2334,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/patientAccount/me": {
@@ -2413,7 +2481,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/admin": {
@@ -2863,6 +2932,48 @@
       }
     },
     "/api/appointments/patient/{id}": {
+      "get": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "Obtener una cita del paciente",
+        "operationId": "getApiAppointmentsPatientId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
       "put": {
         "tags": [
           "Citas"
@@ -3819,7 +3930,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       },
       "post": {
         "tags": [
@@ -3853,7 +3965,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/nurse_notes/{id}": {
@@ -3899,7 +4012,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       },
       "delete": {
         "tags": [
@@ -3933,7 +4047,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/sick-leaves": {
@@ -6005,6 +6120,2450 @@
           }
         ]
       }
+    },
+    "/api/doctors/catalog": {
+      "get": {
+        "tags": [
+          "Doctores"
+        ],
+        "summary": "Obtener catálogo de doctores",
+        "operationId": "getApiDoctorsCatalog",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/doctors/countPatients": {
+      "get": {
+        "tags": [
+          "Doctores"
+        ],
+        "summary": "Contar pacientes atendidos",
+        "operationId": "getApiDoctorsCountPatients",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/doctors/countAppointments": {
+      "get": {
+        "tags": [
+          "Doctores"
+        ],
+        "summary": "Contar citas de doctores",
+        "operationId": "getApiDoctorsCountAppointments",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/doctors/countProcedures": {
+      "get": {
+        "tags": [
+          "Doctores"
+        ],
+        "summary": "Contar procedimientos de doctores",
+        "operationId": "getApiDoctorsCountProcedures",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/doctors/profile/update": {
+      "put": {
+        "tags": [
+          "Doctores"
+        ],
+        "summary": "Actualizar perfil propio del doctor",
+        "operationId": "putApiDoctorsProfileUpdate",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/profile_update_body_2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/appointments/doctors-with-appointments": {
+      "get": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "Listar doctores con citas",
+        "operationId": "getApiAppointmentsDoctorsWithAppointments",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/appointment-types": {
+      "get": {
+        "tags": [
+          "Tipos de cita"
+        ],
+        "summary": "Listar tipos de cita",
+        "operationId": "getApiAppointmentTypes",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Tipos de cita"
+        ],
+        "summary": "Crear tipo de cita",
+        "operationId": "postApiAppointmentTypes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentType"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/appointment-types/{id}": {
+      "put": {
+        "tags": [
+          "Tipos de cita"
+        ],
+        "summary": "Actualizar tipo de cita",
+        "operationId": "putApiAppointmentTypesId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentType"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Tipos de cita"
+        ],
+        "summary": "Eliminar tipo de cita",
+        "operationId": "deleteApiAppointmentTypesId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patients/{patientId}/vital-signs/{vitalSignId}": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Actualizar vital-signs",
+        "operationId": "putApiPatientsPatientIdVitalSignsVitalSignId",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vitalSignId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VitalSign"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Eliminar vital-signs",
+        "operationId": "deleteApiPatientsPatientIdVitalSignsVitalSignId",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vitalSignId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patients/{patientId}/hereditary/{hereditaryId}": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Actualizar hereditary",
+        "operationId": "putApiPatientsPatientIdHereditaryHereditaryId",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hereditaryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HereditaryHistory"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Eliminar hereditary",
+        "operationId": "deleteApiPatientsPatientIdHereditaryHereditaryId",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hereditaryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patients/{patientId}/pathological/{pathologicalId}": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Actualizar pathological",
+        "operationId": "putApiPatientsPatientIdPathologicalPathologicalId",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pathologicalId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PathologicalHistory"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Eliminar pathological",
+        "operationId": "deleteApiPatientsPatientIdPathologicalPathologicalId",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pathologicalId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patientAccount/consultations": {
+      "get": {
+        "tags": [
+          "Cuenta del paciente"
+        ],
+        "summary": "Obtener mis consultas",
+        "operationId": "getApiPatientAccountConsultations",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patientAccount/me/blood-type": {
+      "put": {
+        "tags": [
+          "Cuenta del paciente"
+        ],
+        "summary": "Actualizar grupo sanguíneo",
+        "operationId": "putApiPatientAccountMeBloodType",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/me_bloodtype_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patientAccount/me/lifestyle": {
+      "put": {
+        "tags": [
+          "Cuenta del paciente"
+        ],
+        "summary": "Actualizar estilo de vida",
+        "operationId": "putApiPatientAccountMeLifestyle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/me_lifestyle_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patientAccount/me/hereditary": {
+      "post": {
+        "tags": [
+          "Cuenta del paciente"
+        ],
+        "summary": "Agregar antecedente hereditario",
+        "operationId": "postApiPatientAccountMeHereditary",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HereditaryHistory"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patientAccount/me/hereditary/{entryId}": {
+      "delete": {
+        "tags": [
+          "Cuenta del paciente"
+        ],
+        "summary": "Eliminar antecedente hereditario",
+        "operationId": "deleteApiPatientAccountMeHereditaryEntryId",
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patientAccount/me/pathological": {
+      "post": {
+        "tags": [
+          "Cuenta del paciente"
+        ],
+        "summary": "Agregar antecedente patológico",
+        "operationId": "postApiPatientAccountMePathological",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PathologicalHistory"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patientAccount/me/pathological/{entryId}": {
+      "delete": {
+        "tags": [
+          "Cuenta del paciente"
+        ],
+        "summary": "Eliminar antecedente patológico",
+        "operationId": "deleteApiPatientAccountMePathologicalEntryId",
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/nurse-schedule/{nurseId}": {
+      "get": {
+        "tags": [
+          "Horarios de enfermería"
+        ],
+        "summary": "Obtener horario de enfermera",
+        "operationId": "getApiNurseScheduleNurseId",
+        "parameters": [
+          {
+            "name": "nurseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Horarios de enfermería"
+        ],
+        "summary": "Guardar horario de enfermera",
+        "operationId": "putApiNurseScheduleNurseId",
+        "parameters": [
+          {
+            "name": "nurseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NurseSchedule"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/treatments/follow-up": {
+      "get": {
+        "tags": [
+          "Tratamientos"
+        ],
+        "summary": "Obtener pacientes en seguimiento",
+        "operationId": "getApiTreatmentsFollowUp",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/treatments/{patientId}/evolution": {
+      "delete": {
+        "tags": [
+          "Tratamientos"
+        ],
+        "summary": "Eliminar evolución del tratamiento",
+        "operationId": "deleteApiTreatmentsPatientIdEvolution",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Tratamientos"
+        ],
+        "summary": "Actualizar evolución del tratamiento",
+        "operationId": "patchApiTreatmentsPatientIdEvolution",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/patientId_evolution_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/treatments/{patientId}/notes": {
+      "post": {
+        "tags": [
+          "Tratamientos"
+        ],
+        "summary": "Agregar nota al tratamiento",
+        "operationId": "postApiTreatmentsPatientIdNotes",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/patientId_notes_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/treatments/{patientId}/notes/{noteId}": {
+      "delete": {
+        "tags": [
+          "Tratamientos"
+        ],
+        "summary": "Eliminar nota del tratamiento",
+        "operationId": "deleteApiTreatmentsPatientIdNotesNoteId",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Tratamientos"
+        ],
+        "summary": "Actualizar nota del tratamiento",
+        "operationId": "patchApiTreatmentsPatientIdNotesNoteId",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/notes_noteId_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/treatments/{patientId}/follow-up": {
+      "patch": {
+        "tags": [
+          "Tratamientos"
+        ],
+        "summary": "Programar control de seguimiento",
+        "operationId": "patchApiTreatmentsPatientIdFollowUp",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/patientId_followup_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/treatments/{patientId}/discharge": {
+      "patch": {
+        "tags": [
+          "Tratamientos"
+        ],
+        "summary": "Dar de alta al paciente",
+        "operationId": "patchApiTreatmentsPatientIdDischarge",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/treatments/{patientId}/documents": {
+      "post": {
+        "tags": [
+          "Tratamientos"
+        ],
+        "summary": "Subir documento del tratamiento",
+        "operationId": "postApiTreatmentsPatientIdDocuments",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/patientId_documents_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/treatments/{patientId}/documents/{documentId}": {
+      "delete": {
+        "tags": [
+          "Tratamientos"
+        ],
+        "summary": "Eliminar documento del tratamiento",
+        "operationId": "deleteApiTreatmentsPatientIdDocumentsDocumentId",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/notifications/all": {
+      "delete": {
+        "tags": [
+          "Notificaciones"
+        ],
+        "summary": "Eliminar todas mis notificaciones",
+        "operationId": "deleteApiNotificationsAll",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/notifications/{id}": {
+      "delete": {
+        "tags": [
+          "Notificaciones"
+        ],
+        "summary": "Eliminar una notificación",
+        "operationId": "deleteApiNotificationsId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/doctors": {
+      "get": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Listar doctores disponibles",
+        "operationId": "getApiPatientPortalDoctors",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/procedures": {
+      "get": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Listar procedimientos disponibles",
+        "operationId": "getApiPatientPortalProcedures",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/schedule/{doctorId}/slots": {
+      "get": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Consultar horarios disponibles del doctor",
+        "operationId": "getApiPatientPortalScheduleDoctorIdSlots",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "duration",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/appointments": {
+      "get": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Obtener mis citas",
+        "operationId": "getApiPatientPortalAppointments",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Reservar una cita",
+        "operationId": "postApiPatientPortalAppointments",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientAppointmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/appointments/{id}/cancel": {
+      "patch": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Cancelar mi cita",
+        "operationId": "patchApiPatientPortalAppointmentsIdCancel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/id_cancel_body_1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/appointments/{id}/confirm-payment": {
+      "post": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Confirmar pago de una cita",
+        "operationId": "postApiPatientPortalAppointmentsIdConfirmPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/id_confirmpayment_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/dashboard": {
+      "get": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Obtener resumen del portal",
+        "operationId": "getApiPatientPortalDashboard",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/prescriptions": {
+      "get": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Obtener mis prescriptions",
+        "operationId": "getApiPatientPortalPrescriptions",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/sick-leaves": {
+      "get": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Obtener mis sick-leaves",
+        "operationId": "getApiPatientPortalSickLeaves",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/referrals": {
+      "get": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Obtener mis referrals",
+        "operationId": "getApiPatientPortalReferrals",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/medications/today": {
+      "get": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Obtener medicamentos de hoy",
+        "operationId": "getApiPatientPortalMedicationsToday",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/patient-portal/medications/{medicationId}/taken": {
+      "patch": {
+        "tags": [
+          "Portal del paciente"
+        ],
+        "summary": "Marcar medicamento como tomado o pendiente",
+        "operationId": "patchApiPatientPortalMedicationsMedicationIdTaken",
+        "parameters": [
+          {
+            "name": "medicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/medicationId_taken_body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/wompi/token": {
+      "post": {
+        "tags": [
+          "Pagos Wompi"
+        ],
+        "summary": "Solicitar token de acceso a Wompi",
+        "operationId": "postApiWompiToken",
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/wompi/tokenizar": {
+      "post": {
+        "tags": [
+          "Pagos Wompi"
+        ],
+        "summary": "Tokenizar tarjeta en Wompi",
+        "operationId": "postApiWompiTokenizar",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WompiProxyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/wompi/paymentTest": {
+      "post": {
+        "tags": [
+          "Pagos Wompi"
+        ],
+        "summary": "Ejecutar pago de prueba tokenizado",
+        "operationId": "postApiWompiPaymentTest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WompiProxyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/wompi/payment3DS": {
+      "post": {
+        "tags": [
+          "Pagos Wompi"
+        ],
+        "summary": "Ejecutar pago con 3DS",
+        "operationId": "postApiWompiPayment3DS",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WompiProxyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/webhooks/wompi": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Recibir evento webhook de Wompi",
+        "operationId": "postApiWebhooksWompi",
+        "parameters": [
+          {
+            "name": "wompi_hash",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operación exitosa"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": []
+      }
     }
   },
   "components": {
@@ -7382,6 +9941,325 @@
           },
           "value": {
             "type": "boolean"
+          }
+        }
+      },
+      "AppointmentType": {
+        "required": [
+          "color",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "readOnly": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "example": "#3b82f6"
+          }
+        }
+      },
+      "VitalSign": {
+        "type": "object",
+        "properties": {
+          "blood_pressure": {
+            "type": "string"
+          },
+          "glucosa_mgdl": {
+            "type": "number"
+          },
+          "weight": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "imc": {
+            "type": "number"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "spo2": {
+            "type": "number"
+          }
+        }
+      },
+      "HereditaryHistory": {
+        "required": [
+          "condition",
+          "relationship"
+        ],
+        "type": "object",
+        "properties": {
+          "relationship": {
+            "type": "string"
+          },
+          "condition": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "PathologicalHistory": {
+        "required": [
+          "diagnosis",
+          "disease"
+        ],
+        "type": "object",
+        "properties": {
+          "disease": {
+            "type": "string"
+          },
+          "diagnosis": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "NurseSchedule": {
+        "type": "object",
+        "properties": {
+          "weekly_availability": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NurseSchedule_weekly_availability"
+            }
+          },
+          "breaks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "exceptions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "buffer_time": {
+            "type": "integer"
+          },
+          "buffer_time_options": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "block_durations": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "allow_outside_hours": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PatientAppointmentRequest": {
+        "required": [
+          "date",
+          "doctor_id",
+          "payment_method",
+          "procedure_id",
+          "start_time"
+        ],
+        "type": "object",
+        "properties": {
+          "doctor_id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "start_time": {
+            "type": "string",
+            "example": "09:00"
+          },
+          "procedure_id": {
+            "type": "string"
+          },
+          "payment_method": {
+            "type": "string"
+          }
+        }
+      },
+      "WompiProxyRequest": {
+        "required": [
+          "formData",
+          "token"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "formData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "profile_update_body_2": {
+        "type": "object",
+        "properties": {
+          "doctorImage": {
+            "type": "string",
+            "format": "binary"
+          }
+        }
+      },
+      "me_bloodtype_body": {
+        "required": [
+          "blood_type"
+        ],
+        "type": "object",
+        "properties": {
+          "blood_type": {
+            "type": "string"
+          },
+          "blood_type_date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "me_lifestyle_body": {
+        "type": "object",
+        "properties": {
+          "non_pathological": {
+            "type": "string"
+          },
+          "ecologycal_social": {
+            "type": "string"
+          }
+        }
+      },
+      "patientId_evolution_body": {
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        }
+      },
+      "patientId_notes_body": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "notes_noteId_body": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "patientId_followup_body": {
+        "required": [
+          "follow_up_date"
+        ],
+        "type": "object",
+        "properties": {
+          "follow_up_date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "patientId_documents_body": {
+        "type": "object",
+        "properties": {
+          "document": {
+            "type": "string",
+            "format": "binary"
+          }
+        }
+      },
+      "id_cancel_body_1": {
+        "type": "object",
+        "properties": {
+          "cancellation_reason": {
+            "type": "string"
+          }
+        }
+      },
+      "id_confirmpayment_body": {
+        "required": [
+          "transactionId"
+        ],
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string"
+          }
+        }
+      },
+      "medicationId_taken_body": {
+        "required": [
+          "taken"
+        ],
+        "type": "object",
+        "properties": {
+          "taken": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NurseSchedule_time_blocks": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "string"
+          },
+          "end_time": {
+            "type": "string"
+          }
+        }
+      },
+      "NurseSchedule_weekly_availability": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "maximum": 6,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "is_available": {
+            "type": "boolean"
+          },
+          "time_blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NurseSchedule_time_blocks"
+            }
           }
         }
       }
