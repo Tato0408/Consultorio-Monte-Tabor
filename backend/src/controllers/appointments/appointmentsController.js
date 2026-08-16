@@ -477,12 +477,6 @@ appointmentsController.insertAppointment = async (req, res) => {
         description = description?.trim();
         cancellation_reason = cancellation_reason?.trim();
 
-        // La recepcionista no pasa por aceptación del doctor: la cita queda
-        // directamente programada (se ignora el status que haya mandado).
-        if (req.user.role === "receptionist") {
-            status = "scheduled";
-        }
-
         // Un doctor que crea una cita solo puede asignársela a sí mismo, sin
         // importar el payload; admin y recepción sí eligen doctor.
         if (req.user.role === "doctor") {

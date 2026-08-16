@@ -52,7 +52,7 @@ const ROLE_PERMISSIONS = {
     doctor: {
         "dashboard": [true, false, false, false],
         "calendar.schedule": [true, false, true, false],
-        "calendar.appointments": [true, false, true, true],
+        "calendar.appointments": [true, true, true, true],
         "calendar.consultations": [true, true, true, true],
         "users.doctors": [false, false, false, false],
         "users.patients": [true, false, true, true],

@@ -2,14 +2,31 @@ import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 import useInventory from "@/modules/inventory/hooks/useInventory";
 import useProcedures from "@/modules/procedures/hooks/useProcedures";
-import { useDoctors } from "@/modules/doctors/hooks/useDoctors";
-import { useEffect } from "react";
+import apiClient from "@/lib/apiClient";
+import { useEffect, useState } from "react";
+
+// Clase del borde de un campo: rojo cuando el campo tiene un error de
+// validación pendiente, gris en cualquier otro caso.
+const borderClass = (hasError) => (hasError ? "border-red-400" : "border-slate-200");
 
 const ProcedureRow = ({ index, onRemove, readOnly }) => {
-    const { control, register, setValue, watch } = useFormContext();
+    const { control, register, setValue, watch, formState: { errors } } = useFormContext();
     const { inventory, isLoading: isLoadingInventory } = useInventory();
     const { procedures, loading: isLoadingProcedures, getProcedureById } = useProcedures();
-    const { doctors, isLoading: isLoadingDoctors } = useDoctors();
+    const [doctors, setDoctors] = useState([]);
+    const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+
+    // Catálogo liviano, no exige el permiso Ver Doctores (a diferencia de
+    // GET /doctors): cualquier rol autenticado necesita esta lista para
+    // elegir el médico ejecutante de un procedimiento, aunque no tenga
+    // acceso al módulo de administración de doctores (mismo catálogo que
+    // usa el formulario de citas, ver useMedicalData.js).
+    useEffect(() => {
+        apiClient("/doctors/catalog")
+            .then(setDoctors)
+            .catch(() => setDoctors([]))
+            .finally(() => setIsLoadingDoctors(false));
+    }, []);
 
     const {
         fields: materials,
@@ -24,7 +41,7 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
     const selectedProcedure = getProcedureById(selectedProcedureId);
 
     const handleProcedureChange = (procedureId) => {
-        setValue(`procedure.${index}.procedure_id`, procedureId);
+        setValue(`procedure.${index}.procedure_id`, procedureId, { shouldValidate: true });
         const procedure = getProcedureById(procedureId);
         if (procedure) {
             setValue(`procedure.${index}._procedure_name`, procedure.name);
@@ -42,12 +59,17 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
         <div className="border border-slate-100 rounded-lg p-3">
             <div className="grid grid-cols-2 gap-2 mb-2">
                 <div>
-                    <label className="text-xs text-slate-500 block mb-1">Procedimiento</label>
+                    <label className="text-xs text-slate-500 block mb-1">
+                        Procedimiento <span className="text-red-500">*</span>
+                    </label>
                     <select
                         disabled={readOnly || isLoadingProcedures}
+                        {...register(`procedure.${index}.procedure_id`, {
+                            required: "Selecciona un procedimiento",
+                        })}
                         value={selectedProcedureId ?? ""}
                         onChange={(e) => handleProcedureChange(e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                        className={`w-full border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.procedure?.[index]?.procedure_id)}`}
                     >
                         <option value="">
                             {isLoadingProcedures ? "Cargando procedimientos..." : "Selecciona un procedimiento"}
@@ -66,11 +88,15 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
                 </div>
 
                 <div>
-                    <label className="text-xs text-slate-500 block mb-1">Médico ejecutante</label>
+                    <label className="text-xs text-slate-500 block mb-1">
+                        Médico ejecutante <span className="text-red-500">*</span>
+                    </label>
                     <select
                         disabled={readOnly || isLoadingDoctors}
-                        {...register(`procedure.${index}.doctor_id`)}
-                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                        {...register(`procedure.${index}.doctor_id`, {
+                            required: "Selecciona el médico que ejecutó el procedimiento",
+                        })}
+                        className={`w-full border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.procedure?.[index]?.doctor_id)}`}
                     >
                         <option value="">
                             {isLoadingDoctors ? "Cargando médicos..." : "Selecciona un médico"}
@@ -89,6 +115,7 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
                 rows={2}
                 maxLength={500}
                 disabled={readOnly}
+                placeholder="Ej. Procedimiento realizado sin complicaciones, buena tolerancia"
                 {...register(`procedure.${index}.notes`)}
                 className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />
@@ -101,39 +128,48 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
             <label className="text-xs text-slate-500 block mb-1">Material utilizado</label>
             <div className="space-y-2 mb-2">
                 {materials.map((material, materialIndex) => (
-                    <div key={material.id} className="grid grid-cols-[1fr_90px_auto] gap-2 items-center">
-                        <select
-                            disabled={readOnly || isLoadingInventory}
-                            {...register(`procedure.${index}.material_used.${materialIndex}.inventory_id`)}
-                            className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
-                        >
-                            <option value="">
-                                {isLoadingInventory ? "Cargando insumos..." : "Selecciona un insumo"}
-                            </option>
-                            {inventory.map((item) => (
-                                <option key={item._id} value={item._id}>
-                                    {item.name} (stock: {item.stock} {item.unit})
+                    <div key={material.id} className="grid grid-cols-[1fr_90px_auto] gap-2 items-end">
+                        <div className="flex flex-col gap-0.5">
+                            <label className="text-[11px] text-slate-500">Insumo</label>
+                            <select
+                                disabled={readOnly || isLoadingInventory}
+                                {...register(`procedure.${index}.material_used.${materialIndex}.inventory_id`, {
+                                    required: "Selecciona un insumo",
+                                })}
+                                className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.procedure?.[index]?.material_used?.[materialIndex]?.inventory_id)}`}
+                            >
+                                <option value="">
+                                    {isLoadingInventory ? "Cargando insumos..." : "Selecciona un insumo"}
                                 </option>
-                            ))}
-                        </select>
+                                {inventory.map((item) => (
+                                    <option key={item._id} value={item._id}>
+                                        {item.name} (stock: {item.stock} {item.unit})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
-                        <input
-                            type="number"
-                            min={1}
-                            step={1}
-                            placeholder="Cant."
-                            disabled={readOnly}
-                            // Los <input type="number"> nativos igual dejan escribir e, +, - y
-                            // el punto (no son dígitos pero sí caracteres válidos de notación
-                            // numérica), se bloquean explícitamente para que solo entren
-                            // enteros positivos.
-                            onKeyDown={(e) => { if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault(); }}
-                            {...register(`procedure.${index}.material_used.${materialIndex}.quantity`, {
-                                valueAsNumber: true,
-                                min: { value: 1, message: "Debe ser al menos 1" },
-                            })}
-                            className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
-                        />
+                        <div className="flex flex-col gap-0.5">
+                            <label className="text-[11px] text-slate-500">Cantidad</label>
+                            <input
+                                type="number"
+                                min={1}
+                                step={1}
+                                placeholder="Ej. 2"
+                                disabled={readOnly}
+                                // Los <input type="number"> nativos igual dejan escribir e, +, - y
+                                // el punto (no son dígitos pero sí caracteres válidos de notación
+                                // numérica), se bloquean explícitamente para que solo entren
+                                // enteros positivos.
+                                onKeyDown={(e) => { if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault(); }}
+                                {...register(`procedure.${index}.material_used.${materialIndex}.quantity`, {
+                                    valueAsNumber: true,
+                                    required: "La cantidad es obligatoria",
+                                    min: { value: 1, message: "Debe ser al menos 1" },
+                                })}
+                                className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.procedure?.[index]?.material_used?.[materialIndex]?.quantity)}`}
+                            />
+                        </div>
 
                         {!readOnly && (
                             <button type="button" onClick={() => removeMaterial(materialIndex)} className="text-slate-400 hover:text-red-500">

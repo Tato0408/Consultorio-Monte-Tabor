@@ -24,6 +24,7 @@ const TreatmentsPage = () => {
     uploadDocument,
     deleteDocument,
     scheduleControl,
+    setStatus,
     discharge,
   } = useTreatmentsFollowUp();
 
@@ -97,6 +98,7 @@ const TreatmentsPage = () => {
               onUploadDocument={(file) => uploadDocument(selectedPatient.id, file)}
               onDeleteDocument={(documentId) => deleteDocument(selectedPatient.id, documentId)}
               onScheduleControl={(date) => scheduleControl(selectedPatient.id, date)}
+              onSetStatus={(status) => setStatus(selectedPatient.id, status)}
               onDischarge={() => discharge(selectedPatient.id)}
             />
           </div>

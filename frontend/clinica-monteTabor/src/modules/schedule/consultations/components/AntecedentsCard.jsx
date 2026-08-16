@@ -19,9 +19,10 @@ const AntecedentsCard = ({ title, name, fields, readOnly }) => {
                     <div key={row.id} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
                         {fields.map((field) => (
                             <div key={field.key} className="flex flex-col gap-0.5">
+                                <label className="text-[11px] text-slate-500">{field.label}</label>
                                 <input
                                     type="text"
-                                    placeholder={field.label}
+                                    placeholder={field.placeholder || field.label}
                                     maxLength={field.maxLength || 100}
                                     disabled={readOnly}
                                     {...register(`${name}.${index}.${field.key}`)}

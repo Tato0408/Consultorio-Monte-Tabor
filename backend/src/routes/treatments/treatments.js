@@ -7,17 +7,18 @@ const router = express.Router();
 
 router.get("/follow-up", authorize("inventory.treatments", "view"), treatmentsController.getFollowUp);
 
-// Las 4 acciones del panel de seguimiento del paciente (botones
-// "Actualizar evolución", "Agregar nota", "Programar control" y
-// "Dar de alta") usan el mismo criterio de permisos que el resto
-// del sistema: "create" para agregar algo nuevo, "update" para
-// modificar el tratamiento.
+// Las acciones del panel de seguimiento del paciente (botones
+// "Actualizar evolución", "Agregar nota", "Programar control",
+// "Cambiar estado" y "Dar de alta") usan el mismo criterio de
+// permisos que el resto del sistema: "create" para agregar algo
+// nuevo, "update" para modificar el tratamiento.
 router.patch("/:patientId/evolution",        authorize("inventory.treatments", "update"), treatmentsController.updateEvolution);
 router.delete("/:patientId/evolution",       authorize("inventory.treatments", "delete"), treatmentsController.deleteEvolution);
 router.post("/:patientId/notes",             authorize("inventory.treatments", "create"), treatmentsController.addNote);
 router.patch("/:patientId/notes/:noteId",    authorize("inventory.treatments", "update"), treatmentsController.updateNote);
 router.delete("/:patientId/notes/:noteId",   authorize("inventory.treatments", "delete"), treatmentsController.deleteNote);
 router.patch("/:patientId/follow-up",        authorize("inventory.treatments", "update"), treatmentsController.scheduleControl);
+router.patch("/:patientId/status",           authorize("inventory.treatments", "update"), treatmentsController.setStatus);
 router.patch("/:patientId/discharge",        authorize("inventory.treatments", "update"), treatmentsController.discharge);
 
 // El botón "Subir documento" de la pestaña Documentos sube el

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Users, CalendarDays, UserPlus } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import useDoctorDashboard from "../hooks/useDoctorDashboard";
@@ -8,38 +8,42 @@ import DoctorCalendar       from "../components/doctor/DoctorCalendar";
 import TodayAppointmentsList from "../components/doctor/TodayAppointmentsList";
 import RecentConsultationsList from "../components/doctor/RecentConsultationsList";
 import RecordsAccessCard    from "../components/doctor/RecordsAccessCard";
-import DiseaseStatsCard     from "../components/doctor/DiseaseStatsCard";
-import TreatmentStatsCard   from "../components/doctor/TreatmentStatsCard";
-import DoctorSummaryCard    from "../components/doctor/DoctorSummaryCard";
 import DashboardWelcomeHeader from "../components/DashboardWelcomeHeader";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import AppointmentsFormCalendar from "@/modules/schedule/appointments/components/AppointmentsFormCalendar";
 
 // Página principal del doctor. Carga en paralelo las estadísticas, las
-// citas del día, el historial de consultas con sus expedientes y los
-// datos de analítica (enfermedades y tratamientos más frecuentes), y
+// citas del día y el historial de consultas con sus expedientes, y
 // arma el dashboard con las tarjetas y listas correspondientes.
 const DoctorDashboard = () => {
-    const { user, userType } = useAuth();
-    const { getStats, getTodayAppointments, getConsultationsAndRecords, getAnalytics } = useDoctorDashboard();
+    const { user, userType, hasPermission } = useAuth();
+    const canCreateAppt = hasPermission("calendar.appointments", "create");
+    const { getStats, getTodayAppointments, getConsultationsAndRecords } = useDoctorDashboard();
 
     const [stats,        setStats]        = useState(null);
     const [todayAppts,   setTodayAppts]   = useState([]);
     const [consultRec,   setConsultRec]   = useState({ recentConsultations: [], records: [] });
-    const [analytics,    setAnalytics]    = useState(null);
     const [loading,      setLoading]      = useState(true);
+    // Modal de "Agregar nueva cita", que reutiliza el mismo formulario de la
+    // interfaz de Calendario (AppointmentsFormCalendar.jsx), con las mismas
+    // funcionalidades, en vez de un formulario aparte.
+    const [isNewApptOpen, setIsNewApptOpen] = useState(false);
 
-    useEffect(() => {
-        Promise.allSettled([
+    const loadDashboard = useCallback(() => {
+        return Promise.allSettled([
             getStats(),
             getTodayAppointments(),
             getConsultationsAndRecords(),
-            getAnalytics(),
-        ]).then(([s, t, cr, a]) => {
+        ]).then(([s, t, cr]) => {
             if (s.status  === "fulfilled") setStats(s.value);
             if (t.status  === "fulfilled") setTodayAppts(Array.isArray(t.value) ? t.value : []);
             if (cr.status === "fulfilled") setConsultRec(cr.value);
-            if (a.status  === "fulfilled") setAnalytics(a.value);
-        }).finally(() => setLoading(false));
+        });
     }, []);
+
+    useEffect(() => {
+        loadDashboard().finally(() => setLoading(false));
+    }, [loadDashboard]);
 
     const displayName = user
         ? `Dr. ${user.name || ""} ${user.last_name || ""}`.trim()
@@ -71,7 +75,7 @@ const DoctorDashboard = () => {
 
             {/* Tarjetas de resumen */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <DoctorTopCard topDisease={s.topDisease} />
+                <DoctorTopCard topProcedure={s.topProcedure} />
 
                 <StatCard
                     icon={<Users className="w-5 h-5 text-blue-600" />}
@@ -110,7 +114,11 @@ const DoctorDashboard = () => {
             {/* Calendario y citas de hoy */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <DoctorCalendar />
-                <TodayAppointmentsList appointments={todayAppts} />
+                <TodayAppointmentsList
+                    appointments={todayAppts}
+                    canCreate={canCreateAppt}
+                    onAddAppointment={() => setIsNewApptOpen(true)}
+                />
             </div>
 
             {/* Historial de consultas y expedientes */}
@@ -126,17 +134,23 @@ const DoctorDashboard = () => {
                 </div>
             </div>
 
-            {/* Datos de analítica */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <DiseaseStatsCard
-                    diseases={analytics?.diseases ?? []}
-                    total={analytics?.totalForDiseases ?? 0}
-                />
-                <TreatmentStatsCard treatments={analytics?.treatments ?? []} />
-                <DoctorSummaryCard  summary={analytics?.summary ?? {}} />
             </div>
 
-            </div>
+            {/* Modal de "Agregar nueva cita": el mismo AppointmentsFormCalendar.jsx
+                que usa la interfaz de Calendario, embebido en un diálogo en vez de
+                navegar a una ruta nueva. onCloseOverride y onSavedOverride cierran
+                el modal y refrescan el dashboard, en vez de navegar a
+                /calendar/appointments. */}
+            <Dialog open={isNewApptOpen} onOpenChange={(open) => !open && setIsNewApptOpen(false)}>
+                <DialogContent showCloseButton={false} className="max-w-4xl w-full max-h-[90vh] overflow-y-auto p-0 rounded-2xl border-0">
+                    {isNewApptOpen && (
+                        <AppointmentsFormCalendar
+                            onCloseOverride={() => setIsNewApptOpen(false)}
+                            onSavedOverride={() => { setIsNewApptOpen(false); loadDashboard(); }}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

@@ -1,35 +1,74 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import useDoctorDashboard from "../../hooks/useDoctorDashboard";
+import { useAuth } from "@/context/AuthContext";
+import useAppointmentsApi from "@/modules/schedule/appointments/hooks/useAppointmentsApi";
+import useAppointmentTypes from "@/modules/schedule/appointments/hooks/useAppointmentTypes";
 
 const DAYS   = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const FALLBACK_COLOR = "#94a3b8";
+const CANCELLED_COLOR = "#f87171";
 
-// Calendario mensual del doctor. Marca con un punto los días que tienen
-// al menos una cita y resalta el día actual. Carga las fechas con citas
-// del año visible mediante useDoctorDashboard y evita recargarlas si el
-// año ya fue cargado antes.
+const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const fmt12 = (t) => {
+    if (!t) return "";
+    const [h, m] = t.split(":").map(Number);
+    return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+};
+
+// Calendario mensual del doctor. Trae las citas reales del mes visible
+// (mismo endpoint y hook que el Calendario general,
+// AppointmentsCalendar.jsx) y colorea cada día según el catálogo de
+// tipos de cita, con la misma leyenda que ese calendario. Así el doctor
+// ve qué días tiene citas y de qué tipo son, no solo si hay algo
+// agendado ese día.
 const DoctorCalendar = () => {
-    const { getCalendar } = useDoctorDashboard();
-    const [cur,      setCur]      = useState(new Date());
-    const [apptSet,  setApptSet]  = useState(new Set());
-    const [loadedYr, setLoadedYr] = useState(null);
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const { getAppointments } = useAppointmentsApi();
+    const { getAppointmentTypes } = useAppointmentTypes();
+
+    const [cur, setCur] = useState(new Date());
+    const [appointments, setAppointments] = useState([]);
+    const [appointmentTypes, setAppointmentTypes] = useState([]);
+    const [hoveredDay, setHoveredDay] = useState(null);
 
     const year  = cur.getFullYear();
     const month = cur.getMonth();
     const today = new Date();
 
-    // Carga las fechas con citas del año actual solo cuando cambia el año
-    // y todavía no fue cargado.
+    const colorMap = useMemo(
+        () => Object.fromEntries(appointmentTypes.map((t) => [t.name, t.color])),
+        [appointmentTypes]
+    );
+
     useEffect(() => {
-        if (loadedYr === year) return;
-        getCalendar(year)
-            .then(({ dates }) => {
-                setApptSet(new Set(dates));
-                setLoadedYr(year);
-            })
-            .catch(() => {});
-    }, [year]);
+        getAppointmentTypes().then(setAppointmentTypes).catch(() => setAppointmentTypes([]));
+    }, []);
+
+    // Trae las citas reales del mes visible para este doctor, con el
+    // mismo patrón que usa AppointmentsCalendar.jsx.
+    useEffect(() => {
+        if (!user?.id) return;
+        const monthStart = new Date(year, month, 1);
+        const monthEnd = new Date(year, month + 1, 0);
+        getAppointments({ doctor_id: user.id, dateFrom: toISO(monthStart), dateTo: toISO(monthEnd), limit: 500 })
+            .then((res) => setAppointments(res.data || []))
+            .catch(() => setAppointments([]));
+    }, [year, month, user?.id]);
+
+    const byDay = useMemo(() => {
+        const map = {};
+        for (const a of appointments) {
+            const key = a.date?.split("T")[0];
+            if (!key) continue;
+            if (!map[key]) map[key] = [];
+            map[key].push(a);
+        }
+        return map;
+    }, [appointments]);
 
     // Arma la grilla del mes: rellena con celdas vacías hasta el primer
     // día de la semana del mes, agrega los días del mes y completa el
@@ -46,8 +85,9 @@ const DoctorCalendar = () => {
     const nextMonth = () => setCur(new Date(year, month + 1, 1));
     const goToday   = () => setCur(new Date());
 
-    const isToday   = (d) => d && year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
-    const hasAppt   = (d) => d && apptSet.has(`${year}-${month + 1}-${d}`);
+    const isToday = (d) => d && year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
+    const dayKey  = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const dayAppts = (d) => (d ? byDay[dayKey(d)] || [] : []);
 
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col">
@@ -89,37 +129,82 @@ const DoctorCalendar = () => {
 
             {/* Celdas del calendario */}
             <div className="grid grid-cols-7 gap-y-0.5 flex-1">
-                {cells.map((day, i) => (
-                    <div key={i} className="flex flex-col items-center py-0.5">
-                        {day && (
-                            <>
-                                <span className={`w-7 h-7 flex items-center justify-center text-xs rounded-full font-medium transition-colors ${
-                                    isToday(day)
-                                        ? "bg-blue-600 text-white font-bold"
-                                        : "text-slate-700 hover:bg-slate-100 cursor-pointer"
-                                }`}>
-                                    {day}
-                                </span>
-                                <span className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
-                                    hasAppt(day)
-                                        ? isToday(day) ? "bg-white" : "bg-blue-500"
-                                        : "invisible"
-                                }`} />
-                            </>
-                        )}
-                    </div>
-                ))}
+                {cells.map((day, i) => {
+                    const appts = dayAppts(day);
+                    const dots = appts.slice(0, 3).map((a) =>
+                        a.status === "cancelled" ? CANCELLED_COLOR : (colorMap[a.appointment_type] || FALLBACK_COLOR)
+                    );
+                    return (
+                        <div
+                            key={i}
+                            className="relative flex flex-col items-center py-0.5"
+                            onMouseEnter={() => day && appts.length > 0 && setHoveredDay(day)}
+                            onMouseLeave={() => setHoveredDay((h) => (h === day ? null : h))}
+                        >
+                            {day && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate("/calendar/appointments", { state: { initialView: "calendar" } })}
+                                        className={`w-7 h-7 flex items-center justify-center text-xs rounded-full font-medium transition-colors ${
+                                            isToday(day)
+                                                ? "bg-blue-600 text-white font-bold"
+                                                : "text-slate-700 hover:bg-slate-100 cursor-pointer"
+                                        }`}
+                                    >
+                                        {day}
+                                    </button>
+                                    <div className="flex items-center gap-0.5 mt-0.5 h-1.5">
+                                        {dots.length > 0
+                                            ? dots.map((c, idx) => (
+                                                <span key={idx} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c }} />
+                                              ))
+                                            : <span className="w-1.5 h-1.5" />}
+                                    </div>
+
+                                    {hoveredDay === day && (
+                                        <div className="absolute z-20 top-8 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-xl border border-slate-100 p-2.5 w-48">
+                                            <p className="text-[11px] font-semibold text-slate-800 mb-1.5">
+                                                {appts.length} cita{appts.length !== 1 ? "s" : ""}
+                                            </p>
+                                            <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
+                                                {appts.slice(0, 6).map((a) => (
+                                                    <div key={a._id} className="flex items-center gap-1.5">
+                                                        <span
+                                                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                                            style={{ backgroundColor: a.status === "cancelled" ? CANCELLED_COLOR : (colorMap[a.appointment_type] || FALLBACK_COLOR) }}
+                                                        />
+                                                        <span className="text-[10px] text-slate-500 truncate">
+                                                            {fmt12(a.start_time)} · {a.patient_id ? `${a.patient_id.name} ${a.patient_id.last_name}` : "Paciente"}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
 
-            {/* Leyenda */}
-            <div className="flex items-center gap-5 mt-4 pt-3 border-t border-slate-50">
+            {/* Leyenda, mismo catálogo global de tipos de cita que administra el admin desde
+                Horarios, igual que en AppointmentsCalendar.jsx. */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 pt-3 border-t border-slate-50">
+                {appointmentTypes.length === 0 ? (
+                    <span className="text-xs text-slate-400">Sin tipos de cita configurados</span>
+                ) : (
+                    appointmentTypes.map((t) => (
+                        <div key={t._id} className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
+                            <span className="text-xs text-slate-500">{t.name}</span>
+                        </div>
+                    ))
+                )}
                 <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span className="text-xs text-slate-500">Citas</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-700" />
-                    <span className="text-xs text-slate-500">Día actual</span>
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CANCELLED_COLOR }} />
+                    <span className="text-xs text-slate-500">Cancelada</span>
                 </div>
             </div>
         </div>

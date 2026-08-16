@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Filter, User } from "lucide-react";
 import GenericTable from "@/components/ui/GenericTable";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import StatusBadge from "../../reports/components/StatusBadge";
 import { STATUS_STYLE } from "../data/treatmentsData";
 
@@ -13,8 +14,17 @@ const TABS = [
 
 const TreatmentsPatientsTable = ({ patients, loading, onSelectPatient, selectedPatientId }) => {
   const [tab, setTab] = useState("all");
+  // Filtro por médico, se combina con la pestaña de estado activa.
+  const [doctorFilter, setDoctorFilter] = useState("all");
 
-  const filtered = tab === "all" ? patients : patients.filter((p) => p.status === tab);
+  const doctorOptions = useMemo(
+    () => [...new Set(patients.map((p) => p.doctor).filter(Boolean))].sort(),
+    [patients]
+  );
+
+  const filtered = patients
+    .filter((p) => tab === "all" || p.status === tab)
+    .filter((p) => doctorFilter === "all" || p.doctor === doctorFilter);
 
   const columns = [
     {
@@ -75,10 +85,18 @@ const TreatmentsPatientsTable = ({ patients, loading, onSelectPatient, selectedP
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <h2 className="text-base font-bold text-slate-800">Pacientes en seguimiento</h2>
-        <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">
-          <Filter className="w-3.5 h-3.5" />
-          Filtros
-        </button>
+        <Select value={doctorFilter} onValueChange={setDoctorFilter}>
+          <SelectTrigger className="w-full sm:w-56 border-slate-200 rounded-lg h-9 text-xs font-semibold text-slate-600">
+            <Filter className="w-3.5 h-3.5" />
+            <SelectValue>{doctorFilter === "all" ? "Todos los médicos" : doctorFilter}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los médicos</SelectItem>
+            {doctorOptions.map((d) => (
+              <SelectItem key={d} value={d}>{d}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex items-center gap-1 mb-4 border-b border-slate-100 overflow-x-auto">

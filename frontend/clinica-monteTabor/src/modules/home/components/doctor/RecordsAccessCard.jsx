@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, FolderOpen, ChevronRight } from "lucide-react";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 // Formatea una fecha en formato dd/mm/aa. Devuelve cadena vacía si no
 // recibe fecha.
@@ -27,14 +28,9 @@ const RecordsAccessCard = ({ records = [] }) => {
     });
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-4">
-            {/* Encabezado */}
-            <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-slate-800">Acceso a expedientes</p>
-            </div>
-
+        <CollapsibleCard title="Acceso a expedientes">
             {/* Buscador */}
-            <div className="relative">
+            <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                 <input
                     type="text"
@@ -66,8 +62,10 @@ const RecordsAccessCard = ({ records = [] }) => {
                                         {recordCode(r.appointmentId)} · {fmtDate(r.lastVisit)}
                                     </p>
                                 </div>
+                                {/* Abre directamente el expediente de este paciente ya seleccionado
+                                    (ver selectPatientId en RecordsPage.jsx), no solo el listado. */}
                                 <button
-                                    onClick={() => navigate("/users/patients")}
+                                    onClick={() => navigate("/reports/records", { state: { selectPatientId: r._id } })}
                                     className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-colors font-medium"
                                 >
                                     Abrir
@@ -78,14 +76,14 @@ const RecordsAccessCard = ({ records = [] }) => {
                 )}
             </div>
 
-            {/* Pie con acceso a todos los expedientes */}
+            {/* Pie con acceso a todos los expedientes (no al listado de pacientes) */}
             <button
-                onClick={() => navigate("/users/patients")}
-                className="flex items-center justify-center gap-1 text-xs text-blue-600 font-semibold hover:underline mt-auto pt-2 border-t border-slate-50"
+                onClick={() => navigate("/reports/records")}
+                className="flex items-center justify-center gap-1 text-xs text-blue-600 font-semibold hover:underline mt-4 pt-3 border-t border-slate-50 w-full"
             >
                 Ver todos los expedientes <ChevronRight className="w-3.5 h-3.5" />
             </button>
-        </div>
+        </CollapsibleCard>
     );
 };
 

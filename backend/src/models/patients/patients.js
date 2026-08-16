@@ -124,6 +124,16 @@ const patientSchema = new Schema({
             follow_up_date: {
                 type: Date
             },
+            // Estado manual del tratamiento, fijado desde el panel de
+            // seguimiento del paciente. Si es null, el estado se calcula
+            // solo a partir de follow_up_date (ver treatmentsController.js,
+            // getFollowUp). Si tiene un valor, ese valor manda y se muestra
+            // tal cual, sin importar la fecha de control.
+            status_override: {
+                type: String,
+                enum: ["En tratamiento", "Requiere revisión", "Finalizado", null],
+                default: null
+            },
             // Bitácora de notas de seguimiento del tratamiento. A diferencia
             // del campo result, que se sobreescribe, aquí se van acumulando
             // todas las notas, cada una con quién la escribió y cuándo.

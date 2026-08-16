@@ -37,11 +37,11 @@ const IconAction = ({ icon: Icon, label, onClick, tone }) => (
 );
 
 // Las acciones del panel (actualizar evolucion, agregar nota, programar
-// control, dar de alta, ademas de editar y eliminar la evolucion y cada
-// nota) escriben sobre el tratamiento o procedimiento mas reciente del
-// paciente en el backend (ver treatmentsController.js). Cada una abre su
-// propio modal o confirmacion y, al guardar, el padre (TreatmentsPage)
-// refresca la lista completa.
+// control, cambiar estado, dar de alta, ademas de editar y eliminar la
+// evolucion y cada nota) escriben sobre el tratamiento o procedimiento mas
+// reciente del paciente en el backend (ver treatmentsController.js). Cada
+// una abre su propio modal, confirmacion o selector y, al guardar, el
+// padre (TreatmentsPage) refresca la lista completa.
 const PatientTreatmentPanel = ({
   patient,
   onClose,
@@ -53,6 +53,7 @@ const PatientTreatmentPanel = ({
   onUploadDocument,
   onDeleteDocument,
   onScheduleControl,
+  onSetStatus,
   onDischarge,
 }) => {
   const [tab, setTab] = useState("Resumen");
@@ -62,6 +63,7 @@ const PatientTreatmentPanel = ({
   // editando esa nota puntual.
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [changingStatus, setChangingStatus] = useState(false);
   const fileInputRef = useRef(null);
 
   if (!patient) {
@@ -145,6 +147,19 @@ const PatientTreatmentPanel = ({
     }
   };
 
+  const handleChangeStatus = async (e) => {
+    const status = e.target.value;
+    setChangingStatus(true);
+    try {
+      await onSetStatus(status);
+      showSuccess(status === "auto" ? "Estado vuelto a automático" : "Estado actualizado");
+    } catch (err) {
+      showError(err.message || "No se pudo cambiar el estado");
+    } finally {
+      setChangingStatus(false);
+    }
+  };
+
   const handleDischarge = async () => {
     const confirmed = await confirmDischarge();
     if (!confirmed) return;
@@ -178,7 +193,26 @@ const PatientTreatmentPanel = ({
             </button>
           )}
         </div>
-        <StatusBadge label={patient.status} color={STATUS_STYLE[patient.status] ?? "gray"} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <StatusBadge label={patient.status} color={STATUS_STYLE[patient.status] ?? "gray"} />
+          {/* No existía ningún lugar del sistema donde este estado se
+              pudiera configurar: getFollowUp siempre lo calculaba solo a
+              partir de follow_up_date (ver treatmentsController.js). Este
+              selector permite fijarlo a mano cuando el cálculo automático
+              no aplica a un caso puntual, y "Automático" lo borra para
+              volver al cálculo por fecha. */}
+          <select
+            value={patient.statusIsManual ? patient.status : "auto"}
+            onChange={handleChangeStatus}
+            disabled={changingStatus}
+            className="text-[11px] font-semibold text-slate-500 border border-slate-200 rounded-lg px-1.5 py-1 disabled:opacity-60"
+          >
+            <option value="auto">Automático (según fecha de control)</option>
+            <option value="En tratamiento">En tratamiento</option>
+            <option value="Requiere revisión">Requiere revisión</option>
+            <option value="Finalizado">Finalizado</option>
+          </select>
+        </div>
       </div>
 
       {/* Tabs */}

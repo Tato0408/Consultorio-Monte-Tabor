@@ -42,6 +42,7 @@ const DiagnosisCard = ({ readOnly }) => {
                         type="text"
                         maxLength={100}
                         disabled={readOnly}
+                        placeholder="Ej. Faringitis aguda"
                         {...register("clinical_data.diagnosis", {
                             required: "El nombre del diagnóstico es obligatorio",
                         })}
@@ -65,6 +66,7 @@ const DiagnosisCard = ({ readOnly }) => {
                 rows={2}
                 maxLength={500}
                 disabled={readOnly}
+                placeholder="Ej. Eritema faríngeo con fiebre de 38°C de dos días de evolución"
                 {...register("clinical_data.diagnosis_description", {
                     required: "La descripción del diagnóstico es obligatoria",
                 })}

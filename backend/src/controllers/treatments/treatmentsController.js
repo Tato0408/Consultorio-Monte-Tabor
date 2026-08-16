@@ -169,13 +169,18 @@ treatmentsController.getFollowUp = async (req, res) => {
       const latest = procedures[procedures.length - 1];
       const followUpDate = latest?.follow_up_date ? new Date(latest.follow_up_date) : null;
 
-      // No existe ningún estado guardado del tratamiento; se deriva honestamente de la fecha de
-      // control: sin control programado se asume finalizado, con control futuro sigue activo, y
-      // si el control ya pasó y no hay un procedimiento más nuevo, requiere revisión.
+      // El estado se deriva de la fecha de control: sin control programado
+      // se asume finalizado, con control futuro sigue activo, y si el
+      // control ya pasó y no hay un procedimiento más nuevo, requiere
+      // revisión. status_override, fijado desde el selector de estado del
+      // panel del paciente (PATCH /treatments/:id/status), reemplaza este
+      // cálculo cuando alguien lo fija a mano.
       let status;
       if (!followUpDate) status = "Finalizado";
       else if (followUpDate >= today) status = "En tratamiento";
       else status = "Requiere revisión";
+      const statusIsManual = !!latest?.status_override;
+      if (statusIsManual) status = latest.status_override;
 
       // Receta y consulta asociadas al procedimiento más reciente (si
       // tiene consultation_id), de ahí salen los medicamentos y la
@@ -244,6 +249,10 @@ treatmentsController.getFollowUp = async (req, res) => {
             ? `En ${remaining} día(s)`
             : `Vencido hace ${Math.abs(remaining)} día(s)`,
         status,
+        // Indica al frontend si el estado de arriba viene del selector
+        // manual o del cálculo automático, para poder preseleccionar la
+        // opción correcta en el selector de estado del panel del paciente.
+        statusIsManual,
         clinicalInfo: {
           diagnostico: latest?.diagnosis || "Sin diagnóstico registrado",
           medicoResponsable: latest?.doctor_name || "—",
@@ -612,6 +621,40 @@ treatmentsController.scheduleControl = async (req, res) => {
     await patient.save();
 
     return res.status(200).json({ message: "Control programado" });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// Valores válidos para el selector de estado del panel del paciente.
+// "auto" no se guarda tal cual: significa borrar status_override y volver
+// a dejar que getFollowUp calcule el estado a partir de follow_up_date.
+const MANUAL_STATUS_VALUES = ["En tratamiento", "Requiere revisión", "Finalizado"];
+
+// PATCH /api/treatments/:patientId/status, selector de estado del panel
+// del paciente.
+// No existía ningún lugar en el sistema donde el estado de un tratamiento
+// (En tratamiento, Requiere revisión, Finalizado) se pudiera configurar:
+// getFollowUp lo calculaba siempre a partir de follow_up_date, sin
+// excepción. Este endpoint agrega status_override al procedimiento o
+// tratamiento actual del paciente, para poder fijar el estado a mano
+// cuando el cálculo automático no aplica a un caso puntual.
+treatmentsController.setStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (status !== "auto" && !MANUAL_STATUS_VALUES.includes(status)) {
+      return res.status(400).json({ message: "Selecciona un estado válido." });
+    }
+
+    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
+    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
+    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
+
+    latest.status_override = status === "auto" ? null : status;
+    await patient.save();
+
+    return res.status(200).json({ message: "Estado actualizado" });
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });

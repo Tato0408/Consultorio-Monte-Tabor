@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { User } from "lucide-react";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 const BORDER_COLORS = ["border-blue-400", "border-teal-400", "border-indigo-400", "border-cyan-400", "border-violet-400"];
 
@@ -15,17 +16,22 @@ const RecentConsultationsList = ({ consultations = [], doctorName = "" }) => {
     const navigate = useNavigate();
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-bold text-slate-800">Historial de consultas recientes</p>
+        <CollapsibleCard
+            title="Historial de consultas recientes"
+            // actions: slot propio del encabezado (ver CollapsibleCard.jsx), separado
+            // del botón de colapsar. Así "Ver todas" no queda metido dentro del área
+            // de contenido desplegable ni depende de márgenes negativos para
+            // acomodarse.
+            actions={
                 <button
-                    onClick={() => navigate("/calendar/appointments")}
-                    className="text-xs text-blue-600 font-semibold hover:underline"
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); navigate("/calendar/consultations"); }}
+                    className="text-xs text-blue-600 font-semibold hover:underline flex-shrink-0"
                 >
                     Ver todas
                 </button>
-            </div>
-
+            }
+        >
             {consultations.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center py-8">Sin consultas recientes</p>
             ) : (
@@ -63,7 +69,9 @@ const RecentConsultationsList = ({ consultations = [], doctorName = "" }) => {
 
                                 {/* Botón para ver el detalle */}
                                 <button
-                                    onClick={() => navigate("/calendar/appointments")}
+                                    onClick={() => navigate("/calendar/appointments", {
+                                        state: { initialView: "calendar", selectApptId: c._id, selectApptDate: c.date },
+                                    })}
                                     className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-colors font-medium"
                                 >
                                     Ver detalles
@@ -73,7 +81,7 @@ const RecentConsultationsList = ({ consultations = [], doctorName = "" }) => {
                     })}
                 </div>
             )}
-        </div>
+        </CollapsibleCard>
     );
 };
 

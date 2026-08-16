@@ -66,7 +66,6 @@ const ScheduleControlModal = ({ isOpen, onClose, initialValue = "", onSubmit }) 
             type="date"
             autoFocus
             min={new Date().toISOString().split("T")[0]}
-            max={`${new Date().getFullYear() + 5}-12-31`}
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"

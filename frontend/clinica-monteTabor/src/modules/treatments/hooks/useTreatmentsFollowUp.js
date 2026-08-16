@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import apiClient from "@/lib/apiClient";
 
 // Consulta GET /api/treatments/follow-up, que arma el seguimiento real de
-// cada paciente a partir de su historial de procedimientos, y expone las 4
+// cada paciente a partir de su historial de procedimientos, y expone las
 // acciones del panel del paciente: actualizar evolucion, agregar nota,
-// programar control y dar de alta.
+// programar control, cambiar estado y dar de alta.
 const useTreatmentsFollowUp = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -118,6 +118,17 @@ const useTreatmentsFollowUp = () => {
     [load]
   );
 
+  // status es "En tratamiento", "Requiere revisión", "Finalizado" o "auto"
+  // (este último borra el estado manual y vuelve a dejar que el backend lo
+  // calcule solo a partir de la fecha de control).
+  const setStatus = useCallback(
+    async (patientId, status) => {
+      await apiClient(`/treatments/${patientId}/status`, { method: "PATCH", body: { status } });
+      await load(false);
+    },
+    [load]
+  );
+
   const discharge = useCallback(
     async (patientId) => {
       await apiClient(`/treatments/${patientId}/discharge`, { method: "PATCH" });
@@ -142,6 +153,7 @@ const useTreatmentsFollowUp = () => {
     uploadDocument,
     deleteDocument,
     scheduleControl,
+    setStatus,
     discharge,
   };
 };

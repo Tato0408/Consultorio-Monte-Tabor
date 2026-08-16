@@ -137,8 +137,8 @@ const ConsultationForm = () => {
                             title="Paso 6 - Antecedentes heredofamiliarios - opcional"
                             name="antecedents.hereditary"
                             fields={[
-                                { key: "relative", label: "Parentesco", maxLength: 50 },
-                                { key: "condition", label: "Condición", maxLength: 50 },
+                                { key: "relative", label: "Parentesco", maxLength: 50, placeholder: "Ej. Madre" },
+                                { key: "condition", label: "Condición", maxLength: 50, placeholder: "Ej. Diabetes tipo 2" },
                             ]}
                             readOnly={readOnly}
                         />
@@ -147,8 +147,8 @@ const ConsultationForm = () => {
                             title="Paso 7 - Antecedentes patológicos - opcional"
                             name="antecedents.pathological"
                             fields={[
-                                { key: "disease", label: "Enfermedad", maxLength: 50 },
-                                { key: "type", label: "Tipo", maxLength: 30 },
+                                { key: "disease", label: "Enfermedad", maxLength: 50, placeholder: "Ej. Apendicitis" },
+                                { key: "type", label: "Tipo", maxLength: 30, placeholder: "Ej. Quirúrgico" },
                             ]}
                             readOnly={readOnly}
                         />
@@ -169,14 +169,14 @@ const ConsultationForm = () => {
                         <AntecedentsCard
                             title="Antecedentes no patológicos - opcional"
                             name="antecedents.non_pathological"
-                            fields={[{ key: "description", label: "Descripción", maxLength: 300 }]}
+                            fields={[{ key: "description", label: "Descripción", maxLength: 300, placeholder: "Ej. Fuma 5 cigarrillos al día, consume alcohol ocasionalmente" }]}
                             readOnly={readOnly}
                         />
 
                         <AntecedentsCard
                             title="Antecedentes ecológico-sociales - opcional"
                             name="antecedents.socio_ecological"
-                            fields={[{ key: "description", label: "Descripción", maxLength: 300 }]}
+                            fields={[{ key: "description", label: "Descripción", maxLength: 300, placeholder: "Ej. Vive en zona rural, sin acceso a agua potable" }]}
                             readOnly={readOnly}
                         />
 

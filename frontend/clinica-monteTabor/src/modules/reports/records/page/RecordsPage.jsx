@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import useRecords from "../hooks/useRecords";
 import RecordsTable from "../components/RecordsTable";
 import RecordDetailPage from "../components/RecordDetailPage";
@@ -13,8 +14,19 @@ import {
 } from "@/components/ui/table";
 
 const RecordsPage = () => {
+  const location = useLocation();
   const { records, loading, error, getRecordById, refetch } = useRecords();
   const [selectedId, setSelectedId] = useState(null);
+
+  // selectPatientId (puesto por RecordsAccessCard.jsx del dashboard del doctor al hacer clic en
+  // "Abrir") abre directamente el expediente de ese paciente, igual que si se hubiera hecho
+  // clic en su fila dentro de esta misma pantalla.
+  useEffect(() => {
+    const wanted = location.state?.selectPatientId;
+    if (wanted && !loading && records.some((r) => r.id === wanted)) {
+      setSelectedId(wanted);
+    }
+  }, [location.state, loading, records]);
 
   // Renderizado tipo SPA: en lugar de navegar a una ruta nueva, esta misma
   // página intercambia entre el listado y el expediente del paciente
