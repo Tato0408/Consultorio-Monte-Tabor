@@ -1,4 +1,4 @@
-const BASE = "http://localhost:4000/api/procedures";
+const BASE = "https://clinica-monte-tabor.onrender.com/api/procedures";
 
 const handleResponse = async (res) => {
   const data = await res.json();

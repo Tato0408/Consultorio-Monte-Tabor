@@ -102,6 +102,8 @@ registerDoctorController.register = async (req, res) => {
     res.cookie("registrationCookie", token, {
       maxAge: 15 * 60 * 1000,
       httpOnly: true,
+      secure: true,
+      sameSite: "none"
     });
 
     //EMAIL
@@ -239,6 +241,6 @@ registerDoctorController.verifyCode =
         message: "Error interno del servidor",
       });
     }
-};
+  };
 
 export default registerDoctorController;

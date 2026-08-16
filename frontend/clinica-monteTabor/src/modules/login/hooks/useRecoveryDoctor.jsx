@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 const API_URL =
-  "http://localhost:4000/api/recoveryDoctor";
+  "https://clinica-monte-tabor.onrender.com/api/recoveryDoctor";
 
 export const useRecoveryDoctor = () => {
   const [loading, setLoading] =

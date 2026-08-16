@@ -53,7 +53,12 @@ loginPatientsController.login = async (req, res) => {
         )
 
         // Guarda el token en una cookie.
-        res.cookie("AuthCookie", token);
+        res.cookie("AuthCookie", token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+            maxAge: 30 * 24 * 60 * 60 * 1000
+        });
 
         return res.status(200).json({ message: "Login successfully" })
 

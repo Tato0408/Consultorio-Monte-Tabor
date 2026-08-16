@@ -1,4 +1,4 @@
-const BASE = "http://localhost:4000/api/dashboard";
+const BASE = "https://clinica-monte-tabor.onrender.com/api/dashboard";
 
 // Valida la respuesta del fetch: si no fue exitosa, intenta leer el
 // mensaje de error del cuerpo y lanza una excepción con ese mensaje.

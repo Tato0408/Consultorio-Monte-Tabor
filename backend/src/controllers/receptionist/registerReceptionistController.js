@@ -109,8 +109,10 @@ registerReceptionistController.register =
         "registrationCookie",
         token,
         {
-          maxAge: 15 * 60 * 1000,
           httpOnly: true,
+          secure: true,
+          sameSite: "none",
+          maxAge: 30 * 24 * 60 * 60 * 1000
         },
       );
 
@@ -239,7 +241,11 @@ registerReceptionistController.verifyCode =
       // BORRAR COOKIE
       //Elimina la cookie del navegador ya que terminamos el proceso de registro con exito
       res.clearCookie(
-        "registrationCookie",
+        "registrationCookie", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none"
+      }
       );
 
       //devulve un codigo 200 indiacndo que la peticion fue exitosa y el recepcionista fue registrado

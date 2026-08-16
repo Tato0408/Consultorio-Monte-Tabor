@@ -111,7 +111,12 @@ loginController.loginCommonRole = async (req, res) => {
     );
 
     // 8. Guarda el token en una cookie.
-    res.cookie("authCookie", token);
+    res.cookie("authCookie", token ,{
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 30 * 24 * 60 * 60 * 1000
+    });
 
     // Retorna un estado exitoso junto con la información que usará el
     // frontend del usuario autenticado.

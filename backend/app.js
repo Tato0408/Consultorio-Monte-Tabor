@@ -49,6 +49,8 @@ import wompiWebhookRoutes from './src/routes/webhooks/wompi.js'
 import wompiRoutes from './src/routes/wompiRoutes.js'
 const app = express();
 
+
+app.set("trust proxy", 1);
 app.use(cookieParser());
 
 //Para que la API acepte JSON. El "verify" guarda también el cuerpo crudo en

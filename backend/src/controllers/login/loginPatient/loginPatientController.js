@@ -56,7 +56,12 @@ loginController.login = async (req, res) => {
       { expiresIn: "15m" },
     );
 
-    res.cookie("authCookie", token);
+    res.cookie("authCookie", token, {
+      maxAge: 15 * 60 * 1000,
+      httpOnly: true,
+      secure: true,
+      sameSite: "none"
+    });
     return res.status(200).json({
       message: "Inicio de sesión exitoso",
       token,
