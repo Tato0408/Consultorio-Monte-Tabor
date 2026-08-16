@@ -68,7 +68,12 @@ loginDoctorController.login = async (req, res) => {
     );
 
     // Guarda el token en una cookie con la misma duración de 30 días.
-    res.cookie("authCookie", token, {maxAge: 30 * 24 * 60 * 60 * 1000});
+    res.cookie("authCookie", token, {
+      maxAge: 15 * 60 * 1000,
+      httpOnly: true,
+      secure: true,
+      sameSite: "none"
+    });
 
     return res.status(200).json({ message: "Login successfully" });
   } catch (error) {

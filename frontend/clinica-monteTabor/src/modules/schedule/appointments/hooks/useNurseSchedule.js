@@ -1,4 +1,4 @@
-const BASE = "http://localhost:4000/api/nurse-schedule";
+const BASE = "https://clinica-monte-tabor.onrender.com/api/nurse-schedule";
 
 // Parsea la respuesta como JSON y lanza un error con el mensaje del
 // servidor si la solicitud no fue exitosa.

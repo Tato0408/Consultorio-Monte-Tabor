@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API_URL = "http://localhost:4000/api/recepcionist";
+const API_URL = "https://clinica-monte-tabor.onrender.com/api/recepcionist";
 
 export const useReceptionist = () => {
   const [receptionists, setReceptionists] = useState([]);

@@ -59,7 +59,12 @@ registerPatientController.register = async (req, res) => {
         );
 
         //#6 Guardamos el token en una cookie
-        res.cookie("registrationCookie", token, { maxAge: 15 * 60 * 1000 });
+        res.cookie("registrationCookie", token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+            maxAge: 30 * 24 * 60 * 60 * 1000
+        });
 
         //#7 Enviar un correo electronico
         const htmlContent = HTMLCreatePatient(name, randomCode);

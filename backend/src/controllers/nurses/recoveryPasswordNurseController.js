@@ -32,7 +32,12 @@ recoveryPasswordController.requestCode = async (req, res) => {
       { expiresIn: "15m" },
     );
 
-    res.cookie("recoveryCookie", token, { maxAge: 15 * 60 * 1000 });
+    res.cookie("recoveryCookie", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 30 * 24 * 60 * 60 * 1000
+    });
 
     const htmlContent = HTMLRecoveryEmail(randomCode);
 
@@ -69,7 +74,12 @@ recoveryPasswordController.verifyCode = async (req, res) => {
       { expiresIn: "15m" },
     );
 
-    res.cookie("recoveryCookie", newToken, { maxAge: 15 * 60 * 1000 });
+    res.cookie("recoveryCookie", newToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 30 * 24 * 60 * 60 * 1000
+    });
 
     return res.status(200).json({ message: "Código verificado correctamente" });
   } catch (error) {
@@ -143,7 +153,12 @@ recoveryPasswordController.resendCode = async (req, res) => {
     );
 
     // Sobrescribe la cookie, el código anterior queda invalidado.
-    res.cookie("recoveryCookie", newToken, { maxAge: 30 * 60 * 1000 });
+    res.cookie("recoveryCookie", newToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 30 * 24 * 60 * 60 * 1000
+    });
 
     const htmlContent = HTMLRecoveryEmail(randomCode);
 

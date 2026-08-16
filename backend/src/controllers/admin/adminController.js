@@ -135,7 +135,12 @@ adminController.updateAdmin = async (req, res) => {
             { expiresIn: "15m" },
         );
 
-        res.cookie("emailChangeCookie", token, { maxAge: 15 * 60 * 1000 });
+        res.cookie("emailChangeCookie", token, {
+            maxAge: 15 * 60 * 1000,
+            httpOnly: true,
+            secure: true,
+            sameSite: "none"
+        });
 
         //Enviamos el código al nuevo correo
         const htmlContent =
@@ -180,7 +185,11 @@ adminController.verifyEmailChange = async (req, res) => {
             { new: true },
         );
 
-        res.clearCookie("emailChangeCookie");
+        res.clearCookie("emailChangeCookie", {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none"
+        });
 
         return res.status(200).json({ message: "Correo actualizado" });
 

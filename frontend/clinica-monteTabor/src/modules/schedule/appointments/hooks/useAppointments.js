@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const API_URL = "http://localhost:4000/api/appointments";
+const API_URL = "https://clinica-monte-tabor.onrender.com/api/appointments";
 
 const OPTS = { credentials: "include" };
 

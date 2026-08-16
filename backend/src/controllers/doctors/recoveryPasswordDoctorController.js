@@ -17,7 +17,7 @@ recoveryPasswordController.requestCode = async (req, res) => {
   try {
     const { email } = req.body;
     console.log(req.body);
-console.log(email);
+    console.log(email);
 
     // Valida que el correo exista en la base de datos.
     const userFound = await doctorModel.findOne({ email });
@@ -34,7 +34,12 @@ console.log(email);
       { expiresIn: "15m" },
     );
 
-    res.cookie("recoveryCookie", token, { maxAge: 15 * 60 * 1000 });
+    res.cookie("recoveryCookie", token, {
+      maxAge: 15 * 60 * 1000,
+      httpOnly: true,
+      secure: true,
+      sameSite: "none"
+    });
 
     const htmlContent = HTMLRecoveryEmail(randomCode);
 
@@ -74,7 +79,12 @@ recoveryPasswordController.verifyCode = async (req, res) => {
       { expiresIn: "15m" },
     );
 
-    res.cookie("recoveryCookie", newToken, { maxAge: 15 * 60 * 1000 });
+    res.cookie("recoveryCookie", newToken, {
+      maxAge: 15 * 60 * 1000,
+      httpOnly: true,
+      secure: true,
+      sameSite: "none"
+    });
 
     return res.status(200).json({ message: "Código verificado correctamente" });
   } catch (error) {
@@ -148,7 +158,12 @@ recoveryPasswordController.resendCode = async (req, res) => {
     );
 
     // Sobrescribe la cookie, el código anterior queda invalidado.
-    res.cookie("recoveryCookie", newToken, { maxAge: 30 * 60 * 1000 });
+    res.cookie("recoveryCookie", newToken, {
+      maxAge: 15 * 60 * 1000,
+      httpOnly: true,
+      secure: true,
+      sameSite: "none"
+    });
 
     const htmlContent = HTMLRecoveryEmail(randomCode);
 
