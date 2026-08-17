@@ -148,11 +148,15 @@ export default function NewAppointmentScreen({ navigation }) {
             <SummaryRow icon="time-outline" label="Hora" value={`${selectedSlot.start_time} – ${selectedSlot.end_time}`} />
             <SummaryRow icon="hourglass-outline" label="Estado" value="Pendiente de asignación" />
           </View>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("Appointments")}>
+          {/* tabSwitch: false explícito: sin esto, si el usuario llegó aquí después de tocar
+              una pestaña del BottomNav, el tabSwitch: true de esa navegación anterior se
+              mezclaría con estos params (React Navigation combina params al reusar una
+              pantalla ya existente en el stack) y esta transición perdería su animación. */}
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("Appointments", { tabSwitch: false })}>
             <Ionicons name="calendar-outline" size={18} color="#2F6BFF" />
             <Text style={styles.secondaryButtonText}>Ver mis consultas</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate("Dashboard")}>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate("Dashboard", { tabSwitch: false })}>
             <Text style={styles.primaryButtonText}>Ir al inicio</Text>
           </TouchableOpacity>
         </ScrollView>

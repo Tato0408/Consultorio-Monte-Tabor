@@ -47,7 +47,9 @@ const BottomNav = ({ navigation, active, onAddPress }) => {
       showWarning("Próximamente disponible.");
       return;
     }
-    navigation?.navigate(route);
+    // tabSwitch: true desactiva la animación de slide en App.js — cambiar de pestaña debe
+    // sentirse como un re-render, no como un push de pantalla nueva.
+    navigation?.navigate(route, { tabSwitch: true });
   };
 
   const openAppointmentForm = () => navigation?.navigate("NewAppointment");

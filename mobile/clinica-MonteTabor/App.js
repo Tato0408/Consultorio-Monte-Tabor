@@ -54,15 +54,36 @@ function RootNavigator() {
     >
       {isLoggedIn ? (
         <>
-          <Stack.Screen name="Dashboard" component={DashboardScreen} />
-          <Stack.Screen name="Appointments" component={AppointmentsScreen} />
+          {/* Dashboard/Appointments/Medications/Profile son las 4 pestañas de BottomNav: al
+              cambiar entre ellas debe verse como un simple re-render (sin animación), no como
+              un push de pantalla nueva. BottomNav navega con { tabSwitch: true }; cualquier otra
+              navegación hacia estas mismas pantallas (ver NewAppointmentScreen,
+              NotificationsScreen) pasa { tabSwitch: false } de forma explícita para no heredar
+              por error un tabSwitch:true que haya quedado pegado de una navegación previa
+              (React Navigation mezcla los params al volver a una pantalla ya existente en el
+              stack). Esas SÍ deben animar: ahí es cuando el bottomBar se oculta/reaparece para
+              una acción distinta, que es el único caso en el que la animación debe verse. */}
+          <Stack.Screen
+            name="Dashboard"
+            component={DashboardScreen}
+            options={({ route }) => ({ animation: route.params?.tabSwitch ? "none" : "slide_from_right" })}
+          />
+          <Stack.Screen
+            name="Appointments"
+            component={AppointmentsScreen}
+            options={({ route }) => ({ animation: route.params?.tabSwitch ? "none" : "slide_from_right" })}
+          />
           <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
           <Stack.Screen name="ConsultationDetail" component={ConsultationDetailScreen} />
 
           {/* ---------- Perfil ---------- */}
-          <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={({ route }) => ({ animation: route.params?.tabSwitch ? "none" : "slide_from_right" })}
+          />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
           <Stack.Screen name="ListDetail" component={ListDetailScreen} />
@@ -78,7 +99,11 @@ function RootNavigator() {
           <Stack.Screen name="Lifestyle" component={LifestyleScreen} />
 
           {/* ---------- Medicamentos ---------- */}
-          <Stack.Screen name="Medications" component={MedicationsScreen} />
+          <Stack.Screen
+            name="Medications"
+            component={MedicationsScreen}
+            options={({ route }) => ({ animation: route.params?.tabSwitch ? "none" : "slide_from_right" })}
+          />
           <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
         </>
       ) : (
