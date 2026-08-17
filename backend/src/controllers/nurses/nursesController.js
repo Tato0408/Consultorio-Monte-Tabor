@@ -6,6 +6,7 @@ import { v2 as cloudinary } from "cloudinary"
 import bcrypt from 'bcryptjs'
 import { config } from "../../../config.js"
 import { sendEmail } from "../../utils/sendMailMailjet.js"
+import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js"
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js"
 const nursesController = {}
 
@@ -135,13 +136,11 @@ nursesController.insertNurses = async (req, res) => {
         if (!savedNurse) {
             return res.status(500).json({ message: "Error al agregar la enfermera" })
         }
-        const htmlContent = `Hola ${name} ${last_name}, su cuenta con el rol de enfermera ha sido creada exitosamente.
-                Correo: ${email}
-                Contraseña: ${password}
-                Inicie sesión por primera vez dentro del sistema para cambiar su contraseña.`;
-
-        sendEmail(email, "Su cuenta de enfermera ha sido creada", htmlContent)
-            .catch((error) => console.log(error));
+        sendEmail(
+            email,
+            "Tu cuenta de enfermera fue creada",
+            HTMLStaffCredentials(`${name} ${last_name}`, "enfermera", email, password)
+        ).catch((error) => console.log("Error enviando credenciales a la enfermera:", error));
 
         return res.status(200).json({ message: "Enfermera agregada correctamente" })
     } catch (error) {

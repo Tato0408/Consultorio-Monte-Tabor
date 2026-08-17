@@ -7,6 +7,8 @@ import consultationsModel from "../../models/consultations/consultation.js";
 import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
+import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js";
 
 //array de funciones, aqui agregamos las funciones y
 //al final del archivo este objeto lo exportaremos
@@ -226,6 +228,17 @@ doctorController.createDoctor = async (req, res) => {
       });
 
     await newDoctor.save();
+
+    // Le manda al correo registrado el usuario y la contraseña que el admin
+    // acaba de definir, para que el doctor tenga la certeza de haber
+    // recibido sus credenciales de acceso. No bloquea la respuesta si el
+    // envío falla (ej. Mailjet caído): la cuenta ya quedó creada de todos
+    // modos, y el admin puede reenviarlas manualmente si hace falta.
+    sendEmail(
+      email,
+      "Tu cuenta de doctor fue creada",
+      HTMLStaffCredentials(`${name} ${last_name}`, "doctor", email, password)
+    ).catch((error) => console.log("Error enviando credenciales al doctor:", error));
 
     return res.status(201).json({
       message:
