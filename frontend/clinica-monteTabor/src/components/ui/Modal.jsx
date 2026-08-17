@@ -4,18 +4,27 @@ import { createPortal } from "react-dom";
 /**
  * Modal lateral (drawer) que se abre desde la derecha.
  * Props:
- *   title    — título en el header
- *   subtitle — texto pequeño bajo el título (opcional)
- *   onClose  — función para cerrar
- *   children — contenido (formulario, etc.)
- *   width    — clase tailwind de ancho (default "w-[520px]")
- *   footer   — nodo React para los botones de acción (opcional, sticky al fondo)
+ * title: título mostrado en el header.
+ * subtitle: texto pequeño bajo el título (opcional).
+ * onClose: función que se invoca al cerrar el modal.
+ * children: contenido del modal (formulario, etc.).
+ * width: clase de tailwind para el ancho (por defecto "w-[520px]").
+ * footer: nodo React con los botones de acción (opcional, queda fijo al fondo).
+ * closeDisabled: true mientras el formulario interno está enviando una
+ * petición. Bloquea tanto el botón de cerrar como el clic en el fondo,
+ * para que no se pueda cerrar el modal y perder el estado, o disparar
+ * otra petición, a medio envío.
  */
-const Modal = ({ title, subtitle, onClose, children, footer, width = "w-[520px]" }) =>
-  createPortal(
+const Modal = ({ title, subtitle, onClose, children, footer, width = "w-[520px]", closeDisabled = false }) => {
+  const handleClose = () => {
+    if (closeDisabled) return;
+    onClose?.();
+  };
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={handleClose} />
 
       {/* Panel lateral derecho */}
       <div
@@ -34,8 +43,9 @@ const Modal = ({ title, subtitle, onClose, children, footer, width = "w-[520px]"
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            onClick={handleClose}
+            disabled={closeDisabled}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
             <X className="w-5 h-5 text-gray-400" />
           </button>
@@ -56,5 +66,6 @@ const Modal = ({ title, subtitle, onClose, children, footer, width = "w-[520px]"
     </div>,
     document.body
   );
+};
 
 export default Modal;

@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from "react";
 
-// Importación de los subcomponentes actualizados
 import DoctorsStats from "../components/DoctorsStats";
 import DoctorsTable from "../components/DoctorsTable";
 import DoctorProfileCard from "../components/DoctorProfileCard";
 import DoctorForm from "../components/DoctorsForm";
 
-// Importa el custom hook que maneja todo el estado global y peticiones de los doctores
 import { useDoctors } from "../hooks/useDoctors";
-// Importa las funciones personalizadas para mostrar las alertas de éxito o error en pantalla
 import { showSuccess, showError, confirmDelete } from "../../../lib/alerts";
 import { useAuth } from "@/context/AuthContext";
 
@@ -18,30 +15,25 @@ const DoctorsList = () => {
   const canUpdate = hasPermission("users.doctors", "update");
   const canDelete = hasPermission("users.doctors", "delete");
 
-  // Desestructura las propiedades y funciones necesarias desde el custom hook
   const {
     doctors,
     loading,
     error,
+    stats,
     getDoctors,
     deleteDoctor,
   } = useDoctors();
 
-  // useState para guardar el objeto del doctor seleccionado para ver su perfil detallado
   const [selectedDoctor, setSelectedDoctor] = useState(null);
-  // useState para controlar si el modal del formulario está abierto (true) o cerrado (false)
   const [isFormOpen, setIsFormOpen] = useState(false);
-  // useState para almacenar los datos del doctor que se va a modificar
   const [doctorToEdit, setDoctorToEdit] = useState(null);
 
   // ESTADOS PARA LA PAGINACIÓN
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(8);
 
-  // useEffect que se ejecuta una sola vez cuando el componente se monta
-  useEffect(() => {
-    getDoctors();
-  }, []);
+  // El hook useDoctors ya carga la lista al montarse mediante su propio
+  // useEffect interno, por lo que no es necesario volver a pedirla aquí.
 
   // Resetear a página 1 si cambia la cantidad de filas por página
   useEffect(() => {
@@ -60,21 +52,19 @@ const DoctorsList = () => {
     }
   }, [doctors, selectedDoctor]);
 
-  // Función para abrir el formulario en modo de creación nuevo
   const handleOpenCreate = () => {
     setDoctorToEdit(null);
     setIsFormOpen(true);
   };
 
-  // Función para abrir el formulario listo para modificar
   const handleOpenEdit = (doctor) => {
     setDoctorToEdit(doctor);
     setIsFormOpen(true);
   };
 
-  // CERRAR FORMULARIO Y REFRESCAR TABLA
-  // Solo muestra el mensaje de éxito y refresca la tabla si el formulario realmente guardó algo
-  // (wasSaved=true). Si el usuario cierra con la X sin guardar, wasSaved llega en false.
+  // Cierra el formulario. Solo refresca la tabla y muestra el mensaje de
+  // exito si el formulario realmente guardo algo (wasSaved en true). Si el
+  // usuario cierra con la X sin guardar, wasSaved llega en false.
   const handleCloseForm = async (wasSaved = false) => {
     setIsFormOpen(false);
 
@@ -90,7 +80,7 @@ const DoctorsList = () => {
     setDoctorToEdit(null);
   };
 
-  // ELIMINAR (con confirmación previa)
+  // Elimina un doctor previa confirmacion del usuario.
   const handleDeleteDoctor = async (id) => {
     const confirmed = await confirmDelete({
       title: "¿Eliminar este doctor?",
@@ -130,36 +120,36 @@ const DoctorsList = () => {
         </p>
       </div>
 
-      {/* Renderiza las tarjetas de estadísticas */}
-      <DoctorsStats doctors={doctors} loading={loading} />
+      <DoctorsStats doctors={doctors} stats={stats} loading={loading} />
 
       {/* CONTENEDOR EN REJILLA DE 12 COLUMNAS */}
       <div className="grid grid-cols-12 gap-6 mt-8">
         
-        {/* COLUMNA DE LA IZQUIERDA (TABLA Y PAGINADOR - Expandido a col-span-9) */}
+        {/* Columna izquierda: tabla y paginador (col-span-9) */}
         <div className="col-span-9">
-          
-          {/* Se eliminó <TableBar /> ya que el buscador e inputs ahora viven dentro de la tabla genérica */}
+
           <DoctorsTable
             doctors={doctors}
             loading={loading}
             error={error}
             onSelectDoctor={setSelectedDoctor}
             onOpenForm={canCreate ? handleOpenCreate : undefined}
-            onEditDoctor={handleOpenEdit}
-            onDeleteDoctor={handleDeleteDoctor}
+          />
+        </div>
+
+        {/* Columna derecha: tarjeta de perfil (col-span-3) */}
+        <div className="col-span-3">
+          <DoctorProfileCard
+            doctor={selectedDoctor}
+            onEdit={handleOpenEdit}
+            onDelete={handleDeleteDoctor}
             canUpdate={canUpdate}
             canDelete={canDelete}
           />
         </div>
-
-        {/* COLUMNA DE LA DERECHA (TARJETA DE PERFIL - Ajustado a col-span-3) */}
-        <div className="col-span-3">
-          <DoctorProfileCard doctor={selectedDoctor} />
-        </div>
       </div>
 
-      {/* MODAL DEL FORMULARIO DE REGISTRO / EDICIÓN */}
+      {/* Modal del formulario de registro y edicion */}
       <DoctorForm
         key={doctorToEdit?._id || "new"}
         isOpen={isFormOpen}

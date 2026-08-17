@@ -1,10 +1,10 @@
-import nodemailer from "nodemailer";
 import crypto from "crypto";
 import jsonwebtoken from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
 import patientsModel from "../../models/patients/patients.js"
 import { config } from "../../../config.js"
 import HTMLCreatePatient from "../../utils/HTMLCreatePatient.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
 
 //Array de funciones
 const registerPatientController = {};
@@ -28,7 +28,7 @@ registerPatientController.register = async (req, res) => {
         //#2 Validar si existe el correo del usuario dentro de la base de datos
         const existsPatient = await patientsModel.findOne({ email });
         if (existsPatient) {
-            return res.status(400).json({ message: "Patient already exists" });
+            return res.status(400).json({ message: "El paciente ya existe" });
         }
 
         //#3 Encriptar la contraseña
@@ -59,39 +59,26 @@ registerPatientController.register = async (req, res) => {
         );
 
         //#6 Guardamos el token en una cookie
-        res.cookie("registrationCookie", token, { maxAge: 15 * 60 * 1000 });
+        res.cookie("registrationCookie", token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+            maxAge: 30 * 24 * 60 * 60 * 1000
+        });
 
         //#7 Enviar un correo electronico
+        const htmlContent = HTMLCreatePatient(name, randomCode);
 
-        //#1 ¿Quien lo envia?
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: config.email.user_email,
-                pass: config.email.user_password
-            }
-        });
-
-        //#2 ¿Quíen lo recibe?
-        const mailOptions = {
-            from: config.email.user_email,
-            to: email,
-            subject: "Verificación de cuenta",
-            body: "El codigo vence en 15 minutos",
-            html: HTMLCreatePatient(name, randomCode),
-        };
-
-        //#3 Enviar el correo electronico
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.log("error" + error);
-                return res.status(500).json({ message: "Error sending email" });
-            }
-            return res.status(200).json({ message: "Email sent" });
-        });
+        try {
+            await sendEmail(email, "Verificación de cuenta", htmlContent);
+        } catch (error) {
+            console.log("error" + error);
+            return res.status(500).json({ message: "Error al enviar el correo" });
+        }
+        return res.status(200).json({ message: "Correo enviado" });
     } catch (error) {
         console.log("error" + error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 }
 
@@ -123,7 +110,7 @@ registerPatientController.verifyCode = async (req, res) => {
         } = decoded
 
         if (verificationCodeRequest !== storedCode) {
-            return res.status(400).json({ message: "Invalid code" })
+            return res.status(400).json({ message: "Código inválido" })
         }
 
         //Si todos los datos estan correctos guardamos en la base de datos
@@ -139,12 +126,12 @@ registerPatientController.verifyCode = async (req, res) => {
         await newPatient.save();
 
         res.clearCookie("registrationCookie")
-        return res.status(200).json({ message: "Patient registered" })
+        return res.status(200).json({ message: "Paciente registrado" })
 
 
     } catch (error) {
         console.log("error" + error)
-        return res.status(500).json({ message: "Internal server error" })
+        return res.status(500).json({ message: "Error interno del servidor" })
     }
 
 }

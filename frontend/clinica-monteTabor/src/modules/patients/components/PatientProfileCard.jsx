@@ -1,6 +1,6 @@
-import { User, Gift, CreditCard, Phone, Mail, UserPlus2 } from "lucide-react";
+import { User, Gift, CreditCard, Phone, Mail, UserPlus2, Edit2, Trash2 } from "lucide-react";
 
-const PatientProfileCard = ({ patient }) => {
+const PatientProfileCard = ({ patient, onEdit, onDelete, canUpdate = true, canDelete = true }) => {
   if (!patient) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 text-xs font-medium h-[400px] flex items-center justify-center shadow-sm">
@@ -76,6 +76,32 @@ const PatientProfileCard = ({ patient }) => {
           </span>
         </div>
       </div>
+
+      {/* Botones para editar o eliminar el paciente seleccionado en la tarjeta. */}
+      {(canUpdate || canDelete) && (
+        <div className="grid grid-cols-2 gap-2.5 p-5 pt-0">
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => onEdit?.(patient)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              Editar
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete?.(patient)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Eliminar
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

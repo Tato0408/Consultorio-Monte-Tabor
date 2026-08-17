@@ -1,36 +1,25 @@
-const BASE = "http://localhost:4000/api/procedures";
-
-const handleResponse = async (res) => {
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Error en la solicitud");
-  return data;
-};
+import apiClient from "@/lib/apiClient";
 
 const useProcedures = () => {
   const getProcedures = () =>
-    fetch(BASE, { credentials: "include" }).then(handleResponse);
+    apiClient("/procedures");
 
   const createProcedure = (body) =>
-    fetch(BASE, {
+    apiClient("/procedures", {
       method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then(handleResponse);
+      body,
+    });
 
   const updateProcedure = (id, body) =>
-    fetch(`${BASE}/${id}`, {
+    apiClient(`/procedures/${id}`, {
       method: "PUT",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then(handleResponse);
+      body,
+    });
 
   const deleteProcedure = (id) =>
-    fetch(`${BASE}/${id}`, {
+    apiClient(`/procedures/${id}`, {
       method: "DELETE",
-      credentials: "include",
-    }).then(handleResponse);
+    });
 
   return { getProcedures, createProcedure, updateProcedure, deleteProcedure };
 };

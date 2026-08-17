@@ -4,7 +4,8 @@ import useInsumos from "../hooks/useInsumos";
 
 import InventoryStats    from "../components/InventoryStats";
 import InventoryTable    from "../components/InventoryTable";
-import InventoryAlerts   from "../components/InventoryAlerts";
+import InventoryAlertsRow from "../components/InventoryAlertsRow";
+import QuickActionsCard  from "../components/QuickActionsCard";
 import TreatmentUsage    from "../components/TreatmentUsage";
 import InventoryCharts   from "../components/InventoryCharts";
 import RecentMovements   from "../components/RecentMovements";
@@ -23,8 +24,15 @@ const InventoryDashboard = () => {
   const { getStats } = useInsumos();
   const [stats, setStats]           = useState(null);
   const [refresh, setRefresh]       = useState(0);
-  const [modal, setModal]           = useState(null); // "add" | "edit" | "stock" | "usage" | "adjust"
+  // Puede ser add, edit, stock, usage o adjust.
+  const [modal, setModal]           = useState(null);
   const [editItem, setEditItem]     = useState(null);
+  // Distancia en píxeles entre el inicio de InventoryTable y el
+  // inicio real de su tabla interna (después de la fila de título y
+  // búsqueda), reportada en vivo por GenericTable. Sirve para bajar
+  // el bloque de acciones rápidas la misma distancia, de modo que
+  // quede alineado con la tabla y no con esos controles superiores.
+  const [tableOffset, setTableOffset] = useState(0);
 
   const loadStats = useCallback(() => {
     getStats().then(setStats).catch(() => {});
@@ -41,7 +49,10 @@ const InventoryDashboard = () => {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Inventario</h1>
           <p className="text-sm text-slate-400 mt-1">Gestiona los insumos médicos y el stock de tu clínica</p>
         </div>
-        <div className="flex items-center gap-3 sm:flex-shrink-0">
+        {/* La clase sm:mt-8 baja este bloque a la misma altura que el
+            botón Guardar cambios de Horarios, para que no choque con
+            la campana de notificaciones (fixed, ver MainLayout.jsx). */}
+        <div className="flex items-center gap-3 sm:flex-shrink-0 sm:mt-8">
           <button className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Exportar reporte</span>
@@ -62,25 +73,35 @@ const InventoryDashboard = () => {
 
       <InventoryStats stats={stats} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+      {/* La clase items-start hace que cada columna tome su propia
+          altura de contenido en vez de estirarse a la más alta. Esto
+          es necesario para que la medición de arriba sea real. */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6 items-start">
         <div className="lg:col-span-8">
-          <h2 className="text-base font-semibold text-slate-800 mb-3">Productos / Insumos</h2>
           <InventoryTable
             onEdit={(item) => { setEditItem(item); setModal("edit"); }}
             onRefresh={triggerRefresh}
             refreshTrigger={refresh}
             canUpdate={canUpdate}
             canDelete={canDelete}
+            onTableOffsetChange={setTableOffset}
           />
         </div>
         <div className="lg:col-span-4">
-          <InventoryAlerts
-            stats={stats}
-            onStockEntry={() => setModal("stock")}
-            onManualUsage={() => setModal("usage")}
-            onAdjust={() => setModal("adjust")}
-          />
+          <div style={{ marginTop: tableOffset }}>
+            <QuickActionsCard
+              onStockEntry={() => setModal("stock")}
+              onManualUsage={() => setModal("usage")}
+              onAdjust={() => setModal("adjust")}
+            />
+          </div>
         </div>
+      </div>
+
+      {/* A todo el ancho de la pantalla (no solo el ancho de la tabla), y ambas del mismo
+          largo (CollapsibleCard ya se estira con h-full para igualar la más alta). */}
+      <div className="mt-6">
+        <InventoryAlertsRow stats={stats} />
       </div>
 
       <div className="mt-6">

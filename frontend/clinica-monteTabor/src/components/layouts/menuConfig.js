@@ -1,6 +1,4 @@
-//Roles existentes en el proyecto
-
-//Usar export al inicio nos permite exportar multiples elementos de este archivo al contrario del default que exporta todo un componente
+// Roles existentes en el proyecto.
 export const roles = {
     admin: "admin",
     doctor: "doctor",
@@ -8,7 +6,7 @@ export const roles = {
     receptionist: "receptionist"
 };
  
-//Apartados que conforman el menu lateral
+// Apartados que conforman el menú lateral.
 export const sideBarMenu = [
     {
         title: 'Dashboard',
@@ -20,7 +18,11 @@ export const sideBarMenu = [
         title: 'Calendario',
         icon: 'Calendar',
         subItems: [
-            { title: 'Horarios', icon: 'CalendarClock', path: '/calendar/schedule-config', moduleKey: 'calendar.schedule' },
+            // "Horarios" es para quien puede tener un horario propio (doctor, enfermera,
+            // admin). Recepción necesita calendar.schedule.view para consultar
+            // disponibilidad al agendar, pero eso no debe abrirle esta pantalla de
+            // autoservicio (ver RequireRole en App.jsx).
+            { title: 'Horarios', icon: 'CalendarClock', path: '/calendar/schedule-config', moduleKey: 'calendar.schedule', hiddenForRoles: ['receptionist'] },
             { title: 'Citas', icon: 'CalendarCheck2', path: '/calendar/appointments', moduleKey: 'calendar.appointments' },
             { title: 'Consultas', icon: 'ClipboardList', path: '/calendar/consultations', moduleKey: 'calendar.consultations' }
         ]
@@ -39,7 +41,8 @@ export const sideBarMenu = [
         title: 'Procedimientos',
         icon: 'Activity',
         subItems: [
-            { title: 'Procedimientos', icon: 'Stethoscope', path: '/procedures', moduleKey: 'procedures' }
+            { title: 'Procedimientos', icon: 'Stethoscope', path: '/procedures', moduleKey: 'procedures' },
+            { title: 'Tratamientos', icon: 'FileBox', path: '/inventory/treatments', moduleKey: 'inventory.treatments' }
         ]
     },
     {
@@ -57,7 +60,6 @@ export const sideBarMenu = [
         icon: 'Package',
         subItems: [
             { title: 'Productos', icon: 'Briefcase', path: '/inventory/products', moduleKey: 'inventory.products' },
-            { title: 'Tratamientos', icon: 'FileBox', path: '/inventory/treatments', moduleKey: 'inventory.treatments' },
             { title: 'Movimientos', icon: 'FileSignature', path: '/inventory/movements', moduleKey: 'inventory.movements' },
             { title: 'Reportes de inventario', icon: 'ClipboardCheck', path: '/inventory/reports', moduleKey: 'inventory.reports' }
         ]

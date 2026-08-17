@@ -1,7 +1,13 @@
 import { Calendar, Clock, CheckCircle2, Stethoscope } from "lucide-react";
 
-const StatCard = ({ icon: Icon, iconBg, label, value, isLoading }) => (
-    <div className="flex items-center gap-4 bg-white border border-slate-100 rounded-xl px-5 py-4 shadow-sm">
+const StatCard = ({ icon: Icon, iconBg, label, value, isLoading, onClick, isActive }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        className={`flex items-center gap-4 bg-white border rounded-xl px-5 py-4 shadow-sm text-left transition-colors ${
+            onClick ? "cursor-pointer hover:border-[#0b66d6]/40 hover:shadow-md" : "cursor-default"
+        } ${isActive ? "border-[#0b66d6] ring-1 ring-[#0b66d6]/30" : "border-slate-100"}`}
+    >
         <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
             <Icon className="text-white" size={20} />
         </div>
@@ -11,14 +17,21 @@ const StatCard = ({ icon: Icon, iconBg, label, value, isLoading }) => (
                 {isLoading ? "—" : value}
             </p>
         </div>
-    </div>
+    </button>
 );
 
 const formatPatientName = (patient) =>
     patient ? `${patient.name} ${patient.last_name}` : "Sin paciente";
 
-const AppointmentStatsCards = ({ stats, isLoading }) => {
+// onFilterClick(statusValue) filtra la tabla de abajo por ese estado
+// y por las citas del usuario logueado (doctor_id). activeFilter
+// permite resaltar la tarjeta que corresponde al filtro actualmente
+// aplicado.
+const AppointmentStatsCards = ({ stats, isLoading, onFilterClick, activeFilter }) => {
     const next = stats.nextAppointment;
+
+    const isCardActive = (statusValue) =>
+        Boolean(activeFilter?.doctor_id) && activeFilter?.status === statusValue;
 
     return (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -28,6 +41,8 @@ const AppointmentStatsCards = ({ stats, isLoading }) => {
                 label="Agendados"
                 value={stats.scheduled}
                 isLoading={isLoading}
+                onClick={() => onFilterClick?.("pending, scheduled")}
+                isActive={isCardActive("pending, scheduled")}
             />
             <StatCard
                 icon={Clock}
@@ -35,6 +50,8 @@ const AppointmentStatsCards = ({ stats, isLoading }) => {
                 label="En espera"
                 value={stats.waiting}
                 isLoading={isLoading}
+                onClick={() => onFilterClick?.("scheduled")}
+                isActive={isCardActive("scheduled")}
             />
             <StatCard
                 icon={CheckCircle2}
@@ -42,6 +59,8 @@ const AppointmentStatsCards = ({ stats, isLoading }) => {
                 label="Completados"
                 value={stats.completed}
                 isLoading={isLoading}
+                onClick={() => onFilterClick?.("completed")}
+                isActive={isCardActive("completed")}
             />
 
             {/* Card destacada de próxima cita */}

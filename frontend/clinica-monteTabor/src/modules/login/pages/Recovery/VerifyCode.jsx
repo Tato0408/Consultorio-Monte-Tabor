@@ -7,7 +7,7 @@ import PrimaryButton from "../../components/PrimaryButton";
 import SecondaryButton from "../../components/SecondaryButton";
 import FooterLogin from "../../components/Footer";
 
-//Importamos todos los hooks de recuperación para cada tipo de usuario
+// Importa todos los hooks de recuperación para cada tipo de usuario.
 import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
 import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
 import { useRecoveryAdmin } from "../../hooks/useRecoveryAdmin";
@@ -25,14 +25,14 @@ const VerifyCode = () => {
   //Hook para navegar entre pantallas
   const navigate = useNavigate();
 
-  //Inicializamos todos los hooks de recuperación
-  //Luego elegiremos cuál usar dependiendo del rol guardado
+  // Inicializa todos los hooks de recuperación disponibles.
+  // Más adelante se elige cuál usar según el rol guardado.
   const doctorRecovery = useRecoveryDoctor();
   const receptionistRecovery = useRecoveryReceptionist();
   const adminRecovery = useRecoveryAdmin();
   const nurseRecovery = useRecoveryNurse();
 
-  //Convertimos el arreglo del código en un solo string
+  // Convierte el arreglo del código en un solo string.
   const codeString = code.join("");
 
   //Esta función devuelve el hook correcto según el tipo de usuario
@@ -55,11 +55,14 @@ const VerifyCode = () => {
     }
   };
 
-  //Obtenemos el hook que corresponde al usuario actual
+  // Obtiene el hook que corresponde al usuario actual.
   const activeHook = getActiveRecoveryHook();
 
-  //Tomamos el estado de carga del hook activo
-  const loading = activeHook.loading;
+  // El loading del hook activo solo lo activa su propio resendCode
+  // interno, ni verifyCode ni requestCode lo modifican, así que no
+  // sirve para bloquear este formulario. Por eso se controla con un
+  // estado independiente.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   //Reglas que debe cumplir el código antes de enviarlo
   const codeRules = [
@@ -75,7 +78,7 @@ const VerifyCode = () => {
     },
   ];
 
-  //Verificamos si todas las reglas se cumplen
+  // Verifica si todas las reglas se cumplen.
   const allRulesPassed = codeRules.every((r) => r.test(codeString));
 
   //Se ejecuta cada vez que cambia un input del código
@@ -83,16 +86,17 @@ const VerifyCode = () => {
     //Solo permite números y letras hexadecimales
     if (!/^[a-fA-F0-9]*$/.test(value)) return;
 
-    //Copiamos el arreglo actual
+    // Copia el arreglo actual.
     const newCode = [...code];
 
-    //Actualizamos la posición correspondiente
+    // Actualiza la posición correspondiente.
     newCode[index] = value;
 
-    //Guardamos el nuevo código
+    // Guarda el nuevo código.
     setCode(newCode);
 
-    //Si escribió un carácter, avanzamos automáticamente al siguiente input
+    // Si se escribió un carácter, avanza automáticamente al
+    // siguiente input.
     if (value && index < 5) {
       document.getElementById(`code-${index + 1}`)?.focus();
     }
@@ -108,66 +112,74 @@ const VerifyCode = () => {
   //Función para verificar el código ingresado
   const handleVerify = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
-    //Limpiamos errores anteriores
+    // Limpia errores anteriores.
     setError("");
 
-    //Si el código no cumple las reglas no continuamos
+    // Si el código no cumple las reglas, no continúa.
     if (!allRulesPassed) {
       setError("Ingresa el código completo");
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      //Verificamos el código utilizando el hook correspondiente
+      // Verifica el código utilizando el hook correspondiente.
       await activeHook.verifyCode(codeString);
 
-      //Mostramos mensaje de éxito
+      // Muestra un mensaje de éxito.
       showSuccess("Código verificado correctamente");
 
-      //Redirigimos a la pantalla para cambiar la contraseña
+      // Redirige a la pantalla para cambiar la contraseña.
       navigate("/new-password");
     } catch (error) {
       console.log("Error código:", error);
 
-      //Mostramos el mensaje si el código es inválido
+      // Muestra el mensaje si el código es inválido.
       setError("Código incorrecto o expirado");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   //Función para reenviar el código al correo
   const handleResendCode = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
-    //Limpiamos errores anteriores
+    // Limpia errores anteriores.
     setError("");
 
+    setIsSubmitting(true);
     try {
-      //Obtenemos el correo guardado durante la recuperación
+      // Obtiene el correo guardado durante la recuperación.
       const savedEmail = localStorage.getItem("recoveryEmail");
 
-      //Si no existe el correo no se puede reenviar
+      // Si no existe el correo no se puede reenviar.
       if (!savedEmail) {
         setError("No se encontró el correo. Vuelve a iniciar el proceso.");
         return;
       }
 
-      //Solicitamos un nuevo código utilizando el mismo hook
+      // Solicita un nuevo código utilizando el mismo hook.
       await activeHook.requestCode(savedEmail);
 
-      //Mostramos mensaje de éxito
+      // Muestra un mensaje de éxito.
       showSuccess("Código reenviado correctamente");
     } catch (error) {
       console.log("Error reenviando código:", error);
 
-      //Mostramos el error correspondiente
+      // Muestra el error correspondiente.
       setError("Error al reenviar el código");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <AuthLayout
-      title="UN ÚLTIMO PASO"
+      title="Un último paso"
       subtitle="Hemos enviado un código de 6 dígitos a tu correo electrónico"
     >
       <div className="flex-1 flex flex-col justify-between px-8 sm:px-12 py-5">
@@ -187,78 +199,82 @@ const VerifyCode = () => {
 
             <form onSubmit={handleVerify} className="flex flex-col gap-5">
 
-              {/* Inputs donde el usuario escribe el código */}
-              <div className="flex justify-center gap-3">
-                {code.map((digit, index) => (
-                  <input
-                    key={index}
-                    id={`code-${index}`}
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleChange(e.target.value, index)}
-                    onKeyDown={(e) => handleKeyDown(e, index)}
-                    className="w-12 h-12 border rounded-lg text-center text-xl outline-none focus:border-blue-500 transition-colors"
-                  />
-                ))}
-              </div>
+              {/* fieldset nativo: desactiva de un solo golpe todos los inputs y botones que
+                  contiene mientras se verifica el código o se reenvía uno nuevo */}
+              <fieldset disabled={isSubmitting} className="flex flex-col gap-5 border-0 p-0 m-0 min-w-0">
+                {/* Inputs donde el usuario escribe el código */}
+                <div className="flex justify-center gap-3">
+                  {code.map((digit, index) => (
+                    <input
+                      key={index}
+                      id={`code-${index}`}
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleChange(e.target.value, index)}
+                      onKeyDown={(e) => handleKeyDown(e, index)}
+                      className="w-12 h-12 border rounded-lg text-center text-xl outline-none focus:border-blue-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-gray-50"
+                    />
+                  ))}
+                </div>
 
-              {/* Lista que muestra qué reglas ya se cumplen */}
-              <div className="flex flex-col gap-2 px-1">
-                {codeRules.map((rule) => {
-                  const passed = rule.test(codeString);
+                {/* Lista que muestra qué reglas ya se cumplen */}
+                <div className="flex flex-col gap-2 px-1">
+                  {codeRules.map((rule) => {
+                    const passed = rule.test(codeString);
 
-                  return (
-                    <div key={rule.id} className="flex items-center gap-2">
-                      {passed ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                      )}
+                    return (
+                      <div key={rule.id} className="flex items-center gap-2">
+                        {passed ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        ) : (
+                          <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                        )}
 
-                      <span
-                        className={`text-xs transition-colors duration-200 ${
-                          passed
-                            ? "text-emerald-600"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {rule.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+                        <span
+                          className={`text-xs transition-colors duration-200 ${
+                            passed
+                              ? "text-emerald-600"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {rule.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
 
-              {/* Mensaje de error si ocurre alguno */}
-              {error && (
-                <p className="text-red-500 text-sm text-center">
-                  {error}
-                </p>
-              )}
+                {/* Mensaje de error si ocurre alguno */}
+                {error && (
+                  <p className="text-red-500 text-sm text-center">
+                    {error}
+                  </p>
+                )}
 
-              {/* Botón para verificar el código */}
-              <PrimaryButton
-                loading={loading}
-                type="submit"
-                disabled={!allRulesPassed || loading}
-              >
-                Verificar código
-              </PrimaryButton>
-
-              {/* Opción para solicitar un nuevo código */}
-              <div className="text-sm text-gray-400 text-center">
-                ¿No recibiste el código?
-                <button
-                  type="button"
-                  className="text-blue-600 font-medium ml-1"
-                  onClick={handleResendCode}
+                {/* Botón para verificar el código */}
+                <PrimaryButton
+                  loading={isSubmitting}
+                  type="submit"
+                  disabled={!allRulesPassed || isSubmitting}
                 >
-                  Reenviar código
-                </button>
-              </div>
+                  Verificar código
+                </PrimaryButton>
 
-              {/* Botón para volver al login */}
-              <SecondaryButton to="/login">
+                {/* Opción para solicitar un nuevo código */}
+                <div className="text-sm text-gray-400 text-center">
+                  ¿No recibiste el código?
+                  <button
+                    type="button"
+                    className="text-blue-600 font-medium ml-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                    onClick={handleResendCode}
+                  >
+                    Reenviar código
+                  </button>
+                </div>
+              </fieldset>
+
+              {/* Un <Link> no es un control de formulario: fieldset no lo alcanza, se desactiva aparte */}
+              <SecondaryButton to="/login" disabled={isSubmitting}>
                 Volver al inicio de sesión
               </SecondaryButton>
 

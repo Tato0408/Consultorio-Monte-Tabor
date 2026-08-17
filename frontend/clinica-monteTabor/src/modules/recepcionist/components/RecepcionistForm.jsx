@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { User, Plus, X, Loader2, Lock, Eye, EyeOff, CheckCircle2, Circle } from "lucide-react";
 import { showError } from "../../../lib/alerts";
 import { getMaxAdultBirthDate, validateAdultBirthDate } from "../../../lib/validators";
+import { maskLettersOnly } from "../../../lib/inputMasks";
 import { useReceptionist } from "../hooks/useRecepcionist";
 
 // Nombres legibles de cada campo, para el aviso que identifica qué campo falló al enviar
@@ -22,19 +23,15 @@ const ReceptionistForm = ({
   receptionist,
   refreshReceptionists,
 }) => {
-  //Desestructuramos las funciones que vamos a ocupar del hook
   const { createReceptionist, updateReceptionist } = useReceptionist();
 
-  //Estado para controlar cuando se esta guardando la informacion
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  //Aqui guardamos la imagen seleccionada
   const [imageFile, setImageFile] = useState(null);
 
-  //Estado para mostrar la vista previa de la imagen
   const [profilePreview, setProfilePreview] = useState("");
-  //Estado para mostrar el aviso de "imagen requerida" cuando se envía el formulario sin foto
+  // Muestra el aviso de imagen requerida cuando se envia el formulario sin foto
   const [imageError, setImageError] = useState("");
   const fileInputRef = useRef(null);
 
@@ -54,20 +51,22 @@ const ReceptionistForm = ({
       dui: "",
       birth_date: "",
       password: "",
+      is_active: true,
     },
   });
 
   const passwordValue = watch("password", "");
+  const isActiveValue = watch("is_active");
   const passwordValidations = {
-    hasMinLength: passwordValue.length > 8,
+    hasMinLength: passwordValue.length >= 8,
     hasMixedCase: /[a-z]/.test(passwordValue) && /[A-Z]/.test(passwordValue),
     hasNumbers: /\d/.test(passwordValue),
     hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(passwordValue),
   };
   const isPasswordValid = Object.values(passwordValidations).every(Boolean);
 
-  //Si estamos editando cargamos los datos
-  //Si estamos creando limpiamos el formulario
+  // Carga los datos del recepcionista en el formulario al abrir el modal en
+  // modo edicion, o limpia los campos si se trata de un registro nuevo.
   useEffect(() => {
     if (receptionist && isOpen) {
       reset({
@@ -76,10 +75,11 @@ const ReceptionistForm = ({
         phone: receptionist.phone || "",
         email: receptionist.email || "",
         dui: receptionist.dui || "",
-        //Cortamos la fecha para que el input date la pueda leer
+        // Recorta la fecha para que el input date la pueda leer
         birth_date: receptionist.birth_date ? receptionist.birth_date.split("T")[0] : "",
-        //Por seguridad no cargamos la contraseña
+        // Se deja vacia por seguridad
         password: "",
+        is_active: receptionist.is_active !== undefined ? receptionist.is_active : true,
       });
     } else if (!receptionist && isOpen) {
       reset({
@@ -90,32 +90,33 @@ const ReceptionistForm = ({
         dui: "",
         birth_date: "",
         password: "",
+        is_active: true,
       });
     }
 
-    //Limpiamos la imagen seleccionada
+    // Limpia la imagen seleccionada y los mensajes de error al abrir o
+    // cerrar el modal.
     setImageFile(null);
     setImageError("");
     setShowPassword(false);
   }, [receptionist, isOpen, reset]);
 
-  //Actualizamos la vista previa de la imagen
+  // Genera la url temporal de la vista previa de la foto de perfil. Si no
+  // se selecciono una foto nueva, usa la que el recepcionista ya tiene.
   useEffect(() => {
-    //Si no hay imagen nueva mostramos la actual
     if (!imageFile) {
       setProfilePreview(receptionist?.img_url || "");
       return;
     }
 
-    //Creamos una url temporal para mostrar la imagen
     const objectUrl = URL.createObjectURL(imageFile);
     setProfilePreview(objectUrl);
 
-    //Liberamos la memoria cuando cambie la imagen
+    // Libera la url de la memoria del navegador cuando deja de usarse
     return () => URL.revokeObjectURL(objectUrl);
   }, [imageFile, receptionist]);
 
-  //Guarda la imagen seleccionada
+  // Guarda la imagen seleccionada
   const handleImage = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -124,7 +125,14 @@ const ReceptionistForm = ({
     setImageError("");
   };
 
-  // Mascara de telefono: solo digitos, formato XXXX-XXXX (misma logica que Pacientes/Enfermeras)
+  // Mascara de solo letras (nombres y apellidos). Igual que handlePhoneMask
+  // y handleDuiMask, el onChange sobreescribe el del register y dispara la
+  // validacion manualmente.
+  const makeLettersMaskHandler = (field, max) => (e) =>
+    setValue(field, maskLettersOnly(e.target.value, max), { shouldValidate: true });
+
+  // Mascara de telefono: solo digitos, formato XXXX-XXXX (misma logica que
+  // en Pacientes y Enfermeras).
   const handlePhoneMask = (e) => {
     let digits = e.target.value.replace(/\D/g, "");
     if (digits.length > 8) digits = digits.slice(0, 8);
@@ -132,7 +140,8 @@ const ReceptionistForm = ({
     setValue("phone", masked, { shouldValidate: true });
   };
 
-  // Mascara de DUI: solo digitos, formato XXXXXXXX-X (misma logica que Pacientes/Enfermeras)
+  // Mascara de DUI: solo digitos, formato XXXXXXXX-X (misma logica que en
+  // Pacientes y Enfermeras).
   const handleDuiMask = (e) => {
     let digits = e.target.value.replace(/\D/g, "");
     if (digits.length > 9) digits = digits.slice(0, 9);
@@ -140,13 +149,15 @@ const ReceptionistForm = ({
     setValue("dui", masked, { shouldValidate: true });
   };
 
-  //Se ejecuta cuando se envia el formulario
+  // Procesa y envia el formulario al guardar o actualizar un recepcionista.
   const onSubmit = async (formValues) => {
-    // Al crear, no se permite enviar si la contraseña no cumple los requisitos de seguridad
+    if (loading) return;
+    // Al crear, no se permite enviar si la contraseña no cumple los
+    // requisitos de seguridad.
     if (!receptionist && !isPasswordValid) return;
 
-    // Al crear, la foto de perfil es obligatoria (el backend también lo exige); se avisa
-    // aquí antes de mandar la petición
+    // Al crear, la foto de perfil es obligatoria (el backend tambien lo
+    // exige). Se avisa aqui antes de mandar la peticion.
     if (!receptionist && !imageFile) {
       setImageError("La foto de perfil es requerida");
       showError("Revisa este/estos campo(s): Foto de perfil");
@@ -156,12 +167,12 @@ const ReceptionistForm = ({
     try {
       setLoading(true);
 
-      //Creamos un FormData para enviar la informacion
+      // FormData es necesario para enviar los campos de texto y la imagen
+      // en la misma peticion.
       const data = new FormData();
 
-      //Agregamos todos los campos al FormData
       Object.entries(formValues).forEach(([key, value]) => {
-        //Si estamos editando y la contraseña esta vacia no la enviamos
+        // Al editar, no se envia la contraseña si se dejo en blanco
         if (key === "password" && receptionist && !value) return;
 
         if (value !== undefined && value !== null) {
@@ -169,37 +180,33 @@ const ReceptionistForm = ({
         }
       });
 
-      //Si hay una imagen la agregamos
       if (imageFile) {
         data.append("receptionistImage", imageFile);
       }
 
-      //Si existe un recepcionista actualizamos
       if (receptionist) {
         await updateReceptionist(receptionist._id, data);
       } else {
-        //Si no existe creamos uno nuevo
         await createReceptionist(data);
       }
 
-      //Actualizamos la tabla
       await refreshReceptionists();
 
-      //Cerramos el modal indicando que si se guardo
+      // El true indica que si se guardo, para que el llamador muestre el
+      // mensaje de exito correspondiente.
       onClose(true);
     } catch (error) {
       console.error(error);
 
       showError(error.message || "No se pudo guardar el recepcionista.");
     } finally {
-      //Quitamos el loading
       setLoading(false);
     }
   };
 
-  // Se dispara cuando el envío falla la validación (campos vacíos o con formato inválido);
-  // además del contorno rojo y el mensaje debajo de cada input, avisa arriba a la derecha
-  // qué campo(s) específicos hay que corregir.
+  // Se dispara cuando el envio falla la validacion (campos vacios o con
+  // formato invalido). Ademas del contorno rojo y el mensaje debajo de cada
+  // input, avisa arriba a la derecha que campos hay que corregir.
   const onInvalid = (formErrors) => {
     const invalidFields = Object.keys(formErrors).map((key) => FIELD_LABELS[key] || key);
     showError(`Revisa este/estos campo(s): ${invalidFields.join(", ")}`);
@@ -221,7 +228,6 @@ const ReceptionistForm = ({
         : "border-gray-200 focus:border-blue-500"
     }`;
 
-  //Si el modal esta cerrado no mostramos nada
   if (!isOpen) return null;
 
   return (
@@ -232,7 +238,8 @@ const ReceptionistForm = ({
         <button
           type="button"
           onClick={() => onClose(false)}
-          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          disabled={loading}
+          className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           <X className="w-5 h-5" />
         </button>
@@ -240,8 +247,8 @@ const ReceptionistForm = ({
         {/* FOTO DE PERFIL */}
         <input type="file" ref={fileInputRef} onChange={handleImage} accept="image/*" className="hidden" />
         <div
-          className="relative mb-1.5 group cursor-pointer"
-          onClick={() => fileInputRef.current?.click()}
+          className={`relative mb-1.5 group ${loading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
+          onClick={() => !loading && fileInputRef.current?.click()}
         >
           <div className={`w-24 h-24 rounded-full bg-[#F3F4F6] border flex items-center justify-center overflow-hidden ${imageError ? "border-red-400" : "border-gray-100"}`}>
             {profilePreview ? (
@@ -261,16 +268,25 @@ const ReceptionistForm = ({
         </h2>
 
         <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="w-full flex flex-col gap-4">
+          {/* El fieldset usa display:contents para desactivar de un solo golpe
+              todos los inputs y botones que contiene durante el envio, sin
+              alterar el layout. */}
+          <fieldset disabled={loading} className="contents">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-gray-400">Nombres</label>
               <input
                 type="text"
                 placeholder="Ingrese los nombres"
+                maxLength={50}
                 {...register("name", { required: "El nombre es requerido" })}
+                onChange={makeLettersMaskHandler("name", 50)}
                 className={inputClass(errors.name)}
               />
-              {errors.name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.name.message}</span>}
+              <div className="flex items-start justify-between gap-2">
+                {errors.name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.name.message}</span>}
+                <span className="text-[10px] text-gray-400 ml-auto px-1">{(watch("name") || "").length}/50</span>
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -278,17 +294,24 @@ const ReceptionistForm = ({
               <input
                 type="text"
                 placeholder="Ingrese los apellidos"
+                maxLength={50}
                 {...register("last_name", { required: "El apellido es requerido" })}
+                onChange={makeLettersMaskHandler("last_name", 50)}
                 className={inputClass(errors.last_name)}
               />
-              {errors.last_name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.last_name.message}</span>}
+              <div className="flex items-start justify-between gap-2">
+                {errors.last_name && <span className="text-[10px] text-red-500 font-medium px-1">{errors.last_name.message}</span>}
+                <span className="text-[10px] text-gray-400 ml-auto px-1">{(watch("last_name") || "").length}/50</span>
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-gray-400">Teléfono</label>
               <input
                 type="text"
+                inputMode="numeric"
                 placeholder="0000-0000"
+                maxLength={9}
                 {...register("phone", {
                   required: "El teléfono es requerido",
                   pattern: {
@@ -299,7 +322,10 @@ const ReceptionistForm = ({
                 onChange={handlePhoneMask}
                 className={inputClass(errors.phone)}
               />
-              {errors.phone && <span className="text-[10px] text-red-500 font-medium px-1">{errors.phone.message}</span>}
+              <div className="flex items-start justify-between gap-2">
+                {errors.phone && <span className="text-[10px] text-red-500 font-medium px-1">{errors.phone.message}</span>}
+                <span className="text-[10px] text-gray-400 ml-auto px-1">{(watch("phone") || "").length}/9</span>
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -307,6 +333,7 @@ const ReceptionistForm = ({
               <input
                 type="email"
                 placeholder="correo@gmail.com"
+                maxLength={100}
                 {...register("email", {
                   required: "El correo es requerido",
                   pattern: {
@@ -323,7 +350,9 @@ const ReceptionistForm = ({
               <label className="text-xs font-semibold text-gray-400">DUI</label>
               <input
                 type="text"
+                inputMode="numeric"
                 placeholder="00000000-0"
+                maxLength={10}
                 {...register("dui", {
                   required: "El DUI es requerido",
                   pattern: {
@@ -334,7 +363,10 @@ const ReceptionistForm = ({
                 onChange={handleDuiMask}
                 className={inputClass(errors.dui)}
               />
-              {errors.dui && <span className="text-[10px] text-red-500 font-medium px-1">{errors.dui.message}</span>}
+              <div className="flex items-start justify-between gap-2">
+                {errors.dui && <span className="text-[10px] text-red-500 font-medium px-1">{errors.dui.message}</span>}
+                <span className="text-[10px] text-gray-400 ml-auto px-1">{(watch("dui") || "").length}/10</span>
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -350,9 +382,40 @@ const ReceptionistForm = ({
               />
               {errors.birth_date && <span className="text-[10px] text-red-500 font-medium px-1">{errors.birth_date.message}</span>}
             </div>
+
+            {/* Estado: solo en edicion */}
+            {receptionist && (
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <label className="text-xs font-semibold text-gray-400">Estado de la cuenta</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setValue("is_active", true)}
+                    className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                      isActiveValue
+                        ? "bg-green-50 text-green-700 border-green-200 shadow-sm"
+                        : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    Activo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setValue("is_active", false)}
+                    className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                      !isActiveValue
+                        ? "bg-red-50 text-red-700 border-red-200 shadow-sm"
+                        : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    Inactivo
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Contraseña — solo en creación */}
+          {/* Contraseña: solo en creacion */}
           {!receptionist && (
             <div className="flex flex-col gap-3 w-full border-t border-gray-100 pt-4 mt-2">
               <div className="flex flex-col gap-1.5 relative">
@@ -362,6 +425,7 @@ const ReceptionistForm = ({
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Ingresa la contraseña"
+                    maxLength={100}
                     {...register("password", {
                       required: "La contraseña es requerida",
                       validate: () =>
@@ -383,7 +447,7 @@ const ReceptionistForm = ({
               </div>
 
               <div className="flex flex-col gap-2 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-                <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene más de 8 dígitos" />
+                <ValidationRow checked={passwordValidations.hasMinLength} label="La contraseña tiene al menos 8 caracteres" />
                 <ValidationRow checked={passwordValidations.hasMixedCase} label="La contraseña contiene mayúsculas y minúsculas" />
                 <ValidationRow checked={passwordValidations.hasNumbers} label="La contraseña incluye números" />
                 <ValidationRow checked={passwordValidations.hasSpecialChar} label="La contraseña incluye caracteres especiales" />
@@ -401,6 +465,7 @@ const ReceptionistForm = ({
               {receptionist ? "Actualizar" : "Guardar"}
             </button>
           </div>
+          </fieldset>
         </form>
 
       </div>

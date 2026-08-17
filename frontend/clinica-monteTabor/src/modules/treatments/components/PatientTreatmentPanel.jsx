@@ -1,7 +1,10 @@
-import { useState } from "react";
-import { User, X, CheckCircle2, Circle, RefreshCcw, FileEdit, CalendarPlus, LogOut } from "lucide-react";
+import { useState, useRef } from "react";
+import { User, X, CheckCircle2, Circle, RefreshCcw, FileEdit, CalendarPlus, LogOut, StickyNote, Pencil, Trash2, Paperclip, FileText, Loader2 } from "lucide-react";
 import StatusBadge from "../../reports/components/StatusBadge";
 import { STATUS_STYLE } from "../data/treatmentsData";
+import TreatmentTextModal from "./TreatmentTextModal";
+import ScheduleControlModal from "./ScheduleControlModal";
+import { showSuccess, showError, confirmDelete, confirmDischarge } from "@/lib/alerts";
 
 const TABS = ["Resumen", "Evolución", "Notas", "Documentos"];
 
@@ -12,8 +15,54 @@ const InfoRow = ({ label, value }) => (
   </div>
 );
 
-const PatientTreatmentPanel = ({ patient, onClose }) => {
+// Boton pequeño de icono para editar o eliminar, reutilizado en Evolucion y
+// en cada nota. Las clases van completas (no interpoladas por "tone")
+// porque Tailwind solo detecta clases que aparecen literalmente en el
+// codigo fuente. Un template string como `text-${tone}-400` nunca
+// terminaria en el CSS compilado.
+const TONE_CLASSES = {
+  blue: "text-blue-400 hover:text-blue-600 hover:bg-blue-50",
+  red: "text-red-400 hover:text-red-600 hover:bg-red-50",
+};
+
+const IconAction = ({ icon: Icon, label, onClick, tone }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title={label}
+    className={`p-1.5 rounded-lg transition-colors ${TONE_CLASSES[tone]}`}
+  >
+    <Icon className="w-3.5 h-3.5" />
+  </button>
+);
+
+// Las acciones del panel (actualizar evolucion, agregar nota, programar
+// control, dar de alta, ademas de editar y eliminar la evolucion y cada
+// nota) escriben sobre el tratamiento o procedimiento mas reciente del
+// paciente en el backend (ver treatmentsController.js). Cada una abre su
+// propio modal o confirmacion y, al guardar, el padre (TreatmentsPage)
+// refresca la lista completa.
+const PatientTreatmentPanel = ({
+  patient,
+  onClose,
+  onUpdateEvolution,
+  onDeleteEvolution,
+  onAddNote,
+  onUpdateNote,
+  onDeleteNote,
+  onUploadDocument,
+  onDeleteDocument,
+  onScheduleControl,
+  onDischarge,
+}) => {
   const [tab, setTab] = useState("Resumen");
+  // Valores posibles: "evolution", "note", "control" o null
+  const [openModal, setOpenModal] = useState(null);
+  // Si es null, el modal de nota esta en modo agregar. Si tiene un id, esta
+  // editando esa nota puntual.
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   if (!patient) {
     return (
@@ -22,6 +71,90 @@ const PatientTreatmentPanel = ({ patient, onClose }) => {
       </div>
     );
   }
+
+  const closeModal = () => {
+    setOpenModal(null);
+    setEditingNoteId(null);
+  };
+
+  const openNoteModal = (noteId = null) => {
+    setEditingNoteId(noteId);
+    setOpenModal("note");
+  };
+
+  const editingNote = editingNoteId ? patient.notes?.find((n) => n.id === editingNoteId) : null;
+
+  // Acciones directas (sin modal): piden confirmacion, hacen la llamada y
+  // muestran su propio mensaje de exito o error, igual que "Dar de alta".
+  const handleDeleteEvolution = async () => {
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar la evolución?",
+      text: "Se borrará el texto de evolución actual de este tratamiento.",
+    });
+    if (!confirmed) return;
+    try {
+      await onDeleteEvolution();
+      showSuccess("Evolución eliminada");
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar la evolución");
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar esta nota?",
+      text: "Esta acción no se puede deshacer.",
+    });
+    if (!confirmed) return;
+    try {
+      await onDeleteNote(noteId);
+      showSuccess("Nota eliminada");
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar la nota");
+    }
+  };
+
+  const handleFileSelected = async (e) => {
+    const file = e.target.files?.[0];
+    // Permite volver a elegir el mismo archivo dos veces seguidas
+    e.target.value = "";
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      await onUploadDocument(file);
+      showSuccess("Documento subido");
+    } catch (err) {
+      showError(err.message || "No se pudo subir el documento");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId) => {
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar este documento?",
+      text: "El archivo se borrará permanentemente.",
+    });
+    if (!confirmed) return;
+    try {
+      await onDeleteDocument(documentId);
+      showSuccess("Documento eliminado");
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar el documento");
+    }
+  };
+
+  const handleDischarge = async () => {
+    const confirmed = await confirmDischarge();
+    if (!confirmed) return;
+    try {
+      await onDischarge();
+      showSuccess("Paciente dado de alta");
+    } catch (err) {
+      showError(err.message || "No se pudo dar de alta al paciente");
+    }
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
@@ -35,7 +168,7 @@ const PatientTreatmentPanel = ({ patient, onClose }) => {
             <div>
               <h3 className="text-sm font-bold text-slate-900 leading-tight">{patient.name}</h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                ID: {patient.id} · {patient.age} años · {patient.gender}
+                {patient.age != null ? `${patient.age} años` : "Edad no registrada"} · {patient.gender}
               </p>
             </div>
           </div>
@@ -65,9 +198,7 @@ const PatientTreatmentPanel = ({ patient, onClose }) => {
       </div>
 
       <div className="p-5 flex flex-col gap-5 overflow-y-auto">
-        {tab !== "Resumen" ? (
-          <p className="text-sm text-slate-400 text-center py-10">Sin información registrada todavía.</p>
-        ) : (
+        {tab === "Resumen" && (
           <>
             {/* Información clínica */}
             <div>
@@ -132,27 +263,173 @@ const PatientTreatmentPanel = ({ patient, onClose }) => {
             </div>
           </>
         )}
+
+        {/* Se llena con el boton "Actualizar evolucion" (PATCH
+            /treatments/:id/evolution). Usa el mismo formato de tarjeta que
+            una nota: texto, fecha, autor y botones de editar y eliminar. */}
+        {tab === "Evolución" && (
+          patient.evolution?.text ? (
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{patient.evolution.text}</p>
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-[11px] text-slate-400">{patient.evolution.date} · {patient.evolution.author}</p>
+                <div className="flex items-center gap-0.5 -mr-1.5">
+                  <IconAction icon={Pencil} label="Editar evolución" onClick={() => setOpenModal("evolution")} tone="blue" />
+                  <IconAction icon={Trash2} label="Eliminar evolución" onClick={handleDeleteEvolution} tone="red" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 text-center py-10">
+              Todavía no se ha registrado una evolución. Usa "Actualizar evolución" para agregar la primera.
+            </p>
+          )
+        )}
+
+        {/* Se llena con el boton "Agregar nota" (POST /treatments/:id/notes).
+            Es una bitacora acumulada. */}
+        {tab === "Notas" && (
+          patient.notes?.length ? (
+            <div className="flex flex-col gap-3">
+              {patient.notes.map((note) => (
+                <div key={note.id} className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{note.text}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-[11px] text-slate-400">{note.date} · {note.author}</p>
+                    <div className="flex items-center gap-0.5 -mr-1.5">
+                      <IconAction icon={Pencil} label="Editar nota" onClick={() => openNoteModal(note.id)} tone="blue" />
+                      <IconAction icon={Trash2} label="Eliminar nota" onClick={() => handleDeleteNote(note.id)} tone="red" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 text-center py-10">
+              Sin notas todavía. Usa "Agregar nota" para dejar la primera.
+            </p>
+          )
+        )}
+
+        {/* Documentos reales almacenados en Cloudinary (ver
+            treatmentsController.uploadDocument y CloudinaryDocumentConfig.js). */}
+        {tab === "Documentos" && (
+          <div className="flex flex-col gap-3">
+            {patient.documents?.length ? (
+              patient.documents.map((doc) => (
+                <div key={doc.id} className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
+                  <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-slate-800 hover:text-blue-600 hover:underline truncate block"
+                    >
+                      {doc.name}
+                    </a>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{doc.date} · {doc.uploadedBy}</p>
+                  </div>
+                  <IconAction icon={Trash2} label="Eliminar documento" onClick={() => handleDeleteDocument(doc.id)} tone="red" />
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-400 text-center py-10">
+                Sin documentos todavía. Sube el primero abajo.
+              </p>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-dashed border-slate-300 text-slate-500 text-xs font-semibold hover:bg-slate-50 hover:border-slate-400 transition-colors disabled:opacity-60"
+            >
+              {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+              {uploading ? "Subiendo..." : "Subir documento (PDF, Word o imagen, máx. 10 MB)"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Acciones */}
       <div className="grid grid-cols-2 gap-2.5 p-5 pt-0">
-        <button className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors">
+        <button
+          type="button"
+          onClick={() => setOpenModal("evolution")}
+          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors"
+        >
           <RefreshCcw className="w-3.5 h-3.5" />
           Actualizar evolución
         </button>
-        <button className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors">
+        <button
+          type="button"
+          onClick={() => openNoteModal(null)}
+          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors"
+        >
           <FileEdit className="w-3.5 h-3.5" />
           Agregar nota
         </button>
-        <button className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors">
+        <button
+          type="button"
+          onClick={() => setOpenModal("control")}
+          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors"
+        >
           <CalendarPlus className="w-3.5 h-3.5" />
           Programar control
         </button>
-        <button className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-colors">
+        <button
+          type="button"
+          onClick={handleDischarge}
+          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-colors"
+        >
           <LogOut className="w-3.5 h-3.5" />
           Dar de alta
         </button>
       </div>
+
+      <TreatmentTextModal
+        isOpen={openModal === "evolution"}
+        onClose={closeModal}
+        icon={RefreshCcw}
+        iconBg="bg-blue-50 text-blue-600"
+        title="Actualizar evolución"
+        placeholder="Describe cómo va evolucionando el tratamiento..."
+        initialValue={patient.evolution?.text || ""}
+        submitLabel="Guardar evolución"
+        successMessage="Evolución actualizada"
+        onSubmit={onUpdateEvolution}
+      />
+
+      {/* Mismo modal para "Agregar nota" y "Editar nota", cambia segun editingNoteId. */}
+      <TreatmentTextModal
+        isOpen={openModal === "note"}
+        onClose={closeModal}
+        icon={StickyNote}
+        iconBg="bg-amber-50 text-amber-600"
+        title={editingNoteId ? "Editar nota" : "Agregar nota"}
+        placeholder="Escribe una nota sobre este tratamiento..."
+        initialValue={editingNote?.text || ""}
+        submitLabel={editingNoteId ? "Guardar cambios" : "Agregar nota"}
+        successMessage={editingNoteId ? "Nota actualizada" : "Nota agregada"}
+        onSubmit={(text) => (editingNoteId ? onUpdateNote(editingNoteId, text) : onAddNote(text))}
+      />
+
+      <ScheduleControlModal
+        isOpen={openModal === "control"}
+        onClose={closeModal}
+        initialValue={patient.nextControlISO}
+        onSubmit={onScheduleControl}
+      />
     </div>
   );
 };

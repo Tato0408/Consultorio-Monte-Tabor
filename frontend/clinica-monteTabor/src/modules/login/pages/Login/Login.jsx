@@ -8,12 +8,12 @@ import { useAuth } from "@/context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth(); //Metodo de autenticacion
+  const { login } = useAuth();
 
-  const [formData, setFormData] = useState({ email: "", password: "" }); // Datos del formulario
-  const [errors, setErrors] = useState({}); // Mensajes de validación de cliente
-  const [isLoading, setIsLoading] = useState(false); // Bloqueo de UI durante peticiones asíncronas
-  const [apiError, setApiError] = useState(""); // Control de errores directos del backend
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   //manejador dinámico que actualiza los inputs y limpia los errores en tiempo real
   const handleChange = (field) => (e) => {
@@ -22,18 +22,19 @@ const Login = () => {
     if (apiError) setApiError("");
   };
 
-  // validacion la estructura del correo y la longitud mínima de la contraseña
+  // Valida la estructura del correo. La contraseña solo se exige
+  // que no esté vacía, ya que en la pantalla de login no tiene
+  // sentido indicar qué requisito le falta a la contraseña (eso es
+  // útil al crearla, no al iniciar sesión con una que ya existe).
   const validate = () => {
     const newErrors = {};
     if (!formData.email.trim()) {
-      newErrors.email = "El email es requerido";
+      newErrors.email = "El correo electrónico es requerido";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Ingresa un email válido";
     }
     if (!formData.password) {
       newErrors.password = "La contraseña es requerida";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Mínimo 6 caracteres";
     }
     return newErrors;
   };
@@ -41,6 +42,8 @@ const Login = () => {
   // Gestiona el envío del formulario, la llamada al contexto y las notificaciones
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Guarda extra por si dos clics llegan antes de que el botón refleje isLoading=true en el DOM
+    if (isLoading) return;
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -53,8 +56,10 @@ const Login = () => {
     toast: true,
     position: "top-end", 
     showConfirmButton: false, 
-    timer: 3000, // Se cierra automáticamente en 3 segundos
-    timerProgressBar: true, // Muestra la barrita de tiempo avanzando
+    // Se cierra automáticamente después de 3 segundos.
+    timer: 3000,
+    // Muestra la barra de progreso del tiempo restante.
+    timerProgressBar: true,
     didOpen: (toast) => {
       toast.onmouseenter = Swal.stopTimer;
       toast.onmouseleave = Swal.resumeTimer;
@@ -75,14 +80,10 @@ const Login = () => {
         title: "¡Bienvenido de nuevo!"
       });
         navigate("/home");
-      } else {
-        // mensaje de error en caso de credenciales inválidas detectadas por la petición
-       Toast.fire({
-        icon: "error",
-        title: "No se pudo iniciar sesión",
-        text: "Verifica tu correo o contraseña."
-      });
       }
+      // Si succes es false, login (desde AuthContext) ya mostró su
+      // propia notificación de error. Mostrar otra aquí duplicaría
+      // el aviso con un segundo mensaje distinto.
 
     } catch (error) {
       Toast.fire({
@@ -111,7 +112,7 @@ const Login = () => {
           <div className="absolute inset-0 flex flex-col justify-center items-center px-16 pt-[18%]">
             <div className="text-white max-w-[260px]">
               <h1 className="text-4xl font-extrabold tracking-tight leading-tight mb-3">
-                BIENVENIDO
+                Bienvenido
               </h1>
               <h2 className="text-lg font-semibold mb-4 text-white/90">
                 Inicia sesión en tu cuenta
@@ -188,6 +189,7 @@ const Login = () => {
                 placeholder="Ingresa tu correo electrónico"
                 value={formData.email}
                 onChange={handleChange("email")}
+                maxLength={100}
                 icon={<Mail className="w-4 h-4" />}
                 error={errors.email}
                 disabled={isLoading}
@@ -201,6 +203,7 @@ const Login = () => {
                   placeholder="Ingresa tu contraseña"
                   value={formData.password}
                   onChange={handleChange("password")}
+                  maxLength={100}
                   icon={<Lock className="w-4 h-4" />}
                   error={errors.password}
                   disabled={isLoading}
@@ -208,7 +211,12 @@ const Login = () => {
                 <div className="flex justify-end mt-1">
                   <Link
                     to="/recovery"
-                    className="text-xs text-[#3B6FCA] hover:text-[#2d5ab5] hover:underline transition-colors"
+                    onClick={(e) => { if (isLoading) e.preventDefault(); }}
+                    aria-disabled={isLoading}
+                    tabIndex={isLoading ? -1 : undefined}
+                    className={`text-xs text-[#3B6FCA] hover:text-[#2d5ab5] hover:underline transition-colors ${
+                      isLoading ? "opacity-50 pointer-events-none" : ""
+                    }`}
                   >
                     ¿Olvidaste tu contraseña?
                   </Link>

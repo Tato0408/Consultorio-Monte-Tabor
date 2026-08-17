@@ -48,6 +48,9 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  // true mientras el formulario interno envía una petición: evita cerrar el diálogo (y perder
+  // el estado o disparar otra petición) haciendo clic en la X a medio envío
+  closeDisabled = false,
   ...props
 }) {
   return (
@@ -64,8 +67,13 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
+            disabled={closeDisabled}
             render={
-              <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />
+              <Button
+                variant="ghost"
+                className="absolute top-2 right-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                size="icon-sm"
+              />
             }>
             <XIcon />
             <span className="sr-only">Close</span>

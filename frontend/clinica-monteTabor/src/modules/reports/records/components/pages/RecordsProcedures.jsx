@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { Plus, MoreVertical, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import ProcedureRecordModal from "../global/ProcedureRecordModal";
 
-// Espera `patient.procedimientos` = [{ nombre, fecha, doctor, duracion }]
-export default function ProcedimientosTab({ patient = {} }) {
+// Espera que patient.procedimientos sea una lista de objetos con nombre,
+// fecha, doctor y duracion.
+export default function ProcedimientosTab({ patient = {}, onSaved }) {
   const data = patient.procedimientos ?? [];
 
   const [rowsPerPage, setRowsPerPage] = useState(8);
   const [page, setPage] = useState(1);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(data.length / rowsPerPage));
   const start = (page - 1) * rowsPerPage;
@@ -20,6 +23,7 @@ export default function ProcedimientosTab({ patient = {} }) {
       <div className="mb-6 flex justify-end">
         <button
           type="button"
+          onClick={() => setModalOpen(true)}
           className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           Agregar <Plus className="h-4 w-4" />
@@ -47,7 +51,10 @@ export default function ProcedimientosTab({ patient = {} }) {
             <span className="text-slate-600">{p.doctor}</span>
             <span className="text-slate-600">{p.duracion}</span>
             <span className="flex justify-center">
-              <button type="button" className="text-slate-400 hover:text-slate-600">
+              {/* Editar o eliminar un procedimiento puntual no tiene destino todavía
+                  (el PUT a /patients/:id actual solo permite agregar, no editar ni
+                  quitar uno existente). */}
+              <button type="button" className="text-slate-300 cursor-not-allowed" disabled title="Próximamente">
                 <MoreVertical className="h-4 w-4" />
               </button>
             </span>
@@ -55,7 +62,7 @@ export default function ProcedimientosTab({ patient = {} }) {
         ))}
       </div>
 
-      {/* Pie: filas por página + paginación */}
+      {/* Pie: filas por página y paginación */}
       <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-5 text-sm text-slate-500">
         <div className="flex items-center gap-2">
           <span>Filas por página</span>
@@ -102,6 +109,13 @@ export default function ProcedimientosTab({ patient = {} }) {
           </button>
         </div>
       </div>
+
+      <ProcedureRecordModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        patientId={patient.id}
+        onSaved={onSaved}
+      />
     </div>
   );
 }

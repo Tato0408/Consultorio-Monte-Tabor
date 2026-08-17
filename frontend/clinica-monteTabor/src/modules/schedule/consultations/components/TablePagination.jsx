@@ -1,4 +1,3 @@
-// src/components/consultations/TablePagination.jsx
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const ROWS_OPTIONS = [5, 8, 10, 20, 50];

@@ -1,5 +1,13 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+
+// Tipos para los que tiene sentido mostrar un contador de caracteres: solo campos de texto
+// libre que agregan o editan algo. Quedan fuera intencionalmente los campos de tipo login
+// (password, email) y los no textuales (date, time, number), sin importar en qué formulario
+// vivan (ej. el campo de correo dentro de DoctorsForm sigue siendo un input de correo, aunque
+// el formulario en sí sea para editar un doctor).
+const COUNT_ELIGIBLE_TYPES = ["text", "tel", "search"];
+
 const InputField = ({
   label,
   id,
@@ -11,12 +19,15 @@ const InputField = ({
   error,
   disabled = false,
   className = "",
+  maxLength,
   ...rest
 }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const isPassword = type === "password";
   const inputType = isPassword ? (showPassword ? "text" : "password") : type;
+  const showCount = maxLength != null && COUNT_ELIGIBLE_TYPES.includes(type);
+  const currentLength = String(value ?? "").length;
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
@@ -52,6 +63,7 @@ const InputField = ({
           value={value}
           onChange={onChange}
           disabled={disabled}
+          maxLength={maxLength}
           className="
             flex-1 text-sm text-gray-800 bg-transparent outline-none
             placeholder:text-gray-400
@@ -73,8 +85,17 @@ const InputField = ({
         )}
       </div>
 
-      {error && (
-        <p className="text-xs text-red-500 mt-0.5">{error}</p>
+      {/* Error a la izquierda, contador de caracteres a la derecha: mismo renglón para no
+          agregar alto extra al formulario cuando ambos aplican. */}
+      {(error || showCount) && (
+        <div className="flex items-start justify-between gap-2">
+          {error ? <p className="text-xs text-red-500">{error}</p> : <span />}
+          {showCount && (
+            <span className="text-[11px] text-gray-400 flex-shrink-0 ml-auto">
+              {currentLength}/{maxLength}
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

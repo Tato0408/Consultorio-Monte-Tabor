@@ -17,8 +17,8 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
   const passwordRules = [
     {
       id:    "length",
-      label: "La contraseña tiene más de 8 dígitos",
-      test:  (p) => p.length > 8,
+      label: "La contraseña tiene al menos 8 caracteres",
+      test:  (p) => p.length >= 8,
     },
     {
       id:    "uppercase",
@@ -46,12 +46,19 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
     r.test(formData.contrasena, formData.confirmContrasena)
   );
 
+  // El rol admin usa /admin/:id porque ahí solo depende de
+  // validateAuthCookie, lo que ya lo hace autoservicio. Los roles
+  // doctor, nurse y receptionist usan su ruta de autoservicio dedicada
+  // (/profile/update), ya que el endpoint genérico /:id de esos tres
+  // exige el permiso de administrar a otros usuarios de ese rol,
+  // permiso que no tienen sobre sí mismos, y devolvía un error 403.
+  // Mismo criterio que useProfile.js.
   const getEndpoint = () => {
     const routes = {
       admin:        `/admin/${user?.id}`,
-      doctor:       `/doctors/${user?.id}`,
-      nurse:        `/nurses/${user?.id}`,
-      receptionist: `/receptionist/${user?.id}`,
+      doctor:       `/doctors/profile/update`,
+      nurse:        `/nurses/profile/update`,
+      receptionist: `/receptionist/profile/update`,
     };
     return routes[userType];
   };
@@ -62,6 +69,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
 
     if (!allRulesPassed) {
       Swal.fire({
@@ -89,7 +97,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
         timerProgressBar: true,
       });
 
-      // Limpiar y cerrar
+      // Limpia el formulario y cierra el modal.
       setFormData({ contrasena: "", confirmContrasena: "" });
       onClose();
     } catch (err) {
@@ -112,7 +120,8 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
 
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+          disabled={submitting}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           <X className="w-4 h-4" />
         </button>
@@ -131,17 +140,19 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
             placeholder="Ingresa tu contraseña"
             value={formData.contrasena}
             onChange={handleChange("contrasena")}
+            maxLength={100}
             icon={<Lock className="w-4 h-4" />}
             disabled={submitting}
           />
 
           <InputField
-            label="Confirmación de Contraseña"
+            label="Confirmación de contraseña"
             id="confirmContrasena"
             type="password"
             placeholder="Confirma tu contraseña"
             value={formData.confirmContrasena}
             onChange={handleChange("confirmContrasena")}
+            maxLength={100}
             icon={<Lock className="w-4 h-4" />}
             disabled={submitting}
           />

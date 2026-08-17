@@ -1,28 +1,20 @@
-/*
-Campos:
-    doctor_id
-    patient_id
-    nurse_id
-    procedure_id
-    type
-    date
-    start_time
-    end_time
-    duration_minutes
-    description
-    status
-    total
-    cancellation_reason
-*/
-
 import mongoose, { Schema, model } from "mongoose";
 
 const appointmentsSchema = new Schema({
-    doctor_id: { type: mongoose.Schema.Types.ObjectId, ref: "Doctors", required: true },
+    // Las solicitudes creadas por pacientes quedan sin doctor hasta que uno
+    // las acepte, y las creadas por personal siguen llegando asignadas.
+    doctor_id: { type: mongoose.Schema.Types.ObjectId, ref: "Doctors", default: null },
     patient_id: { type: mongoose.Schema.Types.ObjectId, ref: "Patients", required: true },
     nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "nurses" },
     procedure_id: { type: mongoose.Schema.Types.ObjectId, ref: "Procedure" },
     type: { type: String, required: true },
+    // Nombre (denormalizado, no una referencia) de un AppointmentType del
+    // catálogo global, usado solo para categorizar y colorear la cita en
+    // la leyenda del calendario. No afecta el precio ni la duración, que
+    // siguen definidos por type y procedure_id. Es opcional: las citas
+    // creadas antes de este campo, o sin tipo elegido, simplemente no
+    // tienen color asignado.
+    appointment_type: { type: String },
     schedule_id: { type: mongoose.Schema.Types.ObjectId, ref: "Schedules" },
     date: { type: Date, required: true },
     start_time: { type: String, required: true },
@@ -32,10 +24,12 @@ const appointmentsSchema = new Schema({
     status: { type: String, required: true },
     total: { type: Number, required: true },
     cancellation_reason: { type: String },
-    // Id de la transacción de Wompi cuando la cita se paga en línea (status "pending" hasta confirmarse)
+    // Id de la transacción de Wompi cuando la cita se paga en línea. El
+    // estado queda en pending hasta que se confirma el pago.
     wompi_transaction_id: { type: String },
-    // Anticipo (50% del total) que se cobra en línea para apartar la hora. No aplica a
-    // citas que se pagan en recepción. Este monto no se reembolsa si la cita se cancela.
+    // Anticipo del 50 por ciento del total, cobrado en línea para apartar
+    // la hora. No aplica a citas que se pagan en recepción y no se
+    // reembolsa si la cita se cancela.
     deposit_amount: { type: Number }
 }, {
     timestamps: true,

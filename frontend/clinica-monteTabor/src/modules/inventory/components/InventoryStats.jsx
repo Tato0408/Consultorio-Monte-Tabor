@@ -1,18 +1,14 @@
 import { Package, TrendingDown, Activity, DollarSign } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 
-const sparkData = [
-  [5,8,6,9,7,10,8,11,9,12,10,13],
-  [3,5,4,6,5,7,6,8,7,6,8,7],
-  [10,15,12,18,14,20,16,22,18,24,20,22],
-  [100,120,110,130,125,140,135,145,150,148,152,155],
-].map((d) => d.map((v, i) => ({ v, i })));
-
+// Últimos 7 días reales, reconstruidos a partir de la bitácora de
+// movimientos (ver inventoryController.getStats, sección trends).
+// No son datos fijos ni de ejemplo.
 const CARDS = [
-  { title: "Productos en stock",    sub: "Total disponible",          icon: Package,     color: "bg-blue-100 text-blue-600",    line: "#3b82f6", sparkIdx: 0 },
-  { title: "Bajo inventario",       sub: "Requieren reposición",      icon: TrendingDown, color: "bg-orange-100 text-orange-500", line: "#f97316", sparkIdx: 1 },
-  { title: "Utilizados hoy",        sub: "En tratamiento",            icon: Activity,    color: "bg-purple-100 text-purple-600", line: "#a855f7", sparkIdx: 2 },
-  { title: "Valor aproximado",      sub: "Costo total del inventario", icon: DollarSign, color: "bg-green-100 text-green-600",  line: "#22c55e", sparkIdx: 3 },
+  { title: "Productos en stock",    sub: "Total disponible",          icon: Package,     color: "bg-blue-100 text-blue-600",    line: "#3b82f6", trendKey: "stock" },
+  { title: "Bajo inventario",       sub: "Requieren reposición",      icon: TrendingDown, color: "bg-orange-100 text-orange-500", line: "#f97316", trendKey: "lowStock" },
+  { title: "Utilizados hoy",        sub: "En tratamiento",            icon: Activity,    color: "bg-purple-100 text-purple-600", line: "#a855f7", trendKey: "used" },
+  { title: "Valor aproximado",      sub: "Costo total del inventario", icon: DollarSign, color: "bg-green-100 text-green-600",  line: "#22c55e", trendKey: "value" },
 ];
 
 const fmt = (key, val) => {
@@ -44,8 +40,8 @@ const InventoryStats = ({ stats }) => {
           </div>
           <div className="h-8 sm:h-10">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sparkData[card.sparkIdx]}>
-                <Line type="monotone" dataKey="v" stroke={card.line} strokeWidth={1.5} dot={false} />
+              <LineChart data={stats?.trends?.[card.trendKey] || []}>
+                <Line type="monotone" dataKey="total" stroke={card.line} strokeWidth={1.5} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>

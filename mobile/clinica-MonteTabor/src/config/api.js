@@ -1,0 +1,14 @@
+// URL de la API en línea (Render). Se puede sobreescribir con EXPO_PUBLIC_API_URL
+// (ej. para volver a apuntar a un backend local durante desarrollo)
+const PRODUCTION_API_URL = "https://clinica-monte-tabor.onrender.com/api";
+
+function getBaseUrl() {
+    if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+    return PRODUCTION_API_URL;
+}
+
+// Se resuelve una sola vez al importar el módulo
+export const API_URL = getBaseUrl();
+
+// __DEV__ es false en producción, así que esta traza no llega al build final
+if (__DEV__) console.log("[API] URL base:", API_URL);

@@ -5,6 +5,7 @@ import InputField from "../../../../components/ui/InputField";
 import FooterLogin from "../../components/Footer";
 import useRegisterAdmin from "../../hooks/useRegisterAdmin";
 import { getMaxAdultBirthDate, validateAdultBirthDate, calculateAge } from "../../../../lib/validators";
+import { maskLettersOnly } from "../../../../lib/inputMasks";
 
 const Register = () => {
   const { loading, error: apiError, register } = useRegisterAdmin();
@@ -13,8 +14,10 @@ const Register = () => {
   const [formData, setFormData] = useState({
     nombre: "", apellido: "", dui: "", birth_date: "",
     genero: "", correo: "", contrasena: "", confirmContrasena: "",
-    imagen: null,       // archivo File
-    imagenPreview: null // URL para previsualizar
+    // Archivo de imagen seleccionado por el usuario.
+    imagen: null,
+    // URL local usada para previsualizar la imagen seleccionada.
+    imagenPreview: null
   });
 
   // Edad calculada en vivo a partir de la fecha de nacimiento seleccionada
@@ -23,19 +26,27 @@ const Register = () => {
   const [errors, setErrors] = useState({});
 
   const passwordRules = [
-    { id: "length", label: "La contraseña tiene más de 8 dígitos", test: (p) => p.length > 8 },
-    { id: "upper", label: "Las contraseña contiene mayúsculas y minúsculas", test: (p) => /[A-Z]/.test(p) && /[a-z]/.test(p) },
+    { id: "length", label: "La contraseña tiene al menos 8 caracteres", test: (p) => p.length >= 8 },
+    { id: "upper", label: "La contraseña contiene mayúsculas y minúsculas", test: (p) => /[A-Z]/.test(p) && /[a-z]/.test(p) },
     { id: "number", label: "La contraseña incluye números", test: (p) => /[0-9]/.test(p) },
     { id: "special", label: "La contraseña incluye caracteres especiales", test: (p) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
     { id: "match", label: "Las contraseñas coinciden", test: (p, c) => p.length > 0 && p === c },
   ];
 
-  /**
-   * Actualiza el campo correspondiente del formulario usando el nombre del campo como clave,
-   * limpiando automáticamente su error de validación en cuanto el usuario comienza a escribir.
-   */
+  // Actualiza el campo correspondiente del formulario usando el
+  // nombre del campo como clave. Limpia automáticamente su error de
+  // validación en cuanto el usuario comienza a escribir.
   const handleChange = (field) => (e) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
+
+  // Funciona igual que handleChange, pero pasa el valor por una
+  // máscara que solo permite letras antes de guardarlo. Sigue el
+  // mismo criterio que el resto de los formularios de personas del
+  // sistema.
+  const handleLettersChange = (field, max) => (e) => {
+    setFormData((prev) => ({ ...prev, [field]: maskLettersOnly(e.target.value, max) }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
@@ -72,7 +83,7 @@ const Register = () => {
 
     if (!formData.contrasena) e.contrasena = "Requerido";
     else if (
-      formData.contrasena.length <= 8 ||
+      formData.contrasena.length < 8 ||
       !/[A-Z]/.test(formData.contrasena) ||
       !/[a-z]/.test(formData.contrasena) ||
       !/[0-9]/.test(formData.contrasena) ||
@@ -88,23 +99,26 @@ const Register = () => {
   };
 
   const handleDuiChange = (e) => {
-    // 1. Obtenemos el valor y quitamos cualquier cosa que no sea un número
+    // 1. Obtiene el valor y quita cualquier caracter que no sea un
+    // número.
     let value = e.target.value.replace(/[^0-9]/g, "");
 
-    // 2. Si tiene más de 8 dígitos, insertamos el guion
+    // 2. Si tiene más de 8 dígitos, inserta el guion.
     if (value.length > 8) {
       value = value.slice(0, 8) + "-" + value.slice(8, 9);
     }
 
-    // 3. Actualizamos el estado
+    // 3. Actualiza el estado del formulario.
     setFormData((prev) => ({ ...prev, dui: value }));
 
-    // 4. Limpiamos el error si el usuario escribe
+    // 4. Limpia el error si el usuario vuelve a escribir.
     if (errors.dui) setErrors((prev) => ({ ...prev, dui: "" }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Guarda extra por si dos clics llegan antes de que el botón refleje loading=true en el DOM
+    if (loading) return;
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -116,7 +130,7 @@ const Register = () => {
   return (
     <div className="h-screen flex bg-white overflow-hidden">
 
-      {/* ── Panel izquierdo ── */}
+      {/* Panel izquierdo */}
       <div className="relative hidden lg:flex lg:w-[45%] xl:w-[42%] overflow-hidden bg-white flex-shrink-0">
         <div className="absolute rounded-full" style={{
           width: "130%", paddingBottom: "130%", top: "-30%", left: "-30%",
@@ -124,7 +138,7 @@ const Register = () => {
         }}>
           <div className="absolute inset-0 flex flex-col justify-center items-center px-16 pt-[18%]">
             <div className="text-white max-w-[280px]">
-              <h1 className="text-4xl font-extrabold tracking-tight leading-tight mb-2">BIENVENIDO</h1>
+              <h1 className="text-4xl font-extrabold tracking-tight leading-tight mb-2">Bienvenido</h1>
               <h2 className="text-lg font-semibold mb-3 text-white/90">Crea tu cuenta de administrador</h2>
               <p className="text-sm text-white/75 leading-relaxed">
                 Crea tu cuenta con tu información personal para comenzar a gestionar el sistema de manera segura y eficiente
@@ -142,12 +156,12 @@ const Register = () => {
         }} />
       </div>
 
-      {/* ── Panel derecho — formulario ── */}
+      {/* Panel derecho, formulario */}
       <div className="flex-1 flex flex-col justify-between px-8 sm:px-12 py-5 overflow-y-auto">
         <div className="flex-1 flex flex-col justify-center items-center">
           <div className="w-full max-w-[480px]">
 
-            {/* Logo + título */}
+            {/* Logo y título */}
             <div className="flex flex-col items-center mb-5">
               <div className="mb-2 relative flex items-center justify-center" style={{ width: "44px", height: "50px" }}>
                 <svg viewBox="0 0 56 64" fill="none" xmlns="http://www.w3.org/2000/svg"
@@ -157,7 +171,7 @@ const Register = () => {
                 </svg>
                 <span className="relative z-10 text-white font-bold text-lg select-none">T</span>
               </div>
-              <h2 className="text-xl font-bold text-gray-800 tracking-tight">Crear Cuenta</h2>
+              <h2 className="text-xl font-bold text-gray-800 tracking-tight">Crear cuenta</h2>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
@@ -168,7 +182,7 @@ const Register = () => {
                 </div>
               )}
 
-              {/* ── Selector de imagen de perfil ── */}
+              {/* Selector de imagen de perfil */}
               <div className="flex flex-col items-center gap-2 mb-1">
                 <input
                   ref={fileInputRef}
@@ -180,7 +194,8 @@ const Register = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current.click()}
-                  className="relative w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 hover:border-[#3B6FCA] transition-colors flex items-center justify-center overflow-hidden group"
+                  disabled={loading}
+                  className="relative w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 hover:border-[#3B6FCA] transition-colors flex items-center justify-center overflow-hidden group disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {formData.imagenPreview ? (
                     <img
@@ -205,17 +220,17 @@ const Register = () => {
                 )}
               </div>
 
-              {/* Nombre + Apellido */}
+              {/* Nombre y apellido */}
               <div className="grid grid-cols-2 gap-4">
                 <InputField label="Nombre" id="nombre" type="text" placeholder="Ingresa tu/s nombre/s"
-                  value={formData.nombre} onChange={handleChange("nombre")}
+                  value={formData.nombre} onChange={handleLettersChange("nombre", 50)} maxLength={50}
                   icon={<User className="w-4 h-4" />} error={errors.nombre} disabled={loading} />
                 <InputField label="Apellido" id="apellido" type="text" placeholder="Ingresa tu/s apellido/s"
-                  value={formData.apellido} onChange={handleChange("apellido")}
+                  value={formData.apellido} onChange={handleLettersChange("apellido", 50)} maxLength={50}
                   icon={<User className="w-4 h-4" />} error={errors.apellido} disabled={loading} />
               </div>
 
-              {/* DUI + Fecha de nacimiento */}
+              {/* DUI y fecha de nacimiento */}
               <div className="grid grid-cols-2 gap-4">
                 <InputField
                   label="DUI"
@@ -244,22 +259,22 @@ const Register = () => {
 
               {/* Género */}
               <InputField label="Género" id="genero" type="text" placeholder="Ingresa tu género"
-                value={formData.genero} onChange={handleChange("genero")}
+                value={formData.genero} onChange={handleLettersChange("genero", 20)} maxLength={20}
                 icon={<Venus className="w-4 h-4" />} error={errors.genero} disabled={loading} />
 
               {/* Correo */}
               <InputField label="Correo electrónico" id="correo" type="email" placeholder="Ingresa tu correo electrónico"
-                value={formData.correo} onChange={handleChange("correo")}
+                value={formData.correo} onChange={handleChange("correo")} maxLength={100}
                 icon={<Mail className="w-4 h-4" />} error={errors.correo} disabled={loading} />
 
               {/* Contraseña */}
               <InputField label="Contraseña" id="contrasena" type="password" placeholder="Ingresa tu contraseña"
-                value={formData.contrasena} onChange={handleChange("contrasena")}
+                value={formData.contrasena} onChange={handleChange("contrasena")} maxLength={100}
                 icon={<Lock className="w-4 h-4" />} error={errors.contrasena} disabled={loading} />
 
               {/* Confirmación */}
-              <InputField label="Confirmación de Contraseña" id="confirmContrasena" type="password" placeholder="Confirma tu contraseña"
-                value={formData.confirmContrasena} onChange={handleChange("confirmContrasena")}
+              <InputField label="Confirmación de contraseña" id="confirmContrasena" type="password" placeholder="Confirma tu contraseña"
+                value={formData.confirmContrasena} onChange={handleChange("confirmContrasena")} maxLength={100}
                 icon={<Lock className="w-4 h-4" />} error={errors.confirmContrasena} disabled={loading} />
 
               {/* Reglas de contraseña */}

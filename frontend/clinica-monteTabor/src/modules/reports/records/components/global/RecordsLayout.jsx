@@ -3,13 +3,17 @@
 import { useState } from "react";
 import { ChevronRight, Pencil } from "lucide-react";
 import { Badge } from "./ui";
+import EditPatientModal from "./EditPatientModal";
 
 // Contiene lo que se mantiene fijo al navegar entre pestañas: breadcrumb,
 // tabs (navegadas por índice) y la barra del paciente.
-// Props: tabs = [{ label, content }] -> content es lo que se renderiza debajo;
-// activeTab/onTabChange opcionales para controlar el índice desde afuera;
-// onBack opcional, si se pasa el breadcrumb "Expedientes" vuelve al listado.
-export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, onTabChange, onBack, children }) {
+// Recibe tabs como una lista de objetos con label y content, donde content
+// es lo que se renderiza debajo. activeTab y onTabChange son opcionales,
+// para controlar el índice activo desde afuera. onBack es opcional: si se
+// pasa, el breadcrumb Expedientes vuelve al listado. onPatientUpdated
+// refresca el registro después de editar los datos del paciente con el
+// botón de lápiz.
+export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, onTabChange, onBack, onPatientUpdated, children }) {
   const [internalTab, setInternalTab] = useState(0);
   const current = activeTab ?? internalTab;
   const setTab = onTabChange ?? setInternalTab;
@@ -55,9 +59,9 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
       </div>
 
       {/* Barra del paciente */}
-      <PatientBar patient={patient} />
+      <PatientBar patient={patient} onPatientUpdated={onPatientUpdated} />
 
-      {/* Banner opcional (error/loading) para lo que se trae aparte, ej. usePatientRecordDetail */}
+      {/* Banner opcional (error o loading) para lo que se trae aparte, por ejemplo usePatientRecordDetail */}
       {children && <div className="mt-6">{children}</div>}
 
       {/* Contenido de la pestaña activa */}
@@ -66,12 +70,13 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
   );
 }
 
-function PatientBar({ patient }) {
+function PatientBar({ patient, onPatientUpdated }) {
+  const [editOpen, setEditOpen] = useState(false);
   const female = (patient.sexo || patient.sexoCorto || "").toLowerCase().startsWith("f");
 
   return (
     <div className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-slate-100 pb-6">
-      {/* Avatar + nombre */}
+      {/* Avatar y nombre */}
       <div className="flex items-center gap-3 pr-6">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-2xl text-blue-500">
           {female ? "♀" : "♂"}
@@ -106,7 +111,7 @@ function PatientBar({ patient }) {
         </div>
       </Field>
 
-      {/* Estado + acción */}
+      {/* Estado y acción */}
       <div className="ml-auto flex items-center gap-3">
         <div className="flex flex-col items-center gap-1">
           {patient.estado && <Badge tone="green">{patient.estado}</Badge>}
@@ -114,12 +119,20 @@ function PatientBar({ patient }) {
         </div>
         <button
           type="button"
+          onClick={() => setEditOpen(true)}
           className="rounded-lg border border-slate-200 p-2 text-blue-500 hover:bg-slate-50"
           aria-label="Editar expediente"
         >
           <Pencil className="h-4 w-4" />
         </button>
       </div>
+
+      <EditPatientModal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        patient={patient}
+        onSaved={onPatientUpdated}
+      />
     </div>
   );
 }

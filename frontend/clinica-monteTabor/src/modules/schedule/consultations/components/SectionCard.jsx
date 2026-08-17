@@ -1,4 +1,5 @@
-//Componente base para el formulario, le doy estilo a cada seccion con esto
+// Tarjeta base para las secciones del formulario. Muestra un ícono y un
+// título opcionales encima del contenido recibido en children.
 const SectionCard = ({ icon, title, children, className = "" }) => {
     return (
         <div className={`bg-white border border-slate-100 rounded-xl p-5 ${className}`}>

@@ -3,10 +3,8 @@ import registerPatientController from "../../controllers/patients/registerPatien
 
 const router = express.Router();
 
-//endpoint http://localhost:4000/api/registerPatients
 router.route("/").post(registerPatientController.register);
 
-//endpoint http://localhost:4000/api/registerPatients/verifyCodeEmail
 router.route("/verifyCodeEmail").post(registerPatientController.verifyCode)
 
 export default router

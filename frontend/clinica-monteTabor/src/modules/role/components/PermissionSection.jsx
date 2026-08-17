@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import ModulePermissionCard from "./ModulePermissionCard";
+import { VIEW_ONLY_MODULE_KEYS, HIDDEN_PERMISSION_ACTIONS, LOCKED_TRUE_PERMISSIONS, MODULE_VIEW_DEPENDENCIES } from "../rolesConfig.js";
 
 const PermissionSection = ({
   section,
@@ -9,6 +10,7 @@ const PermissionSection = ({
   accentSolidClass,
   readOnly,
   defaultOpen = true,
+  roleKey,
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const SectionIcon = section.icon;
@@ -62,6 +64,18 @@ const PermissionSection = ({
                 onChange={(updated) => onModuleChange(module.key, updated)}
                 accentSolidClass={accentSolidClass}
                 readOnly={readOnly}
+                viewOnly={VIEW_ONLY_MODULE_KEYS.includes(module.key)}
+                hiddenActions={HIDDEN_PERMISSION_ACTIONS[module.key] || []}
+                lockedActions={LOCKED_TRUE_PERMISSIONS[roleKey]?.[module.key] || []}
+                // Dependencias de otros módulos a las que a este le
+                // falte el permiso de Ver. Se recalcula en cada render
+                // con el estado más reciente, incluidos los cambios
+                // aún sin guardar, así que el aviso aparece o
+                // desaparece al instante al togglear cualquiera de
+                // los dos.
+                missingDependencies={(MODULE_VIEW_DEPENDENCIES[module.key] || []).filter(
+                  (dep) => !permissionsState[dep.moduleKey]?.view
+                )}
               />
             ))}
           </div>

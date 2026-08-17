@@ -11,9 +11,15 @@ const STATUS_STYLES = {
     pending:      { label: "Pendiente",   cls: "bg-amber-100 text-amber-700" },
     pendiente:    { label: "Pendiente",   cls: "bg-amber-100 text-amber-700" },
     cancelled:    { label: "Cancelada",   cls: "bg-red-100   text-red-700"   },
+    completed:    { label: "Completada",  cls: "bg-slate-100 text-slate-600" },
+    no_show:      { label: "No se presentó", cls: "bg-slate-100 text-slate-500" },
+    expired:      { label: "Vencida",     cls: "bg-orange-100 text-orange-600" },
 };
 
-const getStatus = (raw = "") => STATUS_STYLES[raw.toLowerCase()] ?? { label: raw, cls: "bg-slate-100 text-slate-600" };
+// Fallback sin usar el valor crudo: todos los estados reales ya están en STATUS_STYLES, así
+// que esto solo protege contra un valor futuro no contemplado, sin arriesgarse a mostrar texto
+// en inglés en pantalla.
+const getStatus = (raw = "") => STATUS_STYLES[raw.toLowerCase()] ?? { label: "Otro estado", cls: "bg-slate-100 text-slate-600" };
 
 const todayLabel = () =>
     new Date().toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -23,7 +29,7 @@ const TodayAppointmentsList = ({ appointments = [] }) => {
 
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
-            {/* Header */}
+            {/* Encabezado */}
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <p className="text-sm font-bold text-slate-800">Próximas citas del día</p>
                 <button
@@ -34,12 +40,12 @@ const TodayAppointmentsList = ({ appointments = [] }) => {
                 </button>
             </div>
 
-            {/* Date */}
+            {/* Fecha */}
             <div className="flex items-center gap-1.5 px-5 pb-3">
                 <span className="text-xs text-slate-400 capitalize">{todayLabel()}</span>
             </div>
 
-            {/* List */}
+            {/* Lista de citas */}
             <div className="flex-1 overflow-y-auto">
                 {appointments.length === 0 ? (
                     <p className="text-sm text-slate-400 text-center py-10">Sin citas para hoy</p>
@@ -56,13 +62,13 @@ const TodayAppointmentsList = ({ appointments = [] }) => {
                                 onClick={() => navigate("/calendar/appointments")}
                                 className="flex items-center gap-4 px-5 py-3.5 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer"
                             >
-                                {/* Time */}
+                                {/* Hora */}
                                 <div className="flex-shrink-0 text-right w-12">
                                     <p className="text-xs font-bold text-blue-600 leading-tight">{appt.start_time}</p>
                                     <p className="text-xs text-slate-400 leading-tight">{appt.end_time}</p>
                                 </div>
 
-                                {/* Avatar */}
+                                {/* Foto del paciente */}
                                 {appt.patient?.img_url
                                     ? <img src={appt.patient.img_url} alt={patName} className="w-8 h-8 rounded-full object-cover flex-shrink-0 ring-2 ring-slate-100" />
                                     : <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
@@ -70,13 +76,13 @@ const TodayAppointmentsList = ({ appointments = [] }) => {
                                       </div>
                                 }
 
-                                {/* Info */}
+                                {/* Datos de la cita */}
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-slate-800 truncate">{patName}</p>
                                     <p className="text-xs text-slate-400 truncate">{appt.type}</p>
                                 </div>
 
-                                {/* Status */}
+                                {/* Estado */}
                                 <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full flex-shrink-0 ${cls}`}>
                                     {label}
                                 </span>
@@ -88,7 +94,7 @@ const TodayAppointmentsList = ({ appointments = [] }) => {
                 )}
             </div>
 
-            {/* New appointment button */}
+            {/* Botón de nueva cita */}
             <div className="px-5 py-4 border-t border-slate-50">
                 <button
                     onClick={() => navigate("/calendar/appointments")}

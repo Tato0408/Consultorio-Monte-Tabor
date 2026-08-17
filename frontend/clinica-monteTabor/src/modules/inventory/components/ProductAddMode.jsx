@@ -80,6 +80,7 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     const ve = validate();
     if (Object.keys(ve).length) { setErrors(ve); return; }
     setLoading(true);
@@ -99,8 +100,8 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
 
   const footer = (
     <>
-      <button type="button" onClick={onClose}
-        className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">
+      <button type="button" onClick={onClose} disabled={loading}
+        className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
         Cancelar
       </button>
       <button type="submit" form="form-producto" disabled={loading}
@@ -118,8 +119,14 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
         : "Completa la información del producto para agregarlo al inventario."}
       onClose={onClose}
       footer={footer}
+      closeDisabled={loading}
     >
+      {/* El botón de envío vive fuera de este formulario (footer del
+          modal, enlazado mediante el atributo form con valor
+          form-producto). Por eso también se desactiva de forma
+          manual en el footer. */}
       <form id="form-producto" onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <fieldset disabled={loading} className="contents">
         {errors.general && (
           <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
             {errors.general}
@@ -131,6 +138,7 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           <div className="grid grid-cols-2 gap-4">
             <InputField label="Nombre del producto *" id="name"
               placeholder="Ej. Gasas estériles 10x10"
+              maxLength={100}
               value={form.name} onChange={set("name")} error={errors.name} />
 
             <SelectField label="Categoría" required
@@ -153,8 +161,10 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           <SectionTitle>Inventario inicial</SectionTitle>
           <div className="grid grid-cols-3 gap-4">
             <InputField label={isEdit ? "Stock actual *" : "Stock inicial *"} id="stock"
-              type="number" placeholder="Ej. 100"
-              value={form.stock} onChange={set("stock")} error={errors.stock} />
+              type="number" min={0} max={1000000} placeholder="Ej. 100"
+              value={form.stock} onChange={set("stock")}
+              onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
+              error={errors.stock} />
 
             <SelectField label="Unidad de medida" required
               value={form.unit_measure} onChange={set("unit_measure")}
@@ -163,8 +173,10 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
 
             <div>
               <InputField label="Stock mínimo *" id="min_stock"
-                type="number" placeholder="Ej. 10"
-                value={form.min_stock} onChange={set("min_stock")} error={errors.min_stock} />
+                type="number" min={0} max={1000000} placeholder="Ej. 10"
+                value={form.min_stock} onChange={set("min_stock")}
+                onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }}
+                error={errors.min_stock} />
               <p className="text-xs text-gray-400 mt-1">Cantidad mínima antes de mostrar alerta</p>
             </div>
           </div>
@@ -175,18 +187,22 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           <div className="grid grid-cols-2 gap-4">
             <InputField label="Proveedor (opcional)" id="supplier"
               placeholder="Nombre del proveedor"
+              maxLength={100}
               value={form.supplier} onChange={set("supplier")} />
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-600">Fecha de vencimiento (opcional)</label>
               <input type="date"
+                min="2000-01-01"
+                max={`${new Date().getFullYear() + 20}-12-31`}
                 className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={form.expiration_date} onChange={set("expiration_date")} />
             </div>
 
             <InputField label="Precio unitario (opcional)" id="price"
-              type="number" placeholder="$0.00"
-              value={form.price} onChange={set("price")} />
+              type="number" min={0} max={999999} step="0.01" placeholder="$0.00"
+              value={form.price} onChange={set("price")}
+              onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }} />
           </div>
         </section>
 
@@ -214,6 +230,7 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
             )}
           </label>
         </section>
+      </fieldset>
       </form>
     </Modal>
   );

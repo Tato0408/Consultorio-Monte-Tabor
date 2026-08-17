@@ -11,9 +11,14 @@ import RecordsAccessCard    from "../components/doctor/RecordsAccessCard";
 import DiseaseStatsCard     from "../components/doctor/DiseaseStatsCard";
 import TreatmentStatsCard   from "../components/doctor/TreatmentStatsCard";
 import DoctorSummaryCard    from "../components/doctor/DoctorSummaryCard";
+import DashboardWelcomeHeader from "../components/DashboardWelcomeHeader";
 
+// Página principal del doctor. Carga en paralelo las estadísticas, las
+// citas del día, el historial de consultas con sus expedientes y los
+// datos de analítica (enfermedades y tratamientos más frecuentes), y
+// arma el dashboard con las tarjetas y listas correspondientes.
 const DoctorDashboard = () => {
-    const { user } = useAuth();
+    const { user, userType } = useAuth();
     const { getStats, getTodayAppointments, getConsultationsAndRecords, getAnalytics } = useDoctorDashboard();
 
     const [stats,        setStats]        = useState(null);
@@ -54,15 +59,17 @@ const DoctorDashboard = () => {
     const s = stats || {};
 
     return (
-        <div className="p-4 sm:p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
+        <div className="bg-slate-50 min-h-screen">
+            <DashboardWelcomeHeader
+                displayName={displayName}
+                subtitle="Aquí tienes un resumen de tus consultas"
+                user={user}
+                userType={userType}
+            />
 
-            {/* ── Header ── */}
-            <div>
-                <h1 className="text-xl font-bold text-slate-800">¡Bienvenido, {displayName}!</h1>
-                <p className="text-sm text-slate-400 mt-0.5">Aquí tienes un resumen de tus consultas</p>
-            </div>
+            <div className="p-4 sm:p-6 pt-3 flex flex-col gap-6">
 
-            {/* ── Tarjetas de resumen ── */}
+            {/* Tarjetas de resumen */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <DoctorTopCard topDisease={s.topDisease} />
 
@@ -100,13 +107,13 @@ const DoctorDashboard = () => {
                 />
             </div>
 
-            {/* ── Calendario + Citas de hoy ── */}
+            {/* Calendario y citas de hoy */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <DoctorCalendar />
                 <TodayAppointmentsList appointments={todayAppts} />
             </div>
 
-            {/* ── Historial de consultas + Expedientes ── */}
+            {/* Historial de consultas y expedientes */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                 <div className="lg:col-span-3">
                     <RecentConsultationsList
@@ -119,7 +126,7 @@ const DoctorDashboard = () => {
                 </div>
             </div>
 
-            {/* ── Analytics ── */}
+            {/* Datos de analítica */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <DiseaseStatsCard
                     diseases={analytics?.diseases ?? []}
@@ -129,6 +136,7 @@ const DoctorDashboard = () => {
                 <DoctorSummaryCard  summary={analytics?.summary ?? {}} />
             </div>
 
+            </div>
         </div>
     );
 };

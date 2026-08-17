@@ -1,4 +1,3 @@
-// src/components/layouts/Sidebar.jsx
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import * as Icons from 'lucide-react';
@@ -12,19 +11,22 @@ import {
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 
-// Helper dinámico para renderizar iconos de Lucide pasados como string
+// Renderiza dinámicamente un icono de Lucide a partir de su nombre como string.
 const IconComponent = ({ name, className, size = 18 }) => {
     const Icon = Icons[name];
     return Icon ? <Icon className={className} size={size} /> : <Icons.HelpCircle className={className} size={size} />;
 };
 
-//controla el menú de navegación principal del sistema, aplicando un filtrado de opciones según el rol del usuario autenticado  y manejando estados colapsables
+// Controla el menú de navegación principal del sistema. Filtra las
+// opciones según el rol del usuario autenticado y maneja los estados
+// colapsables de cada grupo.
 const SideBar = ({ onClose = () => {} }) => {
     const location = useLocation();
-    const { hasPermission, isLoading } = useAuth();
+    const { hasPermission, userType, isLoading } = useAuth();
 
-    // Mientras se verifica la sesión (GET /auth/me) no sabemos el rol real todavía entonces se renderiza un estado de carga
-    // Evitamos renderizar el menú con un rol incorrecto/vacío en ese instante.
+    // Mientras se verifica la sesión (GET /auth/me) todavía no se conoce el
+    // rol real, así que se renderiza un estado de carga para no mostrar el
+    // menú con un rol incorrecto o vacío en ese instante.
     if (isLoading) {
         return (
             <aside className="w-65 h-screen bg-white border-r border-slate-100 flex flex-col p-4">
@@ -36,13 +38,18 @@ const SideBar = ({ onClose = () => {} }) => {
         );
     }
  
-    //filtra los modulos principales de la barra lateral segun la matriz de permisos (moduleKey -> view), un grupo se muestra si al menos uno de sus subItems tiene view=true
+    // Filtra los módulos principales de la barra lateral según la matriz de
+    // permisos (moduleKey y view). Un grupo se muestra si al menos uno de
+    // sus subItems tiene view en true.
 
-    // 1. Filtrar los módulos principales según permisos por moduleKey
+    // 1. Filtrar los módulos principales según permisos por moduleKey.
     const filteredMenu = sideBarMenu.reduce((acc, item) => {
-        // 2. Si el módulo tiene hijos (grupo sin moduleKey propio), filtrar los hijos y mostrar el grupo solo si queda al menos uno visible
+        // 2. Si el módulo tiene hijos (grupo sin moduleKey propio), filtrar
+        // los hijos y mostrar el grupo solo si queda al menos uno visible.
         if (item.subItems) {
-            const visibleSubItems = item.subItems.filter(sub => hasPermission(sub.moduleKey, "view"));
+            const visibleSubItems = item.subItems.filter(sub =>
+                hasPermission(sub.moduleKey, "view") && !sub.hiddenForRoles?.includes(userType)
+            );
             if (visibleSubItems.length > 0) {
                 acc.push({ ...item, subItems: visibleSubItems });
             }
@@ -51,10 +58,9 @@ const SideBar = ({ onClose = () => {} }) => {
         }
         return acc;
     }, []);
- 
-//analiza las subrutas del menú filtrado ysi la URL del navegador ('location.pathname') coincide con el path de algún subItem, extrae su índice para que el acordeón se renderice abierto por defecto
 
-    // Acordeones que deben abrirse por defecto: aquellos que contienen la ruta activa
+    // Acordeones que deben abrirse por defecto: aquellos cuyo path de algún
+    // subItem coincide con la ruta activa (location.pathname).
     const defaultOpenValues = filteredMenu.reduce((acc, item, index) => {
         if (item.subItems?.some(sub => sub.path === location.pathname)) {
             acc.push(`item-${index}`);
@@ -85,7 +91,7 @@ const SideBar = ({ onClose = () => {} }) => {
                     {filteredMenu.map((item, index) => {
                         const hasSubItems = item.subItems && item.subItems.length > 0;
  
-                        //Item simple sin submenú Ej: Dashboard
+                        // Item simple sin submenú, ej: Dashboard.
                         if (!hasSubItems) {
                             return (
                                 <NavLink
@@ -104,8 +110,8 @@ const SideBar = ({ onClose = () => {} }) => {
                             );
                         }
  
-                        //Item con submenú colapsable
-                        // Una sección se considera "activa" si la ruta actual coincide con alguno de sus subItems
+                        // Item con submenú colapsable.
+                        // Una sección se considera "activa" si la ruta actual coincide con alguno de sus subItems.
                         const isSectionActive = item.subItems.some(sub => sub.path === location.pathname);
  
                         return (

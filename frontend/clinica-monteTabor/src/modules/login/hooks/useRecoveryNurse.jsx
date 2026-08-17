@@ -1,121 +1,104 @@
 import { useState } from "react";
+import apiClient from "@/lib/apiClient";
 
-const API_URL =
-    "http://localhost:4000/api/recoveryNursePassword";
 
 export const useRecoveryNurse = () => {
-
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
+    // Activa el estado de carga mientras se solicita el código de
+    // recuperación al correo indicado.
     const requestCode = async (email) => {
+        try {
+            setLoading(true);
+            setError(null);
 
-        const response =
-            await fetch(
-                `${API_URL}/requestCode`,
-                {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        email
-                    })
+            const data = await apiClient("/recoveryNursePassword/requestCode", {
+                method: "POST",
+                body: { email },
+            });
 
-                });
-        return await response.json();
-    };
-
-    const verifyCode = async (code) => {
-        const response =
-            await fetch(
-                `${API_URL}/verifyCode`,
-                {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        code
-                    })
-                });
-        return await response.json();
-    };
-
-    
-  //REENVIAR CÓDIGO
-  const resendCode = 
-  async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(
-        `${API_URL}/resendCode`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+            return data;
+        } catch (error) {
+            console.error("Error enviando código:", error);
+            setError(error.message);
+            throw error;
+        } finally {
+            setLoading(false);
         }
-      );
+    };
 
-      const data =
-        await response.json();
+    // Verifica el código de recuperación ingresado por el usuario.
+    const verifyCode = async (code) => {
+        try {
+            setLoading(true);
+            setError(null);
 
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            `Error HTTP: ${response.status}`
-        );
-      }
+            const data = await apiClient("/recoveryNursePassword/verifyCode", {
+                method: "POST",
+                body: { code },
+            });
 
-      return data;
-    } catch (error) {
-      console.error(
-        "Error reenviando código:",
-        error
-      );
+            return data;
+        } catch (error) {
+            console.error("Error verificando código:", error);
+            setError(error.message);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      setError(error.message);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Reenvía el código de recuperación al mismo correo de la solicitud.
+    const resendCode = async () => {
+        try {
+            setLoading(true);
+            setError(null);
 
-    const newPassword =
-        async (password, confirmPassword) => {
-            const response =
-                await fetch(
-                    `${API_URL}/newPassword`,
-                    {
-                        method: "POST",
-                        credentials: "include",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
+            const data = await apiClient("/recoveryNursePassword/resendCode", {
+                method: "POST",
+            });
 
+            return data;
+        } catch (error) {
+            console.error("Error reenviando código:", error);
+            setError(error.message);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
 
-                        body: JSON.stringify({
+    // Envía la nueva contraseña junto con su confirmación para
+    // completar el cambio de contraseña.
+    const newPassword = async (password, confirmPassword) => {
+        try {
+            setLoading(true);
+            setError(null);
 
-                            newPassword: password,
-                            confirmNewPassword: confirmPassword
-                        })
+            const data = await apiClient("/recoveryNursePassword/newPassword", {
+                method: "POST",
+                body: {
+                    newPassword: password,
+                    confirmNewPassword: confirmPassword,
+                },
+            });
 
-                    });
-            return await response.json();
-        };
+            return data;
+        } catch (error) {
+            console.error("Error cambiando contraseña:", error);
+            setError(error.message);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
     return {
         loading,
+        error,
         requestCode,
         verifyCode,
+        resendCode,
         newPassword
-
     };
-
-
 };

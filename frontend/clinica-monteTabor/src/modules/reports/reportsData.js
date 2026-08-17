@@ -172,7 +172,7 @@ export const pacientesSections = [
       { proceso: "Total de pacientes registrados", actual: "412", anterior: "374", variacion: "+10.2%" },
       { proceso: "Pacientes nuevos", badge: { label: "Nuevos", color: "blue" }, actual: "38", anterior: "29", variacion: "+31.0%" },
       { proceso: "Pacientes recurrentes", badge: { label: "Recurrentes", color: "purple" }, actual: "173", anterior: "142", variacion: "+16.1%" },
-      { proceso: "Pacientes inactivo (sin cita hace 3 meses)", actual: "93", anterior: "94", variacion: "-7.4%" },
+      { proceso: "Pacientes inactivos (sin cita hace 3 meses)", actual: "93", anterior: "94", variacion: "-7.4%" },
     ],
   },
   {
@@ -281,7 +281,7 @@ export const doctoresSections = [
     title: "Actividad general",
     icon: "activity",
     rows: [
-      { proceso: "Total de doctores en laburo", actual: "2", anterior: "2", variacion: "0.0%" },
+      { proceso: "Total de doctores en labor", actual: "2", anterior: "2", variacion: "0.0%" },
       { proceso: "Doctores activos con citas asignadas", actual: "2", anterior: "2", variacion: "0.0%" },
       { proceso: "Citas atendidas entre todos los doctores", actual: "211", anterior: "178", variacion: "+18.5%" },
       { proceso: "Promedio de citas atendidas por doctor", actual: "105.5", anterior: "89", variacion: "+18.5%" },

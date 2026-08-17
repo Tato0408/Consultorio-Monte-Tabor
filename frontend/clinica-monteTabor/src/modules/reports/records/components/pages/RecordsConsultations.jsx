@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Calendar, Filter, ChevronLeft, ChevronRight, ChevronDown,
+  Calendar, Filter, ChevronLeft, ChevronRight, ChevronDown, Trash2,
 } from "lucide-react";
 import { Badge, Card } from "../global/ui";
 
@@ -9,12 +9,18 @@ const ESTADO_STYLES = {
   en_espera: { label: "En espera", tone: "blue" },
 };
 
-// Espera `patient.consultas` = [{ id, hora, paciente, medico, estado, _fecha }]
+const MIN_FILTER_YEAR = 2000;
+const MAX_FILTER_DATE = `${new Date().getFullYear() + 1}-12-31`;
+
+// Espera que patient.consultas sea una lista de objetos con id, hora,
+// paciente, medico, estado y _fecha.
 const ConsultasDelDia = ({
   patient = {},
   onContinuar,
   onVerRegistro,
+  onEliminar,
   canAttend = false,
+  canEdit = false,
 }) => {
   const consultas = patient.consultas ?? [];
   const enEspera = consultas.filter((c) => c.estado === "en_espera").length;
@@ -66,8 +72,17 @@ const ConsultasDelDia = ({
             <span className="text-xs text-slate-500">Desde</span>
             <input
               type="date"
+              min={`${MIN_FILTER_YEAR}-01-01`}
+              max={MAX_FILTER_DATE}
               value={desde}
-              onChange={(e) => { setDesde(e.target.value); setPagina(1); }}
+              onChange={(e) => {
+                const val = e.target.value;
+                // Corta un año de más de 4 dígitos antes de que entre al estado del filtro.
+                if (val && val.length !== 10) return;
+                if (val && (val < `${MIN_FILTER_YEAR}-01-01` || val > MAX_FILTER_DATE)) return;
+                setDesde(val);
+                setPagina(1);
+              }}
               className={inputCls}
             />
           </label>
@@ -75,8 +90,16 @@ const ConsultasDelDia = ({
             <span className="text-xs text-slate-500">Hasta</span>
             <input
               type="date"
+              min={`${MIN_FILTER_YEAR}-01-01`}
+              max={MAX_FILTER_DATE}
               value={hasta}
-              onChange={(e) => { setHasta(e.target.value); setPagina(1); }}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val && val.length !== 10) return;
+                if (val && (val < `${MIN_FILTER_YEAR}-01-01` || val > MAX_FILTER_DATE)) return;
+                setHasta(val);
+                setPagina(1);
+              }}
               className={inputCls}
             />
           </label>
@@ -147,7 +170,7 @@ const ConsultasDelDia = ({
                         onClick={() => onVerRegistro?.(c)}
                         className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-1.5 rounded-lg"
                       >
-                        Ver registro
+                        {canEdit ? "Editar" : "Ver registro"}
                       </button>
                     ) : canAttend ? (
                       <button

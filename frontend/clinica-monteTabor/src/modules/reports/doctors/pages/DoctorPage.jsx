@@ -5,6 +5,7 @@ import ReportSection from "../../components/ReportsSection";
 import useDoctoresReport from "../hooks/useDoctorReports";
 import { exportReportPdf } from "../../exportReportPdf";
 import { showError } from "../../../../lib/alerts";
+import ReportFeedback from "../../components/ReportFeedback";
 
 const SkeletonCard = () => (
   <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 h-[220px] animate-pulse">
@@ -26,9 +27,9 @@ const SkeletonSection = () => (
 
 const DoctoresPage = () => {
   const {
-    loading, topCards, sections, pdfData,
+    loading, error, topCards, sections, pdfData,
     dateFrom, dateTo, isGeneral,
-    setDateFrom, setDateTo, toggleGeneral,
+    setDateFrom, setDateTo, activateGeneral, refetch,
   } = useDoctoresReport();
 
   const [exporting, setExporting] = useState(false);
@@ -57,24 +58,35 @@ const DoctoresPage = () => {
         isGeneral={isGeneral}
         onChangeFrom={setDateFrom}
         onChangeTo={setDateTo}
-        onToggleGeneral={toggleGeneral}
+        onSelectGeneral={activateGeneral}
         onExport={handleExport}
         exporting={exporting}
+        disableExport={loading || !pdfData}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {loading
-          ? [0, 1, 2].map((i) => <SkeletonCard key={i} />)
-          : topCards.map((card) => <TopCard key={card.key} card={card} />)}
-      </div>
-
-      <div className="space-y-4">
-        {loading
-          ? [0, 1, 2, 3].map((i) => <SkeletonSection key={i} />)
-          : sections.map((section, i) => (
-              <ReportSection key={section.key} section={section} defaultOpen={i === 0} />
+      {loading ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
+          </div>
+          <div className="space-y-4">
+            {[0, 1, 2, 3].map((i) => <SkeletonSection key={i} />)}
+          </div>
+        </>
+      ) : error || (!topCards.length && !sections.length) ? (
+        <ReportFeedback error={error} onRetry={refetch} emptyTitle="No hay doctores en este período" />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {topCards.map((card) => <TopCard key={card.key} card={card} />)}
+          </div>
+          <div className="space-y-4">
+            {sections.map((section) => (
+              <ReportSection key={section.key} section={section} />
             ))}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

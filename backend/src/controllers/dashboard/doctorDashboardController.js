@@ -5,6 +5,10 @@ import consultationModel from "../../models/consultations/consultation.js";
 const doctorDashboardController = {};
 
 // GET /api/doctor-dashboard/stats
+// Calcula las estadísticas del doctor autenticado: enfermedad más
+// frecuente entre sus consultas, total de pacientes con su crecimiento
+// mensual, citas de hoy comparadas con ayer y pacientes nuevos del mes,
+// junto con series de los últimos 7 días para los gráficos.
 doctorDashboardController.getStats = async (req, res) => {
     try {
         const doctorId = new mongoose.Types.ObjectId(req.user.id);
@@ -60,11 +64,13 @@ doctorDashboardController.getStats = async (req, res) => {
         });
     } catch (error) {
         console.error("doctorDashboard.getStats:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
 // GET /api/doctor-dashboard/calendar?year=YYYY
+// Devuelve las fechas únicas del año indicado (o el actual por defecto)
+// en las que el doctor autenticado tiene al menos una cita.
 doctorDashboardController.getCalendar = async (req, res) => {
     try {
         const doctorId = new mongoose.Types.ObjectId(req.user.id);
@@ -79,11 +85,13 @@ doctorDashboardController.getCalendar = async (req, res) => {
         res.status(200).json({ dates: uniqueDates });
     } catch (error) {
         console.error("doctorDashboard.getCalendar:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
 // GET /api/doctor-dashboard/today-appointments
+// Devuelve las citas del día del doctor autenticado, ordenadas por
+// hora de inicio, con los datos básicos del paciente.
 doctorDashboardController.getTodayAppointments = async (req, res) => {
     try {
         const doctorId = new mongoose.Types.ObjectId(req.user.id);
@@ -98,11 +106,14 @@ doctorDashboardController.getTodayAppointments = async (req, res) => {
         })));
     } catch (error) {
         console.error("doctorDashboard.getTodayAppointments:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
 // GET /api/doctor-dashboard/consultations-records
+// Devuelve las 5 consultas más recientes del doctor con su diagnóstico
+// y los últimos 5 pacientes distintos atendidos, a partir de sus
+// últimas 20 citas.
 doctorDashboardController.getConsultationsAndRecords = async (req, res) => {
     try {
         const doctorId = new mongoose.Types.ObjectId(req.user.id);
@@ -121,6 +132,8 @@ doctorDashboardController.getConsultationsAndRecords = async (req, res) => {
             return { _id: appt._id, patient: appt.patient_id, date: appt.date, type: appt.type, status: appt.status, diagnosis: c?.clinical_data?.diagnosis || null };
         });
 
+        // Recorre las citas más recientes y arma la lista de los
+        // últimos 5 pacientes distintos, descartando duplicados.
         const seen = new Set();
         const records = [];
         for (const appt of last20) {
@@ -134,11 +147,14 @@ doctorDashboardController.getConsultationsAndRecords = async (req, res) => {
         res.status(200).json({ recentConsultations, records });
     } catch (error) {
         console.error("doctorDashboard.getConsultationsAndRecords:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
 // GET /api/doctor-dashboard/analytics
+// Calcula, para el doctor autenticado, las 5 enfermedades y los 6
+// diagnósticos CIE más frecuentes con su porcentaje, además de un
+// resumen del mes (consultas, pacientes activos, procedimientos).
 doctorDashboardController.getAnalytics = async (req, res) => {
     try {
         const doctorId = new mongoose.Types.ObjectId(req.user.id);
@@ -170,7 +186,7 @@ doctorDashboardController.getAnalytics = async (req, res) => {
         });
     } catch (error) {
         console.error("doctorDashboard.getAnalytics:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 

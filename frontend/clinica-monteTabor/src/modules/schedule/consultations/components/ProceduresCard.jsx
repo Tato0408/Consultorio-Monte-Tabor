@@ -1,10 +1,9 @@
-// src/features/consultations/components/ProceduresCard.jsx
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus } from "lucide-react";
 import SectionCard from "./SectionCard";
 import ProcedureRow from "./ProcedureRow";
 
-// Ahora solo orquesta la lista de procedimientos; cada fila (con su propio
+// Orquesta la lista de procedimientos, cada fila (con su propio
 // manejo de materiales) vive en ProcedureRow.
 const ProceduresCard = ({ readOnly }) => {
     const { control } = useFormContext();
@@ -14,7 +13,7 @@ const ProceduresCard = ({ readOnly }) => {
     });
 
     return (
-        <SectionCard title="Procedimientos Realizados">
+        <SectionCard title="Paso 5 - Procedimientos realizados - opcional">
             <div className="space-y-4 mb-3">
                 {rows.map((row, index) => (
                     <ProcedureRow

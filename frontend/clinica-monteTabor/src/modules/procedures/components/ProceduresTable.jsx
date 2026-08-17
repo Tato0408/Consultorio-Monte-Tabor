@@ -3,10 +3,9 @@ import { Clock, Package, X, MoreVertical, Edit2, Trash2 } from "lucide-react";
 import GenericTable from "@/components/ui/GenericTable";
 
 const ProceduresTable = ({ data, loading, onAdd, onEdit, onDelete, canUpdate = true, canDelete = true }) => {
-  // Únicamente controlamos qué menú flotante de fila está desplegado
+  // Id del procedimiento cuyo menu flotante de acciones esta desplegado
   const [activeMenuId, setActiveMenuId] = useState(null);
 
-  // Definición de las columnas específicas para Procedimientos
   const columns = [
     {
       header: "Procedimiento",
@@ -71,7 +70,8 @@ const ProceduresTable = ({ data, loading, onAdd, onEdit, onDelete, canUpdate = t
                   <button
                     type="button"
                     onClick={(e) => {
-                      e.stopPropagation(); // Evita que se dispare la selección de la fila
+                      // Evita que el click en el menu tambien seleccione la fila
+                      e.stopPropagation();
                       setActiveMenuId(isMenuOpen ? null : proc._id);
                     }}
                     className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${
@@ -148,8 +148,8 @@ const ProceduresTable = ({ data, loading, onAdd, onEdit, onDelete, canUpdate = t
       loading={loading}
       searchFields={["name"]}
       onAdd={onAdd}
-      addLabel="Agregar Procedimiento"
-      showNurseFilter={true} // <-- El filtro exclusivo de enfermeras ahora se activa bien desde aquí
+      addLabel="Agregar procedimiento"
+      showNurseFilter={true}
     />
   );
 };

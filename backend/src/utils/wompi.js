@@ -4,10 +4,11 @@ import { config } from "../../config.js";
 const WOMPI_ID_URL = "https://id.wompi.sv/connect/token";
 const WOMPI_API_URL = "https://api.wompi.sv";
 
-// El token se cachea en memoria para no pedir uno nuevo en cada llamada;
-// se renueva un minuto antes de que expire de verdad. Este token es solo para uso
-// interno del servidor (verificar pagos); el que usa el formulario de pago del
-// paciente lo pide aparte, vía wompiController.generarToken.
+// El token se cachea en memoria para no pedir uno nuevo en cada
+// llamada, se renueva un minuto antes de que expire de verdad. Este
+// token es solo para uso interno del servidor (verificar pagos). El que
+// usa el formulario de pago del paciente se pide aparte, vía
+// wompiController.generarToken.
 let cachedToken = null;
 let tokenExpiresAt = 0;
 
@@ -37,9 +38,10 @@ async function getAccessToken() {
     return cachedToken;
 }
 
-// Vuelve a consultar una transacción directamente con Wompi usando nuestras propias
-// credenciales (nunca confiando en lo que el frontend diga que pasó), para confirmar
-// de verdad si el pago fue aprobado antes de marcar una cita como agendada.
+// Vuelve a consultar una transacción directamente con Wompi usando
+// credenciales propias del servidor (nunca confiando en lo que el
+// frontend diga que pasó), para confirmar de verdad si el pago fue
+// aprobado antes de marcar una cita como agendada.
 export async function getTransactionStatus(idTransaccion) {
     const token = await getAccessToken();
     const response = await fetch(`${WOMPI_API_URL}/TransaccionCompra/${idTransaccion}`, {
@@ -50,11 +52,13 @@ export async function getTransactionStatus(idTransaccion) {
     if (!response.ok) {
         throw new Error(data?.message || data?.title || "No se pudo consultar la transacción");
     }
-    return data; // incluye esAprobada (boolean)
+    // El objeto de respuesta incluye esAprobada (boolean).
+    return data;
 }
 
-// Verifica que un webhook realmente venga de Wompi: compara el HMAC-SHA256 del cuerpo
-// crudo (usando el client secret como llave) contra el header "wompi_hash"
+// Verifica que un webhook realmente venga de Wompi, comparando el
+// HMAC-SHA256 del cuerpo crudo (usando el client secret como llave)
+// contra el header "wompi_hash".
 export function verifyWebhookSignature(rawBody, receivedHash) {
     if (!receivedHash || !rawBody) return false;
     const hmac = crypto.createHmac("sha256", config.wompi.clientSecret);

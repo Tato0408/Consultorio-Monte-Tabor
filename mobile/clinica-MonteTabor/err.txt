@@ -1,0 +1,11 @@
+TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string. Received undefined
+    at Object.basename (node:path:837:5)
+    at buildResult (C:\Users\Fernando\AppData\Local\npm-cache\_npx\02ef052036b6e199\node_modules\babel\lib\babel\file.js:22:18)
+    at output (C:\Users\Fernando\AppData\Local\npm-cache\_npx\02ef052036b6e199\node_modules\babel\lib\babel\file.js:70:18)
+    at walk (C:\Users\Fernando\AppData\Local\npm-cache\_npx\02ef052036b6e199\node_modules\babel\lib\babel\file.js:128:5)
+    at files (C:\Users\Fernando\AppData\Local\npm-cache\_npx\02ef052036b6e199\node_modules\babel\lib\babel\file.js:132:5)
+    at module.exports (C:\Users\Fernando\AppData\Local\npm-cache\_npx\02ef052036b6e199\node_modules\babel\lib\babel\file.js:152:5)
+    at Object.<anonymous> (C:\Users\Fernando\AppData\Local\npm-cache\_npx\02ef052036b6e199\node_modules\babel\lib\babel\index.js:147:1)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)

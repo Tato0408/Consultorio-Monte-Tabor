@@ -1,40 +1,50 @@
-const API_URL = "http://localhost:4000/api";
+const API_URL = "https://clinica-monte-tabor.onrender.com/api";
 
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
-    //Construimos la url de la peticion enviando primero la url y segundo el endpoint que queremos
+    // Arma la URL de la petición combinando la URL base y el endpoint recibido.
     let url = `${API_URL}${path}`;
 
     if (params) {
-        // Filtramos undefined/null/"" para no mandar query params vacíos a la API
+        // Descarta los valores undefined, null o vacíos para no enviar
+        // parámetros de consulta vacíos a la API.
         const cleanParams = Object.fromEntries(
             Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "")
         );
-        // Transformamos el objeto limpio en una cadena de texto en formato clave=valor (ej: ?rol=admin&estado=activo)
+        // Convierte el objeto limpio en una cadena de texto con formato
+        // clave=valor (ej: ?rol=admin&estado=activo).
         const searchParams = new URLSearchParams(cleanParams);
         const queryString = searchParams.toString();
-        // Si resultaron parámetros válidos tras la limpieza, los concatenamos a la URL con un signo de interrogación
+        // Si quedaron parámetros válidos tras la limpieza, los concatena a la URL.
         if (queryString) url += `?${queryString}`;
     }
 
-    //Ejecucion del fetch nativo
+    // Ejecuta la petición con fetch nativo.
     const response = await fetch(url, {
         method,
-        credentials: "include", // Cookies de sesión
+        // Envía la cookie de sesión con la petición.
+        credentials: "include",
         signal,
         headers: body instanceof FormData ? undefined : body ? { "Content-Type": "application/json" } : undefined,
         body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
     });
 
-    // Intentamos parsear JSON siempre, incluso en errores, porque la API devuelve { message: "..." } tanto en éxito como en fallos controlados.
+    // Intenta parsear la respuesta como JSON siempre, incluso en errores,
+    // porque la API devuelve { message: "..." } tanto en éxito como en
+    // fallos controlados.
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-        //Extrae el mensaje enviado del backend
+        // Extrae el mensaje enviado por el backend.
         const message = data?.message || `Error ${response.status}`;
-        throw new Error(message);
+        const error = new Error(message);
+        // Expone el status para que quien llame pueda distinguir casos
+        // puntuales (ej. código 403 para cuenta desactivada) sin depender
+        // del texto exacto del mensaje.
+        error.status = response.status;
+        throw error;
     }
 
-    //Si la peticion fue exitosa retorna los datos parseados par autilizarlos como el endpoint
+    // Si la petición fue exitosa, retorna los datos ya parseados.
     return data;
 }
 

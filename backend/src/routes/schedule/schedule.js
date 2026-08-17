@@ -4,6 +4,10 @@ import { authorize } from "../../middlewares/authorizeMiddleware.js";
 
 const router = express.Router();
 
+// Consulta pública autenticada para pacientes: slots donde al menos un doctor
+// podría atender. No permite leer ni modificar horarios individuales.
+router.get("/patient-available-slots", scheduleController.getPatientAvailableSlots);
+
 router.route("/:doctorId/slots")
     .get(authorize("calendar.schedule", "view"), scheduleController.getAvailableSlots);
 

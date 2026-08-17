@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import apiClient from "@/lib/apiClient"
 
-const API_URL = "http://localhost:4000/api/appointments";
-
-const OPTS = { credentials: "include" };
-
+// Maneja el listado de citas y las operaciones CRUD contra la API
+// (crear, actualizar, eliminar, obtener por id). Mantiene el estado de
+// carga, envío, error y mensaje, y refresca la lista tras cada
+// operación que modifica datos.
 const useAppointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,11 +17,7 @@ const useAppointments = () => {
       setLoading(true);
       setError("");
 
-      const response = await fetch(API_URL, OPTS);
-
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-
-      const data = await response.json();
+      const data = await apiClient("/appointments");
       setAppointments(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || "Error al obtener las citas");
@@ -35,9 +32,8 @@ const useAppointments = () => {
 
   const getAppointmentById = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/${id}`, OPTS);
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-      return await response.json();
+      const data = await apiClient(`/appointments/${id}`);
+      return data;
     } catch (err) {
       setError(err.message || "Error al obtener la cita");
       return null;
@@ -50,15 +46,10 @@ const useAppointments = () => {
       setError("");
       setMessage("");
 
-      const response = await fetch(API_URL, {
-        ...OPTS,
+      await apiClient("/appointments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(appointmentData),
+        body: appointmentData,
       });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Error al crear la cita");
 
       setMessage("Cita creada correctamente");
       await fetchAppointments();
@@ -77,15 +68,10 @@ const useAppointments = () => {
       setError("");
       setMessage("");
 
-      const response = await fetch(`${API_URL}/${id}`, {
-        ...OPTS,
+      await apiClient(`/appointments/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(appointmentData),
+        body: appointmentData,
       });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Error al actualizar la cita");
 
       setMessage("Cita actualizada correctamente");
       await fetchAppointments();
@@ -103,8 +89,9 @@ const useAppointments = () => {
       setError("");
       setMessage("");
 
-      const response = await fetch(`${API_URL}/${id}`, { ...OPTS, method: "DELETE" });
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+      await apiClient(`/appointments/${id}`, {
+        method: "DELETE"
+      });
 
       setMessage("Cita eliminada correctamente");
       await fetchAppointments();

@@ -3,10 +3,10 @@ import { Plus, Trash2 } from "lucide-react";
 import SectionCard from "./SectionCard";
 
 const AntecedentsCard = ({ title, name, fields, readOnly }) => {
-    const { control, register } = useFormContext();
+    const { control, register, watch } = useFormContext();
 
-    // useFieldArray maneja agregar/quitar filas sin que nosotros
-    // manipulemos arrays a mano con setState.
+    // useFieldArray maneja agregar y quitar filas sin necesidad de
+    // manipular arrays a mano con setState.
     const { fields: rows, append, remove } = useFieldArray({ control, name });
 
     // Valores vacíos para la fila nueva: uno por cada columna definida.
@@ -18,16 +18,21 @@ const AntecedentsCard = ({ title, name, fields, readOnly }) => {
                 {rows.map((row, index) => (
                     <div key={row.id} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
                         {fields.map((field) => (
-                            <input
-                                key={field.key}
-                                type="text"
-                                placeholder={field.label}
-                                disabled={readOnly}
-                                {...register(`${name}.${index}.${field.key}`)}
-                                className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
-                            />
+                            <div key={field.key} className="flex flex-col gap-0.5">
+                                <input
+                                    type="text"
+                                    placeholder={field.label}
+                                    maxLength={field.maxLength || 100}
+                                    disabled={readOnly}
+                                    {...register(`${name}.${index}.${field.key}`)}
+                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                />
+                                <span className="self-end text-[11px] text-gray-400">
+                                    {watch(`${name}.${index}.${field.key}`)?.length ?? 0}/{field.maxLength || 100}
+                                </span>
+                            </div>
                         ))}
-                        {/* Botón de borrar fila; se oculta en modo lectura */}
+                        {/* Botón de borrar fila, se oculta en modo lectura */}
                         {!readOnly && (
                             <button
                                 type="button"

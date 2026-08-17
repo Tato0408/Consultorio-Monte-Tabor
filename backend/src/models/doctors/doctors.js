@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 
 const doctorSchema = new Schema(
   {
@@ -68,6 +68,20 @@ const doctorSchema = new Schema(
     loginAttempts: {
       type: Number,
       default: 0,
+    },
+    // Indica si este doctor es una copia automática de un admin, creada
+    // para que el admin pueda configurar su propio horario y ser asignado
+    // a citas sin dejar de ser admin en el resto del sistema (ver
+    // doctorsController.syncAdminMirrorDoctor). Se excluye de la gestión
+    // de doctores (GET doctors) pero sí aparece en el catálogo de
+    // agendamiento (GET doctors catalog).
+    is_admin_mirror: {
+      type: Boolean,
+      default: false,
+    },
+    linked_admin_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
     },
   },
   {

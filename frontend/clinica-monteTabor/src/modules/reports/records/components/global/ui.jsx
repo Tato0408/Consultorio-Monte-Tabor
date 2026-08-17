@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 
-/* Etiquetas de estado (ACTIVO, NORMAL, PENDIENTE, etc.) */
+// Etiqueta de estado (ACTIVO, NORMAL, PENDIENTE, etc.).
 export function Badge({ children, tone = "gray", className = "" }) {
   const tones = {
     green: "bg-emerald-100 text-emerald-700",
@@ -19,7 +19,7 @@ export function Badge({ children, tone = "gray", className = "" }) {
   );
 }
 
-/* Enlace "Ver todos →" que aparece en la cabecera de cada tarjeta */
+// Enlace Ver todos que aparece en la cabecera de cada tarjeta.
 export function VerTodos({ children = "Ver todos", onClick }) {
   return (
     <button
@@ -33,7 +33,7 @@ export function VerTodos({ children = "Ver todos", onClick }) {
   );
 }
 
-/* Tarjeta base */
+// Tarjeta base.
 export function Card({ children, className = "" }) {
   return (
     <div className={`rounded-2xl border border-slate-100 bg-white p-6 shadow-sm ${className}`}>
@@ -42,7 +42,7 @@ export function Card({ children, className = "" }) {
   );
 }
 
-/* Tarjeta con cabecera (título + acción a la derecha) */
+// Tarjeta con cabecera: título y acción a la derecha.
 export function SectionCard({ title, action, children, className = "" }) {
   return (
     <Card className={className}>

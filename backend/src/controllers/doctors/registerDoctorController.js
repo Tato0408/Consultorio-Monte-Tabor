@@ -1,4 +1,3 @@
-import nodemailer from "nodemailer";
 import crypto from "crypto";
 import jsonwebtoken from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
@@ -6,6 +5,7 @@ import bcryptjs from "bcryptjs";
 import doctorsModel from "../../models/doctors/doctors.js";
 
 import { config } from "../../../config.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
 
 // array de funcioness
 const registerDoctorController = {};
@@ -51,7 +51,7 @@ registerDoctorController.register = async (req, res) => {
 
     if (existsDoctor) {
       return res.status(400).json({
-        message: "Doctor already exists",
+        message: "El doctor ya existe",
       });
     }
 
@@ -102,55 +102,40 @@ registerDoctorController.register = async (req, res) => {
     res.cookie("registrationCookie", token, {
       maxAge: 15 * 60 * 1000,
       httpOnly: true,
+      secure: true,
+      sameSite: "none"
     });
 
-    //TRANSPORTER
-    const transporter =
-      nodemailer.createTransport({
-        service: "gmail",
-
-        auth: {
-          user: config.email.user_email,
-          pass: config.email.user_password,
-        },
-      });
-
     //EMAIL
-    const mailOptions = {
-      from: config.email.user_email,
-      to: email,
-      subject: "Verificación de cuenta",
-
-      text:
-        "Para verificar tu cuenta utiliza este código: " +
-        randomCode +
-        ". Expira en 15 minutos.",
-    };
+    const htmlContent =
+      "Para verificar tu cuenta utiliza este código: " +
+      randomCode +
+      ". Expira en 15 minutos.";
 
     //Se envia el email
-    transporter.sendMail(
-      mailOptions,
-      (error, info) => {
+    try {
+      await sendEmail(
+        email,
+        "Verificación de cuenta",
+        htmlContent,
+      );
+    } catch (error) {
+      console.log("error " + error);
 
-        if (error) {
-          console.log("error " + error);
+      return res.status(500).json({
+        message: "Error al enviar el correo",
+      });
+    }
 
-          return res.status(500).json({
-            message: "Error sending email",
-          });
-        }
-
-        return res.status(200).json({
-          message: "Verification email sent",
-        });
-      },
-    );
+    return res.status(200).json({
+      message: "Correo de verificación enviado",
+    });
 
   } catch (error) {
     console.log("error " + error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Error interno del servidor",
     });
   }
 };
@@ -208,7 +193,7 @@ registerDoctorController.verifyCode =
         storedCode
       ) {
         return res.status(400).json({
-          message: "Invalid code",
+          message: "Código inválido",
         });
       }
 
@@ -245,7 +230,7 @@ registerDoctorController.verifyCode =
       res.clearCookie("registrationCookie");
 
       return res.status(200).json({
-        message: "Doctor registered",
+        message: "Doctor registrado",
       });
 
     } catch (error) {
@@ -253,9 +238,9 @@ registerDoctorController.verifyCode =
       console.log("error " + error);
 
       return res.status(500).json({
-        message: "Internal server error",
+        message: "Error interno del servidor",
       });
     }
-};
+  };
 
 export default registerDoctorController;

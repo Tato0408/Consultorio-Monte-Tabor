@@ -1,7 +1,7 @@
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 
-// ── Custom toast renderers ──────────────────────────────────────────────────
+// Renderizadores de toast personalizados
 
 const CloseBtn = ({ id }) => (
   <button onClick={() => toast.dismiss(id)} className="text-slate-300 hover:text-slate-500 transition-colors ml-1 flex-shrink-0">
@@ -46,7 +46,7 @@ const WarnIcon = () => (
   </svg>
 );
 
-// ── Exported helpers ────────────────────────────────────────────────────────
+// Funciones exportadas
 
 export const showSuccess = (message) =>
   new Promise(resolve =>
@@ -74,9 +74,10 @@ export const showWarning = (message) =>
     { duration: 3500 }
   );
 
-// Mismos colores que WarnIcon/AlertIcon del toast (amber-400 / red-500), para que la ventana
-// de confirmación se sienta parte del mismo sistema visual aunque sea un modal de SweetAlert2
-// y no un toast — SweetAlert2 no permite clonar el diseño de tarjeta del toast tal cual.
+// Usa los mismos colores que WarnIcon y AlertIcon del toast (amber 400, red 500), para que
+// la ventana de confirmación se sienta parte del mismo sistema visual aunque sea un modal de
+// SweetAlert2 y no un toast. SweetAlert2 no permite clonar el diseño de tarjeta del toast tal
+// cual.
 export const confirmDelete = async ({
   title = "¿Eliminar este registro?",
   text = "Esta acción no se puede deshacer.",
@@ -112,6 +113,29 @@ export const confirmResetPermissions = async (roleName) => {
     confirmButtonText: "Sí, restablecer",
     cancelButtonText: "Cancelar",
     confirmButtonColor: "#3B6FCA",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return result.isConfirmed;
+};
+
+export const confirmDischarge = async () => {
+  const result = await Swal.fire({
+    title: "¿Dar de alta este tratamiento?",
+    text: "Se quitará el control pendiente y el paciente pasará a \"Finalizado\".",
+    icon: "warning",
+    iconColor: "#fbbf24",
+    showCancelButton: true,
+    confirmButtonText: "Sí, dar de alta",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#ef4444",
     cancelButtonColor: "#94a3b8",
     customClass: {
       popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",

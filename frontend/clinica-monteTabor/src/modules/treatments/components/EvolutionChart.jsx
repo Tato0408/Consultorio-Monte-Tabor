@@ -1,32 +1,18 @@
-import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
+// El sistema no guarda ningun campo que clasifique la evolucion clinica de
+// un paciente (mejorando, sin cambios, empeorando). La unica serie que se
+// puede mostrar con datos reales es cuantos tratamientos nuevos empezaron
+// cada semana (ver chartData en treatmentsController.js).
 const SERIES = [
-  { key: "mejorando",  label: "Mejorando",   color: "#22c55e" },
-  { key: "sinCambios", label: "Sin cambios", color: "#f59e0b" },
-  { key: "empeorando", label: "Empeorando",  color: "#ef4444" },
+  { key: "iniciados", label: "Tratamientos iniciados", color: "#0b66d6" },
 ];
 
-const RANGES = ["Últimos 30 días", "Últimos 90 días", "Último año"];
-
 const EvolutionChart = ({ data, loading }) => {
-  const [range, setRange] = useState(RANGES[0]);
-
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-bold text-slate-800">Evolución de pacientes</h3>
-        <Select value={range} onValueChange={setRange}>
-          <SelectTrigger className="h-8 border border-slate-200 rounded-lg px-2.5 text-xs font-semibold text-slate-700 min-w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent sideOffset={6}>
-            {RANGES.map((r) => (
-              <SelectItem key={r} value={r}>{r}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <h3 className="text-sm font-bold text-slate-800">Tratamientos iniciados por semana</h3>
       </div>
 
       <div className="flex items-center gap-4">

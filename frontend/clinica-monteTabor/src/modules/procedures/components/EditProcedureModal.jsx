@@ -11,12 +11,14 @@ const EditProcedureModal = ({ isOpen, onClose, procedureData, onUpdate, isSubmit
       subtitle="Modifique la información del procedimiento médico seleccionado en el sistema."
       onClose={onClose}
       width="w-full md:w-[600px]"
+      closeDisabled={isSubmitting}
       footer={
         <>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={isSubmitting}
+            className="px-4 py-2 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>

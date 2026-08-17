@@ -17,6 +17,11 @@ const StatusPill = ({ label, count, dotColor, textColor, bg }) => (
     </div>
 );
 
+// Muestra el estado actual de los doctores: cuántos están en consulta,
+// cuántos tienen una cita en la próxima hora, disponibles y no disponibles.
+// Recibe en data los conteos y las listas de citas en curso y
+// próximas, y renderiza los indicadores junto con el detalle de cada
+// lista.
 const DoctorStatusSection = ({ data }) => {
     const navigate = useNavigate();
     const counts      = data?.counts      || { inConsultation: 0, upcoming: 0, available: 0, unavailable: 0 };
@@ -28,7 +33,7 @@ const DoctorStatusSection = ({ data }) => {
 
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6">
-            {/* Header */}
+            {/* Encabezado */}
             <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-bold text-slate-800">Estado de doctores</h2>
                 <button
@@ -39,7 +44,7 @@ const DoctorStatusSection = ({ data }) => {
                 </button>
             </div>
 
-            {/* Status pills */}
+            {/* Indicadores de estado */}
             <div className="flex flex-wrap gap-2 mb-6">
                 <StatusPill label="En consulta"           count={counts.inConsultation} dotColor="bg-blue-500"  textColor="text-blue-700"   bg="bg-blue-50" />
                 <StatusPill label="Consultas próximas (1h)" count={counts.upcoming}      dotColor="bg-amber-400" textColor="text-amber-700"  bg="bg-amber-50" />
@@ -48,7 +53,7 @@ const DoctorStatusSection = ({ data }) => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* ── En consulta ahora ── */}
+                {/* En consulta ahora */}
                 <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
                         Doctores en consulta ahora
@@ -92,7 +97,7 @@ const DoctorStatusSection = ({ data }) => {
                     )}
                 </div>
 
-                {/* ── Consultas próximas ── */}
+                {/* Consultas próximas */}
                 <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
                         Consultas próximas

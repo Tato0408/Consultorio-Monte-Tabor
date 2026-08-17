@@ -176,6 +176,29 @@ function useAppointments(initialFilters = {}) {
         );
     }, []);
 
+    // El doctor acepta una cita pending propia. Si el horario ya no está
+    // libre, el backend responde 409 y apiClient lanza un error con ese
+    // mensaje, que el llamador puede mostrar directamente.
+    const acceptAppointment = useCallback(async (appointmentId, nurseId = null) => {
+        const response = await apiClient(`/appointments/${appointmentId}/accept`, {
+            method: "PATCH",
+            body: nurseId ? { nurse_id: nurseId } : {},
+        });
+        await fetchAppointments();
+        return response;
+    }, [fetchAppointments]);
+
+    // El admin asigna directamente un doctor a una cita pending sin
+    // asignar. El backend la deja en estado scheduled en el mismo paso.
+    const assignDoctor = useCallback(async (appointmentId, doctorId, nurseId = null) => {
+        const response = await apiClient(`/appointments/${appointmentId}/assign`, {
+            method: "PATCH",
+            body: { doctor_id: doctorId, ...(nurseId ? { nurse_id: nurseId } : {}) },
+        });
+        await fetchAppointments();
+        return response;
+    }, [fetchAppointments]);
+
     return {
         appointments,
         pagination,
@@ -194,6 +217,8 @@ function useAppointments(initialFilters = {}) {
         deleteAppointment,
 
         updateStatus,
+        acceptAppointment,
+        assignDoctor,
 
         updateFilters,
         goToPage,

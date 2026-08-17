@@ -1,10 +1,26 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { ExternalLink } from "lucide-react";
 import { chartColor } from "../chartColors";
+import { useAuth } from "@/context/AuthContext";
+
+// El backend manda el mismo linkLabel literal para cada reporte
+// (reportsController.js), y cada uno en realidad apunta a otro módulo
+// del sistema, no al del propio reporte. Por eso el enlace solo debe
+// verse y funcionar cuando el usuario tiene permiso de ver ese módulo
+// relacionado (mismo criterio que usa MODULE_VIEW_DEPENDENCIES para el
+// Expediente, aunque aquí el enlace completo se oculta en vez de solo
+// mostrar una advertencia).
+const LINK_TARGETS = {
+  "Ver todos los pacientes": { to: "/users/patients", moduleKey: "users.patients" },
+  "Ver todos los doctores": { to: "/users/doctors", moduleKey: "users.doctors" },
+  "Ver inventario": { to: "/inventory/products", moduleKey: "inventory.products" },
+  "Ver el inventario": { to: "/inventory/products", moduleKey: "inventory.products" },
+};
 
 const LINE_COLOR = "#3b82f6";
 const PIE_COLORS = ["#3b82f6", "#a855f7", "#22c55e", "#f97316", "#94a3b8"];
@@ -122,39 +138,53 @@ const PieCard = ({ card }) => {
   );
 };
 
-const ListCard = ({ card }) => (
-  <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3">
-    <div>
-      <span className="text-sm font-semibold text-slate-800">{card.title}</span>
-      {card.subtitle && (
-        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{card.subtitle}</p>
+const ListCard = ({ card }) => {
+  const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+
+  const target = card.linkLabel ? LINK_TARGETS[card.linkLabel] : null;
+  const canFollowLink = target && hasPermission(target.moduleKey, "view");
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3">
+      <div>
+        <span className="text-sm font-semibold text-slate-800">{card.title}</span>
+        {card.subtitle && (
+          <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{card.subtitle}</p>
+        )}
+      </div>
+
+      <ol className="flex flex-col gap-2 flex-1">
+        {card.listItems.map((item, i) => (
+          <li key={i} className="flex items-center gap-2.5">
+            <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+              {i + 1}
+            </span>
+            <span className="text-xs text-slate-700 leading-snug">{item}</span>
+          </li>
+        ))}
+      </ol>
+
+      {/* El enlace solo se muestra cuando el usuario tiene permiso de ver el
+          módulo al que apunta. Si no lo tiene, ni siquiera aparece, a
+          diferencia del Expediente, que sí se muestra pero con una
+          advertencia. */}
+      {canFollowLink && (
+        <button
+          type="button"
+          onClick={() => navigate(target.to)}
+          className="flex items-center gap-1.5 text-[11px] text-blue-600 font-semibold hover:underline mt-auto"
+        >
+          {card.linkLabel}
+          <ExternalLink className="w-3 h-3" />
+        </button>
       )}
     </div>
+  );
+};
 
-    <ol className="flex flex-col gap-2 flex-1">
-      {card.listItems.map((item, i) => (
-        <li key={i} className="flex items-center gap-2.5">
-          <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-            {i + 1}
-          </span>
-          <span className="text-xs text-slate-700 leading-snug">{item}</span>
-        </li>
-      ))}
-    </ol>
-
-    {card.linkLabel && (
-      <button
-        type="button"
-        className="flex items-center gap-1.5 text-[11px] text-blue-600 font-semibold hover:underline mt-auto"
-      >
-        {card.linkLabel}
-        <ExternalLink className="w-3 h-3" />
-      </button>
-    )}
-  </div>
-);
-
-// Actúa como router: según la forma del `card` recibido, elige qué variante renderizar
+// Actúa como router: según la forma del objeto card recibido, elige qué
+// variante renderizar.
 const TopCard = ({ card }) => {
   if (card.listItems) return <ListCard card={card} />;
   if (card.chartType === "pie") return <PieCard card={card} />;

@@ -8,12 +8,21 @@ const useProfile = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState("");
 
+  // El rol admin usa el endpoint genérico /admin/:id porque ahí solo
+  // depende de validateAuthCookie, sin permiso dinámico de por medio,
+  // lo que ya lo hace autoservicio de hecho. Los roles doctor, nurse y
+  // receptionist en cambio tienen una ruta de autoservicio dedicada
+  // (/profile/update), ya que el endpoint genérico /:id de esos tres
+  // exige el permiso de administrar a otros usuarios de ese rol
+  // (users.doctors, users.nurses o users.receptionist con acción
+  // update), permiso que esos roles no tienen sobre sí mismos, por lo
+  // que editar la propia foto ahí devolvía un error 403.
   const getEndpoint = () => {
     const routes = {
       admin:        `/admin/${user?.id}`,
-      doctor:       `/doctors/${user?.id}`,
-      nurse:        `/nurses/${user?.id}`,
-      receptionist: `/receptionist/${user?.id}`,
+      doctor:       `/doctors/profile/update`,
+      nurse:        `/nurses/profile/update`,
+      receptionist: `/receptionist/profile/update`,
     };
     return routes[userType];
   };
@@ -23,7 +32,11 @@ const useProfile = () => {
       admin:        "image",
       doctor:       "doctorImage",
       nurse:        "img_url",
-      receptionist: "img_url",
+      // receptionistController espera el archivo bajo el campo
+      // receptionistImage (ver routes/receptionist/receptionist.js),
+      // no img_url, que es el nombre del campo en la base de datos y
+      // no el nombre del campo de subida.
+      receptionist: "receptionistImage",
     };
     return fields[userType];
   };
@@ -115,11 +128,51 @@ const useProfile = () => {
     }
   };
 
+  // Edición de los datos personales del propio usuario (nombre, DUI,
+  // fecha de nacimiento, teléfono o género según el rol). Reutiliza el
+  // mismo endpoint de autoservicio que uploadAvatar y deleteAvatar.
+  // Ver EditProfileModal.jsx para los campos que envía cada rol.
+  const updateProfile = async (fields) => {
+    try {
+      setSubmitting(true);
+      setError("");
+
+      await apiClient(getEndpoint(), {
+        method: "PUT",
+        body: fields,
+      });
+
+      await Swal.fire({
+        icon: "success",
+        title: "¡Actualizado!",
+        text: "Tu información fue actualizada correctamente.",
+        confirmButtonColor: "#2563eb",
+        timer: 2500,
+        timerProgressBar: true,
+      });
+
+      await refetchUser();
+      return true;
+    } catch (err) {
+      setError(err.message || "Error al actualizar tu información");
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.message || "Ocurrió un error al actualizar tu información.",
+        confirmButtonColor: "#2563eb",
+      });
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return {
     error,
     submitting,
     uploadAvatar,
     deleteAvatar,
+    updateProfile,
     logout
   };
 };

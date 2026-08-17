@@ -3,23 +3,17 @@ import { DollarSign, Users, CalendarDays, UserCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import useAdminDashboard from "../hooks/useAdminDashboard";
 import StatCard from "../components/StatCard";
-import DoctorStatusSection from "../components/DoctorStatusSection";
 import UserManagementSection from "../components/UserManagementSection";
 import ReportStatsSection from "../components/ReportStatsSection";
-import SystemControlSection from "../components/SystemControlSection";
+import TodayAgendaSection from "../components/TodayAgendaSection";
+import QuickActionsSection from "../components/QuickActionsSection";
+import DashboardWelcomeHeader from "../components/DashboardWelcomeHeader";
 
 const fmtRevenue = (n) => {
     if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
     if (n >= 1_000)     return `$${(n / 1_000).toFixed(1)}k`;
     return `$${n.toLocaleString()}`;
 };
-
-const todayLabel = () =>
-    new Date().toLocaleDateString("es-SV", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-    });
 
 const AdminDashboard = () => {
     const { user } = useAuth();
@@ -37,7 +31,8 @@ const AdminDashboard = () => {
             getDoctorStatus(),
             getUserStats(),
             getReportStats(),
-        ]).then(([s, d, u, r]) => {
+        ]).then((results) => {
+            const [s, d, u, r] = results;
             if (s.status === "fulfilled") setStats(s.value);
             if (d.status === "fulfilled") setDoctorStatus(d.value);
             if (u.status === "fulfilled") setUserStats(u.value);
@@ -63,75 +58,100 @@ const AdminDashboard = () => {
     const s = stats || {};
 
     return (
-        <div className="p-4 sm:p-6 bg-slate-50 min-h-screen flex flex-col gap-6">
+        <div className="bg-slate-50 min-h-screen">
+            <DashboardWelcomeHeader
+                displayName={displayName}
+                subtitle="Aquí tienes un resumen de tus consultas"
+                user={user}
+                userType="admin"
+            />
 
-            <div>
-                <h1 className="text-xl font-bold text-slate-800">
-                    ¡Bienvenido, {displayName}!
-                </h1>
-                <p className="text-sm text-slate-400 mt-0.5">
-                    Aquí tienes un resumen de tus consultas
-                </p>
-            </div>
+            <div className="relative p-4 sm:p-6 pt-3 flex flex-col gap-8">
 
-            <section>
-                <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest">
+                {/* Resumen general: ingresos como métrica principal destacada */}
+                <section>
+                    <h2 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest mb-3">
                         Resumen general
                     </h2>
-                    <span className="text-xs text-slate-400 hidden sm:inline">Hoy, {todayLabel()}</span>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StatCard
-                        icon={<DollarSign className="w-5 h-5 text-blue-600" />}
-                        iconBg="bg-blue-100"
-                        label="Total de ingresos"
-                        value={fmtRevenue(s.revenue?.total ?? 0)}
-                        growth={`${s.revenue?.growth ?? 0}%`}
-                        growthLabel="vs. mes pasado"
-                        sparkline={s.revenue?.sparkline ?? []}
-                        sparklineColor="#3b82f6"
-                    />
-                    <StatCard
-                        icon={<UserCheck className="w-5 h-5 text-cyan-600" />}
-                        iconBg="bg-cyan-100"
-                        label="Doctores activos"
-                        value={s.activeDoctors?.count ?? 0}
-                        growth={`+${s.activeDoctors?.vsYesterday ?? 0}`}
-                        growthLabel="vs. ayer"
-                        sparkline={s.activeDoctors?.sparkline ?? []}
-                        sparklineColor="#06b6d4"
-                    />
-                    <StatCard
-                        icon={<CalendarDays className="w-5 h-5 text-violet-600" />}
-                        iconBg="bg-violet-100"
-                        label="Citas hoy"
-                        value={s.appointmentsToday?.count ?? 0}
-                        growth={`${(s.appointmentsToday?.vsYesterday ?? 0) >= 0 ? "+" : ""}${s.appointmentsToday?.vsYesterday ?? 0}`}
-                        growthLabel="vs. ayer"
-                        sparkline={s.appointmentsToday?.sparkline ?? []}
-                        sparklineColor="#7c3aed"
-                    />
-                    <StatCard
-                        icon={<Users className="w-5 h-5 text-pink-600" />}
-                        iconBg="bg-pink-100"
-                        label="Pacientes registrados"
-                        value={(s.totalPatients?.count ?? 0).toLocaleString()}
-                        growth={`${s.totalPatients?.growth ?? 0}%`}
-                        growthLabel="vs. mes pasado"
-                        sparkline={s.totalPatients?.sparkline ?? []}
-                        sparklineColor="#ec4899"
-                    />
-                </div>
-            </section>
+                    {/* La clase grid-cols-5 hace que la tarjeta de ingresos ocupe dos
+                        columnas, más ancha y horizontal como en el diseño de referencia,
+                        y que las otras tres ocupen una columna cada una. Entre las
+                        cuatro tarjetas suman las cinco columnas de la grilla, así que
+                        siempre caben en una sola fila sin desbordarse a la siguiente
+                        línea. */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                        <StatCard
+                            featured
+                            icon={<DollarSign className="w-5 h-5 text-white" />}
+                            label="Total de ingresos"
+                            value={fmtRevenue(s.revenue?.total ?? 0)}
+                            caption="Pagos en línea confirmados"
+                            growth={`${s.revenue?.growth ?? 0}%`}
+                            growthLabel="vs. mes pasado"
+                            sparkline={s.revenue?.sparkline ?? []}
+                            sparklineColor="#3b82f6"
+                        />
+                        <StatCard
+                            icon={<UserCheck className="w-5 h-5 text-cyan-600" />}
+                            iconBg="bg-cyan-100"
+                            label="Doctores activos"
+                            value={s.activeDoctors?.count ?? 0}
+                            growth={`+${s.activeDoctors?.vsYesterday ?? 0}`}
+                            growthLabel="vs. ayer"
+                            sparkline={s.activeDoctors?.sparkline ?? []}
+                            sparklineColor="#06b6d4"
+                        />
+                        <StatCard
+                            icon={<CalendarDays className="w-5 h-5 text-violet-600" />}
+                            iconBg="bg-violet-100"
+                            label="Citas hoy"
+                            value={s.appointmentsToday?.count ?? 0}
+                            growth={`${(s.appointmentsToday?.vsYesterday ?? 0) >= 0 ? "+" : ""}${s.appointmentsToday?.vsYesterday ?? 0}`}
+                            growthLabel="vs. ayer"
+                            sparkline={s.appointmentsToday?.sparkline ?? []}
+                            sparklineColor="#7c3aed"
+                        />
+                        <StatCard
+                            icon={<Users className="w-5 h-5 text-pink-600" />}
+                            iconBg="bg-pink-100"
+                            label="Pacientes registrados"
+                            value={(s.totalPatients?.count ?? 0).toLocaleString()}
+                            growth={`${s.totalPatients?.growth ?? 0}%`}
+                            growthLabel="vs. mes pasado"
+                            sparkline={s.totalPatients?.sparkline ?? []}
+                            sparklineColor="#ec4899"
+                        />
+                    </div>
+                </section>
 
-            <DoctorStatusSection data={doctorStatus} />
-
-            <UserManagementSection data={userStats} />
-
-            <ReportStatsSection data={reportStats} />
-
-            <SystemControlSection />
+                {/* Columna izquierda (usuarios y reportes) y barra lateral derecha
+                    (agenda y accesos rápidos). No usa items-start, así que ambas
+                    columnas se estiran a la altura de la más alta, que suele ser la
+                    izquierda. Dentro de la derecha, Agenda del día y Accesos rápidos
+                    reciben cada una flex-1, el mismo factor, para quedar exactamente
+                    mitad y mitad, en vez de que una tome su alto natural y la otra
+                    absorba el resto sola. El min-h-0 en ambos contenedores es
+                    necesario para que puedan encogerse por debajo de su alto de
+                    contenido, ya que sin eso flex nunca las dejaría bajar de ese
+                    tamaño y la mitad y mitad dejaría de cumplirse. */}
+                <section className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+                    <div className="lg:col-span-3 flex flex-col gap-8">
+                        <UserManagementSection data={userStats} />
+                        <ReportStatsSection data={reportStats} />
+                    </div>
+                    <div className="flex flex-col gap-5">
+                        <div className="flex-1 min-h-0">
+                            <TodayAgendaSection
+                                counts={doctorStatus?.counts}
+                                appointments={doctorStatus?.schedule}
+                            />
+                        </div>
+                        <div className="flex-1 min-h-0">
+                            <QuickActionsSection />
+                        </div>
+                    </div>
+                </section>
+            </div>
         </div>
     );
 };
