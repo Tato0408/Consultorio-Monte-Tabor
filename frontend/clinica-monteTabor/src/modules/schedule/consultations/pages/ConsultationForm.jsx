@@ -15,7 +15,12 @@ import PrescriptionCard from "../components/PrescriptionCard";
 import ReferralCard from "../components/ReferralCard";
 import AntecedentsCard from "../components/AntecedentsCard";
 import ConsultationActions from "../components/ConsultationActions";
+import IncapacidadModal from "../components/IncapacidadModal";
+import IncapacidadDocument from "../pdf/IncapacidadDocument";
+import ConsultationDocument from "../pdf/ConsultationDocument";
+import { openPdfInNewTab } from "../pdf/openPdfInNewTab";
 import { showSuccess, showError } from "@/lib/alerts";
+import { calculateAge } from "@/lib/validators";
 
 const ConsultationForm = () => {
     const { appointmentId } = useParams();
@@ -34,6 +39,7 @@ const ConsultationForm = () => {
     // y BloodTypeCard (la tarjeta editable) son hermanos, así que el
     // valor se levanta hasta aquí para que ambos lo compartan.
     const [bloodTypeOverride, setBloodTypeOverride] = useState(null);
+    const [isIncapacidadOpen, setIsIncapacidadOpen] = useState(false);
 
 
     // useForm arranca sin defaultValues porque la cita aún no ha
@@ -86,10 +92,123 @@ const ConsultationForm = () => {
         }
     };
 
-    const handlePreview = () => {
-        // Implementación simple de vista previa, imprime la página
-        // tal cual en vez de abrir un modal con el PDF.
-        window.print();
+    // Nombre completo del paciente y del doctor asignado, reutilizado
+    // por los dos documentos PDF de abajo (incapacidad y consulta
+    // completa).
+    const patient = appointment?.patient_id;
+    const doctor = appointment?.doctor_id;
+    const patientFullName = `${patient?.name || ""} ${patient?.last_name || ""}`.trim();
+    const doctorFullName = doctor ? `${doctor.name || ""} ${doctor.last_name || ""}`.trim() : "";
+    const todayFormatted = new Date().toLocaleDateString("es-SV", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    });
+    // Misma fecha, sin barras, para usarla en el título del PDF (se
+    // vuelve el nombre sugerido al descargar), donde una barra podría
+    // leerse como separador de carpetas en vez de parte del nombre.
+    const todayFileSafe = todayFormatted.replace(/\//g, "-");
+
+    // Campos mínimos para que cada documento tenga sentido clínico:
+    // diagnóstico para la incapacidad, y esos mismos más la evolución
+    // y los signos vitales obligatorios (presión y temperatura) para
+    // el reporte completo. Antes de generar cualquiera de los dos PDFs
+    // se validan solo esos campos (no todo el formulario), y si faltan
+    // se marcan en rojo igual que al intentar guardar la consulta.
+    const DIAGNOSIS_FIELDS = [
+        "clinical_data.icd_diagnosis",
+        "clinical_data.diagnosis",
+        "clinical_data.diagnosis_description",
+    ];
+    const REPORT_REQUIRED_FIELDS = [
+        ...DIAGNOSIS_FIELDS,
+        "clinical_data.evolution",
+        "clinical_data.triage.blood_pressure",
+        "clinical_data.triage.temperature",
+    ];
+
+    // Botón "Vista previa e imprimir": genera el PDF de la consulta con
+    // los datos cargados hasta el momento en el formulario y lo abre en
+    // una pestaña nueva, en vez de imprimir la pantalla tal cual.
+    const handlePreview = async () => {
+        const isValid = await methods.trigger(REPORT_REQUIRED_FIELDS);
+        if (!isValid) {
+            showError(
+                "Faltan campos obligatorios",
+                "Completa la evolución, los signos vitales obligatorios y el diagnóstico antes de generar el reporte."
+            );
+            return;
+        }
+
+        try {
+            const values = methods.getValues();
+            await openPdfInNewTab(
+                <ConsultationDocument
+                    title={`Reporte de consulta de: ${patientFullName} ${todayFileSafe}`}
+                    patientName={patientFullName}
+                    age={calculateAge(patient?.birth_date)}
+                    gender={patient?.gender}
+                    dui={patient?.dui}
+                    doctorName={doctorFullName}
+                    date={todayFormatted}
+                    vitals={{
+                        weight: values?.clinical_data?.triage?.weight,
+                        height: values?.clinical_data?.triage?.height,
+                        oxygenSaturation: values?.clinical_data?.triage?.oxygen_saturation,
+                        temperature: values?.clinical_data?.triage?.temperature,
+                        bloodPressure: values?.clinical_data?.triage?.blood_pressure,
+                        glucose: values?.clinical_data?.triage?.glucose,
+                    }}
+                    icdCode={values?.clinical_data?.icd_diagnosis}
+                    historial={values?.clinical_data?.evolution}
+                    diagnosis={values?.clinical_data?.diagnosis}
+                    diagnosisDescription={values?.clinical_data?.diagnosis_description}
+                    tratamiento={values?.prescription?.indications}
+                    medications={values?.prescription?.medications}
+                    labOrders={values?.prescription?.lab_orders}
+                    referral={values?.referral}
+                    antecedents={values?.antecedents}
+                />
+            );
+        } catch (err) {
+            showError("Error al generar el PDF", err?.message || "No se pudo generar el documento de la consulta.");
+        }
+    };
+
+    // Botón "Generar incapacidad": primero valida que el diagnóstico
+    // esté completo (Paso 4), y solo entonces abre el modal que pide
+    // los días de reposo.
+    const handleOpenIncapacidad = async () => {
+        const isValid = await methods.trigger(DIAGNOSIS_FIELDS);
+        if (!isValid) {
+            showError(
+                "Falta el diagnóstico",
+                "Completa el diagnóstico (Paso 4) antes de generar la incapacidad."
+            );
+            return;
+        }
+        setIsIncapacidadOpen(true);
+    };
+
+    // Arma el PDF con el diagnóstico ya cargado en el formulario y los
+    // días de reposo capturados en el modal.
+    const handleGenerateIncapacidad = async (restDays) => {
+        const values = methods.getValues();
+        const diagnosisText = [values?.clinical_data?.diagnosis, values?.clinical_data?.diagnosis_description]
+            .filter(Boolean)
+            .join(". ");
+        await openPdfInNewTab(
+            <IncapacidadDocument
+                title={`Incapacidad de ${patientFullName} ${todayFileSafe}`}
+                patientName={patientFullName}
+                dui={patient?.dui}
+                age={calculateAge(patient?.birth_date)}
+                diagnosis={diagnosisText}
+                restDays={restDays}
+                doctorName={doctorFullName}
+                date={todayFormatted}
+            />
+        );
     };
 
     if (isLoading) {
@@ -137,8 +256,8 @@ const ConsultationForm = () => {
                             title="Paso 6 - Antecedentes heredofamiliarios - opcional"
                             name="antecedents.hereditary"
                             fields={[
-                                { key: "relative", label: "Parentesco", maxLength: 50 },
-                                { key: "condition", label: "Condición", maxLength: 50 },
+                                { key: "relative", label: "Parentesco", maxLength: 50, placeholder: "Ej. Madre" },
+                                { key: "condition", label: "Condición", maxLength: 50, placeholder: "Ej. Diabetes tipo 2" },
                             ]}
                             readOnly={readOnly}
                         />
@@ -147,8 +266,8 @@ const ConsultationForm = () => {
                             title="Paso 7 - Antecedentes patológicos - opcional"
                             name="antecedents.pathological"
                             fields={[
-                                { key: "disease", label: "Enfermedad", maxLength: 50 },
-                                { key: "type", label: "Tipo", maxLength: 30 },
+                                { key: "disease", label: "Enfermedad", maxLength: 50, placeholder: "Ej. Apendicitis" },
+                                { key: "type", label: "Tipo", maxLength: 30, placeholder: "Ej. Quirúrgico" },
                             ]}
                             readOnly={readOnly}
                         />
@@ -169,14 +288,14 @@ const ConsultationForm = () => {
                         <AntecedentsCard
                             title="Antecedentes no patológicos - opcional"
                             name="antecedents.non_pathological"
-                            fields={[{ key: "description", label: "Descripción", maxLength: 300 }]}
+                            fields={[{ key: "description", label: "Descripción", maxLength: 300, placeholder: "Ej. Fuma 5 cigarrillos al día, consume alcohol ocasionalmente" }]}
                             readOnly={readOnly}
                         />
 
                         <AntecedentsCard
                             title="Antecedentes ecológico-sociales - opcional"
                             name="antecedents.socio_ecological"
-                            fields={[{ key: "description", label: "Descripción", maxLength: 300 }]}
+                            fields={[{ key: "description", label: "Descripción", maxLength: 300, placeholder: "Ej. Vive en zona rural, sin acceso a agua potable" }]}
                             readOnly={readOnly}
                         />
 
@@ -185,11 +304,18 @@ const ConsultationForm = () => {
                             isSaving={isSaving}
                             onFinish={methods.handleSubmit(onSubmit)}
                             onPreview={handlePreview}
+                            onGenerateIncapacidad={handleOpenIncapacidad}
                         />
                     </div>
                 </div>
                 </fieldset>
             </form>
+
+            <IncapacidadModal
+                isOpen={isIncapacidadOpen}
+                onClose={() => setIsIncapacidadOpen(false)}
+                onSubmit={handleGenerateIncapacidad}
+            />
         </FormProvider>
     );
 };

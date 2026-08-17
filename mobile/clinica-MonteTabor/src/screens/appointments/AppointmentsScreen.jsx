@@ -4,13 +4,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
-import BottomNav from "../components/BottomNav";
-import ConsultationCard from "../components/appointments/ConsultationCard";
-import { ErrorState } from "../components/common/ScreenState";
-import apiClient from "../lib/apiClient";
-import { showError } from "../lib/toast";
-import { useMyConsultations } from "../hooks/appointments/useMyConsultations";
-import styles from "../styles/appointmentsStyle";
+import BottomNav from "../../components/BottomNav";
+import ConsultationCard from "../../components/appointments/ConsultationCard";
+import { ErrorState } from "../../components/common/ScreenState";
+import apiClient from "../../lib/apiClient";
+import { showError } from "../../lib/toast";
+import { useMyConsultations } from "../../hooks/appointments/useMyConsultations";
+import styles from "../../styles/appointments/appointmentsStyle";
 
 const STATUS = {
   pending: { label: "Pendiente", tone: "amber" }, scheduled: { label: "Programada", tone: "blue" },

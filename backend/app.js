@@ -110,7 +110,11 @@ app.use("/api/doctor-dashboard", validateAuthCookie(["doctor"]), doctorDashboard
 app.use("/api/receptionist-dashboard", validateAuthCookie(["receptionist"]), receptionistDashboardRoutes);
 app.use("/api/nurse-dashboard", validateAuthCookie(["nurse"]), nurseDashboardRoutes);
 
-app.use("/api/logout", validateAuthCookie(), logoutRoute);
+// Sin validateAuthCookie: cerrar sesión debe limpiar la cookie sin
+// importar si el token que trae todavía es válido, si no, un token ya
+// vencido o corrupto dejaría la cookie pegada en el navegador para
+// siempre en vez de borrarla.
+app.use("/api/logout", logoutRoute);
 app.use("/api/nurse_notes",  nurse_noteRoute);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permissions", permissionsRoutes);

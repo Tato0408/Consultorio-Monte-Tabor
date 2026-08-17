@@ -466,11 +466,11 @@ patientSelfController.getMyConsultations = async (req, res) => {
 
         const consultationIds = consultations.map((c) => c._id);
         const prescriptions = await prescriptionsModel
-            .find({ consultation_id: { $in: consultationIds } })
-            .select("consultation_id medications");
+            .find({ consultations_id: { $in: consultationIds } })
+            .select("consultations_id medications");
 
         const prescriptionByConsultationId = new Map(
-            prescriptions.map((p) => [String(p.consultation_id), p])
+            prescriptions.map((p) => [String(p.consultations_id), p])
         );
         const consultationByAppointmentId = new Map(
             consultations.filter((c) => c.appointment_id).map((c) => [String(c.appointment_id), c])

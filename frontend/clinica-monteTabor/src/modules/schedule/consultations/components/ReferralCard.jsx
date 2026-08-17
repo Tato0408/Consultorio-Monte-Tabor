@@ -11,7 +11,7 @@ const ReferralCard = ({ readOnly }) => {
                 type="text"
                 maxLength={100}
                 disabled={readOnly}
-                placeholder="Especialista o unidad de destino"
+                placeholder="Ej. Dr. Pérez, Cardiología"
                 {...register("referral.referred_to")}
                 className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
             />
@@ -24,6 +24,7 @@ const ReferralCard = ({ readOnly }) => {
             <label className="text-xs text-slate-500 block mb-1">Fecha de referencia</label>
             <input
                 type="date"
+                placeholder="dd/mm/aaaa"
                 min={`${new Date().getFullYear() - 1}-01-01`}
                 max={`${new Date().getFullYear() + 1}-12-31`}
                 disabled={readOnly}
@@ -38,7 +39,7 @@ const ReferralCard = ({ readOnly }) => {
                 rows={2}
                 maxLength={500}
                 disabled={readOnly}
-                placeholder="Indica la justificación clínica para la referencia"
+                placeholder="Ej. Paciente requiere valoración cardiológica por soplo detectado en la auscultación"
                 {...register("referral.reason")}
                 className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />

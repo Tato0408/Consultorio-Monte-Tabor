@@ -2,12 +2,12 @@ import { useFormContext } from "react-hook-form";
 import SectionCard from "./SectionCard";
 
 const FIELDS = [
-    { key: "general", label: "Estado general" },
-    { key: "skin", label: "Piel" },
-    { key: "cardiopulmonary", label: "Cardiopulmonar" },
-    { key: "abdomen", label: "Abdomen" },
-    { key: "neorulogical", label: "Neurológico" },
-    { key: "musculoskeletal", label: "Musculoesquelético" },
+    { key: "general", label: "Estado general", placeholder: "Ej. Buen estado general, consciente y orientado" },
+    { key: "skin", label: "Piel", placeholder: "Ej. Piel normocrómica, sin lesiones visibles" },
+    { key: "cardiopulmonary", label: "Cardiopulmonar", placeholder: "Ej. Ruidos cardíacos rítmicos, buena entrada de aire" },
+    { key: "abdomen", label: "Abdomen", placeholder: "Ej. Blando, depresible, sin dolor a la palpación" },
+    { key: "neorulogical", label: "Neurológico", placeholder: "Ej. Reflejos conservados, sin signos de focalización" },
+    { key: "musculoskeletal", label: "Musculoesquelético", placeholder: "Ej. Sin limitación de movimiento, fuerza conservada" },
 ];
 
 const PhysicalExamCard = ({ readOnly }) => {
@@ -23,6 +23,7 @@ const PhysicalExamCard = ({ readOnly }) => {
                             type="text"
                             maxLength={150}
                             disabled={readOnly}
+                            placeholder={field.placeholder}
                             {...register(`physical_exam.${field.key}`)}
                             className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
                         />
@@ -38,6 +39,7 @@ const PhysicalExamCard = ({ readOnly }) => {
                 rows={2}
                 maxLength={500}
                 disabled={readOnly}
+                placeholder="Ej. Cualquier hallazgo adicional relevante para el diagnóstico"
                 {...register("physical_exam.notes")}
                 className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />

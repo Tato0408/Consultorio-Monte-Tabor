@@ -1,7 +1,7 @@
 import { Check, Lock, TriangleAlert } from "lucide-react";
 import { PERMISSION_TYPES } from "../rolesConfig.js";
 
-const PermissionCheckbox = ({ checked, disabled, locked, onClick, accentClass, label }) => (
+const PermissionCheckbox = ({ checked, disabled, locked, blocked, onClick, accentClass, label }) => (
   <button
     type="button"
     disabled={disabled}
@@ -10,6 +10,8 @@ const PermissionCheckbox = ({ checked, disabled, locked, onClick, accentClass, l
     title={
       locked
         ? "Necesario para que el dashboard de este rol funcione — no se puede desactivar"
+        : blocked
+        ? "No disponible para este rol — no se puede activar"
         : disabled
         ? "Se activa automáticamente"
         : undefined
@@ -19,6 +21,8 @@ const PermissionCheckbox = ({ checked, disabled, locked, onClick, accentClass, l
       className={`w-4 h-4 rounded flex items-center justify-center border transition-all flex-shrink-0
         ${checked
           ? `${accentClass} border-transparent`
+          : blocked
+          ? "border-gray-200 bg-gray-100"
           : "border-gray-300 bg-white group-hover/check:border-gray-400"
         }
         ${disabled && checked ? "opacity-70" : ""}
@@ -26,6 +30,8 @@ const PermissionCheckbox = ({ checked, disabled, locked, onClick, accentClass, l
     >
       {locked
         ? <Lock className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+        : blocked
+        ? <Lock className="w-2.5 h-2.5 text-gray-400" strokeWidth={3} />
         : checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
     </span>
     <span className={`text-xs transition-colors ${checked ? "text-gray-700 font-medium" : "text-gray-400"}`}>
@@ -56,6 +62,9 @@ const ModulePermissionCard = ({
   // LOCKED_TRUE_PERMISSIONS en rolesConfig.js. El backend impone lo
   // mismo.
   lockedActions = [],
+  // Acciones que para este rol y este módulo NUNCA pueden activarse, ver
+  // LOCKED_FALSE_PERMISSIONS en rolesConfig.js. El backend impone lo mismo.
+  blockedActions = [],
   // Módulos (con su label legible) cuyo permiso de Ver le falta a
   // este rol y que este módulo necesita para funcionar sin errores,
   // ver MODULE_VIEW_DEPENDENCIES en rolesConfig.js.
@@ -67,6 +76,9 @@ const ModulePermissionCard = ({
     // backend. No bloquea si por algún motivo estuviera en false, para
     // no dejar el permiso atascado.
     if (lockedActions.includes(permKey) && permissions[permKey]) return;
+    // Bloquea solo el encendido. Es lo opuesto a lockedActions: esta
+    // acción nunca puede quedar en true para este rol y este módulo.
+    if (blockedActions.includes(permKey) && !permissions[permKey]) return;
     const nextValue = !permissions[permKey];
     const updated = { ...permissions, [permKey]: nextValue };
     if (permKey === "view" && !nextValue) {
@@ -97,13 +109,15 @@ const ModulePermissionCard = ({
       <div className="grid grid-cols-1 xs:grid-cols-2 gap-y-2.5 md:gap-y-3 gap-x-3 md:gap-x-4 pl-1">
         {visiblePermissionTypes.map((perm) => {
           const isLocked = lockedActions.includes(perm.key) && permissions[perm.key];
+          const isBlocked = blockedActions.includes(perm.key) && !permissions[perm.key];
           return (
             <PermissionCheckbox
               key={perm.key}
               label={perm.label}
               checked={!!permissions[perm.key]}
-              disabled={readOnly || isLocked}
+              disabled={readOnly || isLocked || isBlocked}
               locked={isLocked}
+              blocked={isBlocked}
               onClick={() => handleToggle(perm.key)}
               accentClass={isLocked ? "bg-gray-400" : accentSolidClass}
             />

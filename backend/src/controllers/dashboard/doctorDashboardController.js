@@ -5,8 +5,8 @@ import consultationModel from "../../models/consultations/consultation.js";
 const doctorDashboardController = {};
 
 // GET /api/doctor-dashboard/stats
-// Calcula las estadísticas del doctor autenticado: enfermedad más
-// frecuente entre sus consultas, total de pacientes con su crecimiento
+// Calcula las estadísticas del doctor autenticado: procedimiento más
+// recurrente entre sus consultas, total de pacientes con su crecimiento
 // mensual, citas de hoy comparadas con ayer y pacientes nuevos del mes,
 // junto con series de los últimos 7 días para los gráficos.
 doctorDashboardController.getStats = async (req, res) => {
@@ -30,13 +30,25 @@ doctorDashboardController.getStats = async (req, res) => {
         });
 
         const [
-            topDiseaseAgg, totalPatientIds, newPatientsThisMonthIds, newPatientsLastMonthIds,
+            topProcedureAgg, totalPatientIds, newPatientsThisMonthIds, newPatientsLastMonthIds,
             appointmentsToday, appointmentsYesterday, apptSparklineRaw, patientSparklineRaw,
         ] = await Promise.all([
+            // Procedimiento más recurrente entre las consultas de este doctor. El modelo
+            // de procedimientos se registra como model("procedure", ...) (backend/src/
+            // models/procedures/procedures.js), que Mongoose colecciona como
+            // "procedures". Se usa el nombre de colección directo en $lookup en vez de
+            // population normal porque el "ref" declarado en consultation.js
+            // ("Procedures") no coincide con ese nombre de modelo registrado, y el
+            // populate fallaría en silencio.
             consultationModel.aggregate([
-                { $match: { appointment_id: { $in: doctorApptIds }, "clinical_data.diagnosis": { $exists: true, $ne: null, $nin: [""] } } },
-                { $group: { _id: "$clinical_data.diagnosis", count: { $sum: 1 } } },
+                { $match: { appointment_id: { $in: doctorApptIds } } },
+                { $unwind: "$procedure" },
+                { $match: { "procedure.procedure_id": { $exists: true, $ne: null } } },
+                { $group: { _id: "$procedure.procedure_id", count: { $sum: 1 } } },
                 { $sort: { count: -1 } }, { $limit: 1 },
+                { $lookup: { from: "procedures", localField: "_id", foreignField: "_id", as: "procDoc" } },
+                { $unwind: { path: "$procDoc", preserveNullAndEmptyArrays: true } },
+                { $project: { _id: 0, name: "$procDoc.name", count: 1 } },
             ]),
             appointmentsModel.distinct("patient_id", { doctor_id: doctorId }),
             appointmentsModel.distinct("patient_id", { doctor_id: doctorId, date: { $gte: firstDayThisMonth } }),
@@ -54,10 +66,12 @@ doctorDashboardController.getStats = async (req, res) => {
         const newThis = newPatientsThisMonthIds.length;
         const newLast = newPatientsLastMonthIds.length;
         const patientGrowth = newLast > 0 ? Number((((newThis - newLast) / newLast) * 100).toFixed(1)) : 0;
-        const topDisease = topDiseaseAgg.length > 0 ? { name: topDiseaseAgg[0]._id, count: topDiseaseAgg[0].count } : null;
+        const topProcedure = topProcedureAgg.length > 0 && topProcedureAgg[0].name
+            ? { name: topProcedureAgg[0].name, count: topProcedureAgg[0].count }
+            : null;
 
         res.status(200).json({
-            topDisease,
+            topProcedure,
             totalPatients: { count: totalPatientIds.length, growth: patientGrowth, sparkline: patientSparklineRaw.map((ids) => ids.length) },
             appointmentsToday: { count: appointmentsToday, vsYesterday: appointmentsToday - appointmentsYesterday, sparkline: apptSparklineRaw },
             newPatients: { count: newThis, vsLastMonth: newThis - newLast, sparkline: patientSparklineRaw.map((ids) => ids.length) },

@@ -60,10 +60,20 @@ const SelectField = ({ label, value, onChange, options, placeholder, disabled })
 );
 
 
-export default function AppointmentsForm() {
+// onCloseOverride y onSavedOverride son opcionales, para reutilizar
+// este mismo formulario dentro de un modal (por ejemplo, "Agregar
+// cita" del dashboard de doctor) en vez de depender siempre de la
+// navegación por ruta. Sin esos props, cerrar o guardar navega a
+// /calendar/appointments.
+export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = {}) {
   const navigate  = useNavigate();
   const location  = useLocation();
   const { id }    = useParams();
+
+  const closeForm = () => {
+    if (onCloseOverride) { onCloseOverride(); return; }
+    navigate("/calendar/appointments", { state: { initialView: location.state?.fromView, initialTab: location.state?.fromTab } });
+  };
 
   const { user, userType, hasPermission } = useAuth();
   const isDoctor = userType === "doctor";
@@ -71,7 +81,7 @@ export default function AppointmentsForm() {
   const canUpdateAppt = hasPermission("calendar.appointments", "update");
 
   const { getAppointmentById, createAppointment, updateAppointment, submitting } = useAppointments();
-  const { patients, doctors, procedures, fetchMedicalData } = useMedicalData();
+  const { patients, doctors, procedures, loadingData: loadingMedicalData, fetchMedicalData } = useMedicalData();
   const { getAvailableSlots, getSchedule } = useSchedule();
 
   // Catálogo global de tipos de cita (nombre y color), administrado
@@ -81,8 +91,12 @@ export default function AppointmentsForm() {
   // ni duración.
   const { getAppointmentTypes } = useAppointmentTypes();
   const [appointmentTypes, setAppointmentTypes] = useState([]);
+  const [loadingAppointmentTypes, setLoadingAppointmentTypes] = useState(true);
   useEffect(() => {
-    getAppointmentTypes().then(setAppointmentTypes).catch(() => setAppointmentTypes([]));
+    getAppointmentTypes()
+      .then(setAppointmentTypes)
+      .catch(() => setAppointmentTypes([]))
+      .finally(() => setLoadingAppointmentTypes(false));
   }, []);
 
   // El modo edición inicial respeta el permiso: sin create no arranca en modo
@@ -390,11 +404,11 @@ export default function AppointmentsForm() {
         if (success) {
           setIsEditing(false);
           showSuccess("Cita modificada con éxito");
-          navigate("/calendar/appointments", { state: { initialView: location.state?.fromView, initialTab: location.state?.fromTab } });
+          onSavedOverride ? onSavedOverride() : closeForm();
         }
       } else {
         const success = await createAppointment(appointmentData);
-        if (success) { navigate("/calendar/appointments", { state: { initialView: location.state?.fromView, initialTab: location.state?.fromTab } }); showSuccess("Cita guardada exitosamente"); }
+        if (success) { (onSavedOverride ? onSavedOverride() : closeForm()); showSuccess("Cita guardada exitosamente"); }
       }
     } catch (err) {
       showError(`No se pudo guardar la cita: ${err.message}`);
@@ -452,7 +466,11 @@ export default function AppointmentsForm() {
   // Días con descanso recurrente (para marcar con un punto en el calendario)
   const breakDayNums = new Set(scheduleData?.breaks?.map(b => b.day) ?? []);
 
-  if (loading) return (
+  // Bloquea el formulario hasta que los catálogos de los que dependen los selectores
+  // (pacientes, doctores, enfermeras, procedimientos y tipos de cita) terminen de cargar,
+  // tanto al crear como al editar. Sin esto, un clic en un dropdown antes de que la petición
+  // resuelva mostraba la lista vacía.
+  if (loading || loadingMedicalData || loadingAppointmentTypes) return (
     <div className="w-full min-h-screen flex flex-col items-center justify-center bg-slate-50">
       <Loader2 className="h-8 w-8 text-blue-600 animate-spin mb-3" />
       <p className="text-sm text-slate-500">Cargando cita...</p>
@@ -488,7 +506,7 @@ export default function AppointmentsForm() {
               esto, siempre se volvía al Calendario por defecto (ver
               Appointments.jsx) en vez de a la pantalla exacta que el
               usuario tenía abierta. */}
-          <button type="button" onClick={() => navigate("/calendar/appointments", { state: { initialView: location.state?.fromView, initialTab: location.state?.fromTab } })} disabled={submitting}
+          <button type="button" onClick={closeForm} disabled={submitting}
             className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
             <X className="w-5 h-5" />
           </button>

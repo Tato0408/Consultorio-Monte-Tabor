@@ -1,5 +1,5 @@
 import { Platform, StyleSheet, StatusBar } from "react-native";
-import { colors } from "./profile/profileStyle";
+import { colors } from "../profile/profileStyle";
 
 const shadow = Platform.select({
   ios: { shadowColor: "#0B1220", shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },

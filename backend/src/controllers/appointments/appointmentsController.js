@@ -125,8 +125,11 @@ async function expirePendingAppointments() {
         await notificationModel.insertMany(staleAppointments.map(a => ({
             recipient_role: "patient",
             recipient_id: a.patient_id,
+            title: "Solicitud de cita vencida",
+            type: "appointment_expired",
             message: "Tu solicitud de cita venció porque ningún doctor la aceptó a tiempo. Puedes agendar de nuevo o contactar a la clínica.",
             appointment_id: a._id,
+            action_url: `/appointments/${a._id}/edit`,
         })));
     }
 }
@@ -300,10 +303,19 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
             dayFilter.doctor_id = req.user.id;
         }
 
+        // "Completados" cuenta las citas atendidas HOY (updatedAt), no las
+        // agendadas para hoy: una cita agendada hace semanas que recién se
+        // completa hoy debe contar igual, y una agendada para hoy que se
+        // completa después no debe quedarse contada como si fuera de hoy.
+        const completedFilter = { status: "completed", updatedAt: { $gte: start, $lte: end } };
+        if (req.user.role === "doctor") {
+            completedFilter.doctor_id = req.user.id;
+        }
+
         const [scheduled, waiting, completed] = await Promise.all([
             appointmentsModel.countDocuments({ ...dayFilter, status: { $in: ["scheduled", "completed"] } }),
             appointmentsModel.countDocuments({ ...dayFilter, status: "scheduled" }),
-            appointmentsModel.countDocuments({ ...dayFilter, status: "completed" }),
+            appointmentsModel.countDocuments(completedFilter),
         ]);
 
         // Busca la próxima cita "scheduled" de hoy con hora igual o mayor a la actual.
@@ -474,10 +486,15 @@ appointmentsController.insertAppointment = async (req, res) => {
         description = description?.trim();
         cancellation_reason = cancellation_reason?.trim();
 
-        // La recepcionista no pasa por aceptación del doctor: la cita queda
-        // directamente programada (se ignora el status que haya mandado).
-        if (req.user.role === "receptionist") {
-            status = "scheduled";
+        // La fecha se persiste siempre como inicio del día local del servidor,
+        // sin importar quién la mande. El personal (doctor/admin/recepción) la
+        // envía como ISO completo (Date.toISOString() del navegador), que cae
+        // en un instante distinto al mediodía local según el huso horario del
+        // cliente; sin normalizar, ese corrimiento hacía que un filtro
+        // dateFrom (límite $gte, sin margen) excluyera citas creadas hoy
+        // mismo, y que los contadores/historial del día no coincidieran.
+        if (date != null) {
+            date = getDayRange(date).start;
         }
 
         // Un doctor que crea una cita solo puede asignársela a sí mismo, sin
@@ -492,10 +509,6 @@ appointmentsController.insertAppointment = async (req, res) => {
             if (!isWithinCurrentWeek(date)) {
                 return res.status(400).json({ message: "Solo puedes solicitar citas durante la semana actual." });
             }
-
-            // La fecha se persiste como inicio del día local del paciente:
-            // guardarla en UTC la corre al día anterior y dispara el no_show.
-            date = getDayRange(date).start;
 
             // El precio, duración y tipo salen del catálogo del servidor; el
             // paciente solo elige el servicio, nunca esos valores.
@@ -568,6 +581,9 @@ appointmentsController.insertAppointment = async (req, res) => {
                 ? "Recepción te asignó una nueva cita."
                 : "Se te asignó una nueva cita.",
             patientMessage: "La clínica registró una cita para ti.",
+            doctorTitle: "Nueva cita asignada",
+            patientTitle: "Nueva cita registrada",
+            type: "appointment_created",
             actor: req.user,
         }).catch((error) => console.log("Error notificando nueva cita:", error));
 
@@ -602,6 +618,12 @@ appointmentsController.updateAppointment = async (req, res) => {
         type = type?.trim();
         description = description?.trim();
         cancellation_reason = cancellation_reason?.trim();
+
+        // Misma normalización que insertAppointment: siempre inicio del día
+        // local del servidor, sin importar el huso horario del cliente.
+        if (date != null) {
+            date = getDayRange(date).start;
+        }
 
         // Valida que estén los campos obligatorios.
         if (!doctor_id || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
@@ -663,6 +685,9 @@ appointmentsController.updateAppointment = async (req, res) => {
         await notifyAppointmentRecipients(appointmentUpdated, {
             doctorMessage: "Una cita asignada a ti fue actualizada.",
             patientMessage: "La información de tu cita fue actualizada.",
+            doctorTitle: "Cita actualizada",
+            patientTitle: "Tu cita fue actualizada",
+            type: "appointment_updated",
             actor: req.user,
         }).catch((error) => console.log("Error notificando actualización de cita:", error));
 
@@ -708,6 +733,8 @@ appointmentsController.updatePatientAppointment = async (req, res) => {
         if (appointment.doctor_id) {
             await notifyAppointmentRecipients(appointment, {
                 doctorMessage: "El paciente actualizó los datos de una cita asignada a ti.",
+                doctorTitle: "Cita actualizada por el paciente",
+                type: "appointment_updated",
                 actor: req.user,
             }).catch((error) => console.log("Error notificando edición del paciente:", error));
         }
@@ -751,6 +778,8 @@ appointmentsController.cancelPatientAppointment = async (req, res) => {
         if (appointment.doctor_id) {
             await notifyAppointmentRecipients(appointment, {
                 doctorMessage: "El paciente canceló una cita asignada a ti.",
+                doctorTitle: "Cita cancelada por el paciente",
+                type: "appointment_cancelled",
                 actor: req.user,
             }).catch((error) => console.log("Error notificando cancelación del paciente:", error));
         }
@@ -771,6 +800,10 @@ appointmentsController.deleteAppointment = async (req, res) => {
         await notifyAppointmentRecipients(appointment, {
             doctorMessage: "Una cita asignada a ti fue eliminada.",
             patientMessage: "Una cita registrada para ti fue eliminada.",
+            doctorTitle: "Cita eliminada",
+            patientTitle: "Cita eliminada",
+            type: "appointment_deleted",
+            navigable: false,
             actor: req.user,
         }).catch((error) => console.log("Error notificando eliminación de cita:", error));
         return res.status(200).json({ message: "Cita eliminada correctamente" });
@@ -804,9 +837,21 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
             return res.status(404).json({ message: "Cita no encontrada" });
         }
 
+        const statusLabels = {
+            pending: "Pendiente",
+            scheduled: "Programada",
+            completed: "Completada",
+            cancelled: "Cancelada",
+            no_show: "No se presentó",
+            expired: "Vencida",
+        };
+        const translatedStatus = statusLabels[status] || status;
         await notifyAppointmentRecipients(appointmentUpdated, {
-            doctorMessage: `El estado de una cita asignada a ti cambió a: ${status}.`,
-            patientMessage: `El estado de tu cita cambió a: ${status}.`,
+            doctorMessage: `El estado de una cita asignada a ti cambió a ${translatedStatus}.`,
+            patientMessage: `El estado de tu cita cambió a ${translatedStatus}.`,
+            doctorTitle: "Estado de cita actualizado",
+            patientTitle: "Estado de tu cita actualizado",
+            type: status === "cancelled" ? "appointment_cancelled" : "appointment_status_changed",
             actor: req.user,
         }).catch((error) => console.log("Error notificando cambio de estado:", error));
 
@@ -891,6 +936,8 @@ appointmentsController.acceptAppointment = async (req, res) => {
 
         await notifyAppointmentRecipients(accepted, {
             patientMessage: `${doctorName} aceptó tu cita.`,
+            patientTitle: "Cita aceptada",
+            type: "appointment_accepted",
             actor: req.user,
         }).catch((error) => console.log("Error notificando aceptación de cita:", error));
 
@@ -970,6 +1017,9 @@ appointmentsController.assignDoctor = async (req, res) => {
         await notifyAppointmentRecipients(assigned, {
             doctorMessage: "Se te asignó una nueva cita.",
             patientMessage: "Tu cita fue asignada a un doctor.",
+            doctorTitle: "Nueva cita asignada",
+            patientTitle: "Doctor asignado a tu cita",
+            type: "appointment_assigned",
             actor: req.user,
         }).catch((error) => console.log("Error notificando asignación de cita:", error));
 
@@ -1050,8 +1100,17 @@ appointmentsController.getAppointmentsHistory = async (req, res) => {
 
         const { start, end } = getDayRange(date || new Date());
 
+        // Igual que en getAppointmentsStats: se filtra por cuándo se completó
+        // (updatedAt), no por la fecha originalmente agendada, para que una
+        // cita atrasada que se atiende hoy sí aparezca en "hoy".
+        const historyFilter = { status: "completed", updatedAt: { $gte: start, $lte: end } };
+        // El doctor solo ve el historial de sus propias citas atendidas.
+        if (req.user.role === "doctor") {
+            historyFilter.doctor_id = req.user.id;
+        }
+
         const history = await appointmentsModel
-            .find({ date: { $gte: start, $lte: end }, status: "completed" })
+            .find(historyFilter)
             .sort({ updatedAt: -1 })
             .limit(Math.max(parseInt(limit, 10) || 5, 1))
             .populate({ path: "patient_id", model: "Patients", select: "name last_name" });

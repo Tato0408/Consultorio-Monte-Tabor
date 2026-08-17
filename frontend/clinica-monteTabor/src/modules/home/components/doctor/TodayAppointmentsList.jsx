@@ -24,7 +24,7 @@ const getStatus = (raw = "") => STATUS_STYLES[raw.toLowerCase()] ?? { label: "Ot
 const todayLabel = () =>
     new Date().toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
-const TodayAppointmentsList = ({ appointments = [] }) => {
+const TodayAppointmentsList = ({ appointments = [], onAddAppointment, canCreate = true }) => {
     const navigate = useNavigate();
 
     return (
@@ -59,7 +59,7 @@ const TodayAppointmentsList = ({ appointments = [] }) => {
                         return (
                             <div
                                 key={appt._id}
-                                onClick={() => navigate("/calendar/appointments")}
+                                onClick={() => navigate(`/calendar/appointments/${appt._id}`, { state: { fromView: "calendar" } })}
                                 className="flex items-center gap-4 px-5 py-3.5 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer"
                             >
                                 {/* Hora */}
@@ -94,16 +94,19 @@ const TodayAppointmentsList = ({ appointments = [] }) => {
                 )}
             </div>
 
-            {/* Botón de nueva cita */}
-            <div className="px-5 py-4 border-t border-slate-50">
-                <button
-                    onClick={() => navigate("/calendar/appointments")}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
-                >
-                    <Plus className="w-4 h-4" />
-                    Nueva cita
-                </button>
-            </div>
+            {/* Botón de nueva cita: abre el mismo formulario de creación de citas que la
+                interfaz de Calendario, pero como modal (ver DoctorDashboard.jsx). */}
+            {canCreate && (
+                <div className="px-5 py-4 border-t border-slate-50">
+                    <button
+                        onClick={onAddAppointment}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Nueva cita
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

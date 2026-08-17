@@ -10,9 +10,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import apiClient from "../lib/apiClient";
-import { showError } from "../lib/toast";
-import styles from "../styles/newAppointmentStyle";
+import apiClient from "../../lib/apiClient";
+import { showError } from "../../lib/toast";
+import styles from "../../styles/appointments/newAppointmentStyle";
 
 const GENERAL_SERVICE = { _id: "general", name: "Consulta Médica General", estimated_duration: 30, price: 15 };
 const STEP_LABELS = ["Especialidad", "Fecha y hora", "Confirmación"];

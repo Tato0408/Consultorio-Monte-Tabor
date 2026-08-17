@@ -4,12 +4,12 @@ import SectionCard from "./SectionCard";
 // Rango fisiológico razonable por campo, evita valores absurdos (por
 // ejemplo, SPO2 de 300%) sin bloquear casos clínicos extremos reales.
 const FIELDS = [
-    { key: "blood_pressure", label: "Presión arterial", placeholder: "120/80", isBloodPressure: true, required: true },
-    { key: "glucose", label: "Glucosa (mg/dL)", placeholder: "mg/dL", min: 0, max: 999 },
-    { key: "weight", label: "Peso (kg)", placeholder: "kg", min: 0, max: 500 },
-    { key: "height", label: "Talla (cm)", placeholder: "cm", min: 0, max: 300 },
-    { key: "temperature", label: "Temperatura (°C)", placeholder: "°C", min: 30, max: 45, required: true },
-    { key: "oxygen_saturation", label: "Saturación O2 (%)", placeholder: "%", min: 0, max: 100 },
+    { key: "blood_pressure", label: "Presión arterial", placeholder: "Ej. 120/80", isBloodPressure: true, required: true },
+    { key: "glucose", label: "Glucosa (mg/dL)", placeholder: "Ej. 90", min: 0, max: 999 },
+    { key: "weight", label: "Peso (kg)", placeholder: "Ej. 70", min: 0, max: 500 },
+    { key: "height", label: "Talla (cm)", placeholder: "Ej. 170", min: 0, max: 300 },
+    { key: "temperature", label: "Temperatura (°C)", placeholder: "Ej. 36.5", min: 30, max: 45, required: true },
+    { key: "oxygen_saturation", label: "Saturación O2 (%)", placeholder: "Ej. 98", min: 0, max: 100 },
 ];
 
 const TriageCard = ({ readOnly }) => {

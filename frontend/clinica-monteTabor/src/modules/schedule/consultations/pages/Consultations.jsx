@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import useAppointments from "../../appointments/hooks/useAppointment";
 import useAppointmentStats from "../../appointments/hooks/useAppointmentStats";
@@ -19,7 +19,8 @@ const getTodayString = () => {
 
 const Consultations =() => {
      const today = getTodayString();
-     const { user } = useAuth();
+     const { user, userType } = useAuth();
+     const isDoctor = userType === "doctor";
 
    // Por defecto la tabla muestra todas las fechas (el filtro de
     // fechas es secundario, se activa solo si se necesita) con citas
@@ -38,7 +39,36 @@ const Consultations =() => {
         status: "scheduled, pending",
         limit: 8,
     });
- 
+
+    // El backend ya restringe /appointments a las citas propias del doctor
+    // que inició sesión (más las solicitudes pendientes sin asignar que
+    // podría aceptar), a partir de la cookie de sesión y sin importar los
+    // filtros que mande el frontend (ver appointmentsController.getAppointments,
+    // "Alcance forzado por rol"). Por eso la tabla ya arranca mostrando
+    // solo las citas de ese doctor, sin necesidad de mandar doctor_id
+    // desde aquí, lo cual además excluiría esas solicitudes sin asignar.
+    //
+    // Lo único que hace falta cubrir en el frontend es que, si ese doctor
+    // no tiene ninguna cita agendada ni en espera (el estado por defecto),
+    // se amplía el filtro a "Todos los estados" para no dejar la tabla
+    // vacía apenas se entra a la pantalla. Se revisa una sola vez, para no
+    // pisar un cambio de filtro manual posterior.
+    const checkedStatusFallbackRef = useRef(false);
+    useEffect(() => {
+        if (
+            checkedStatusFallbackRef.current ||
+            !isDoctor ||
+            isLoadingAppointments ||
+            filters.status !== "scheduled, pending"
+        ) {
+            return;
+        }
+        checkedStatusFallbackRef.current = true;
+        if (appointments.length === 0) {
+            updateFilters({ status: "" });
+        }
+    }, [isDoctor, isLoadingAppointments, filters, appointments, updateFilters]);
+
     const { stats, isLoading: isLoadingStats } = useAppointmentStats(today);
     const { history, isLoading: isLoadingHistory, error: historyError } = useAppointmentHistory(today, 5);
  

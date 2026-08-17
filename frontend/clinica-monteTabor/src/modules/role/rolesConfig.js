@@ -174,6 +174,35 @@ export const LOCKED_TRUE_PERMISSIONS = {
     // necesita poder verlos para buscarlos al agendar una cita.
     "users.patients": ["view"],
   },
+  doctor: {
+    // El doctor siempre debe poder ver, crear y actualizar sus propias
+    // citas. Es la funcionalidad central de su dashboard (próximas
+    // citas, agregar cita, calendario). Eliminar queda fuera a
+    // propósito: el doctor no necesita poder borrar citas, solo
+    // cancelarlas (cambio de estado), así que ese permiso sigue siendo
+    // opcional y configurable.
+    "calendar.appointments": ["view", "create", "update"],
+  },
+};
+
+// Permisos que, al revés de LOCKED_TRUE_PERMISSIONS, un rol nunca puede
+// tener en true, sin importar lo que se intente guardar desde esta
+// pantalla o directamente contra la API. El checkbox se ve tildable
+// pero queda bloqueado en falso, con un candado. El backend
+// (rolesController.js) tiene la misma lista y es quien realmente lo
+// hace cumplir. Esto solo evita la confusión de dejar prender algo que
+// el servidor va a rechazar de todas formas.
+export const LOCKED_FALSE_PERMISSIONS = {
+  receptionist: {
+    // Recepción puede consultar horarios (los necesita para agendar
+    // una cita con un doctor disponible), pero jamás debe poder
+    // modificarlos. Eso es exclusivo de cada doctor o enfermera sobre
+    // su propio horario, y del admin. El endpoint PUT también está
+    // bloqueado de forma dura en el backend (ver backend/src/routes/
+    // schedule/schedule.js), así que esto no depende únicamente de
+    // este candado visual.
+    "calendar.schedule": ["update"],
+  },
 };
 
 const FULL_CRUD = { view: true, create: true, update: true, delete: true };

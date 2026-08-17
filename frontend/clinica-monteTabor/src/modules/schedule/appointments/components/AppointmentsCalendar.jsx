@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, X, RefreshCw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import useAppointmentsApi from "../hooks/useAppointmentsApi";
@@ -444,6 +444,7 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAp
 
 const AppointmentsCalendar = () => {
     const navigate  = useNavigate();
+    const location  = useLocation();
     const { user, userType, hasPermission } = useAuth();
     const isDoctor  = userType === "doctor";
     const canCreateAppt = hasPermission("calendar.appointments", "create");
@@ -452,7 +453,17 @@ const AppointmentsCalendar = () => {
     const { getSchedule } = useSchedule();
     const { getAppointmentTypes } = useAppointmentTypes();
 
-    const [weekStart,    setWeekStart]    = useState(() => getWeekStart(new Date()));
+    // selectApptId y selectApptDate (puestos por RecentConsultationsList.jsx
+    // del dashboard del doctor al hacer clic en "Ver detalles") preseleccionan
+    // una cita puntual al llegar aquí, igual que si el usuario la hubiera
+    // clickeado directamente en el calendario. selectApptDate decide en qué
+    // semana arrancar, para que la cita buscada sí esté entre las citas
+    // cargadas.
+    const pendingSelectId = useRef(location.state?.selectApptId || null);
+
+    const [weekStart,    setWeekStart]    = useState(() =>
+        location.state?.selectApptDate ? getWeekStart(new Date(location.state.selectApptDate)) : getWeekStart(new Date())
+    );
     const [appointments, setAppointments] = useState([]);
     const [stats,        setStats]        = useState({ scheduled: 0, waiting: 0, completed: 0, nextAppointment: null });
     const [loading,      setLoading]      = useState(true);
@@ -500,7 +511,15 @@ const AppointmentsCalendar = () => {
         if (filterStatus)               params.status    = filterStatus;
 
         getAppointments(params)
-            .then(res => setAppointments(res.data || []))
+            .then(res => {
+                const data = res.data || [];
+                setAppointments(data);
+                if (pendingSelectId.current) {
+                    const match = data.find(a => a._id === pendingSelectId.current);
+                    if (match) setSelected(match);
+                    pendingSelectId.current = null;
+                }
+            })
             .catch(() => setAppointments([]))
             .finally(() => setLoading(false));
     }, [weekStart, weekEnd, isDoctor, user?.id, filterStatus, filterDoctor, refresh]);

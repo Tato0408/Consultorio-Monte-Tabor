@@ -25,10 +25,29 @@ const LOCKED_TRUE_PERMISSIONS = {
         // que solo necesita poder ver el listado para buscar un paciente al agendar una cita.
         "users.patients": ["view"],
     },
+    doctor: {
+        // El doctor siempre debe poder ver, crear y actualizar sus propias citas.
+        // Es funcionalidad central de su dashboard. Eliminar queda fuera a propósito
+        // y sigue siendo configurable.
+        "calendar.appointments": ["view", "create", "update"],
+    },
+};
+
+// Al revés de LOCKED_TRUE_PERMISSIONS: acciones que un rol nunca puede tener en true.
+// La recepción puede consultar horarios (los necesita para agendar con un doctor
+// disponible), pero jamás modificarlos. Eso es exclusivo de cada doctor o enfermera
+// sobre su propio horario, y del admin.
+const LOCKED_FALSE_PERMISSIONS = {
+    receptionist: {
+        "calendar.schedule": ["update"],
+    },
 };
 
 const isLockedTrue = (roleKey, moduleKey, action) =>
     !!LOCKED_TRUE_PERMISSIONS[roleKey]?.[moduleKey]?.includes(action);
+
+const isLockedFalse = (roleKey, moduleKey, action) =>
+    !!LOCKED_FALSE_PERMISSIONS[roleKey]?.[moduleKey]?.includes(action);
 
 export const getRoles = async (req, res) => {
     try {
@@ -90,6 +109,12 @@ export const updateRolePermissions = async (req, res) => {
             if (value === false && isLockedTrue(roleKey, moduleKey, action)) {
                 return res.status(400).json({
                     message: `El permiso "${action}" de "${moduleKey}" es necesario para que el dashboard de este rol funcione y no se puede desactivar`,
+                });
+            }
+
+            if (value === true && isLockedFalse(roleKey, moduleKey, action)) {
+                return res.status(400).json({
+                    message: `El permiso "${action}" de "${moduleKey}" no está disponible para este rol y no se puede activar`,
                 });
             }
 

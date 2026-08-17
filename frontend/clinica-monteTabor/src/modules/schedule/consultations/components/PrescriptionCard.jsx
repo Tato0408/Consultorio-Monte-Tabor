@@ -2,8 +2,12 @@ import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 import SectionCard from "./SectionCard";
 
+// Clase del borde de un campo: rojo cuando el campo tiene un error de
+// validación pendiente, gris en cualquier otro caso.
+const borderClass = (hasError) => (hasError ? "border-red-400" : "border-slate-200");
+
 const PrescriptionCard = ({ readOnly }) => {
-    const { control, register, watch } = useFormContext();
+    const { control, register, watch, formState: { errors } } = useFormContext();
     const { fields: rows, append, remove } = useFieldArray({
         control,
         name: "prescription.medications",
@@ -21,26 +25,32 @@ const PrescriptionCard = ({ readOnly }) => {
                         {/* Fila 1: Medicamento y Dosis */}
                         <div className="grid grid-cols-2 gap-2 mb-2">
                             <div className="flex flex-col gap-0.5">
+                                <label className="text-xs text-slate-500">Medicamento</label>
                                 <input
                                     type="text"
-                                    placeholder="Medicamento"
+                                    placeholder="Ej. Paracetamol 500mg"
                                     maxLength={100}
                                     disabled={readOnly}
-                                    {...register(`prescription.medications.${index}.name`)}
-                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                    {...register(`prescription.medications.${index}.name`, {
+                                        required: "El nombre del medicamento es obligatorio",
+                                    })}
+                                    className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.name)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
                                     {watch(`prescription.medications.${index}.name`)?.length ?? 0}/100
                                 </span>
                             </div>
                             <div className="flex flex-col gap-0.5">
+                                <label className="text-xs text-slate-500">Dosis</label>
                                 <input
                                     type="text"
-                                    placeholder="Dosis"
+                                    placeholder="Ej. 1 tableta"
                                     maxLength={50}
                                     disabled={readOnly}
-                                    {...register(`prescription.medications.${index}.dose`)}
-                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                    {...register(`prescription.medications.${index}.dose`, {
+                                        required: "La dosis es obligatoria",
+                                    })}
+                                    className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.dose)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
                                     {watch(`prescription.medications.${index}.dose`)?.length ?? 0}/50
@@ -51,26 +61,32 @@ const PrescriptionCard = ({ readOnly }) => {
                         {/* Fila 2: Frecuencia y Duración */}
                         <div className="grid grid-cols-2 gap-2 mb-2">
                             <div className="flex flex-col gap-0.5">
+                                <label className="text-xs text-slate-500">Frecuencia</label>
                                 <input
                                     type="text"
-                                    placeholder="Frecuencia"
+                                    placeholder="Ej. Cada 8 horas"
                                     maxLength={50}
                                     disabled={readOnly}
-                                    {...register(`prescription.medications.${index}.frequency`)}
-                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                    {...register(`prescription.medications.${index}.frequency`, {
+                                        required: "La frecuencia es obligatoria",
+                                    })}
+                                    className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.frequency)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
                                     {watch(`prescription.medications.${index}.frequency`)?.length ?? 0}/50
                                 </span>
                             </div>
                             <div className="flex flex-col gap-0.5">
+                                <label className="text-xs text-slate-500">Duración</label>
                                 <input
                                     type="text"
-                                    placeholder="Duración"
+                                    placeholder="Ej. Por 5 días"
                                     maxLength={50}
                                     disabled={readOnly}
-                                    {...register(`prescription.medications.${index}.duration`)}
-                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                    {...register(`prescription.medications.${index}.duration`, {
+                                        required: "La duración es obligatoria",
+                                    })}
+                                    className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.duration)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
                                     {watch(`prescription.medications.${index}.duration`)?.length ?? 0}/50
@@ -109,26 +125,32 @@ const PrescriptionCard = ({ readOnly }) => {
                     <div key={row.id} className="border border-slate-100 rounded-lg p-3">
                         <div className="grid grid-cols-2 gap-2 mb-2">
                             <div className="flex flex-col gap-0.5">
+                                <label className="text-xs text-slate-500">Examen / estudio</label>
                                 <input
                                     type="text"
-                                    placeholder="Examen / estudio"
+                                    placeholder="Ej. Hemograma completo"
                                     maxLength={100}
                                     disabled={readOnly}
-                                    {...register(`prescription.lab_orders.${index}.test_name`)}
-                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                    {...register(`prescription.lab_orders.${index}.test_name`, {
+                                        required: "El examen o estudio es obligatorio",
+                                    })}
+                                    className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.lab_orders?.[index]?.test_name)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
                                     {watch(`prescription.lab_orders.${index}.test_name`)?.length ?? 0}/100
                                 </span>
                             </div>
                             <div className="flex flex-col gap-0.5">
+                                <label className="text-xs text-slate-500">Notas</label>
                                 <input
                                     type="text"
-                                    placeholder="Notas"
+                                    placeholder="Ej. En ayunas, urgente"
                                     maxLength={200}
                                     disabled={readOnly}
-                                    {...register(`prescription.lab_orders.${index}.notes`)}
-                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                    {...register(`prescription.lab_orders.${index}.notes`, {
+                                        required: "Agrega una nota para esta orden",
+                                    })}
+                                    className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.lab_orders?.[index]?.notes)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
                                     {watch(`prescription.lab_orders.${index}.notes`)?.length ?? 0}/200
@@ -166,6 +188,7 @@ const PrescriptionCard = ({ readOnly }) => {
                 rows={2}
                 maxLength={500}
                 disabled={readOnly}
+                placeholder="Ej. Reposo relativo, abundantes líquidos y control en 3 días si no mejora"
                 {...register("prescription.indications")}
                 className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />
@@ -178,6 +201,7 @@ const PrescriptionCard = ({ readOnly }) => {
             <label className="text-xs text-slate-500 block mb-1">Próxima cita sugerida</label>
             <input
                 type="date"
+                placeholder="dd/mm/aaaa"
                 min={new Date().toISOString().split("T")[0]}
                 max={`${new Date().getFullYear() + 2}-12-31`}
                 disabled={readOnly}
