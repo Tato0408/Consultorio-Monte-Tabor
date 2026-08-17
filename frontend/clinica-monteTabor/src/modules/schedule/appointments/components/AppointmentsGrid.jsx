@@ -64,6 +64,12 @@ export default function AppointmentsGrid() {
         updateFilters({ search: searchInput.trim() || undefined });
     };
 
+    // Id de la cita a resaltar con borde azul, si se llegó aquí desde una
+    // notificación puntual (ver action_url en patientPortalController.js:
+    // "Nueva cita por aceptar" manda a esta pantalla con ?highlight=<id> en
+    // vez del detalle de esa cita, que todavía no tiene doctor asignado).
+    const highlightId = new URLSearchParams(location.search).get("highlight");
+
     // Sub pestaña del doctor: pending (por aceptar) o mine (resueltas).
     // El backend ya limita doctor_id al propio, aquí solo se controla
     // el status. Si se volvió desde el detalle de una cita (botón de
@@ -127,13 +133,19 @@ export default function AppointmentsGrid() {
 
     // Acepta una cita pendiente asignada al doctor. El backend
     // revalida el horario y puede rechazar con un mensaje claro si ya
-    // no está libre.
-    const handleAceptar = async (id, nurseId) => {
+    // no está libre. Tras aceptar, salta directo al Calendario ya en la
+    // semana correcta y con esta cita seleccionada (resaltada en azul, ver
+    // isSelected en ApptDot/ApptCard más abajo), para que el doctor la vea
+    // agendada de una vez en vez de tener que ir a buscarla él mismo.
+    const handleAceptar = async (appointment, nurseId) => {
         try {
-            await acceptAppointment(id, nurseId);
+            await acceptAppointment(appointment._id, nurseId);
             showSuccess("Cita aceptada correctamente");
             setAppointmentToAccept(null);
             setSelectedNurseId("");
+            navigate("/calendar/appointments", {
+                state: { initialView: "calendar", selectApptId: appointment._id, selectApptDate: appointment.date },
+            });
         } catch (err) {
             showError(err.message || "No se pudo aceptar la cita");
         }
@@ -153,7 +165,7 @@ export default function AppointmentsGrid() {
 
     const requestAccept = async (appointment) => {
         if (!appointment.procedure_id?.requires_nurse) {
-            return handleAceptar(appointment._id);
+            return handleAceptar(appointment);
         }
         setAppointmentToAccept(appointment);
         setSelectedNurseId("");
@@ -488,7 +500,11 @@ export default function AppointmentsGrid() {
                         {appointments.map((cita) => (
                             <Card
                                 key={cita._id}
-                                className="bg-white border border-slate-100 shadow-md rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col h-full"
+                                className={`bg-white shadow-md rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col h-full ${
+                                    cita._id === highlightId
+                                        ? "border-2 border-blue-500 ring-2 ring-blue-200"
+                                        : "border border-slate-100"
+                                }`}
                             >
                                 <CardHeader className="p-5 pb-3 flex flex-row items-center gap-2 space-y-0">
                                     {/* Badge de estado, el color depende del status. */}
@@ -748,7 +764,7 @@ export default function AppointmentsGrid() {
                         </select>
                         <div className="mt-6 flex justify-end gap-3">
                             <Button variant="outline" onClick={() => setAppointmentToAccept(null)}>Cancelar</Button>
-                            <Button disabled={!selectedNurseId || loadingNurses} onClick={() => handleAceptar(appointmentToAccept._id, selectedNurseId)} className="bg-emerald-600 hover:bg-emerald-700">Aceptar cita</Button>
+                            <Button disabled={!selectedNurseId || loadingNurses} onClick={() => handleAceptar(appointmentToAccept, selectedNurseId)} className="bg-emerald-600 hover:bg-emerald-700">Aceptar cita</Button>
                         </div>
                     </div>
                 </div>

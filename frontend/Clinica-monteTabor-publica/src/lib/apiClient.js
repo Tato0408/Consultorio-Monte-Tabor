@@ -1,4 +1,8 @@
-const API_URL = "https://clinica-monte-tabor.onrender.com/api";
+// TEMPORAL: apuntado a localhost para probar en local los cambios de esta sesión
+// (agendar sin doctor, notificación a enfermeras, cierre de sesión por token vencido)
+// antes de desplegarlos. Revertir a la URL de Render antes de hacer commit/push.
+const API_URL = "http://localhost:4000/api";
+// const API_URL = "https://clinica-monte-tabor.onrender.com/api";
 
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     //Construimos la url de la peticion enviando primero la url y segundo el endpoint que queremos
@@ -29,6 +33,14 @@ async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
+        // 401 = la cookie de sesión expiró o ya no es válida. Se avisa por evento global
+        // (en vez de importar AuthContext aquí, para no acoplar este cliente HTTP genérico
+        // a React) para que AuthContext cierre la sesión y ProtectedRoute redirija a
+        // /login solo si había una sesión activa (evita disparar esto en /login mismo
+        // cuando el intento de inicio de sesión falla por credenciales inválidas).
+        if (response.status === 401) {
+            window.dispatchEvent(new Event("session-expired"));
+        }
         //Extrae el mensaje enviado del backend
         const message = data?.message || `Error ${response.status}`;
         throw new Error(message);

@@ -25,12 +25,16 @@ const TicketCita = ({ doctor, tipoLabel, generalidades, date, startTime, endTime
           {doctor?.img_url ? (
             <img src={doctor.img_url} alt="" className="w-full h-full object-cover" />
           ) : (
-            doctor?.name?.[0]
+            doctor?.name?.[0] || <Clock className="w-4 h-4" />
           )}
         </div>
         <div>
           <p className="text-sm text-gray-400">Atendido por</p>
-          <p className="font-semibold text-gray-800">Dr. {doctor?.name} {doctor?.last_name}</p>
+          {/* La cita nace sin doctor: se le notifica a los doctores libres en ese horario y
+              queda "Pendiente de asignación" hasta que alguno la acepte (ver StepFechaHora). */}
+          <p className="font-semibold text-gray-800">
+            {doctor ? `Dr. ${doctor.name} ${doctor.last_name || ""}` : "Pendiente de asignación"}
+          </p>
         </div>
       </div>
 

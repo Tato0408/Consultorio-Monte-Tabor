@@ -11,14 +11,13 @@ export const getAvailableSlots = (doctorId, date, duration) =>
   apiClient(`/patient-portal/schedule/${doctorId}/slots`, { params: { date, duration } });
 
 // Horarios agregados entre todos los doctores para una fecha y tipo de
-// atención, sin revelar todavía qué doctor los cubre.
+// atención, sin revelar qué doctor los cubre: el paciente solo elige el
+// horario, el servidor le asigna un doctor disponible al aceptar la solicitud.
 export const getPatientAvailableSlots = (date, procedureId) =>
   apiClient("/schedule/patient-available-slots", { params: { date, procedure_id: procedureId } });
 
-// Doctores que pueden atender un horario ya elegido del listado anterior.
-export const getDoctorsForSlot = (date, startTime, procedureId) =>
-  apiClient("/schedule/patient-doctors-for-slot", { params: { date, start_time: startTime, procedure_id: procedureId } });
-
+// No se manda doctor_id: el servidor notifica a todos los doctores libres en ese
+// horario y la cita queda "pending" hasta que alguno la acepte.
 export const bookAppointment = (data) =>
   apiClient("/patient-portal/appointments", { method: "POST", body: data });
 

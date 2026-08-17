@@ -50,6 +50,7 @@ import wompiRoutes from './src/routes/wompiRoutes.js'
 const app = express();
 
 
+
 app.set("trust proxy", 1);
 app.use(cookieParser());
 
@@ -60,7 +61,10 @@ app.use(express.json({
 }));
 
 app.use(cors({
-    origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "https://clinica-monte-tabor.vercel.app", "https://clinica-monte-tabor-6h9mwf7j4-fvp1233s-projects.vercel.app", "https://clinica-monte-tabor-3guj.vercel.app", "clinica-monte-tabor-3guj-mtduj4uws-fvp1233s-projects.vercel.app"],
+    // TEMPORAL: 5176 agregado solo para pruebas locales de esta sesión (varios
+    // dev servers corriendo a la vez se van a puertos consecutivos). Quitarlo
+    // antes de hacer commit/push si no se necesita.
+    origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "https://clinica-monte-tabor.vercel.app", "https://clinica-monte-tabor-6h9mwf7j4-fvp1233s-projects.vercel.app", "https://clinica-monte-tabor-3guj.vercel.app", "clinica-monte-tabor-3guj-mtduj4uws-fvp1233s-projects.vercel.app"],
     // Permite el envío de cookies y credenciales
     credentials: true
 }))

@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 
-const PASOS = ["Tipo de atención", "Fecha y hora", "Doctor", "Confirmar"];
+const PASOS = ["Tipo de atención", "Fecha y hora", "Confirmar"];
 
 // Indicador visual del paso actual del wizard de agendamiento
 const StepIndicator = ({ current }) => (

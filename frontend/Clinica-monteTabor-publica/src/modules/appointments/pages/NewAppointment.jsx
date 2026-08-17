@@ -6,7 +6,6 @@ import { getProcedures, bookAppointment } from "@/services/appointmentsService";
 import { showError, showSuccess } from "@/lib/alerts";
 import StepIndicator from "../components/StepIndicator";
 import StepTipoAtencion from "../components/StepTipoAtencion";
-import StepDoctor from "../components/StepDoctor";
 import StepFechaHora from "../components/StepFechaHora";
 import TicketCita from "../components/TicketCita";
 
@@ -40,8 +39,6 @@ const NewAppointment = () => {
   const [tipo, setTipo] = useState(null);
   const [date, setDate] = useState(null);
   const [slot, setSlot] = useState(null);
-  // Doctor elegido (o autoseleccionado) en el paso 3, para el horario ya elegido
-  const [doctor, setDoctor] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [confirmada, setConfirmada] = useState(null);
@@ -65,39 +62,31 @@ const NewAppointment = () => {
     ? INDICACIONES_GENERALES
     : procedimientoSeleccionado?.pre_care_instructions || INDICACIONES_GENERALES;
   const tipoLabel = esGeneral ? "Consulta médica general" : procedimientoSeleccionado?.name;
-  const tipoDescription = esGeneral
-    ? "Evaluación con un médico general para problemas de salud comunes."
-    : procedimientoSeleccionado?.description;
 
-  // Elegir un nuevo tipo invalida la fecha/hora/doctor ya elegidos, porque la
-  // duración y disponibilidad dependen del tipo. Elegir una nueva fecha u
-  // horario invalida el doctor, porque los doctores disponibles dependen de
-  // ambos.
+  // Elegir un nuevo tipo invalida la fecha/hora ya elegidas, porque la
+  // duración y disponibilidad dependen del tipo.
   const elegirTipo = (valor) => {
     setTipo(valor);
     setDate(null);
     setSlot(null);
-    setDoctor(null);
   };
 
   const elegirFecha = (valor) => {
     setDate(valor);
     setSlot(null);
-    setDoctor(null);
   };
 
   const elegirSlot = (valor) => {
     setSlot(valor);
-    setDoctor(null);
   };
 
   const goBack = () => setStep((s) => Math.max(1, s - 1));
 
-  const puedeContinuar = (step === 1 && !!tipo) || (step === 2 && !!slot) || (step === 3 && !!doctor);
+  const puedeContinuar = (step === 1 && !!tipo) || (step === 2 && !!slot);
 
   const handleContinuar = () => {
     if (!puedeContinuar) return;
-    setStep((s) => Math.min(4, s + 1));
+    setStep((s) => Math.min(3, s + 1));
   };
 
   const handleLogout = async () => {
@@ -109,8 +98,10 @@ const NewAppointment = () => {
     setSubmitting(true);
     try {
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      // No se manda doctor_id: el paciente solo elige el horario y el servidor
+      // notifica a los doctores libres en ese horario para que alguno la acepte
+      // (mismo criterio que el flujo de agendamiento de la app móvil).
       const res = await bookAppointment({
-        doctor_id: doctor._id,
         date: dateStr,
         start_time: slot.start_time,
         procedure_id: esGeneral ? undefined : tipo,
@@ -125,7 +116,7 @@ const NewAppointment = () => {
       }
 
       setConfirmada(res.appointment);
-      showSuccess("¡Solicitud enviada! Queda pendiente de que el doctor la acepte.");
+      showSuccess("¡Solicitud enviada! Queda pendiente de que un doctor la acepte.");
     } catch (err) {
       showError(err.message || "No se pudo agendar la cita.");
     } finally {
@@ -143,7 +134,7 @@ const NewAppointment = () => {
               <CheckCircle2 className="w-7 h-7 text-emerald-600" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Solicitud enviada</h1>
-            <p className="text-gray-500 text-sm mt-1">Tu cita queda pendiente de que el doctor la acepte. Te avisaremos cuando lo haga.</p>
+            <p className="text-gray-500 text-sm mt-1">Tu cita queda pendiente de que un doctor la acepte. Te avisaremos cuando lo haga.</p>
           </div>
 
           <TicketCita
@@ -217,7 +208,7 @@ const NewAppointment = () => {
           </div>
         ) : (
           <>
-            {step === 4 ? (
+            {step === 3 ? (
               <div className="max-w-xl mx-auto">
                 <div className="text-center mb-6">
                   <h2 className="text-lg font-bold text-gray-900">¡Todo listo!</h2>
@@ -244,7 +235,6 @@ const NewAppointment = () => {
                 </div>
 
                 <TicketCita
-                  doctor={doctor}
                   tipoLabel={tipoLabel}
                   generalidades={procedimientoSeleccionado?.description}
                   date={date}
@@ -324,22 +314,10 @@ const NewAppointment = () => {
                     </div>
                   </div>
                 )}
-
-                {step === 3 && (
-                  <StepDoctor
-                    date={date}
-                    slot={slot}
-                    procedureId={esGeneral ? "general" : tipo}
-                    tipoLabel={tipoLabel}
-                    tipoDescription={tipoDescription}
-                    selected={doctor}
-                    onSelect={setDoctor}
-                  />
-                )}
               </div>
             )}
 
-            <div className={`flex justify-between mt-6 ${step === 4 ? "max-w-xl mx-auto" : ""}`}>
+            <div className={`flex justify-between mt-6 ${step === 3 ? "max-w-xl mx-auto" : ""}`}>
               {step > 1 ? (
                 <button onClick={goBack} disabled={submitting} className="px-5 py-2.5 rounded-xl text-gray-500 hover:bg-gray-50 text-sm font-medium">
                   ← Atrás
@@ -348,7 +326,7 @@ const NewAppointment = () => {
                 <span />
               )}
 
-              {step < 4 && (
+              {step < 3 && (
                 <button
                   disabled={!puedeContinuar}
                   onClick={handleContinuar}
@@ -358,7 +336,7 @@ const NewAppointment = () => {
                 </button>
               )}
 
-              {step === 4 && (
+              {step === 3 && (
                 <button
                   onClick={handleConfirmar}
                   disabled={submitting}
