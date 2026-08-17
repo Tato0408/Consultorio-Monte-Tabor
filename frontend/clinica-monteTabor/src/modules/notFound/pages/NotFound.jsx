@@ -48,16 +48,15 @@ const SearchIllustration = () => (
   </svg>
 );
 
-// El login guarda el token en authCookie sin la bandera httpOnly (ver
-// loginController.js), así que sí es legible desde document.cookie.
-// Esto solo confirma que la cookie existe en el navegador, no valida
-// que el token siga siendo válido en el backend.
-const hasAuthCookie = () =>
-  document.cookie.split("; ").some((entry) => entry.startsWith("authCookie="));
-
 const NotFound = () => {
-  const { hasAdmins } = useAuth();
-  const showPanelLink = hasAuthCookie();
+  const { hasAdmins, isLoggedIn, isLoading } = useAuth();
+  // authCookie se crea con httpOnly (ver loginController.js), así que
+  // JavaScript nunca puede leerla desde document.cookie. isLoggedIn sí
+  // sirve: lo fija checkSession en AuthContext.jsx a partir de una
+  // consulta real al backend (GET /auth/me), que valida esa cookie del
+  // lado del servidor. Mientras esa consulta no termine (isLoading),
+  // no se muestra el link, para no parpadear con el estado equivocado.
+  const showPanelLink = !isLoading && isLoggedIn;
 
   // Si todavía no existe ningún administrador, la ruta /login rebota
   // automáticamente a /register (ver App.jsx). Por eso aquí se apunta
@@ -112,8 +111,8 @@ const NotFound = () => {
             {primaryLabel}
           </Link>
 
-          {/* El enlace de volver al panel solo se muestra si hay una sesión
-              iniciada en el navegador. Si no hay cookie de sesión, no aparece. */}
+          {/* El enlace de volver al panel solo se muestra si el backend
+              confirmó una sesión activa. Si no hay sesión, no aparece. */}
           {showPanelLink && (
             <Link
               to="/home"
