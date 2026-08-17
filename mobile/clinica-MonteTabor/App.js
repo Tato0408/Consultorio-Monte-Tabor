@@ -1,10 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { useSplashTimer } from './src/hooks/useSplashTimer';
+import SplashScreen from './src/screens/SplashScreen';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/lib/toast';
 
@@ -39,15 +41,7 @@ import AppointmentDetailScreen from './src/screens/appointments/AppointmentDetai
 const Stack = createNativeStackNavigator();
 
 function RootNavigator() {
-  const { isLoggedIn, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6FA' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  const { isLoggedIn } = useAuth();
 
   return (
     <Stack.Navigator
@@ -99,17 +93,33 @@ function RootNavigator() {
   );
 }
 
+// Se monta dentro de AuthProvider: así el splash puede esperar a que isLoading
+// (la revisión de la sesión guardada) termine, además del tiempo mínimo de useSplashTimer.
+function AppContent() {
+  const { isLoading } = useAuth();
+  const showSplash = useSplashTimer(isLoading);
+
+  if (showSplash) {
+    return <SplashScreen />;
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <NavigationContainer>
+        <StatusBar style="dark" />
+        <RootNavigator />
+      </NavigationContainer>
+
+      <Toast config={toastConfig} />
+    </View>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer>
-          <StatusBar style="dark" />
-
-          <RootNavigator />
-        </NavigationContainer>
-
-        <Toast config={toastConfig} />
+        <AppContent />
       </AuthProvider>
     </SafeAreaProvider>
   );
