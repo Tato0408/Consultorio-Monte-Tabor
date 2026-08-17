@@ -1,4 +1,7 @@
-const API_URL = "https://clinica-monte-tabor.onrender.com/api";
+// TEMPORAL: apuntado a localhost para probar en local el flujo de aceptar/asignar
+// citas pendientes sin doctor. Revertir a la URL de Render antes de hacer commit/push.
+const API_URL = "http://localhost:4000/api";
+// const API_URL = "https://clinica-monte-tabor.onrender.com/api";
 
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     // Arma la URL de la petición combinando la URL base y el endpoint recibido.

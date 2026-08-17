@@ -159,7 +159,7 @@ const Dashboard = () => {
   const fecha = nextAppointment ? partesFecha(nextAppointment.date) : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* ── Navbar ── */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -331,8 +331,13 @@ const Dashboard = () => {
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* ── Columna izquierda ── */}
-          <div className="lg:col-span-2 flex flex-col gap-8">
-            <div>
+          {/* min-w-0: sin esto, un item de grid/flex no se encoge por debajo del ancho
+              mínimo de su contenido (default min-width: auto), así que la fila con scroll
+              horizontal de "Mi actividad reciente" de más abajo forzaba esta columna -y con
+              ella toda la página- a ser más ancha que la pantalla en vez de quedarse dentro
+              de su overflow-x-auto. */}
+          <div className="lg:col-span-2 flex flex-col gap-8 min-w-0">
+            <div className="min-w-0">
               <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">Tu próxima cita</h2>
               {!nextAppointment ? (
                 <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center">
@@ -342,7 +347,7 @@ const Dashboard = () => {
                   </Link>
                 </div>
               ) : (
-                <div className="bg-[#3B6FCA]/5 border border-[#3B6FCA]/10 rounded-2xl p-6 flex flex-col sm:flex-row items-start gap-5">
+                <div className="bg-[#3B6FCA]/5 border border-[#3B6FCA]/10 rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row items-start gap-5">
                   <div className="bg-white border border-gray-100 rounded-xl px-4 py-3 text-center flex-shrink-0">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{fecha.diaSemana}</p>
                     <p className="text-3xl font-extrabold text-[#3B6FCA] leading-none my-1">{fecha.diaNumero}</p>
@@ -361,7 +366,7 @@ const Dashboard = () => {
                         <span className="text-emerald-600 font-medium">Anticipo pagado · resta ${Number(nextAppointment.total - nextAppointment.deposit_amount).toFixed(2)} en clínica</span>
                       )}
                     </div>
-                    <div className="flex gap-3 mt-4">
+                    <div className="flex flex-wrap gap-3 mt-4">
                       <Link to="/mis-citas" className="px-4 py-2 rounded-lg bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold transition-colors">
                         Ver detalles
                       </Link>
@@ -378,14 +383,14 @@ const Dashboard = () => {
               )}
             </div>
 
-            <div>
+            <div className="min-w-0">
               <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">Accesos rápidos</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {ACCESOS_RAPIDOS.map(({ to, icon: Icon, label, desc }) => (
                   <Link
                     key={to}
                     to={to}
-                    className="relative flex flex-col gap-3 p-5 rounded-2xl bg-white border border-gray-100 hover:border-[#3B6FCA]/40 hover:shadow-sm transition-all"
+                    className="relative flex flex-col gap-3 p-4 sm:p-5 rounded-2xl bg-white border border-gray-100 hover:border-[#3B6FCA]/40 hover:shadow-sm transition-all"
                   >
                     <div className="w-11 h-11 rounded-xl bg-[#3B6FCA]/10 flex items-center justify-center">
                       <Icon className="w-5 h-5 text-[#3B6FCA]" />
@@ -400,24 +405,35 @@ const Dashboard = () => {
               </div>
             </div>
 
-            <div>
-              <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">Mi actividad reciente</h2>
+            <div className="min-w-0">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wide">Mi actividad reciente</h2>
+                {activity.length > 0 && (
+                  <Link to="/mis-citas" className="flex items-center gap-0.5 text-xs font-semibold text-[#3B6FCA] hover:underline">
+                    Ver todo el historial <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+              </div>
               {activity.length === 0 ? (
                 <p className="text-sm text-gray-400 bg-white border border-gray-100 rounded-2xl p-6 text-center">
                   Todavía no tienes actividad registrada.
                 </p>
               ) : (
-                <div className="bg-white border border-gray-100 rounded-2xl p-6 overflow-x-auto">
-                  <div className="flex items-stretch gap-3 min-w-max">
+                <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-6">
+                  {/* Grid que se apila en vez de la fila con scroll horizontal que tenía
+                      antes: en pantallas angostas, un carrusel que solo se ve completo
+                      deslizando el dedo lee como contenido cortado/roto, no como algo
+                      interactivo. */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     {activity.map((e, i) => {
                       const estilo = ACTIVITY_STYLES[e.type] || ACTIVITY_STYLES.consulta;
                       const Icon = estilo.icon;
                       return (
-                        <div key={i} className="w-44 flex-shrink-0 border border-gray-100 rounded-xl p-4">
+                        <div key={i} className="min-w-0 border border-gray-100 rounded-xl p-4">
                           <div className={`w-9 h-9 rounded-lg ${estilo.bg} flex items-center justify-center mb-3`}>
                             <Icon className={`w-4 h-4 ${estilo.text}`} />
                           </div>
-                          <p className="text-sm font-semibold text-gray-800">{e.label}</p>
+                          <p className="text-sm font-semibold text-gray-800 truncate">{e.label}</p>
                           {e.doctor && (
                             <p className="text-xs text-gray-400 truncate mt-0.5">Dr(a). {e.doctor.name} {e.doctor.last_name}</p>
                           )}
@@ -425,12 +441,6 @@ const Dashboard = () => {
                         </div>
                       );
                     })}
-                    <Link
-                      to="/mis-citas"
-                      className="flex items-center gap-1 flex-shrink-0 self-center text-sm font-semibold text-[#3B6FCA] hover:underline px-3"
-                    >
-                      Ver todo el historial <ChevronRight className="w-4 h-4" />
-                    </Link>
                   </div>
                 </div>
               )}
@@ -438,8 +448,8 @@ const Dashboard = () => {
           </div>
 
           {/* ── Columna derecha ── */}
-          <div className="flex flex-col gap-6">
-            <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+          <div className="flex flex-col gap-6 min-w-0">
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm">
               <h2 className="text-sm font-bold text-gray-800 mb-3">Recordatorios</h2>
               {reminders.length === 0 ? (
                 <p className="text-sm text-gray-400 py-4 text-center">No tienes recordatorios pendientes.</p>
@@ -461,7 +471,7 @@ const Dashboard = () => {
               )}
             </div>
 
-            <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-bold text-gray-800">Medicamentos activos</h2>
                 <Link to="/medicamentos" className="text-xs font-semibold text-[#3B6FCA] hover:underline">Ver todos</Link>
@@ -485,7 +495,7 @@ const Dashboard = () => {
               )}
             </div>
 
-            <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-bold text-gray-800">Documentos recientes</h2>
                 <Link to="/documentos" className="text-xs font-semibold text-[#3B6FCA] hover:underline">Ver todos</Link>

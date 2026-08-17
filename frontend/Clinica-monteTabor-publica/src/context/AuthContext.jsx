@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import apiClient from "../lib/apiClient";
+import { showWarning } from "../lib/alerts";
 
 const AuthContext = createContext();
 
@@ -7,6 +8,9 @@ export const AuthProvider = ({ children }) => {
     const [patient, setPatient] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    // Copia siempre actualizada de isLoggedIn para leer dentro del listener de
+    // "session-expired" (ver más abajo), que se suscribe una sola vez al montar.
+    const isLoggedInRef = useRef(false);
 
     const checkSession = useCallback(async () => {
         try {
@@ -36,6 +40,26 @@ export const AuthProvider = ({ children }) => {
 
         initSession();
     }, [checkSession]);
+
+    useEffect(() => {
+        isLoggedInRef.current = isLoggedIn;
+    }, [isLoggedIn]);
+
+    // apiClient dispara "session-expired" ante cualquier 401. Solo se actúa si había
+    // una sesión activa: así no interfiere con el 401 de /auth/me en visitantes sin
+    // sesión, ni con un intento de login fallido por credenciales inválidas. Al poner
+    // isLoggedIn en false, ProtectedRoute (que ya observa ese estado) redirige a
+    // /login por su cuenta, sin necesidad de navegar manualmente desde aquí.
+    useEffect(() => {
+        const handleSessionExpired = () => {
+            if (!isLoggedInRef.current) return;
+            setPatient(null);
+            setIsLoggedIn(false);
+            showWarning("Tu sesión expiró. Inicia sesión de nuevo.");
+        };
+        window.addEventListener("session-expired", handleSessionExpired);
+        return () => window.removeEventListener("session-expired", handleSessionExpired);
+    }, []);
 
     // Inicia sesión de un paciente contra /api/loginPatient/login
     const login = async (email, password) => {

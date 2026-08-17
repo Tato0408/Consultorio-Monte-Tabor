@@ -25,8 +25,22 @@ export const validateAuthCookie = (allowedTypes = []) => {
           .json({ message: "No se encontró la cookie de sesión, se requiere autorización" });
       }
 
-      // Decodifica el token para obtener los datos que contiene.
-      const decoded = jsonwebToken.verify(token, config.JWT.secret);
+      let decoded;
+      try {
+        // Decodifica el token para obtener los datos que contiene.
+        decoded = jsonwebToken.verify(token, config.JWT.secret);
+      } catch (verifyError) {
+        // jwt.verify lanza (no devuelve null) cuando el token expiró o es
+        // inválido; antes caía al catch genérico de abajo y respondía 500
+        // "Error interno del servidor", como si fuera una falla real del
+        // servidor en vez de una sesión vencida. Con eso, el frontend nunca
+        // podía distinguir "tu sesión expiró" de un error real, así que no
+        // podía cerrar sesión ni redirigir al login automáticamente.
+        if (verifyError.name === "TokenExpiredError") {
+          return res.status(401).json({ message: "Tu sesión expiró, inicia sesión de nuevo." });
+        }
+        return res.status(401).json({ message: "Sesión inválida, inicia sesión de nuevo." });
+      }
 
       // Verifica que el rol del token esté dentro de los tipos permitidos.
       if (allowedTypes.length > 0 && !allowedTypes.includes(decoded.userType)) {

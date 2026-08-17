@@ -62,7 +62,9 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onPagar, expande
           )}
         </div>
         <div>
-          <p className="font-semibold text-gray-800">Dr. {cita.doctor_id?.name} {cita.doctor_id?.last_name}</p>
+          <p className="font-semibold text-gray-800">
+            {cita.doctor_id ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}` : "Pendiente de asignación"}
+          </p>
           <p className="text-sm text-gray-400">{cita.type}</p>
         </div>
       </div>

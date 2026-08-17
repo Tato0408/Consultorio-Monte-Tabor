@@ -42,8 +42,9 @@ const agruparPorFranja = (slots) => {
 };
 
 // Paso 2: elegir día y luego una hora libre entre todos los doctores, según
-// el tipo de atención elegido (define la duración). El doctor se elige recién
-// en el siguiente paso, en base al horario que se elija aquí.
+// el tipo de atención elegido (define la duración). No se elige doctor: al
+// confirmar, se notifica a todos los doctores libres en ese horario para que
+// alguno acepte la solicitud (mismo criterio que el flujo de la app móvil).
 const StepFechaHora = ({ procedureId, date, slot, onSelectDate, onSelectSlot }) => {
   const dias = useMemo(() => buildDays(), []);
   const scrollRef = useRef(null);
@@ -177,7 +178,7 @@ const StepFechaHora = ({ procedureId, date, slot, onSelectDate, onSelectSlot }) 
       {slotsVisibles.length > 0 && (
         <div className="flex items-start gap-2 bg-gray-50 rounded-lg p-3 mt-6">
           <Info className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-gray-500">En el siguiente paso se elige el doctor disponible para el horario seleccionado.</p>
+          <p className="text-xs text-gray-500">Al confirmar, se avisa a los doctores disponibles en ese horario para que acepten tu solicitud.</p>
         </div>
       )}
     </div>

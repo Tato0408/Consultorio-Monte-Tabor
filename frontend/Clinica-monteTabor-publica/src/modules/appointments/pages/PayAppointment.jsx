@@ -356,7 +356,9 @@ const PayAppointment = () => {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-400">Detalle de la cita</p>
-                    <p className="font-semibold text-gray-800 truncate">Dr. {cita.doctor_id?.name} {cita.doctor_id?.last_name}</p>
+                    <p className="font-semibold text-gray-800 truncate">
+                      {cita.doctor_id ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}` : "Pendiente de asignación"}
+                    </p>
                     <p className="text-sm text-gray-500 truncate">{cita.type}</p>
                   </div>
                 </div>
@@ -482,7 +484,9 @@ const PayAppointment = () => {
                 </div>
                 <div className="flex items-start justify-between gap-3">
                   <span className="flex items-center gap-2 text-gray-400"><User className="w-4 h-4" /> Doctor(a)</span>
-                  <span className="font-medium text-gray-800 text-right">Dr. {cita.doctor_id?.name} {cita.doctor_id?.last_name}</span>
+                  <span className="font-medium text-gray-800 text-right">
+                    {cita.doctor_id ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}` : "Pendiente de asignación"}
+                  </span>
                 </div>
                 <div className="flex items-start justify-between gap-3">
                   <span className="flex items-center gap-2 text-gray-400"><Calendar className="w-4 h-4" /> Fecha</span>

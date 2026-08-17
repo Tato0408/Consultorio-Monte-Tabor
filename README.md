@@ -63,7 +63,7 @@ La solución se divide en **tres partes**, todas contra la misma API REST:
 
 | Recurso | Enlace |
 |---------|--------|
-| Figma (UI/UX) | _agregar enlace_ |
+| Figma (UI/UX) | [Expo 2026](https://www.figma.com/design/NRzGIwnaKyruQTnRjQwPIB/Expo-2026?node-id=0-1&t=ylOXY0kTPLtofKXo-1) |
 
 ---
 
