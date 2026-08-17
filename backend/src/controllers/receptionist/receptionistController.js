@@ -2,6 +2,8 @@ import receptionistsModel from "../../models/receptionist/receptionist.js";
 import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
+import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js";
 
 //Array de funciones, aqui agregamos las funciones y 
 //al final del archivo este objeto lo exportaremos
@@ -97,6 +99,15 @@ receptionistController.createReceptionist = async (req, res) => {
     });
 
     await newReceptionist.save();
+
+    // Igual que al crear un doctor: se le manda al correo registrado el
+    // usuario y la contraseña recién definidos, sin bloquear la respuesta
+    // si el envío falla.
+    sendEmail(
+      email,
+      "Tu cuenta de recepcionista fue creada",
+      HTMLStaffCredentials(`${name} ${last_name}`, "recepcionista", email, password)
+    ).catch((error) => console.log("Error enviando credenciales al recepcionista:", error));
 
     return res.status(201).json({
       message: "Recepcionista creado correctamente",

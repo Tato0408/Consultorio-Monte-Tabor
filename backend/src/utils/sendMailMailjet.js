@@ -30,6 +30,6 @@ export const sendEmail = async (to, subject, html) => {
 
   } catch (error) {
     console.log("Error enviando correo con Mailjet:", error.response?.body || error.message);
-    return res.status(500).json({message:"Internal server error"});
+    throw error;
   }
 };
