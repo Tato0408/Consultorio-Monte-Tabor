@@ -32,8 +32,8 @@ const TABS = [
 
 const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onPagar, expandedId, setExpandedId }) => {
   const expandida = expandedId === cita._id;
-  const depositoPendiente = cita.status === "pending" && cita.deposit_amount != null;
-  const depositoPagado = cita.status === "scheduled" && cita.wompi_transaction_id && cita.deposit_amount != null;
+  const depositoPendiente = cita.status === "pending" && cita.deposit_amount != null && !cita.deposit_paid;
+  const depositoPagado = cita.deposit_paid && cita.deposit_amount != null;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -115,7 +115,7 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onPagar, expande
               <Trash2 className="w-4 h-4" /> Cancelar cita
             </button>
           )}
-          {cita.status === "pending" && (
+          {cita.status === "pending" && cita.deposit_amount != null && !cita.deposit_paid && (
             <button
               onClick={() => onPagar(cita._id)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold transition-colors"
@@ -178,7 +178,7 @@ const MyAppointments = () => {
     // El mensaje cambia según si ya hay un anticipo pagado (se pierde, no se reembolsa)
     // o solo un intento de pago sin confirmar (cancelar no revisa ni revierte ese cobro)
     let mensaje = "¿Seguro que deseas cancelar esta cita?";
-    if (cita.status === "scheduled" && cita.wompi_transaction_id) {
+    if (cita.deposit_paid) {
       mensaje = `Ya pagaste un anticipo de $${Number(cita.deposit_amount).toFixed(2)} para esta cita. Si cancelas, ese anticipo no será reembolsado. ¿Deseas continuar?`;
     } else if (cita.wompi_transaction_id) {
       mensaje = "Ya existe un intento de pago para esta cita. Si cancelas, no se verificará ningún cobro pendiente automáticamente. ¿Seguro que deseas cancelar de todos modos?";

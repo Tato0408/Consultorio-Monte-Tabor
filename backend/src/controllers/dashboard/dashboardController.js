@@ -22,12 +22,11 @@ dashboardController.getStats = async (req, res) => {
 
         // El ingreso real corresponde a los anticipos efectivamente
         // cobrados y confirmados vía Wompi desde el portal público del
-        // paciente (wompi_transaction_id solo queda así tras una
+        // paciente (deposit_paid solo queda en true tras una
         // confirmación aprobada, ver confirmAppointmentPayment). No
         // incluye pagos hechos en recepción (no dejan rastro digital de
-        // cobro) ni intentos de pago que quedaron en estado pending sin
-        // confirmarse.
-        const paidOnlineMatch = { wompi_transaction_id: { $exists: true, $ne: null }, status: { $ne: "pending" } };
+        // cobro) ni intentos de pago que quedaron sin confirmarse.
+        const paidOnlineMatch = { deposit_paid: true };
 
         const [
             revenueAgg,

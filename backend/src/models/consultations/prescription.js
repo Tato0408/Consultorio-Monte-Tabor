@@ -1,7 +1,12 @@
 import mongoose, { Schema, model } from "mongoose";
 
 const prescriptionSchema = new Schema({
-    consultations_id: {
+    // El campo se llama consultation_id (no consultations_id) porque así lo
+    // escriben y consultan consultationController y patientPortalController.
+    // Declararlo con su tipo real permite que Mongoose convierta un id en
+    // texto a ObjectId al armar consultas (find, $in), algo que no ocurre en
+    // campos no declarados aunque el esquema tenga strict:false.
+    consultation_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Consultations"
     },

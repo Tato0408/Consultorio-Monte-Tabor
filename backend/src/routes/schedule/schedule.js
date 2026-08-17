@@ -22,6 +22,10 @@ const blockReceptionistScheduleWrite = (req, res, next) => {
 // podría atender. No permite leer ni modificar horarios individuales.
 router.get("/patient-available-slots", scheduleController.getPatientAvailableSlots);
 
+// Dado un horario ya elegido del listado anterior, devuelve qué doctores
+// pueden atenderlo, para que el paciente elija entre ellos.
+router.get("/patient-doctors-for-slot", scheduleController.getPatientDoctorsForSlot);
+
 router.route("/:doctorId/slots")
     .get(authorize("calendar.schedule", "view"), scheduleController.getAvailableSlots);
 

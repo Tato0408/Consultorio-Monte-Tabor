@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, ChevronDown, User, Clock, Stethoscope, CalendarDays, Timer, Wallet, CreditCard } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, ChevronDown, Clock, Stethoscope, CalendarDays, Timer, Wallet, CreditCard } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getDoctors, getProcedures, bookAppointment } from "@/services/appointmentsService";
+import { getProcedures, bookAppointment } from "@/services/appointmentsService";
 import { showError, showSuccess } from "@/lib/alerts";
 import StepIndicator from "../components/StepIndicator";
 import StepTipoAtencion from "../components/StepTipoAtencion";
@@ -33,32 +33,25 @@ const NewAppointment = () => {
 
   const [step, setStep] = useState(1);
   const [procedures, setProcedures] = useState([]);
-  const [doctors, setDoctors] = useState([]);
   const [loadingCatalogo, setLoadingCatalogo] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // "general" o el _id de un procedimiento
   const [tipo, setTipo] = useState(null);
-  const [doctorId, setDoctorId] = useState(null);
   const [date, setDate] = useState(null);
   const [slot, setSlot] = useState(null);
+  // Doctor elegido (o autoseleccionado) en el paso 3, para el horario ya elegido
+  const [doctor, setDoctor] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [confirmada, setConfirmada] = useState(null);
   const [metodoPago, setMetodoPago] = useState("reception");
 
   useEffect(() => {
-    // Se usa allSettled (no all) para que si un catálogo falla, el otro igual se
-    // muestre — antes, un solo endpoint caído bloqueaba todo el agendamiento
-    Promise.allSettled([getDoctors(), getProcedures()]).then(([doctorsRes, proceduresRes]) => {
-      if (doctorsRes.status === "fulfilled") setDoctors(doctorsRes.value);
-      else showError("No se pudieron cargar los doctores disponibles.");
-
-      if (proceduresRes.status === "fulfilled") setProcedures(proceduresRes.value);
-      else showError("No se pudieron cargar los procedimientos disponibles.");
-
-      setLoadingCatalogo(false);
-    });
+    getProcedures()
+      .then(setProcedures)
+      .catch(() => showError("No se pudieron cargar los procedimientos disponibles."))
+      .finally(() => setLoadingCatalogo(false));
   }, []);
 
   const esGeneral = tipo === "general";
@@ -75,25 +68,32 @@ const NewAppointment = () => {
   const tipoDescription = esGeneral
     ? "Evaluación con un médico general para problemas de salud comunes."
     : procedimientoSeleccionado?.description;
-  const doctorSeleccionado = doctors.find((d) => d._id === doctorId);
 
-  // Elegir un nuevo tipo o doctor invalida la fecha/hora ya elegidas, porque la
-  // duración y disponibilidad dependen de ambos
+  // Elegir un nuevo tipo invalida la fecha/hora/doctor ya elegidos, porque la
+  // duración y disponibilidad dependen del tipo. Elegir una nueva fecha u
+  // horario invalida el doctor, porque los doctores disponibles dependen de
+  // ambos.
   const elegirTipo = (valor) => {
     setTipo(valor);
     setDate(null);
     setSlot(null);
+    setDoctor(null);
   };
 
-  const elegirDoctor = (valor) => {
-    setDoctorId(valor);
-    setDate(null);
+  const elegirFecha = (valor) => {
+    setDate(valor);
     setSlot(null);
+    setDoctor(null);
+  };
+
+  const elegirSlot = (valor) => {
+    setSlot(valor);
+    setDoctor(null);
   };
 
   const goBack = () => setStep((s) => Math.max(1, s - 1));
 
-  const puedeContinuar = (step === 1 && !!tipo) || (step === 2 && !!doctorId) || (step === 3 && !!slot);
+  const puedeContinuar = (step === 1 && !!tipo) || (step === 2 && !!slot) || (step === 3 && !!doctor);
 
   const handleContinuar = () => {
     if (!puedeContinuar) return;
@@ -110,7 +110,7 @@ const NewAppointment = () => {
     try {
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
       const res = await bookAppointment({
-        doctor_id: doctorId,
+        doctor_id: doctor._id,
         date: dateStr,
         start_time: slot.start_time,
         procedure_id: esGeneral ? undefined : tipo,
@@ -125,7 +125,7 @@ const NewAppointment = () => {
       }
 
       setConfirmada(res.appointment);
-      showSuccess("¡Tu cita fue agendada con éxito!");
+      showSuccess("¡Solicitud enviada! Queda pendiente de que el doctor la acepte.");
     } catch (err) {
       showError(err.message || "No se pudo agendar la cita.");
     } finally {
@@ -142,8 +142,8 @@ const NewAppointment = () => {
             <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-7 h-7 text-emerald-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Cita confirmada</h1>
-            <p className="text-gray-500 text-sm mt-1">Te esperamos en la fecha y hora indicadas.</p>
+            <h1 className="text-2xl font-bold text-gray-900">Solicitud enviada</h1>
+            <p className="text-gray-500 text-sm mt-1">Tu cita queda pendiente de que el doctor la acepte. Te avisaremos cuando lo haga.</p>
           </div>
 
           <TicketCita
@@ -244,7 +244,7 @@ const NewAppointment = () => {
                 </div>
 
                 <TicketCita
-                  doctor={doctorSeleccionado}
+                  doctor={doctor}
                   tipoLabel={tipoLabel}
                   generalidades={procedimientoSeleccionado?.description}
                   date={date}
@@ -263,45 +263,22 @@ const NewAppointment = () => {
                 )}
 
                 {step === 2 && (
-                  <StepDoctor
-                    doctors={doctors}
-                    tipoLabel={tipoLabel}
-                    tipoDescription={tipoDescription}
-                    selected={doctorId}
-                    onSelect={elegirDoctor}
-                  />
-                )}
-
-                {step === 3 && (
                   <div className="flex flex-col lg:flex-row gap-6">
                     <div className="flex-1 min-w-0">
                       <StepFechaHora
-                        doctorId={doctorId}
-                        duration={duracion}
+                        procedureId={esGeneral ? "general" : tipo}
                         date={date}
                         slot={slot}
-                        onSelectDate={setDate}
-                        onSelectSlot={setSlot}
+                        onSelectDate={elegirFecha}
+                        onSelectSlot={elegirSlot}
                       />
                     </div>
 
                     <div className="w-full lg:w-72 flex-shrink-0">
                       <div className="bg-gray-50 rounded-2xl p-5 sticky top-24">
                         <p className="font-semibold text-gray-800 text-sm mb-4">Resumen de tu cita</p>
-                        <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-                          <div className="w-10 h-10 rounded-full bg-[#3B6FCA]/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            {doctorSeleccionado?.img_url ? (
-                              <img src={doctorSeleccionado.img_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <User className="w-5 h-5 text-[#3B6FCA]" />
-                            )}
-                          </div>
-                          <p className="text-sm font-semibold text-gray-800">
-                            Dr. {doctorSeleccionado?.name} {doctorSeleccionado?.last_name}
-                          </p>
-                        </div>
 
-                        <div className="space-y-3 pt-4 text-sm">
+                        <div className="space-y-3 text-sm">
                           <div className="flex items-start gap-2">
                             <Stethoscope className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
                             <div>
@@ -323,7 +300,7 @@ const NewAppointment = () => {
                               <Clock className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
                               <div>
                                 <p className="text-xs text-gray-400">Hora</p>
-                                <p className="font-medium text-gray-700">{fmt12(slot.start_time)}</p>
+                                <p className="font-medium text-gray-700">{fmt12(slot.start_time)} - {fmt12(slot.end_time)}</p>
                               </div>
                             </div>
                           )}
@@ -346,6 +323,18 @@ const NewAppointment = () => {
                       </div>
                     </div>
                   </div>
+                )}
+
+                {step === 3 && (
+                  <StepDoctor
+                    date={date}
+                    slot={slot}
+                    procedureId={esGeneral ? "general" : tipo}
+                    tipoLabel={tipoLabel}
+                    tipoDescription={tipoDescription}
+                    selected={doctor}
+                    onSelect={setDoctor}
+                  />
                 )}
               </div>
             )}

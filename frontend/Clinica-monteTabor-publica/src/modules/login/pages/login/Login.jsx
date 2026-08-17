@@ -169,7 +169,7 @@ const Login = () => {
               )}
 
               <InputField
-                label="Correo"
+                label="Correo electrónico"
                 id="email"
                 type="email"
                 placeholder="Ingresa tu email"

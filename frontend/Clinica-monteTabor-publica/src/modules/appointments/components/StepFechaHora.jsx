@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Loader2, Clock, ChevronLeft, ChevronRight, CalendarDays, Sun, Sunset, Moon, Info } from "lucide-react";
-import { getAvailableSlots } from "@/services/appointmentsService";
+import { getPatientAvailableSlots } from "@/services/appointmentsService";
 
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -41,8 +41,10 @@ const agruparPorFranja = (slots) => {
   return grupos;
 };
 
-// Paso 3: elegir día y luego una hora libre para ese día, según el doctor y la duración elegidos
-const StepFechaHora = ({ doctorId, duration, date, slot, onSelectDate, onSelectSlot }) => {
+// Paso 2: elegir día y luego una hora libre entre todos los doctores, según
+// el tipo de atención elegido (define la duración). El doctor se elige recién
+// en el siguiente paso, en base al horario que se elija aquí.
+const StepFechaHora = ({ procedureId, date, slot, onSelectDate, onSelectSlot }) => {
   const dias = useMemo(() => buildDays(), []);
   const scrollRef = useRef(null);
   const [slots, setSlots] = useState([]);
@@ -50,10 +52,10 @@ const StepFechaHora = ({ doctorId, duration, date, slot, onSelectDate, onSelectS
   const [mensaje, setMensaje] = useState("");
 
   useEffect(() => {
-    if (!doctorId || !date) return;
+    if (!date) return;
     setLoading(true);
     setMensaje("");
-    getAvailableSlots(doctorId, toDateStr(date), duration)
+    getPatientAvailableSlots(toDateStr(date), procedureId)
       .then((res) => {
         setSlots(res.slots || []);
         setMensaje(res.message || "");
@@ -63,7 +65,7 @@ const StepFechaHora = ({ doctorId, duration, date, slot, onSelectDate, onSelectS
         setMensaje("No se pudieron cargar los horarios.");
       })
       .finally(() => setLoading(false));
-  }, [doctorId, date, duration]);
+  }, [procedureId, date]);
 
   // Si el día elegido es hoy, oculta los horarios que ya pasaron
   const ahora = new Date();
@@ -82,7 +84,7 @@ const StepFechaHora = ({ doctorId, duration, date, slot, onSelectDate, onSelectS
   return (
     <div>
       <h2 className="text-lg font-bold text-gray-900 mb-1">Elige la fecha y hora</h2>
-      <p className="text-sm text-gray-500 mb-6">Solo se muestran los horarios realmente disponibles del doctor.</p>
+      <p className="text-sm text-gray-500 mb-6">Se muestran los horarios donde al menos un doctor está disponible.</p>
 
       <p className="text-sm font-semibold text-gray-700 mb-3">Selecciona un día</p>
       <div className="flex items-center gap-2 mb-4">
@@ -147,19 +149,22 @@ const StepFechaHora = ({ doctorId, duration, date, slot, onSelectDate, onSelectS
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                   <Icon className="w-3.5 h-3.5" /> {label}
                 </p>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {franjas[key].map((s, i) => (
                     <button
                       key={i}
                       type="button"
                       onClick={() => onSelectSlot(s)}
-                      className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                      className={`py-2.5 rounded-xl border-2 transition-all ${
                         slot?.start_time === s.start_time
                           ? "bg-[#3B6FCA] border-[#3B6FCA] text-white"
                           : "border-gray-100 text-gray-600 hover:border-[#3B6FCA]/40"
                       }`}
                     >
-                      {fmt12(s.start_time)}
+                      <span className="block text-sm font-semibold">{fmt12(s.start_time)}</span>
+                      <span className={`block text-[11px] ${slot?.start_time === s.start_time ? "text-white/70" : "text-gray-400"}`}>
+                        hasta {fmt12(s.end_time)}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -172,7 +177,7 @@ const StepFechaHora = ({ doctorId, duration, date, slot, onSelectDate, onSelectS
       {slotsVisibles.length > 0 && (
         <div className="flex items-start gap-2 bg-gray-50 rounded-lg p-3 mt-6">
           <Info className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-gray-500">Los horarios mostrados corresponden a la disponibilidad real del doctor seleccionado.</p>
+          <p className="text-xs text-gray-500">En el siguiente paso se elige el doctor disponible para el horario seleccionado.</p>
         </div>
       )}
     </div>

@@ -266,6 +266,9 @@ consultationController.insertConsultation = async (req, res) => {
         medications: prescription.medications || [],
         lab_orders: prescription.lab_orders || [],
         post_operative_instructions: prescription.post_operative_instructions,
+        // Momento en que se emite la receta, usado por el portal del paciente para
+        // calcular qué medicamentos siguen activos hoy (ver fetchTodayMedications).
+        issued_at: new Date(),
       });
       //Guardamos de manera temporal la presciption en la session
       await newPrescription.save({ session });
@@ -432,10 +435,16 @@ consultationController.updateConsultation = async (req, res) => {
       await prescriptionsModel.findOneAndUpdate(
         { consultation_id: req.params.id },
         {
-          consultation_id: req.params.id,
-          medications: prescription.medications || [],
-          lab_orders: prescription.lab_orders || [],
-          post_operative_instructions: prescription.post_operative_instructions,
+          $set: {
+            consultation_id: req.params.id,
+            medications: prescription.medications || [],
+            lab_orders: prescription.lab_orders || [],
+            post_operative_instructions: prescription.post_operative_instructions,
+          },
+          // Solo se fija la primera vez que se crea la receta (al completar una
+          // consulta que todavía no tenía una), para no correr la fecha de emisión
+          // original cada vez que el doctor edita la consulta después.
+          $setOnInsert: { issued_at: new Date() },
         },
         { session, upsert: true, new: true, runValidators: true }
       );

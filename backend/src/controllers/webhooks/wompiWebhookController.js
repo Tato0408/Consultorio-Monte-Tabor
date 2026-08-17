@@ -33,17 +33,19 @@ wompiWebhookController.handle = async (req, res) => {
         }
 
         const appointment = await appointmentsModel.findById(appointmentId);
-        if (!appointment || appointment.status !== "pending") {
+        if (!appointment || appointment.deposit_paid) {
             return res.status(200).json({ message: "Nada que actualizar" });
         }
 
         // Se vuelve a consultar la transacción directamente a Wompi en
         // vez de confiar ciegamente en los campos del webhook, para
-        // tener una sola fuente de verdad del estado del pago.
+        // tener una sola fuente de verdad del estado del pago. El status
+        // de la cita no cambia aquí: pagar el anticipo no salta la
+        // aceptación del doctor, sigue "pending" hasta que se acepte.
         const transaccion = await getTransactionStatus(transactionId);
         if (transaccion.esAprobada === true) {
             appointment.wompi_transaction_id = transactionId;
-            appointment.status = "scheduled";
+            appointment.deposit_paid = true;
             await appointment.save();
         }
 
