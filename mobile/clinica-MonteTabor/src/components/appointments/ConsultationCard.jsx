@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import styles, { badgeTones, statusTones } from "../../styles/appointments/appointmentsStyle";
 import { colors } from "../../styles/profile/profileStyle";
@@ -17,7 +17,7 @@ const DoctorAvatar = ({ uri }) =>
   );
 
 /** item: shape devuelto por GET /patientAccount/consultations */
-const ConsultationCard = ({ item }) => {
+const ConsultationCard = ({ item, onPress }) => {
   const tone = statusTones[item.status] || statusTones.pending;
   const doctorName = item.doctor
     ? `Dr. ${item.doctor.name} ${item.doctor.last_name}`.trim()
@@ -26,7 +26,7 @@ const ConsultationCard = ({ item }) => {
   const isAttended = item.status === "completed";
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} activeOpacity={onPress ? 0.75 : 1} onPress={onPress} disabled={!onPress}>
       <View style={styles.cardTopRow}>
         <View style={styles.dateTimeGroup}>
           <Ionicons name="calendar-outline" size={14} color={colors.muted} />
@@ -77,6 +77,13 @@ const ConsultationCard = ({ item }) => {
               })}
             </View>
           ) : null}
+
+          {onPress ? (
+            <View style={styles.detailHint}>
+              <Text style={styles.detailHintText}>Ver consulta</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            </View>
+          ) : null}
         </>
       ) : (
         <>
@@ -91,7 +98,7 @@ const ConsultationCard = ({ item }) => {
           </View>
         </>
       )}
-    </View>
+    </TouchableOpacity>
   );
 };
 
