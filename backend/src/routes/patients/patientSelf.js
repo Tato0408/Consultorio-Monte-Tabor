@@ -15,6 +15,7 @@ router.get("/me", authenticate, patientSelfController.getMe);
 router.put("/me", authenticate, patientSelfController.updateMe);
 router.put("/changePassword", authenticate, patientSelfController.changePassword);
 router.get("/consultations", authenticate, patientSelfController.getMyConsultations);
+router.get("/consultations/:consultationId", authenticate, patientSelfController.getMyConsultationById);
 
 // Historia clínica. Van en rutas propias y no dentro de PUT /me,
 // porque updateMe solo maneja campos del documento raíz. Estos datos

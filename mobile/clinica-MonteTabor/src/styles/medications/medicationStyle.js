@@ -149,30 +149,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  /* ---------- Tab bar ---------- */
-  tabBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.card,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: 8,
-    paddingBottom: 10,
-  },
-  tabItem: { flex: 1, alignItems: "center" },
-  tabLabel: { fontSize: 9, color: colors.muted, marginTop: 3 },
-  tabLabelActive: { color: colors.primary, fontWeight: "700" },
-  tabFab: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: -18,
-    ...shadow,
-  },
-
   /* ---------- Stepper ---------- */
   stepper: {
     flexDirection: "row",

@@ -22,11 +22,18 @@ const toDateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1)
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 const longDate = (value) => new Date(`${value}T12:00:00`).toLocaleDateString("es-GT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
-const getCurrentWeek = () => {
+// Días que se muestran en el selector de fecha: ya no se corta en el domingo
+// de la semana calendario, sino que ofrece un rango fijo de días hacia
+// adelante desde hoy, para poder agendar en cualquier fecha con horario libre.
+const UPCOMING_DAYS = 21;
+const getUpcomingDays = () => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const sunday = new Date(today); sunday.setDate(today.getDate() + (7 - today.getDay()) % 7);
   const days = [];
-  for (const current = new Date(today); current <= sunday; current.setDate(current.getDate() + 1)) days.push(new Date(current));
+  for (let i = 0; i < UPCOMING_DAYS; i += 1) {
+    const day = new Date(today);
+    day.setDate(today.getDate() + i);
+    days.push(day);
+  }
   return days;
 };
 
@@ -74,7 +81,7 @@ export default function NewAppointmentScreen({ navigation }) {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [search, setSearch] = useState("");
-  const week = useMemo(getCurrentWeek, []);
+  const upcomingDays = useMemo(getUpcomingDays, []);
   const selectedService = services.find((service) => service._id === selectedId);
   const selectedSlot = slots.find((slot) => slot.start_time === selectedTime);
 
@@ -193,7 +200,7 @@ export default function NewAppointmentScreen({ navigation }) {
             <View style={styles.panel}>
               <Text style={styles.panelTitle}>Selecciona fecha</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.days}>
-                {week.map((day) => {
+                {upcomingDays.map((day) => {
                   const key = toDateKey(day); const active = key === date;
                   return <TouchableOpacity key={key} style={[styles.day, active && styles.dayActive]} onPress={() => setDate(key)}>
                     <Text style={[styles.dayName, active && styles.dayTextActive]}>{day.toLocaleDateString("es-GT", { weekday: "short" }).replace(".", "")}</Text>

@@ -80,15 +80,6 @@ function hasAppointmentStarted(appointment, now = new Date()) {
     return startsAt <= now;
 }
 
-// Indica si una fecha cae dentro de la semana actual (hoy hasta el domingo).
-function isWithinCurrentWeek(dateInput) {
-    const requested = getDayRange(dateInput).start;
-    const today = getDayRange(new Date()).start;
-    const sunday = new Date(today);
-    sunday.setDate(today.getDate() + (7 - today.getDay()) % 7);
-    return requested >= today && requested <= sunday;
-}
-
 // Tiempo máximo que una cita puede esperar sin que ningún doctor la acepte
 // antes de vencer sola (independiente de si su fecha ya llegó o no).
 const PENDING_EXPIRATION_MS = 48 * 60 * 60 * 1000;
@@ -303,10 +294,19 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
             dayFilter.doctor_id = req.user.id;
         }
 
+        // "Completados" cuenta las citas atendidas HOY (updatedAt), no las
+        // agendadas para hoy: una cita agendada hace semanas que recién se
+        // completa hoy debe contar igual, y una agendada para hoy que se
+        // completa después no debe quedarse contada como si fuera de hoy.
+        const completedFilter = { status: "completed", updatedAt: { $gte: start, $lte: end } };
+        if (req.user.role === "doctor") {
+            completedFilter.doctor_id = req.user.id;
+        }
+
         const [scheduled, waiting, completed] = await Promise.all([
             appointmentsModel.countDocuments({ ...dayFilter, status: { $in: ["scheduled", "completed"] } }),
             appointmentsModel.countDocuments({ ...dayFilter, status: "scheduled" }),
-            appointmentsModel.countDocuments({ ...dayFilter, status: "completed" }),
+            appointmentsModel.countDocuments(completedFilter),
         ]);
 
         // Busca la próxima cita "scheduled" de hoy con hora igual o mayor a la actual.
@@ -477,6 +477,17 @@ appointmentsController.insertAppointment = async (req, res) => {
         description = description?.trim();
         cancellation_reason = cancellation_reason?.trim();
 
+        // La fecha se persiste siempre como inicio del día local del servidor,
+        // sin importar quién la mande. El personal (doctor/admin/recepción) la
+        // envía como ISO completo (Date.toISOString() del navegador), que cae
+        // en un instante distinto al mediodía local según el huso horario del
+        // cliente; sin normalizar, ese corrimiento hacía que un filtro
+        // dateFrom (límite $gte, sin margen) excluyera citas creadas hoy
+        // mismo, y que los contadores/historial del día no coincidieran.
+        if (date != null) {
+            date = getDayRange(date).start;
+        }
+
         // Un doctor que crea una cita solo puede asignársela a sí mismo, sin
         // importar el payload; admin y recepción sí eligen doctor.
         if (req.user.role === "doctor") {
@@ -486,13 +497,6 @@ appointmentsController.insertAppointment = async (req, res) => {
             patient_id = req.user.id;
             doctor_id = null;
             status = "pending";
-            if (!isWithinCurrentWeek(date)) {
-                return res.status(400).json({ message: "Solo puedes solicitar citas durante la semana actual." });
-            }
-
-            // La fecha se persiste como inicio del día local del paciente:
-            // guardarla en UTC la corre al día anterior y dispara el no_show.
-            date = getDayRange(date).start;
 
             // El precio, duración y tipo salen del catálogo del servidor; el
             // paciente solo elige el servicio, nunca esos valores.
@@ -602,6 +606,12 @@ appointmentsController.updateAppointment = async (req, res) => {
         type = type?.trim();
         description = description?.trim();
         cancellation_reason = cancellation_reason?.trim();
+
+        // Misma normalización que insertAppointment: siempre inicio del día
+        // local del servidor, sin importar el huso horario del cliente.
+        if (date != null) {
+            date = getDayRange(date).start;
+        }
 
         // Valida que estén los campos obligatorios.
         if (!doctor_id || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
@@ -1078,8 +1088,17 @@ appointmentsController.getAppointmentsHistory = async (req, res) => {
 
         const { start, end } = getDayRange(date || new Date());
 
+        // Igual que en getAppointmentsStats: se filtra por cuándo se completó
+        // (updatedAt), no por la fecha originalmente agendada, para que una
+        // cita atrasada que se atiende hoy sí aparezca en "hoy".
+        const historyFilter = { status: "completed", updatedAt: { $gte: start, $lte: end } };
+        // El doctor solo ve el historial de sus propias citas atendidas.
+        if (req.user.role === "doctor") {
+            historyFilter.doctor_id = req.user.id;
+        }
+
         const history = await appointmentsModel
-            .find({ date: { $gte: start, $lte: end }, status: "completed" })
+            .find(historyFilter)
             .sort({ updatedAt: -1 })
             .limit(Math.max(parseInt(limit, 10) || 5, 1))
             .populate({ path: "patient_id", model: "Patients", select: "name last_name" });

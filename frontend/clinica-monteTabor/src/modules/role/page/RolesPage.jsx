@@ -4,7 +4,7 @@ import * as Icons from "lucide-react";
 import { toast } from "react-hot-toast";
 import apiClient from "@/lib/apiClient";
 import { confirmResetPermissions } from "@/lib/alerts";
-import RoleCard from "../components/RoleCard";
+import RoleCard from "../components/Rolecard";
 import PermissionSection from "../components/PermissionSection";
 import PermissionsHeader from "../components/PermissionsHeader";
 import {

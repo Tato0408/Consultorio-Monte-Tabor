@@ -1,10 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { useSplashTimer } from './src/hooks/useSplashTimer';
+import SplashScreen from './src/screens/SplashScreen';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/lib/toast';
 
@@ -35,19 +37,12 @@ import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
 import NewAppointmentScreen from './src/screens/appointments/NewAppointmentScreen';
 import NotificationsScreen from './src/screens/notifications/NotificationsScreen';
 import AppointmentDetailScreen from './src/screens/appointments/AppointmentDetailScreen';
+import ConsultationDetailScreen from './src/screens/appointments/ConsultationDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
 function RootNavigator() {
-  const { isLoggedIn, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6FA' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  const { isLoggedIn } = useAuth();
 
   return (
     <Stack.Navigator
@@ -64,6 +59,7 @@ function RootNavigator() {
           <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
+          <Stack.Screen name="ConsultationDetail" component={ConsultationDetailScreen} />
 
           {/* ---------- Perfil ---------- */}
           <Stack.Screen name="Profile" component={ProfileScreen} />
@@ -99,17 +95,33 @@ function RootNavigator() {
   );
 }
 
+// Se monta dentro de AuthProvider: así el splash puede esperar a que isLoading
+// (la revisión de la sesión guardada) termine, además del tiempo mínimo de useSplashTimer.
+function AppContent() {
+  const { isLoading } = useAuth();
+  const showSplash = useSplashTimer(isLoading);
+
+  if (showSplash) {
+    return <SplashScreen />;
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <NavigationContainer>
+        <StatusBar style="dark" />
+        <RootNavigator />
+      </NavigationContainer>
+
+      <Toast config={toastConfig} />
+    </View>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer>
-          <StatusBar style="dark" />
-
-          <RootNavigator />
-        </NavigationContainer>
-
-        <Toast config={toastConfig} />
+        <AppContent />
       </AuthProvider>
     </SafeAreaProvider>
   );
