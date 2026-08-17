@@ -5,6 +5,7 @@ import appointmentsModel from "../../models/appointments/appointments.js";
 import consultationsModel from "../../models/consultations/consultation.js";
 import prescriptionsModel from "../../models/consultations/prescription.js";
 import sickLeavesModel from "../../models/sickLeaves/sickLeave.js";
+import proceduresModel from "../../models/procedures/procedures.js";
 import { config } from "../../../config.js";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError } from "../../utils/validators.js";
 
@@ -512,6 +513,61 @@ patientSelfController.getMyConsultations = async (req, res) => {
         });
 
         return res.status(200).json(data);
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// GET /api/patientAccount/consultations/:consultationId, requiere sesión.
+// Detalle completo de UNA consulta propia (a diferencia de getMyConsultations,
+// que solo arma un resumen por tarjeta). El filtro patient_id: req.user.id evita
+// que un paciente pueda leer la consulta de otro cambiando el id en la URL.
+patientSelfController.getMyConsultationById = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const consultation = await consultationsModel
+            .findOne({ _id: req.params.consultationId, patient_id: req.user.id })
+            .populate({
+                path: "appointment_id",
+                populate: { path: "doctor_id", select: "name last_name specialty img_url" },
+            });
+
+        if (!consultation) {
+            return res.status(404).json({ message: "Consulta no encontrada." });
+        }
+
+        const [prescription, sickLeave] = await Promise.all([
+            prescriptionsModel.findOne({ consultations_id: consultation._id }),
+            sickLeavesModel.findOne({ consultation_id: consultation._id }),
+        ]);
+
+        // No se usa populate para procedure.procedure_id: el modelo de
+        // procedimientos está registrado como "procedure" (ver
+        // proceduresModel), pero el schema de Consultations lo referencia
+        // como "Procedures" — populate tira MissingSchemaError con ese
+        // mismatch, así que se resuelven los nombres a mano, igual que ya
+        // hace consultationController.buildClinicalHistoryUpdate.
+        const procedureIds = (consultation.procedure || [])
+            .map((p) => p.procedure_id)
+            .filter(Boolean);
+        const procedureDocs = procedureIds.length
+            ? await proceduresModel.find({ _id: { $in: procedureIds } }).select("name").lean()
+            : [];
+        const procedureNameById = new Map(procedureDocs.map((p) => [String(p._id), p.name]));
+
+        const consultationObject = consultation.toObject();
+        consultationObject.procedure = (consultationObject.procedure || []).map((p) => ({
+            ...p,
+            procedure_name: p.procedure_id ? procedureNameById.get(String(p.procedure_id)) || null : null,
+        }));
+
+        return res.status(200).json({
+            ...consultationObject,
+            prescription: prescription || null,
+            sickLeave: sickLeave || null,
+        });
     } catch (error) {
         console.log("error " + error);
         return res.status(500).json({ message: "Error interno del servidor" });

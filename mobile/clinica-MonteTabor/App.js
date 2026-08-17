@@ -37,6 +37,7 @@ import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
 import NewAppointmentScreen from './src/screens/appointments/NewAppointmentScreen';
 import NotificationsScreen from './src/screens/notifications/NotificationsScreen';
 import AppointmentDetailScreen from './src/screens/appointments/AppointmentDetailScreen';
+import ConsultationDetailScreen from './src/screens/appointments/ConsultationDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -58,6 +59,7 @@ function RootNavigator() {
           <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
+          <Stack.Screen name="ConsultationDetail" component={ConsultationDetailScreen} />
 
           {/* ---------- Perfil ---------- */}
           <Stack.Screen name="Profile" component={ProfileScreen} />

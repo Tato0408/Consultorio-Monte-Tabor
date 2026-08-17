@@ -186,7 +186,15 @@ export default function AppointmentsScreen({ navigation, route }) {
         ))}
 
         {!loading && !isAppointments && !consultationsError && completedConsultations.map((consultation) => (
-          <ConsultationCard key={String(consultation.appointment_id)} item={consultation} />
+          <ConsultationCard
+            key={String(consultation.appointment_id)}
+            item={consultation}
+            onPress={
+              consultation.consultation_id
+                ? () => navigation.navigate("ConsultationDetail", { consultationId: consultation.consultation_id })
+                : undefined
+            }
+          />
         ))}
 
         {!loading && !consultationsError && visibleCount === 0 ? (
