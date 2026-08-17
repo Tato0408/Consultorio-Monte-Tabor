@@ -80,15 +80,6 @@ function hasAppointmentStarted(appointment, now = new Date()) {
     return startsAt <= now;
 }
 
-// Indica si una fecha cae dentro de la semana actual (hoy hasta el domingo).
-function isWithinCurrentWeek(dateInput) {
-    const requested = getDayRange(dateInput).start;
-    const today = getDayRange(new Date()).start;
-    const sunday = new Date(today);
-    sunday.setDate(today.getDate() + (7 - today.getDay()) % 7);
-    return requested >= today && requested <= sunday;
-}
-
 // Tiempo máximo que una cita puede esperar sin que ningún doctor la acepte
 // antes de vencer sola (independiente de si su fecha ya llegó o no).
 const PENDING_EXPIRATION_MS = 48 * 60 * 60 * 1000;
@@ -506,9 +497,6 @@ appointmentsController.insertAppointment = async (req, res) => {
             patient_id = req.user.id;
             doctor_id = null;
             status = "pending";
-            if (!isWithinCurrentWeek(date)) {
-                return res.status(400).json({ message: "Solo puedes solicitar citas durante la semana actual." });
-            }
 
             // El precio, duración y tipo salen del catálogo del servidor; el
             // paciente solo elige el servicio, nunca esos valores.

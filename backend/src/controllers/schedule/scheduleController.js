@@ -150,9 +150,8 @@ scheduleController.getPatientAvailableSlots = async (req, res) => {
         const [requestedYear, requestedMonth, requestedDay] = date.split("-").map(Number);
         const requested = new Date(requestedYear, requestedMonth - 1, requestedDay);
         const today = new Date(); today.setHours(0, 0, 0, 0);
-        const sunday = new Date(today); sunday.setDate(today.getDate() + (7 - today.getDay()) % 7);
-        if (requested < today || requested > sunday) {
-            return res.status(400).json({ message: "Solo se muestran horarios de la semana actual." });
+        if (requested < today) {
+            return res.status(400).json({ message: "No se pueden solicitar horarios en el pasado." });
         }
 
         // El portal no decide la duración: se obtiene del catálogo oficial.

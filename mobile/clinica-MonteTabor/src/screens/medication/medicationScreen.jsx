@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import EmptyMedications from "../../components/medications/EmptyMedications";
-import BottomTabBar from "../../components/medications/BottomTabBar";
+import BottomNav from "../../components/BottomNav";
 import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
 import styles from "../../styles/medications/medicationStyle";
@@ -274,11 +274,7 @@ const MedicationsScreen = ({ navigation }) => {
         {renderHistorial()}
       </ScrollView>
 
-      {/* Sin onFabPress: ya no existe la opción de que el paciente agregue medicamentos */}
-      <BottomTabBar
-        active="medications"
-        onPress={(key) => console.log("Tab:", key)}
-      />
+      <BottomNav navigation={navigation} active="Medications" />
     </SafeAreaView>
   );
 };
