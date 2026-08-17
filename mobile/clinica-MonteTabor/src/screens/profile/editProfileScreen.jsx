@@ -239,19 +239,6 @@ const EditProfileScreen = ({ navigation, route }) => {
             autoCapitalize="none"
             error={errors.correo}
           />
-
-          <TouchableOpacity
-            style={[styles.saveButton, saving && { opacity: 0.6 }]}
-            activeOpacity={0.85}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.saveButtonText}>Guardar cambios</Text>
-            )}
-          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

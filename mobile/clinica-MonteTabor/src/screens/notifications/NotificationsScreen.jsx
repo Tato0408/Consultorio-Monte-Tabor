@@ -65,9 +65,12 @@ export default function NotificationsScreen({ navigation }) {
       try {
         const response = await apiClient(`/appointments/patient/${appointmentId}`);
         if (response.data?.status === "completed") {
+          // tabSwitch: false explícito: evita heredar un tabSwitch:true pegado de una
+          // navegación anterior por BottomNav (los params se mezclan al reusar la pantalla).
           navigation.navigate("Appointments", {
             initialView: "consultations",
             navigationKey: Date.now(),
+            tabSwitch: false,
           });
           return;
         }
@@ -75,7 +78,7 @@ export default function NotificationsScreen({ navigation }) {
           navigation.navigate("AppointmentDetail", { appointmentId });
           return;
         }
-        navigation.navigate("Appointments");
+        navigation.navigate("Appointments", { tabSwitch: false });
       } catch (error) {
         showError(error.message || "No se pudo abrir la cita.");
       }
