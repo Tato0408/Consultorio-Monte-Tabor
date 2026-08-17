@@ -50,6 +50,7 @@ import wompiRoutes from './src/routes/wompiRoutes.js'
 const app = express();
 
 
+
 app.set("trust proxy", 1);
 app.use(cookieParser());
 
