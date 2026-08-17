@@ -162,11 +162,11 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50">
       {/* ── Navbar ── */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
               <Logo />
-              <span className="font-bold text-gray-800 text-sm leading-tight">
+              <span className="font-bold text-gray-800 text-sm leading-tight truncate">
                 Clínica<br />Monte Tabor
               </span>
             </div>
@@ -174,7 +174,7 @@ const Dashboard = () => {
             <span className="hidden sm:block font-semibold text-gray-700">Portal del paciente</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <div className="relative">
               <button
                 onClick={() => setBellOpen((v) => !v)}
@@ -190,7 +190,7 @@ const Dashboard = () => {
               {bellOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setBellOpen(false)} />
-                  <div className="absolute right-0 top-12 w-72 bg-white border border-gray-100 rounded-xl shadow-lg py-2 z-50">
+                  <div className="absolute right-0 top-12 w-72 max-w-[calc(100vw-2rem)] bg-white border border-gray-100 rounded-xl shadow-lg py-2 z-50">
                     <p className="px-4 py-1 text-xs font-bold text-gray-400 uppercase tracking-wide">Recordatorios</p>
                     {reminders.length === 0 ? (
                       <p className="px-4 py-3 text-sm text-gray-400">No tienes recordatorios pendientes.</p>
@@ -245,11 +245,11 @@ const Dashboard = () => {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* ── Encabezado y acciones rápidas ── */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">¡Hola, {patient?.name || "bienvenido"}!</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">¡Hola, {patient?.name || "bienvenido"}!</h1>
             <p className="text-gray-500 text-sm mt-1">Gestiona tu salud y revisa tu información médica desde aquí.</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -277,7 +277,7 @@ const Dashboard = () => {
         </div>
 
         {/* ── Tarjetas de estadísticas ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 sm:mb-8">
           <div className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
             <div className="w-11 h-11 rounded-xl bg-[#3B6FCA]/10 flex items-center justify-center flex-shrink-0">
               <CalendarDays className="w-5 h-5 text-[#3B6FCA]" />
@@ -380,7 +380,7 @@ const Dashboard = () => {
 
             <div>
               <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">Accesos rápidos</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {ACCESOS_RAPIDOS.map(({ to, icon: Icon, label, desc }) => (
                   <Link
                     key={to}

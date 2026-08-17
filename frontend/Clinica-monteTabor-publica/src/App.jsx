@@ -15,6 +15,7 @@ import PayAppointment from './modules/appointments/pages/PayAppointment';
 import Prescriptions from './modules/records/pages/Prescriptions';
 import Documents from './modules/records/pages/Documents';
 import Medications from './modules/records/pages/Medications';
+import NotFound from './modules/notFound/pages/NotFound';
 
 function App() {
   return (
@@ -93,6 +94,9 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Cualquier ruta que no coincida con ninguna de las anteriores cae aquí. */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
