@@ -62,7 +62,6 @@ app.use(express.json({
 app.use(cors({
     origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "https://clinica-monte-tabor.vercel.app", "https://clinica-monte-tabor-6h9mwf7j4-fvp1233s-projects.vercel.app", "https://clinica-monte-tabor-3guj.vercel.app", "clinica-monte-tabor-3guj-mtduj4uws-fvp1233s-projects.vercel.app"],
     // Permite el envío de cookies y credenciales
-
     credentials: true
 }))
 
