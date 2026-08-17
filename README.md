@@ -212,11 +212,31 @@ Clinica-Monte-Tabor/
 
 ## Convenciones de nomenclatura
 
-- **Backend** — funciones y variables en `camelCase` (`getMyAppointments`); modelos de Mongoose registrados en `PascalCase` (`model("Appointments", ...)`) pero importados como `camelCase` + sufijo `Model` (`appointmentsModel`); campos de documento en `snake_case` (`patient_id`, `start_time`) en las tres bases de datos.
-- **Rutas REST** — en `kebab-case` cuando tienen más de una palabra (`/api/nurse-schedule`, `/api/patient-portal`), sustantivo en plural para colecciones (`/api/doctors`, `/api/appointments`).
-- **Frontend (web y móvil)** — componentes de React en `PascalCase`, un archivo por componente (`AppointmentCard.jsx`); hooks en `camelCase` con prefijo `use` (`useSchedule`, `useMyConsultations`); servicios de API en `camelCase` con sufijo `Service` (`patientPortalService.js`); carpetas de módulo en minúsculas siguiendo Screaming Architecture (`modules/<dominio>/{pages,components,hooks}`).
-- **Variables de entorno** — en `MAYÚSCULAS_CON_GUION_BAJO`.
-- **Comentarios de código** — en español, explicando el _por qué_ (una decisión de diseño, un bug evitado, una restricción del negocio), no el _qué_ (el código ya lo dice por sí solo).
+El proyecto no sigue una única convención global: cada capa usa la suya, y no siempre de forma estricta (hay excepciones puntuales entre módulos, propias de un proyecto con varios desarrolladores).
+
+| Convención | Dónde se usa |
+|---|---|
+| `camelCase` | Funciones, variables, hooks (`useSchedule`) y archivos de rutas/controladores del backend. |
+| `PascalCase` | Componentes de React (uno por archivo) y la mayoría de los nombres de modelo de Mongoose (`model("Doctors", ...)`). |
+| `snake_case` | Campos dentro de los documentos de MongoDB y en los JSON que devuelve la API (`patient_id`, `start_time`), incluso cuando el resto del código usa `camelCase`. |
+| `kebab-case` | Rutas REST más recientes (`/api/patient-portal`, `/api/nurse-schedule`, `/api/sick-leaves`); las rutas más antiguas conservan `camelCase` (`/api/registerAdmin`, `/api/loginCommonRole`). |
+| `UPPER_SNAKE_CASE` | Variables de entorno y constantes de configuración en el frontend. Ver detalle abajo. |
+| minúsculas sin separador | Carpetas de módulo (Screaming Architecture) y los componentes de UI generados por shadcn/ui (`button.jsx`, `dialog.jsx`), a diferencia de los componentes propios de esa misma carpeta que sí van en `PascalCase`. |
+
+Además, `xxxService.js` (camelCase + sufijo `Service`) es el patrón para las llamadas a la API en el sitio público y en el móvil; el panel privado no tiene una carpeta `services/` equivalente y hace esas llamadas directamente desde los hooks. Los comentarios de código se escriben en español, explicando el _por qué_ de una decisión y no el _qué_ (eso ya lo dice el código).
+
+### `UPPER_SNAKE_CASE` en detalle
+
+| Uso | Ejemplos | Finalidad |
+|---|---|---|
+| Variables de entorno (`backend/.env`) | `DB_URI`, `JWT_Secret_key`, `CLOUDINARY_API_KEY` | Distinguir configuración externa/secretos, leídos una sola vez por `config.js`, de cualquier variable normal del código. |
+| Mapas estado → estilo visual | `STATUS_BADGES`, `STATUS_STYLE`, `ESTADO_COLOR`, `TYPE_STYLE` (agenda, tratamientos, movimientos de inventario, medicamentos) | Traducir un valor guardado en BD (ej. `"En tratamiento"`) al color/badge que se pinta en la UI, en un solo objeto centralizado por módulo. |
+| Mapas de etiquetas legibles | `TYPE_LABEL`, `MODULE_LABEL_BY_KEY`, `ROLE_COLOR_BY_KEY` | Traducir una clave interna (`"stock_entry"`, `"admin"`) al texto en español que ve el usuario. |
+| Catálogos/listas fijas | `SIDEBAR_MODULES`, `PERMISSION_TYPES`, `VIEW_ONLY_MODULE_KEYS`, `DEFAULT_ROLE_PERMISSIONS` (módulo de roles y permisos) | Definir de una sola vez, a nivel de archivo, la lista de módulos/permisos del sistema para que el resto del código (sidebar, matriz de permisos) itere sobre ella en vez de repetirla. |
+| Límites y umbrales de validación | `MIN_STAFF_AGE`, `MAX_LENGTHS`, `MIN_DATE_STR` | Sacar un número o regla "mágica" del medio de una función y darle nombre, para que validadores de formularios (edad mínima de personal, longitud máxima de campos, fecha mínima seleccionable) lo referencien por nombre. |
+| Paletas y estilos compartidos | `CHART_PALETTE` (gráficos de reportes) | Fijar el set de colores que usan todos los gráficos de un módulo, para que no se dupliquen valores hex sueltos en cada componente. |
+
+En todos los casos el patrón es el mismo: son **valores constantes definidos una vez a nivel de módulo/archivo** (no recalculados ni recibidos por props), normalmente objetos o arreglos usados como tabla de consulta (`lookup`) desde varios componentes del mismo dominio.
 
 ---
 
