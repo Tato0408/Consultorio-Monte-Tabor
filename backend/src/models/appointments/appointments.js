@@ -30,7 +30,12 @@ const appointmentsSchema = new Schema({
     // Anticipo del 50 por ciento del total, cobrado en línea para apartar
     // la hora. No aplica a citas que se pagan en recepción y no se
     // reembolsa si la cita se cancela.
-    deposit_amount: { type: Number }
+    deposit_amount: { type: Number },
+    // Indica si el anticipo en línea ya fue confirmado contra Wompi. Es
+    // independiente del status de la cita: el pago no salta la aceptación
+    // del doctor, así que una cita puede quedar con deposit_paid en true
+    // y status en pending al mismo tiempo.
+    deposit_paid: { type: Boolean, default: false }
 }, {
     timestamps: true,
     strict: false

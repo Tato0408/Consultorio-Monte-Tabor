@@ -203,7 +203,7 @@ const PayAppointment = () => {
     setPagando(true);
     try {
       const confirmacion = await confirmarConReintentos(appointmentId, idTransaccion);
-      if (confirmacion.status === "scheduled") {
+      if (confirmacion.appointment?.deposit_paid) {
         setCita(confirmacion.appointment);
         setPagoSinConfirmar(null);
         setAprobada(true);
@@ -264,7 +264,7 @@ const PayAppointment = () => {
               <CheckCircle2 className="w-7 h-7 text-emerald-600" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">¡Pago aprobado!</h1>
-            <p className="text-gray-500 text-sm mt-1">Tu cita quedó confirmada.</p>
+            <p className="text-gray-500 text-sm mt-1">Tu anticipo quedó registrado. Tu cita queda pendiente de que el doctor la acepte.</p>
           </div>
 
           <TicketCita

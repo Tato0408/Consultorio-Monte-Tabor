@@ -114,7 +114,7 @@ const Dashboard = () => {
   const handleCancelar = async () => {
     if (!nextAppointment) return;
     // El mensaje advierte que el anticipo se pierde solo cuando ya fue pagado y confirmado
-    const mensaje = nextAppointment.status === "scheduled" && nextAppointment.wompi_transaction_id
+    const mensaje = nextAppointment.deposit_paid
       ? `Ya pagaste un anticipo de $${Number(nextAppointment.deposit_amount).toFixed(2)} para esta cita. Si cancelas, ese anticipo no será reembolsado. ¿Deseas continuar?`
       : "¿Seguro que deseas cancelar tu próxima cita?";
     if (!(await confirmAction(mensaje, { confirmLabel: "Sí, cancelar", danger: true }))) return;
@@ -354,10 +354,10 @@ const Dashboard = () => {
                       <span className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-gray-400 flex-shrink-0" /> {fmt12(nextAppointment.start_time)}</span>
                       <span className="flex items-center gap-1.5"><Stethoscope className="w-4 h-4 text-gray-400 flex-shrink-0" /> {nextAppointment.type}</span>
                       <span className="flex items-center gap-1.5"><User className="w-4 h-4 text-gray-400 flex-shrink-0" /> Dr. {nextAppointment.doctor_id?.name} {nextAppointment.doctor_id?.last_name}</span>
-                      {nextAppointment.status === "pending" && nextAppointment.deposit_amount != null && (
+                      {nextAppointment.deposit_amount != null && !nextAppointment.deposit_paid && (
                         <span className="text-amber-600 font-medium">Anticipo pendiente: ${Number(nextAppointment.deposit_amount).toFixed(2)}</span>
                       )}
-                      {nextAppointment.status === "scheduled" && nextAppointment.wompi_transaction_id && nextAppointment.deposit_amount != null && (
+                      {nextAppointment.deposit_paid && nextAppointment.deposit_amount != null && (
                         <span className="text-emerald-600 font-medium">Anticipo pagado · resta ${Number(nextAppointment.total - nextAppointment.deposit_amount).toFixed(2)} en clínica</span>
                       )}
                     </div>

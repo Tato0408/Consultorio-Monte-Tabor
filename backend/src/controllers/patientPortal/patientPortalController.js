@@ -5,6 +5,8 @@ import consultationsModel from "../../models/consultations/consultation.js";
 import prescriptionsModel from "../../models/consultations/prescription.js";
 import sickLeavesModel from "../../models/sickLeaves/sickLeave.js";
 import medicationLogModel from "../../models/medicationLog/medicationLog.js";
+import patientsModel from "../../models/patients/patients.js";
+import notificationModel from "../../models/notifications/notification.js";
 import { getTransactionStatus } from "../../utils/wompi.js";
 
 const patientPortalController = {};
@@ -84,10 +86,8 @@ const fetchConsultations = (patientId) =>
         .populate({ path: "appointment_id", populate: { path: "doctor_id", select: "name last_name" } })
         .sort({ date: -1 });
 
-// Recetas del paciente a partir de sus consultas. El campo realmente
-// usado para enlazar (tal como lo escribe y lee
-// consultationController) es consultation_id, no consultations_id
-// como está declarado en el esquema de Prescriptions.
+// Recetas del paciente a partir de sus consultas, enlazadas por
+// consultation_id (el mismo campo que escribe y lee consultationController).
 const fetchPrescriptions = async (patientId, consultations) => {
     const ids = consultations.map((c) => String(c._id));
     const prescriptions = await prescriptionsModel
@@ -233,9 +233,10 @@ patientPortalController.bookAppointment = async (req, res) => {
             start_time,
             end_time,
             duration_minutes: duration,
-            // Si el pago es en línea la cita queda "pending" hasta que Wompi confirme el pago;
-            // si se paga en recepción, queda agendada de una vez (comportamiento anterior)
-            status: pagaEnLinea ? "pending" : "scheduled",
+            // Toda cita creada desde el portal público queda "pending" sin importar el
+            // método de pago: el doctor elegido debe aceptarla desde "Por aceptar" antes
+            // de que quede realmente agendada, igual que las solicitudes sin doctor.
+            status: "pending",
             total,
             // El pago en línea solo cobra el anticipo, no el total
             deposit_amount: pagaEnLinea ? calcDepositAmount(total) : undefined,
@@ -249,6 +250,29 @@ patientPortalController.bookAppointment = async (req, res) => {
             .findById(newAppointment._id)
             .populate("doctor_id", "name last_name img_url")
             .populate({ path: "procedure_id", model: "procedure", select: "name" });
+
+        // Notifica al doctor elegido que tiene una cita nueva por aceptar. Nunca debe
+        // tumbar la creación de la cita si la notificación falla.
+        try {
+            const patient = await patientsModel.findById(req.user.id).select("name last_name");
+            const patientName = patient ? `${patient.name} ${patient.last_name || ""}`.trim() : "un paciente";
+            const tipoLabel = procedure_id ? populated.procedure_id?.name || type : GENERAL_CONSULT.type;
+            const fechaFormateada = new Intl.DateTimeFormat("es-SV", {
+                day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
+            }).format(dayStart);
+
+            await notificationModel.create({
+                recipient_role: "doctor",
+                recipient_id: doctor_id,
+                title: "Nueva cita por aceptar",
+                type: "appointment_created",
+                message: `El paciente ${patientName} ha agendado una cita de ${tipoLabel} para el ${fechaFormateada} en el horario de ${start_time}.`,
+                appointment_id: newAppointment._id,
+                action_url: `/calendar/appointments/${newAppointment._id}`,
+            });
+        } catch (notificationError) {
+            console.log("Error notificando nueva cita al doctor:", notificationError);
+        }
 
         return res.status(201).json({
             message: "Cita agendada correctamente",
@@ -454,7 +478,9 @@ patientPortalController.getDashboardSummary = async (req, res) => {
 // directamente contra Wompi (vía /api/wompi/paymentTest) y manda aquí el "idTransaccion" que
 // Wompi le devolvió. Nunca se confía en ese resultado a ciegas: este endpoint vuelve a
 // preguntarle a Wompi por esa transacción con nuestras propias credenciales, y solo si Wompi
-// confirma que está aprobada, la cita pasa de "pending" a "scheduled".
+// confirma que está aprobada, marca el anticipo como pagado. El status de la cita no cambia
+// aquí: pagar el anticipo no salta la aceptación del doctor, la cita sigue "pending" hasta
+// que se acepte desde "Por aceptar".
 patientPortalController.confirmAppointmentPayment = async (req, res) => {
     try {
         const { transactionId } = req.body;
@@ -473,7 +499,7 @@ patientPortalController.confirmAppointmentPayment = async (req, res) => {
         if (appointment.patient_id.toString() !== req.user.id) {
             return res.status(403).json({ message: "No puedes modificar esta cita." });
         }
-        if (appointment.status !== "pending") {
+        if (appointment.deposit_paid) {
             return res.status(200).json({ status: appointment.status, appointment });
         }
 
@@ -497,7 +523,7 @@ patientPortalController.confirmAppointmentPayment = async (req, res) => {
             return res.status(400).json({ message: "El monto cobrado no coincide con el anticipo de la cita." });
         }
 
-        appointment.status = "scheduled";
+        appointment.deposit_paid = true;
         await appointment.save();
 
         return res.status(200).json({ status: appointment.status, appointment });

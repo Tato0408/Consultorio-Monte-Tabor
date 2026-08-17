@@ -141,6 +141,26 @@ export const isSlotFreeForDoctor = async (doctorId, date, start_time, end_time, 
     return { free: true };
 };
 
+// El portal no decide la duración: se obtiene del catálogo oficial. Así un
+// procedimiento de 60 minutos solo produce bloques de 60 min. Se usa tanto
+// para armar los horarios agregados como para resolver qué doctores cubren
+// un horario puntual ya elegido.
+const resolveDurationMinutes = async (procedure_id) => {
+    if (!procedure_id || procedure_id === "general") return 30;
+    const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: true })
+        .select("estimated_duration");
+    if (!procedure) return null;
+    return Number(procedure.estimated_duration) || 30;
+};
+
+// Suma minutos a una hora en formato HH:mm y devuelve otra hora en el mismo formato.
+const addMinutesToTime = (time, minutes) => {
+    const total = toMins(time) + minutes;
+    const hh = String(Math.floor(total / 60)).padStart(2, "0");
+    const mm = String(total % 60).padStart(2, "0");
+    return `${hh}:${mm}`;
+};
+
 // Horarios que puede solicitar un paciente: se incluyen solo si al menos un
 // doctor con horario configurado puede atenderlos. No revela qué doctor es.
 scheduleController.getPatientAvailableSlots = async (req, res) => {
@@ -151,19 +171,12 @@ scheduleController.getPatientAvailableSlots = async (req, res) => {
         const requested = new Date(requestedYear, requestedMonth - 1, requestedDay);
         const today = new Date(); today.setHours(0, 0, 0, 0);
         if (requested < today) {
-            return res.status(400).json({ message: "No se pueden solicitar horarios en el pasado." });
+            return res.status(400).json({ message: "No puedes agendar una cita en una fecha que ya pasó." });
         }
 
-        // El portal no decide la duración: se obtiene del catálogo oficial.
-        // Así un procedimiento de 60 minutos solo produce bloques de 60 min.
-        let minutes = 30;
-        if (procedure_id && procedure_id !== "general") {
-            const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: true })
-                .select("estimated_duration");
-            if (!procedure) {
-                return res.status(400).json({ message: "El procedimiento seleccionado no está disponible." });
-            }
-            minutes = Number(procedure.estimated_duration) || 30;
+        const minutes = await resolveDurationMinutes(procedure_id);
+        if (minutes === null) {
+            return res.status(400).json({ message: "El procedimiento seleccionado no está disponible." });
         }
 
         const schedules = await scheduleModel.find({}).select("doctor_id weekly_availability buffer_time").lean();
@@ -198,6 +211,51 @@ scheduleController.getPatientAvailableSlots = async (req, res) => {
         return res.json({ slots: [...candidateSlots.values()].sort((a, b) => a.start_time.localeCompare(b.start_time)) });
     } catch (error) {
         return res.status(500).json({ message: "Error al obtener horarios disponibles", error: error.message });
+    }
+};
+
+// Doctores que pueden atender un horario puntual (fecha, hora de inicio y
+// tipo de atención) ya elegido a partir del horario agregado. Se usa después
+// de que el paciente eligió un horario en getPatientAvailableSlots, para
+// mostrarle qué doctor lo atenderá o, si hay varios, para que elija entre
+// ellos.
+scheduleController.getPatientDoctorsForSlot = async (req, res) => {
+    try {
+        const { date, start_time, procedure_id } = req.query;
+        if (!date || !start_time) {
+            return res.status(400).json({ message: "Se requieren los parámetros 'date' y 'start_time'" });
+        }
+
+        const minutes = await resolveDurationMinutes(procedure_id);
+        if (minutes === null) {
+            return res.status(400).json({ message: "El procedimiento seleccionado no está disponible." });
+        }
+        const end_time = addMinutesToTime(start_time, minutes);
+
+        const [year, month, day] = date.split("-").map(Number);
+        const dayOfWeek = new Date(year, month - 1, day).getDay();
+        const schedules = await scheduleModel.find({}).select("doctor_id weekly_availability").lean();
+
+        const matchingDoctorIds = [];
+        for (const schedule of schedules) {
+            const dayConfig = schedule.weekly_availability?.find((entry) => entry.day === dayOfWeek && entry.is_available);
+            if (!dayConfig) continue;
+            const cubreElHorario = (dayConfig.time_blocks || []).some(
+                (block) => toMins(start_time) >= toMins(block.start_time) && toMins(end_time) <= toMins(block.end_time)
+            );
+            if (!cubreElHorario) continue;
+
+            const { free } = await isSlotFreeForDoctor(schedule.doctor_id, date, start_time, end_time);
+            if (free) matchingDoctorIds.push(schedule.doctor_id);
+        }
+
+        const doctors = await doctorModel
+            .find({ _id: { $in: matchingDoctorIds }, is_active: true })
+            .select("name last_name img_url");
+
+        return res.status(200).json({ doctors });
+    } catch (error) {
+        return res.status(500).json({ message: "Error al obtener doctores disponibles", error: error.message });
     }
 };
 
