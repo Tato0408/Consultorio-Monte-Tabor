@@ -20,7 +20,6 @@ const AdminAppointments = () => {
     // query param ?view= en vez de location.state. Se revisa primero porque, a
     // diferencia de location.state, sigue funcionando aunque la navegación no
     // venga de dentro de la SPA (ej. abrir el link en una pestaña nueva).
-    const [searchParams] = useSearchParams();
     // Al volver del detalle de una cita (botón de cerrar de
     // AppointmentsFormCalendar.jsx), location.state.initialView indica
     // desde qué pestaña se abrió esa cita (calendar o citas). Sin esto,
