@@ -8,6 +8,9 @@ import sickLeavesModel from "../../models/sickLeaves/sickLeave.js";
 import medicationLogModel from "../../models/medicationLog/medicationLog.js";
 import patientsModel from "../../models/patients/patients.js";
 import notificationModel from "../../models/notifications/notification.js";
+import nursesModel from "../../models/nurses/nurses.js";
+import { isSlotFreeForDoctor } from "../../controllers/schedule/scheduleController.js";
+import { isNurseAvailable } from "../../controllers/schedule/nurseScheduleController.js";
 import { getTransactionStatus } from "../../utils/wompi.js";
 
 const patientPortalController = {};
@@ -55,6 +58,33 @@ const getDayRange = (dateStr) => {
 const toDateStr = (d) => {
     const dt = new Date(d);
     return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+};
+
+// Doctores cuyo horario semanal cubre el bloque [start_time, end_time) de esa fecha y que
+// además siguen libres a esa hora (sin otra cita ni descanso). Misma lógica que
+// scheduleController.getPatientDoctorsForSlot, reimplementada aquí (en vez de importar el
+// controller de horarios) para no acoplar el portal público a un endpoint pensado para el
+// panel privado.
+const findEligibleDoctorIds = async (date, start_time, end_time) => {
+    const [year, month, day] = date.split("-").map(Number);
+    const dayOfWeek = new Date(year, month - 1, day).getDay();
+    const startMin = toMinutes(start_time);
+    const endMin = toMinutes(end_time);
+
+    const schedules = await scheduleModel.find({}).select("doctor_id weekly_availability").lean();
+    const eligibleIds = [];
+    for (const schedule of schedules) {
+        const dayConfig = schedule.weekly_availability?.find((entry) => entry.day === dayOfWeek && entry.is_available);
+        if (!dayConfig) continue;
+        const cubreElHorario = (dayConfig.time_blocks || []).some(
+            (block) => startMin >= toMinutes(block.start_time) && endMin <= toMinutes(block.end_time)
+        );
+        if (!cubreElHorario) continue;
+
+        const { free } = await isSlotFreeForDoctor(schedule.doctor_id, date, start_time, end_time);
+        if (free) eligibleIds.push(schedule.doctor_id);
+    }
+    return eligibleIds;
 };
 
 // duration es texto libre (por ejemplo, 7 días), se toma el primer
@@ -197,28 +227,15 @@ patientPortalController.getProcedures = async (req, res) => {
 // appointmentsController.insertAppointment, rama req.user.role === "patient").
 patientPortalController.bookAppointment = async (req, res) => {
     try {
-        const { doctor_id, date, start_time, procedure_id, payment_method } = req.body;
-        const description = req.body.description?.trim();
+        const { date, start_time, procedure_id, payment_method } = req.body;
         const pagaEnLinea = payment_method === "online";
-        const sinDoctorElegido = !doctor_id;
 
         if (!date || !start_time) {
             return res.status(400).json({ message: "Faltan datos para agendar la cita (fecha u hora)." });
         }
 
-        if (description && (description.length < 3 || description.length > 500)) {
-            return res.status(400).json({ message: "El motivo debe tener entre 3 y 500 caracteres." });
-        }
-
-        if (!sinDoctorElegido) {
-            const doctor = await doctorsModel.findById(doctor_id);
-            if (!doctor) {
-                return res.status(404).json({ message: "El doctor seleccionado no existe." });
-            }
-        }
-
         // Según sea consulta general o un procedimiento, se arma tipo/duración/precio/indicaciones
-        let type, duration, total, instructions, procedureRef;
+        let type, duration, total, instructions, procedureRef, requiresNurse = false;
         if (procedure_id) {
             const procedure = await procedureModel.findOne({ _id: procedure_id, is_active: true });
             if (!procedure) {
@@ -229,6 +246,7 @@ patientPortalController.bookAppointment = async (req, res) => {
             total = Number(procedure.price) || 0;
             instructions = procedure.pre_care_instructions || GENERAL_CONSULT.instructions;
             procedureRef = procedure._id;
+            requiresNurse = !!procedure.requires_nurse;
         } else {
             type = GENERAL_CONSULT.type;
             duration = GENERAL_CONSULT.duration;
@@ -238,7 +256,7 @@ patientPortalController.bookAppointment = async (req, res) => {
         }
 
         const end_time = addMinutes(start_time, duration);
-        const { start: dayStart, end: dayEnd } = getDayRange(date);
+        const { start: dayStart } = getDayRange(date);
 
         // No se puede agendar una cita en una fecha/hora que ya pasó
         const [h, m] = start_time.split(":").map(Number);
@@ -248,25 +266,33 @@ patientPortalController.bookAppointment = async (req, res) => {
             return res.status(400).json({ message: "No puedes agendar una cita en una fecha u hora que ya pasó." });
         }
 
-        // Vuelve a revisar que el horario siga libre, por si alguien más lo tomó
-        // mientras el paciente completaba el formulario. Sin doctor elegido no hay una
-        // agenda puntual contra la cual revalidar (cualquier doctor podría aceptarla
-        // después), así que esta revalidación solo aplica cuando sí se eligió doctor.
-        if (!sinDoctorElegido) {
-            const sameDayAppointments = await appointmentsModel
-                .find({ doctor_id, date: { $gte: dayStart, $lte: dayEnd }, status: { $ne: "cancelled" } })
-                .select("start_time end_time");
+        // No se pide doctor: se buscan los doctores cuyo horario cubre ese bloque y que
+        // siguen libres a esa hora, por si alguien más la tomó mientras el paciente
+        // completaba el formulario. La cita queda sin doctor asignado (como en la app
+        // móvil) y se notifica a todos los elegibles; el primero que la acepte se la queda
+        // (misma validación atómica que ya usa appointmentsController.acceptAppointment).
+        const eligibleDoctorIds = await findEligibleDoctorIds(date, start_time, end_time);
+        if (eligibleDoctorIds.length === 0) {
+            return res.status(409).json({ message: "Ese horario ya no está disponible. Por favor elige otro." });
+        }
 
-            const overlaps = sameDayAppointments.some(a =>
-                toMinutes(start_time) < toMinutes(a.end_time) && toMinutes(end_time) > toMinutes(a.start_time)
+        // Igual que en appointmentsController.acceptAppointment (el flujo del panel privado):
+        // si el procedimiento requiere enfermera, no basta con que un doctor esté libre, también
+        // tiene que haber al menos una enfermera libre en ese mismo horario. Si no la hay, el
+        // horario no se puede ofrecer: cualquier doctor que acepte la solicitud igual chocaría con
+        // ese mismo requisito al intentar aceptarla.
+        if (requiresNurse) {
+            const activeNurses = await nursesModel.find({ is_active: true }).select("_id").lean();
+            const nurseAvailability = await Promise.all(
+                activeNurses.map((n) => isNurseAvailable(n._id, date, start_time, end_time, appointmentsModel))
             );
-            if (overlaps) {
-                return res.status(409).json({ message: "Ese horario ya no está disponible. Por favor elige otro." });
+            if (!nurseAvailability.some(Boolean)) {
+                return res.status(409).json({ message: "No hay enfermeras disponibles en ese horario para este procedimiento. Por favor elige otro." });
             }
         }
 
         const newAppointment = new appointmentsModel({
-            doctor_id: sinDoctorElegido ? undefined : doctor_id,
+            doctor_id: null,
             patient_id: req.user.id,
             procedure_id: procedureRef,
             type,
@@ -274,10 +300,8 @@ patientPortalController.bookAppointment = async (req, res) => {
             start_time,
             end_time,
             duration_minutes: duration,
-            description: description || undefined,
-            // Toda cita creada desde el portal público queda "pending" sin importar el
-            // método de pago: el doctor elegido debe aceptarla desde "Por aceptar" antes
-            // de que quede realmente agendada, igual que las solicitudes sin doctor.
+            // Toda cita creada desde el portal público queda "pending": un doctor debe
+            // aceptarla desde "Por aceptar" antes de que quede realmente agendada.
             status: "pending",
             total,
             // El pago en línea solo cobra el anticipo, no el total
@@ -293,9 +317,8 @@ patientPortalController.bookAppointment = async (req, res) => {
             .populate("doctor_id", "name last_name img_url")
             .populate({ path: "procedure_id", model: "procedure", select: "name" });
 
-        // Notifica al doctor elegido (o, sin doctor elegido, a todos los doctores activos)
-        // que hay una cita nueva por aceptar. Nunca debe tumbar la creación de la cita si
-        // la notificación falla.
+        // Notifica a cada doctor elegible que hay una cita nueva por aceptar en ese
+        // horario. Nunca debe tumbar la creación de la cita si la notificación falla.
         try {
             const patient = await patientsModel.findById(req.user.id).select("name last_name");
             const patientName = patient ? `${patient.name} ${patient.last_name || ""}`.trim() : "un paciente";
@@ -303,44 +326,21 @@ patientPortalController.bookAppointment = async (req, res) => {
             const fechaFormateada = new Intl.DateTimeFormat("es-SV", {
                 day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
             }).format(dayStart);
-            const mensaje = sinDoctorElegido
-                ? `El paciente ${patientName} solicitó una cita de ${tipoLabel} sin doctor asignado para el ${fechaFormateada} en el horario de ${start_time}. Cualquier doctor puede aceptarla.`
-                : `El paciente ${patientName} ha agendado una cita de ${tipoLabel} para el ${fechaFormateada} en el horario de ${start_time}.`;
 
-            if (sinDoctorElegido) {
-                const doctoresActivos = await doctorsModel.find({ is_active: true }).select("_id");
-                if (doctoresActivos.length > 0) {
-                    await notificationModel.insertMany(doctoresActivos.map((d) => ({
-                        recipient_role: "doctor",
-                        recipient_id: d._id,
-                        title: "Nueva solicitud de cita sin asignar",
-                        type: "appointment_created",
-                        message: mensaje,
-                        appointment_id: newAppointment._id,
-                        // Sin doctor asignado, ningún doctor en particular "tiene" esta cita
-                        // todavía: manda al listado de Citas, no al formulario de edición de
-                        // esta cita puntual. ?view=citas fuerza la pestaña superior "Citas" de
-                        // esta página (por defecto abre en "Calendario"); adentro,
-                        // AppointmentsGrid ya abre en "Por aceptar" por defecto.
-                        action_url: "/calendar/appointments?view=citas",
-                    })));
-                }
-            } else {
-                await notificationModel.create({
-                    recipient_role: "doctor",
-                    recipient_id: doctor_id,
-                    title: "Nueva cita por aceptar",
-                    type: "appointment_created",
-                    message: mensaje,
-                    appointment_id: newAppointment._id,
-                    // Manda al listado de Citas (pestaña "Por aceptar" por defecto para un
-                    // doctor), no al detalle/edición de esta cita puntual: ahí es donde
-                    // realmente se acepta, con el flujo de aceptación completo (asignar
-                    // enfermera si aplica, etc.), no en la pantalla de editar. ?view=citas
-                    // fuerza la pestaña superior "Citas" (por defecto abre en "Calendario").
-                    action_url: "/calendar/appointments?view=citas",
-                });
-            }
+            await notificationModel.insertMany(eligibleDoctorIds.map((doctorId) => ({
+                recipient_role: "doctor",
+                recipient_id: doctorId,
+                title: "Nueva cita por aceptar",
+                type: "appointment_created",
+                message: `El paciente ${patientName} solicitó una cita de ${tipoLabel} para el ${fechaFormateada} en el horario de ${start_time}. Acéptala desde "Por aceptar" antes de que otro doctor lo haga.`,
+                appointment_id: newAppointment._id,
+                // Va directo a la pestaña "Por aceptar" (con el botón de un clic para
+                // aceptar), no al detalle/formulario de esta cita puntual: como todavía
+                // no tiene doctor, el id no sirve para nada útil ahí todavía. highlight sí
+                // lleva el id, para que AppointmentsGrid.jsx le ponga borde azul a esta
+                // tarjeta en particular entre las demás pendientes.
+                action_url: `/calendar/appointments?view=citas&tab=pending&highlight=${newAppointment._id}`,
+            })));
         } catch (notificationError) {
             console.log("Error notificando nueva cita al doctor:", notificationError);
         }

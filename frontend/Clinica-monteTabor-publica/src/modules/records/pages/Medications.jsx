@@ -1,12 +1,12 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  ChevronLeft, ChevronDown, Loader2, Pill, CheckCircle2, Circle, Plus,
+  ChevronLeft, ChevronDown, Loader2, Pill, CheckCircle2, Circle,
   CalendarDays, ClipboardList, FileText, Eye, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getTodayMedications, markMedicationTaken, getPrescriptions } from "@/services/patientPortalService";
-import { showError, showWarning } from "@/lib/alerts";
+import { showError } from "@/lib/alerts";
 import { downloadTextFile } from "@/lib/downloadFile";
 
 const fmtFecha = (iso) =>
@@ -100,12 +100,6 @@ const Medications = () => {
     }
   };
 
-  // No existe (todavía) una forma de que el paciente agregue sus propios medicamentos;
-  // los reales vienen siempre de una receta del doctor
-  const handleAgregar = () => {
-    showWarning("Los medicamentos los agrega tu doctor durante la consulta. Pronto podrás llevar tu propio registro aquí.");
-  };
-
   const handleVerReceta = (receta) => {
     downloadTextFile(`receta-${fmtFecha(receta.issued_at)}.txt`, buildRecetaTexto(receta));
   };
@@ -179,22 +173,14 @@ const Medications = () => {
 
             {/* ── Medicamentos de hoy ── */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#3B6FCA]/10 flex items-center justify-center flex-shrink-0">
-                    <CalendarDays className="w-5 h-5 text-[#3B6FCA]" />
-                  </div>
-                  <div>
-                    <h2 className="font-bold text-gray-900">Medicamentos de hoy</h2>
-                    <p className="text-sm text-gray-500">Estos son los medicamentos que tienes programados para hoy.</p>
-                  </div>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-[#3B6FCA]/10 flex items-center justify-center flex-shrink-0">
+                  <CalendarDays className="w-5 h-5 text-[#3B6FCA]" />
                 </div>
-                <button
-                  onClick={handleAgregar}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#3B6FCA]/10 hover:bg-[#3B6FCA]/20 text-[#3B6FCA] text-sm font-semibold transition-colors flex-shrink-0"
-                >
-                  <Plus className="w-4 h-4" /> Agregar medicamento
-                </button>
+                <div>
+                  <h2 className="font-bold text-gray-900">Medicamentos de hoy</h2>
+                  <p className="text-sm text-gray-500">Estos son los medicamentos que tienes programados para hoy.</p>
+                </div>
               </div>
 
               {hoy.length === 0 ? (

@@ -1,12 +1,6 @@
 const API_URL = "https://clinica-monte-tabor.onrender.com/api";
 //const API_URL = "http://localhost:4000/api";
 
-// El contexto registra aquí su cierre de sesión (mismo patrón que la app móvil, ver
-// mobile/.../lib/apiClient.js). Se usa callback y no import directo para evitar el ciclo
-// apiClient -> AuthContext -> apiClient.
-let onUnauthorized = null;
-export const setOnUnauthorized = (fn) => { onUnauthorized = fn; };
-
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     //Construimos la url de la peticion enviando primero la url y segundo el endpoint que queremos
     let url = `${API_URL}${path}`;
@@ -44,11 +38,15 @@ async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     // media navegación. Se limpia la sesión local para que el resto del sitio deje de
     // comportarse como si siguiera logueado con una identidad que el servidor ya no
     // reconoce como paciente.
-    if (response.status === 401) {
-        onUnauthorized?.();
-    }
-
     if (!response.ok) {
+        // 401 = la cookie de sesión expiró o ya no es válida. Se avisa por evento global
+        // (en vez de importar AuthContext aquí, para no acoplar este cliente HTTP genérico
+        // a React) para que AuthContext cierre la sesión y ProtectedRoute redirija a
+        // /login solo si había una sesión activa (evita disparar esto en /login mismo
+        // cuando el intento de inicio de sesión falla por credenciales inválidas).
+        if (response.status === 401) {
+            window.dispatchEvent(new Event("session-expired"));
+        }
         //Extrae el mensaje enviado del backend
         const message = response.status === 401
             ? "Tu sesión ya no es válida. Inicia sesión de nuevo."

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Loader2, Clock, ChevronLeft, ChevronRight, CalendarDays, Sun, Sunset, Moon, Info } from "lucide-react";
-import { getPatientAvailableSlots, getAvailableSlots, getDoctorWorkingDays } from "@/services/appointmentsService";
+import { getPatientAvailableSlots } from "@/services/appointmentsService";
 
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -41,50 +41,22 @@ const agruparPorFranja = (slots) => {
   return grupos;
 };
 
-// Paso de fecha y hora. Funciona en dos modos:
-// - Modo agregado (doctor no definido): hora libre entre todos los doctores según el
-//   tipo de atención elegido (define la duración). El doctor se elige después, en base
-//   al horario que se elija aquí (modo "rápido" del asistente).
-// - Modo doctor puntual (doctor definido): horarios de ESE doctor para el día elegido.
-//   Los días que el doctor no atiende (o dejó sin marcar en su horario) aparecen
-//   bloqueados en el selector de fecha, igual que se ve en Horarios del panel privado.
-//   duration (minutos) es obligatorio en este modo, porque el endpoint de slots por
-//   doctor no resuelve la duración a partir de un procedimiento.
-const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate, onSelectSlot }) => {
+// Paso 2: elegir día y luego una hora libre entre todos los doctores, según
+// el tipo de atención elegido (define la duración). No se elige doctor: al
+// confirmar, se notifica a todos los doctores libres en ese horario para que
+// alguno acepte la solicitud (mismo criterio que el flujo de la app móvil).
+const StepFechaHora = ({ procedureId, date, slot, onSelectDate, onSelectSlot }) => {
   const dias = useMemo(() => buildDays(), []);
   const scrollRef = useRef(null);
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [mensaje, setMensaje] = useState("");
-  // null mientras no se sabe todavía (o en modo agregado, donde no aplica ningún bloqueo)
-  const [workingDays, setWorkingDays] = useState(null);
-  const [exceptions, setExceptions] = useState([]);
-
-  useEffect(() => {
-    if (!doctor) {
-      setWorkingDays(null);
-      setExceptions([]);
-      return;
-    }
-    getDoctorWorkingDays(doctor._id)
-      .then((res) => {
-        setWorkingDays(res.workingDays || []);
-        setExceptions(res.exceptions || []);
-      })
-      .catch(() => {
-        setWorkingDays([]);
-        setExceptions([]);
-      });
-  }, [doctor]);
 
   useEffect(() => {
     if (!date) return;
     setLoading(true);
     setMensaje("");
-    const solicitud = doctor
-      ? getAvailableSlots(doctor._id, toDateStr(date), duration)
-      : getPatientAvailableSlots(toDateStr(date), procedureId);
-    solicitud
+    getPatientAvailableSlots(toDateStr(date), procedureId)
       .then((res) => {
         setSlots(res.slots || []);
         setMensaje(res.message || "");
@@ -94,29 +66,7 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
         setMensaje("No se pudieron cargar los horarios.");
       })
       .finally(() => setLoading(false));
-  }, [procedureId, date, doctor, duration]);
-
-  // Una excepción de tipo vacaciones o día no laborable bloquea ese rango de fechas
-  // completo. "special_hours" no bloquea el día, solo cambia el horario dentro de él
-  // (eso ya lo resuelve el propio cálculo de slots del servidor).
-  const fechaDentroDeExcepcionBloqueante = (d) => {
-    const str = toDateStr(d);
-    return exceptions.some((ex) => {
-      if (ex.type === "special_hours") return false;
-      const desde = toDateStr(new Date(ex.date));
-      const hasta = ex.end_date ? toDateStr(new Date(ex.end_date)) : desde;
-      return str >= desde && str <= hasta;
-    });
-  };
-
-  // En modo agregado ningún día se deshabilita. En modo doctor, se deshabilita si su
-  // día de la semana no está marcado como laborable o si cae en una excepción. Mientras
-  // workingDays todavía no llega (null), no se bloquea nada para no parpadear.
-  const diaDeshabilitado = (d) => {
-    if (!doctor || workingDays === null) return false;
-    if (!workingDays.includes(d.getDay())) return true;
-    return fechaDentroDeExcepcionBloqueante(d);
-  };
+  }, [procedureId, date]);
 
   // Si el día elegido es hoy, oculta los horarios que ya pasaron
   const ahora = new Date();
@@ -135,11 +85,7 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
   return (
     <div>
       <h2 className="text-lg font-bold text-gray-900 mb-1">Elige la fecha y hora</h2>
-      <p className="text-sm text-gray-500 mb-6">
-        {doctor
-          ? `Días y horarios disponibles de Dr. ${doctor.name} ${doctor.last_name}.`
-          : "Se muestran los horarios donde al menos un doctor está disponible."}
-      </p>
+      <p className="text-sm text-gray-500 mb-6">Se muestran los horarios donde al menos un doctor está disponible.</p>
 
       <p className="text-sm font-semibold text-gray-700 mb-3">Selecciona un día</p>
       <div className="flex items-center gap-2 mb-4">
@@ -149,22 +95,16 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
         <div ref={scrollRef} className="flex gap-2 overflow-x-auto scroll-smooth" style={{ scrollbarWidth: "none" }}>
           {dias.map((d) => {
             const isSelected = date && toDateStr(d) === toDateStr(date);
-            const disabled = diaDeshabilitado(d);
             return (
               <button
                 key={toDateStr(d)}
                 type="button"
-                disabled={disabled}
                 onClick={() => {
                   onSelectDate(d);
                   onSelectSlot(null);
                 }}
                 className={`flex flex-col items-center justify-center flex-shrink-0 w-14 h-16 rounded-xl border-2 transition-all ${
-                  disabled
-                    ? "border-gray-100 text-gray-300 opacity-50 cursor-not-allowed"
-                    : isSelected
-                    ? "bg-[#3B6FCA] border-[#3B6FCA] text-white"
-                    : "border-gray-100 text-gray-600 hover:border-[#3B6FCA]/40"
+                  isSelected ? "bg-[#3B6FCA] border-[#3B6FCA] text-white" : "border-gray-100 text-gray-600 hover:border-[#3B6FCA]/40"
                 }`}
               >
                 <span className="text-[10px] uppercase font-medium opacity-80">{DIAS[d.getDay()]}</span>
@@ -211,36 +151,23 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
                   <Icon className="w-3.5 h-3.5" /> {label}
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {franjas[key].map((s, i) => {
-                    // available solo llega en modo doctor puntual (ver StepFechaHora ->
-                    // getAvailableSlots con includeBooked). En modo agregado siempre es
-                    // undefined y el slot es seleccionable, porque ahí solo se muestran
-                    // horarios donde al menos un doctor sigue libre.
-                    const ocupado = s.available === false;
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        disabled={ocupado}
-                        onClick={() => !ocupado && onSelectSlot(s)}
-                        title={ocupado ? "Este horario ya está ocupado" : undefined}
-                        className={`py-2.5 rounded-xl border-2 transition-all ${
-                          ocupado
-                            ? "border-gray-100 text-gray-300 bg-gray-50 cursor-not-allowed"
-                            : slot?.start_time === s.start_time
-                            ? "bg-[#3B6FCA] border-[#3B6FCA] text-white"
-                            : "border-gray-100 text-gray-600 hover:border-[#3B6FCA]/40"
-                        }`}
-                      >
-                        <span className={`block text-sm font-semibold ${ocupado ? "line-through" : ""}`}>{fmt12(s.start_time)}</span>
-                        <span className={`block text-[11px] ${
-                          ocupado ? "text-gray-300" : slot?.start_time === s.start_time ? "text-white/70" : "text-gray-400"
-                        }`}>
-                          {ocupado ? "Ocupado" : `hasta ${fmt12(s.end_time)}`}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {franjas[key].map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onSelectSlot(s)}
+                      className={`py-2.5 rounded-xl border-2 transition-all ${
+                        slot?.start_time === s.start_time
+                          ? "bg-[#3B6FCA] border-[#3B6FCA] text-white"
+                          : "border-gray-100 text-gray-600 hover:border-[#3B6FCA]/40"
+                      }`}
+                    >
+                      <span className="block text-sm font-semibold">{fmt12(s.start_time)}</span>
+                      <span className={`block text-[11px] ${slot?.start_time === s.start_time ? "text-white/70" : "text-gray-400"}`}>
+                        hasta {fmt12(s.end_time)}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )
@@ -248,13 +175,10 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
         </div>
       )}
 
-      {/* En modo agregado (sin doctor puntual) la cita queda sin asignar: la puede
-          aceptar cualquier doctor disponible para ese horario. En modo doctor puntual
-          ya se sabe quién atiende, así que este aviso no aplica. */}
-      {slotsVisibles.length > 0 && !doctor && (
+      {slotsVisibles.length > 0 && (
         <div className="flex items-start gap-2 bg-gray-50 rounded-lg p-3 mt-6">
           <Info className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-gray-500">Tu cita quedará pendiente de que cualquier doctor disponible la acepte.</p>
+          <p className="text-xs text-gray-500">Al confirmar, se avisa a los doctores disponibles en ese horario para que acepten tu solicitud.</p>
         </div>
       )}
     </div>

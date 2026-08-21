@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import AppointmentsGrid from '../components/AppointmentsGrid';
 import AppointmentsCalendar from '../components/AppointmentsCalendar';
 
@@ -27,7 +27,23 @@ const AdminAppointments = () => {
     // este componente siempre remonta con useState("calendar") y el
     // usuario termina de vuelta en el Calendario aunque hubiera abierto
     // la cita desde Citas.
-    const [activeTab, setActiveTab] = useState(searchParams.get("view") || location.state?.initialView || "calendar");
+    // El query param ?view= es la misma idea pero para llegar desde afuera
+    // (ej. el action_url de la notificación "Nueva cita por aceptar", que
+    // manda aquí en vez del detalle de una cita puntual sin doctor todavía).
+    const initialView = location.state?.initialView || new URLSearchParams(location.search).get("view") || "calendar";
+    const [activeTab, setActiveTab] = useState(initialView);
+
+    // Este componente no remonta al aceptar una cita desde Citas y saltar al
+    // Calendario para verla ya programada (misma ruta, /calendar/appointments,
+    // solo cambia location.state) — así que el useState de arriba, que solo
+    // corre al montar, no alcanza para esos saltos en caliente. location.key
+    // cambia en cada navegación nueva (aunque la ruta sea la misma), así que
+    // sirve para detectar ese caso y releer la vista pedida.
+    useEffect(() => {
+        const view = location.state?.initialView || new URLSearchParams(location.search).get("view");
+        if (view) setActiveTab(view);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.key]);
 
     return (
         <div className="w-full h-full flex flex-col">

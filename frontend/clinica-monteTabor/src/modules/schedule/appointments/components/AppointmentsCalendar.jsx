@@ -5,7 +5,8 @@ import { useAuth } from "@/context/AuthContext";
 import useAppointmentsApi from "../hooks/useAppointmentsApi";
 import useSchedule from "../hooks/useSchedule";
 import useAppointmentTypes from "../hooks/useAppointmentTypes";
-import { confirmDelete, showError } from "@/lib/alerts";
+import { confirmDelete, showError, showSuccess } from "@/lib/alerts";
+import apiClient from "@/lib/apiClient";
 
 
 const HOUR_HEIGHT = 64;
@@ -315,7 +316,7 @@ const BreakCard = ({ brk }) => {
 };
 
 
-const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAppt, colorMap }) => {
+const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, canUpdateAppt, colorMap }) => {
     const { updateAppointmentStatus } = useAppointmentsApi();
     const [cancelling, setCancelling] = useState(false);
 
@@ -331,6 +332,100 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAp
             showError("No se pudo cancelar la cita. Intente de nuevo.");
         } finally {
             setCancelling(false);
+        }
+    };
+
+    // Aceptar (doctor) / asignar (admin) una cita "pending" con un clic, sin pasar
+    // por el formulario completo — igual que en AppointmentsGrid.jsx (pestaña
+    // Citas). Si el procedimiento requiere enfermera, el backend rechaza sin una
+    // (ver appointmentsController.acceptAppointment/assignDoctor), así que ahí se
+    // pide elegir una de la lista de enfermeras libres en ese horario antes de
+    // confirmar, en vez de aceptar directo.
+    const isPendingAction = appt.status === "pending" && (isDoctor || isAdmin);
+    const nurseRequired = !!appt.procedure_id?.requires_nurse;
+    const [resolvingAccept, setResolvingAccept] = useState(false);
+    const [needsNurseChoice, setNeedsNurseChoice] = useState(false);
+    const [nurseOptions, setNurseOptions] = useState([]);
+    const [doctorOptions, setDoctorOptions] = useState([]);
+    const [chosenNurseId, setChosenNurseId] = useState("");
+    const [chosenDoctorId, setChosenDoctorId] = useState("");
+    const [confirming, setConfirming] = useState(false);
+
+    const nurseParams = {
+        date: new Date(appt.date).toISOString().split("T")[0],
+        start_time: appt.start_time,
+        end_time: appt.end_time,
+        appointment_id: appt._id,
+    };
+
+    const finishAccept = async (nurseId) => {
+        setConfirming(true);
+        try {
+            await apiClient(`/appointments/${appt._id}/accept`, {
+                method: "PATCH",
+                body: nurseId ? { nurse_id: nurseId } : {},
+            });
+            showSuccess("Cita aceptada correctamente");
+            // No se cierra el panel: onRefresh(appt._id) reselecciona esta misma cita
+            // tras refrescar, así se ve de una vez agendada (y con el borde azul, ver
+            // isSelected en ApptDot/ApptCard) sin que el doctor tenga que ir a buscarla.
+            onRefresh(appt._id);
+        } catch (err) {
+            showError(err.message || "No se pudo aceptar la cita");
+        } finally {
+            setConfirming(false);
+        }
+    };
+
+    const finishAssign = async (doctorId, nurseId) => {
+        if (!doctorId) { showError("Selecciona un doctor."); return; }
+        setConfirming(true);
+        try {
+            await apiClient(`/appointments/${appt._id}/assign`, {
+                method: "PATCH",
+                body: { doctor_id: doctorId, ...(nurseId ? { nurse_id: nurseId } : {}) },
+            });
+            showSuccess("Cita asignada correctamente");
+            onRefresh(appt._id);
+        } catch (err) {
+            showError(err.message || "No se pudo asignar la cita");
+        } finally {
+            setConfirming(false);
+        }
+    };
+
+    // Doctor: un clic si no requiere enfermera; si requiere, primero carga las
+    // libres en ese horario y pide elegir una.
+    const handleAcceptClick = async () => {
+        if (!nurseRequired) return finishAccept();
+        setResolvingAccept(true);
+        try {
+            const response = await apiClient("/appointments/nurses-for-acceptance", { params: nurseParams });
+            setNurseOptions(Array.isArray(response) ? response : response.data || []);
+            setNeedsNurseChoice(true);
+        } catch (err) {
+            showError(err.message || "No se pudieron cargar las enfermeras.");
+        } finally {
+            setResolvingAccept(false);
+        }
+    };
+
+    // Admin: siempre elige el doctor a mano; si el procedimiento requiere
+    // enfermera, también carga las libres en ese horario.
+    const handleAssignClick = async () => {
+        setResolvingAccept(true);
+        try {
+            const doctorsResponse = await apiClient("/doctors/catalog");
+            setDoctorOptions(Array.isArray(doctorsResponse) ? doctorsResponse : doctorsResponse.data || []);
+            if (nurseRequired) {
+                const nursesResponse = await apiClient("/appointments/nurses-for-acceptance", { params: nurseParams });
+                setNurseOptions(Array.isArray(nursesResponse) ? nursesResponse : nursesResponse.data || []);
+            }
+            setNeedsNurseChoice(true);
+        } catch (err) {
+            showError(err.message || "No se pudieron cargar los doctores.");
+        } finally {
+            setResolvingAccept(false);
         }
     };
 
@@ -412,6 +507,59 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAp
                 {/* Acciones */}
                 <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Acciones</p>
+
+                    {isPendingAction && needsNurseChoice ? (
+                        <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 space-y-2.5">
+                            {isAdmin && (
+                                <select
+                                    value={chosenDoctorId}
+                                    onChange={(e) => setChosenDoctorId(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs outline-none focus:border-emerald-500"
+                                >
+                                    <option value="">Selecciona un doctor</option>
+                                    {doctorOptions.map((d) => (
+                                        <option key={d._id} value={d._id}>Dr. {d.name} {d.last_name}</option>
+                                    ))}
+                                </select>
+                            )}
+                            {nurseRequired && (
+                                <select
+                                    value={chosenNurseId}
+                                    onChange={(e) => setChosenNurseId(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs outline-none focus:border-emerald-500"
+                                >
+                                    <option value="">{nurseOptions.length ? "Selecciona una enfermera" : "Sin enfermeras disponibles en ese horario"}</option>
+                                    {nurseOptions.map((n) => (
+                                        <option key={n._id} value={n._id}>{n.name} {n.last_name}</option>
+                                    ))}
+                                </select>
+                            )}
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => { setNeedsNurseChoice(false); setChosenDoctorId(""); setChosenNurseId(""); }}
+                                    className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-white text-slate-600 text-xs font-medium transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    disabled={confirming || (nurseRequired && !chosenNurseId) || (isAdmin && !chosenDoctorId)}
+                                    onClick={() => (isAdmin ? finishAssign(chosenDoctorId, chosenNurseId) : finishAccept(chosenNurseId))}
+                                    className="flex-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                                >
+                                    {confirming ? "Confirmando..." : "Confirmar"}
+                                </button>
+                            </div>
+                        </div>
+                    ) : isPendingAction ? (
+                        <button
+                            onClick={isAdmin ? handleAssignClick : handleAcceptClick}
+                            disabled={resolvingAccept}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60"
+                        >
+                            {resolvingAccept ? "Cargando..." : isAdmin ? "Asignar cita" : "Aceptar cita"}
+                        </button>
+                    ) : null}
+
                     <button
                         onClick={() => navigate(`/calendar/appointments/${appt._id}`, { state: { fromView: "calendar" } })}
                         className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
@@ -429,7 +577,7 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAp
                             Reagendar cita
                         </button>
                     )}
-                    {canUpdateAppt && appt.status !== "cancelled" && appt.status !== "completed" && (
+                    {canUpdateAppt && !isPendingAction && appt.status !== "cancelled" && appt.status !== "completed" && (
                         <button
                             onClick={handleCancel}
                             disabled={cancelling}
@@ -450,6 +598,10 @@ const AppointmentsCalendar = () => {
     const location  = useLocation();
     const { user, userType, hasPermission } = useAuth();
     const isDoctor  = userType === "doctor";
+    // El admin tiene el mismo flujo de "por aceptar" que el doctor, pero en vez
+    // de aceptarla él mismo, la asigna a un doctor (ver DetailPanel más abajo,
+    // mismo criterio que AppointmentsGrid.jsx).
+    const isAdmin   = userType === "admin";
     const canCreateAppt = hasPermission("calendar.appointments", "create");
     const canUpdateAppt = hasPermission("calendar.appointments", "update");
     const { getAppointments, getAppointmentsStats } = useAppointmentsApi();
@@ -569,6 +721,15 @@ const AppointmentsCalendar = () => {
     const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); };
     const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); };
     const triggerRefresh = () => setRefresh(r => r + 1);
+    // Como refreshAndReselect(id), deja pendingSelectId listo para que el
+    // efecto de arriba reseleccione esa misma cita ni bien llegan los datos
+    // frescos del refetch (útil tras aceptar/asignar desde el propio
+    // Calendario: la cita pasa a "scheduled" y se queda resaltada en vez de
+    // cerrarse el panel).
+    const refreshAndReselect = (id) => {
+        pendingSelectId.current = id || null;
+        triggerRefresh();
+    };
 
 
     const [nowOffset, setNowOffset] = useState(calcNowOffset);
@@ -880,8 +1041,9 @@ const AppointmentsCalendar = () => {
                     <DetailPanel
                         appt={selected}
                         isDoctor={isDoctor}
+                        isAdmin={isAdmin}
                         onClose={() => setSelected(null)}
-                        onRefresh={triggerRefresh}
+                        onRefresh={refreshAndReselect}
                         navigate={navigate}
                         canUpdateAppt={canUpdateAppt}
                         colorMap={colorMap}
