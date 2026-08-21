@@ -15,8 +15,11 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
+  // Sin sesión activa, manda a la pantalla de inicio (la landing pública, no
+  // el formulario de login) para no confundir a alguien que solo tenía un
+  // enlace o marcador guardado a una ruta protegida.
   if (!isLoggedIn) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return children;

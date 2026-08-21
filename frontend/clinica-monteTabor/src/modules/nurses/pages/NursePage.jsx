@@ -56,9 +56,9 @@ const NursesPage = () => {
   };
 
   return (
-    <div className="p-8 bg-white min-h-screen w-full">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Enfermeras</h1>
+    <div className="p-4 sm:p-8 bg-white min-h-screen w-full">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Enfermeras</h1>
         <p className="text-sm text-slate-400 mt-1">
           Gestiona y administra a las diferentes enfermeras
         </p>
@@ -72,11 +72,11 @@ const NursesPage = () => {
 
       <NurseStatCards stats={stats} loading={loading} />
 
-      {/* Rejilla de 12 columnas: tabla a la izquierda, perfil a la derecha */}
-      <div className="grid grid-cols-12 gap-6 mt-8">
+      {/* Rejilla de 12 columnas: tabla a la izquierda, perfil a la derecha (una sola columna en móvil) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-8">
 
         {/* Columna izquierda: tabla de enfermeras (col-span-9) */}
-        <div className="col-span-9">
+        <div className="lg:col-span-9">
           <NurseTable
             nurses={nurses}
             loading={loading}
@@ -86,7 +86,7 @@ const NursesPage = () => {
         </div>
 
         {/* Columna derecha: tarjeta de perfil (col-span-3) */}
-        <div className="col-span-3">
+        <div className="lg:col-span-3">
           <NurseProfileCard
             nurse={selectedNurse}
             nextProcedure={nextProcedure}

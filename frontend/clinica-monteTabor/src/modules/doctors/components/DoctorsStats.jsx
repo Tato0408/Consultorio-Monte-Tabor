@@ -31,20 +31,20 @@ const DoctorsStats = ({ doctors, stats = {}, loading }) => {
   ];
 
   return (
-    <div className="grid grid-cols-4 gap-5">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
       {cards.map((card, index) => (
         <div
           key={index}
-          className="bg-white rounded-xl border shadow-sm p-5 flex items-center gap-4"
+          className="bg-white rounded-xl border shadow-sm p-3 sm:p-5 flex items-center gap-3 sm:gap-4"
         >
-          <card.icon className="w-10 h-10 text-blue-600" />
+          <card.icon className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600 flex-shrink-0" />
 
-          <div>
-            <p className="text-sm text-slate-500">
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-slate-500">
               {card.title}
             </p>
 
-            <h2 className="text-2xl font-bold">
+            <h2 className="text-xl sm:text-2xl font-bold">
               {card.value}
             </h2>
           </div>

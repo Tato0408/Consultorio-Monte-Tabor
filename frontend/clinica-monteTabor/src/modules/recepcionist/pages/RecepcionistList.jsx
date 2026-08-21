@@ -93,18 +93,18 @@ const ReceptionistsList = () => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-white p-8">
+    <div className="w-full min-h-screen bg-white p-4 sm:p-8">
       {/* Encabezado de la pantalla */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Recepcionistas</h1>
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Recepcionistas</h1>
         <p className="text-gray-400 mt-1">
           Gestiona y administra a los diferentes recepcionistas
         </p>
       </div>
 
-      {/* Contenedor principal: tabla a la izquierda, tarjeta de perfil a la derecha */}
-      <div className="grid grid-cols-12 gap-6 mt-8">
-        <div className="col-span-9">
+      {/* Contenedor principal: tabla a la izquierda, tarjeta de perfil a la derecha (una sola columna en móvil) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-8">
+        <div className="lg:col-span-9">
 
           <ReceptionistsTable
             receptionists={receptionists}
@@ -116,7 +116,7 @@ const ReceptionistsList = () => {
 
         </div>
 
-        <div className="col-span-3">
+        <div className="lg:col-span-3">
           <ReceptionistProfileCard
             receptionist={selectedReceptionist}
             onEdit={handleOpenEdit}

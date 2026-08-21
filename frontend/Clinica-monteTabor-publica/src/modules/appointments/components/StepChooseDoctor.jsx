@@ -1,41 +1,32 @@
 import { useState, useEffect } from "react";
-import { User, Clock, CalendarClock, ShieldCheck, Loader2, AlertCircle } from "lucide-react";
-import { getDoctorsForSlot } from "@/services/appointmentsService";
+import { User, Loader2, AlertCircle, CalendarClock, UserCheck, ShieldCheck } from "lucide-react";
+import { getSchedulableDoctors } from "@/services/appointmentsService";
 import InfoSidebar from "./InfoSidebar";
 
 const INFO_ITEMS = [
-  { icon: Clock, title: "Duración aproximada", description: "Depende de la atención elegida." },
-  { icon: CalendarClock, title: "Disponibilidad", description: "Solo se muestran los doctores libres en el horario que elegiste." },
+  { icon: UserCheck, title: "Elige tu doctor", description: "Solo se muestran los doctores que ya tienen horario configurado." },
+  { icon: CalendarClock, title: "Después, la fecha", description: "En el siguiente paso verás los días y horas que ese doctor atiende." },
   { icon: ShieldCheck, title: "Cancelaciones", description: "Puedes cancelar tu cita en cualquier momento antes de la hora agendada." },
 ];
 
-const toDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-// Paso 3: doctores que pueden atender el horario ya elegido en el paso
-// anterior. Si hay uno solo se autoselecciona; si hay varios, el paciente
-// elige entre ellos.
-const StepDoctor = ({ date, slot, procedureId, tipoLabel, tipoDescription, selected, onSelect }) => {
+// Paso "elegir doctor" del modo doctor primero: a diferencia del modo rápido (donde el
+// doctor se resuelve después de elegir un horario), aquí el paciente elige doctor antes
+// de ver fecha y hora, y el siguiente paso filtra el calendario según el horario de este
+// doctor puntual. Solo se listan doctores con horario ya configurado (getSchedulableDoctors),
+// porque sin horario no hay días ni horas que calcular.
+const StepChooseDoctor = ({ tipoLabel, tipoDescription, selected, onSelect }) => {
   const [doctores, setDoctores] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!date || !slot) return;
     setLoading(true);
     setError("");
-    getDoctorsForSlot(toDateStr(date), slot.start_time, procedureId)
-      .then((res) => {
-        const encontrados = res.doctors || [];
-        setDoctores(encontrados);
-        if (encontrados.length === 1) onSelect(encontrados[0]);
-      })
-      .catch(() => {
-        setDoctores([]);
-        setError("No se pudieron cargar los doctores disponibles para ese horario.");
-      })
+    getSchedulableDoctors()
+      .then((res) => setDoctores(res || []))
+      .catch(() => setError("No se pudieron cargar los doctores disponibles."))
       .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, slot, procedureId]);
+  }, []);
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -54,25 +45,18 @@ const StepDoctor = ({ date, slot, procedureId, tipoLabel, tipoDescription, selec
 
       <div className="flex-1 min-w-0">
         <div className="mb-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">
-            {doctores.length > 1 ? "Elige un doctor" : "Tu doctor para este horario"}
-          </h2>
-          <p className="text-sm text-gray-500">
-            {doctores.length > 1
-              ? "Varios doctores pueden atenderte en el horario que elegiste."
-              : "Este es el doctor disponible en el horario que elegiste."}
-          </p>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Elige tu doctor</h2>
+          <p className="text-sm text-gray-500">En el siguiente paso verás los días y horarios disponibles de este doctor.</p>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-10 text-gray-400">
-            <Loader2 className="w-5 h-5 animate-spin text-[#3B6FCA]" /> Buscando doctores disponibles...
+            <Loader2 className="w-5 h-5 animate-spin text-[#3B6FCA]" /> Cargando doctores...
           </div>
         ) : error || doctores.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
             <AlertCircle className="w-8 h-8 text-amber-300" />
-            <p className="text-sm text-gray-500">{error || "Ese horario ya no tiene doctores disponibles."}</p>
-            <p className="text-xs text-gray-400">Vuelve al paso anterior y elige otro horario.</p>
+            <p className="text-sm text-gray-500">{error || "No hay doctores con horario configurado por el momento."}</p>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -102,4 +86,4 @@ const StepDoctor = ({ date, slot, procedureId, tipoLabel, tipoDescription, selec
   );
 };
 
-export default StepDoctor;
+export default StepChooseDoctor;

@@ -645,8 +645,11 @@ export default function AppointmentsGrid() {
                                                 {/* Abre el formulario en modo edición (editMode: true). fromTab
                                                     recuerda desde qué sub pestaña (Por aceptar, Mis citas o Citas
                                                     asignadas) se abrió, para que el botón de cerrar del formulario
-                                                    pueda regresar exactamente ahí. */}
-                                                {canUpdate && (
+                                                    pueda regresar exactamente ahí. En "Mis citas" del doctor se
+                                                    oculta: el botón de visualizar ya lleva a una pantalla que
+                                                    incluye su propio botón de editar, así que este sería
+                                                    redundante ahí. Reagendar solo aplica a una cita Programada. */}
+                                                {canUpdate && !(isDoctor && activeTab === "mine") && cita.status === "scheduled" && (
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -733,8 +736,8 @@ export default function AppointmentsGrid() {
                 </div >
             )}
             {appointmentToAccept && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 overflow-y-auto">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
                         <h2 className="text-lg font-bold text-slate-900">Asignar enfermera</h2>
                         <p className="mt-1 text-sm text-slate-500">Este procedimiento requiere enfermera. Elige quién apoyará la cita antes de aceptarla.</p>
                         <select
@@ -754,8 +757,8 @@ export default function AppointmentsGrid() {
                 </div>
             )}
             {appointmentToAssign && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 overflow-y-auto">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
                         <h2 className="text-lg font-bold text-slate-900">Asignar a un doctor</h2>
                         <p className="mt-1 text-sm text-slate-500">Elige el doctor que atenderá esta cita. Se le notificará junto con el paciente.</p>
                         <select
@@ -799,8 +802,8 @@ export default function AppointmentsGrid() {
                 </div>
             )}
             {pendingAppointmentDetails && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-                    <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 overflow-y-auto">
+                    <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider text-amber-600">Solicitud pendiente</p>

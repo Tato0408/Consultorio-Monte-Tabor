@@ -1,4 +1,11 @@
 const API_URL = "https://clinica-monte-tabor.onrender.com/api";
+//const API_URL = "http://localhost:4000/api";
+
+// El contexto registra aquí su cierre de sesión (mismo patrón que la app móvil, ver
+// mobile/.../lib/apiClient.js). Se usa callback y no import directo para evitar el ciclo
+// apiClient -> AuthContext -> apiClient.
+let onUnauthorized = null;
+export const setOnUnauthorized = (fn) => { onUnauthorized = fn; };
 
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     //Construimos la url de la peticion enviando primero la url y segundo el endpoint que queremos
@@ -28,10 +35,27 @@ async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     // Intentamos parsear JSON siempre, incluso en errores, porque la API devuelve { message: "..." } tanto en éxito como en fallos controlados.
     const data = await response.json().catch(() => null);
 
+    // 401 en este backend siempre significa lo mismo: la cookie de sesión es válida pero
+    // no corresponde a un paciente (ver validateAuthCookie en el backend). Pasa, por
+    // ejemplo, cuando en el mismo navegador se inicia sesión en el panel privado
+    // (admin/doctor/etc.) mientras seguía abierta una pestaña del portal público: ambos
+    // sitios comparten la misma cookie por dominio (sin importar el puerto en
+    // localhost), así que la sesión de staff termina reemplazando a la del paciente a
+    // media navegación. Se limpia la sesión local para que el resto del sitio deje de
+    // comportarse como si siguiera logueado con una identidad que el servidor ya no
+    // reconoce como paciente.
+    if (response.status === 401) {
+        onUnauthorized?.();
+    }
+
     if (!response.ok) {
         //Extrae el mensaje enviado del backend
-        const message = data?.message || `Error ${response.status}`;
-        throw new Error(message);
+        const message = response.status === 401
+            ? "Tu sesión ya no es válida. Inicia sesión de nuevo."
+            : data?.message || `Error ${response.status}`;
+        const error = new Error(message);
+        error.status = response.status;
+        throw error;
     }
 
     //Si la peticion fue exitosa retorna los datos parseados para utilizarlos como el endpoint

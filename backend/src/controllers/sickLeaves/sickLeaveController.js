@@ -55,6 +55,10 @@ sickLeaveController.createSickLeave = async (req, res) => {
 };
 
 //Update
+// Solo pisa los campos que realmente llegaron en el body (igual que
+// updateVitalSign/updateHereditary en patientsController.js): así el
+// formulario de edición del expediente (que no manda patient_id,
+// consultation_id ni status) nunca borra esos campos sin querer.
 sickLeaveController.updateSickLeave = async (req, res) => {
   try {
     const {
@@ -67,16 +71,21 @@ sickLeaveController.updateSickLeave = async (req, res) => {
       status,
     } = req.body;
 
-    const sickLeaveUpdated = await sickLeavesModel.findByIdAndUpdate(
-      req.params.id,
-      { patient_id, doctor_id, consultation_id, diagnosis, start_date, end_date, status },
-      { new: true }
-    );
-
-    if (!sickLeaveUpdated) {
+    const sickLeave = await sickLeavesModel.findById(req.params.id);
+    if (!sickLeave) {
       return res.status(404).json({ message: "Incapacidad no encontrada" });
     }
-    return res.status(200).json({ message: "Incapacidad actualizada", data: sickLeaveUpdated });
+
+    if (patient_id !== undefined) sickLeave.patient_id = patient_id;
+    if (doctor_id !== undefined) sickLeave.doctor_id = doctor_id;
+    if (consultation_id !== undefined) sickLeave.consultation_id = consultation_id;
+    if (diagnosis !== undefined) sickLeave.diagnosis = diagnosis;
+    if (start_date !== undefined) sickLeave.start_date = start_date;
+    if (end_date !== undefined) sickLeave.end_date = end_date;
+    if (status !== undefined) sickLeave.status = status;
+
+    await sickLeave.save();
+    return res.status(200).json({ message: "Incapacidad actualizada", data: sickLeave });
   } catch (error) {
     console.log("error" + error);
     return res.status(500).json({ message: "Error interno del servidor" });

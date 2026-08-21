@@ -29,6 +29,12 @@ const styles = StyleSheet.create({
   dayActive: { backgroundColor: "#2F6BFF", borderColor: "#2F6BFF" }, dayName: { fontSize: 10, color: "#64748B", textTransform: "uppercase" }, dayNumber: { fontSize: 17, fontWeight: "800", color: "#111827", marginTop: 5 }, dayTextActive: { color: "#FFF" },
   timeTitle: { marginTop: 22 }, slots: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
   slot: { width: "30.5%", borderWidth: 1, borderColor: "#DDE2EA", borderRadius: 9, paddingVertical: 11, alignItems: "center" }, slotActive: { backgroundColor: "#2F6BFF", borderColor: "#2F6BFF" }, slotText: { fontSize: 12, fontWeight: "700", color: "#334155" }, slotTextActive: { color: "#FFF" },
+  // Horario ya ocupado por otra cita del doctor (ver includeBooked en la llamada a
+  // /schedule/:doctorId/slots): se muestra tachado y deshabilitado en vez de
+  // desaparecer de la lista, para que el paciente entienda por qué no puede elegirlo.
+  slotDisabled: { backgroundColor: "#F1F5F9", borderColor: "#E2E8F0" },
+  slotTextDisabled: { color: "#94A3B8", textDecorationLine: "line-through" },
+  slotOccupiedLabel: { fontSize: 9, fontWeight: "600", color: "#94A3B8", marginTop: 2 },
   noSlots: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "#FFFBEB", borderRadius: 10, padding: 13 }, noSlotsText: { flex: 1, fontSize: 12, color: "#92400E" },
   summaryCard: { backgroundColor: "#FFF", borderRadius: 14, borderWidth: 1, borderColor: "#E2E6ED", padding: 16, ...shadow },
   summaryRow: { flexDirection: "row", alignItems: "center", minHeight: 54 }, summaryIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#F0F3FF", alignItems: "center", justifyContent: "center", marginRight: 11 }, summaryText: { flex: 1 }, summaryLabel: { fontSize: 11, color: "#8A94A6" }, summaryValue: { fontSize: 13, fontWeight: "700", color: "#111827", marginTop: 2, textTransform: "capitalize" },
@@ -38,6 +44,28 @@ const styles = StyleSheet.create({
   primaryButton: { minHeight: 50, borderRadius: 11, backgroundColor: "#2F6BFF", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 }, primaryButtonText: { color: "#FFF", fontSize: 14, fontWeight: "800" }, buttonDisabled: { opacity: 0.45 },
   secondaryButton: { minHeight: 50, borderRadius: 11, borderWidth: 1, borderColor: "#2F6BFF", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, marginTop: 28, marginBottom: 12 }, secondaryButtonText: { color: "#2F6BFF", fontSize: 14, fontWeight: "800" },
   successContent: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 54, paddingBottom: 28, justifyContent: "center" }, successCircle: { width: 84, height: 84, borderRadius: 42, backgroundColor: "#2EB785", alignItems: "center", justifyContent: "center", alignSelf: "center", borderWidth: 9, borderColor: "#DDF7ED" }, successTitle: { marginTop: 24, fontSize: 23, lineHeight: 29, fontWeight: "800", color: "#256B59", textAlign: "center" }, successText: { fontSize: 13, lineHeight: 19, color: "#5F8E82", textAlign: "center", marginTop: 10, marginBottom: 24 },
+
+  // Interruptor "Horario primero" / "Elegir doctor primero" dentro del paso 2.
+  modeToggle: { flexDirection: "row", backgroundColor: "#EEF1F8", borderRadius: 12, padding: 4, marginBottom: 18 },
+  modeOption: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center" },
+  modeOptionActive: { backgroundColor: "#FFF", ...shadow },
+  modeOptionText: { fontSize: 12, fontWeight: "700", color: "#64748B" }, modeOptionTextActive: { color: "#2F6BFF" },
+
+  // Tarjeta de doctor (paso "elegir doctor", modo doctor primero).
+  doctorCard: { flexDirection: "row", alignItems: "center", minHeight: 68, borderWidth: 1, borderColor: "#E2E6ED", borderRadius: 12, backgroundColor: "#FFF", paddingHorizontal: 13, marginBottom: 10, ...shadow },
+  doctorCardSelected: { borderColor: "#2F6BFF", backgroundColor: "#F8FAFF" },
+  doctorAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#F0F3FF", alignItems: "center", justifyContent: "center", marginRight: 12, overflow: "hidden" },
+  doctorAvatarImg: { width: "100%", height: "100%" },
+  doctorName: { flex: 1, fontSize: 13, fontWeight: "700", color: "#111827" },
+
+  // Día bloqueado en el selector de fecha (doctor sin horario ese día).
+  dayDisabled: { opacity: 0.35 },
+
+  // Tarjeta de método de pago en el paso final.
+  paymentCard: { flexDirection: "row", alignItems: "flex-start", gap: 11, borderWidth: 1, borderColor: "#E2E6ED", borderRadius: 12, backgroundColor: "#FFF", padding: 13, marginBottom: 10, ...shadow },
+  paymentCardSelected: { borderColor: "#2F6BFF", backgroundColor: "#F8FAFF" },
+  paymentIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#F0F3FF", alignItems: "center", justifyContent: "center" },
+  paymentTitle: { fontSize: 13, fontWeight: "700", color: "#111827" }, paymentDescription: { fontSize: 11, color: "#8A94A6", marginTop: 3, lineHeight: 15 },
 });
 
 export default styles;

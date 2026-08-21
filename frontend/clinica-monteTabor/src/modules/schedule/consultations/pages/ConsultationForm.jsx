@@ -21,6 +21,7 @@ import ConsultationDocument from "../pdf/ConsultationDocument";
 import { openPdfInNewTab } from "../pdf/openPdfInNewTab";
 import { showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
+import apiClient from "@/lib/apiClient";
 
 const ConsultationForm = () => {
     const { appointmentId } = useParams();
@@ -81,9 +82,10 @@ const ConsultationForm = () => {
                 : "La consulta médica ha sido registrada con éxito.";
             await showSuccess("¡Guardado!", successMsg);
 
-            // Vuelve a la misma consulta en modo lectura (no al listado) para que se vean
-            // reflejados de inmediato los datos que se acaban de guardar.
-            navigate(`/calendar/consultations/${appointmentId}?mode=view`);
+            // Vuelve al listado de consultas (no se queda en la misma pantalla): quedarse
+            // en la misma consulta en modo lectura se veía casi idéntico a como estaba
+            // antes de guardar, y eso hacía dudar si el guardado realmente se envió.
+            navigate("/calendar/consultations");
         } catch (err) {
             showError(
                 "Error al guardar",
@@ -191,12 +193,31 @@ const ConsultationForm = () => {
     };
 
     // Arma el PDF con el diagnóstico ya cargado en el formulario y los
-    // días de reposo capturados en el modal.
+    // días de reposo capturados en el modal, y además registra la
+    // incapacidad como SickLeave real (antes solo se generaba el PDF,
+    // sin guardar nada: esa incapacidad nunca aparecía en el
+    // expediente del paciente, ver IncapacidadesTab.jsx).
     const handleGenerateIncapacidad = async (restDays) => {
         const values = methods.getValues();
         const diagnosisText = [values?.clinical_data?.diagnosis, values?.clinical_data?.diagnosis_description]
             .filter(Boolean)
             .join(". ");
+
+        const startDate = new Date();
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + (Number(restDays) - 1));
+
+        await apiClient("/sick-leaves", {
+            method: "POST",
+            body: {
+                patient_id: patient?._id,
+                doctor_id: doctor?._id,
+                diagnosis: diagnosisText || "Sin diagnóstico registrado",
+                start_date: startDate.toISOString(),
+                end_date: endDate.toISOString(),
+            },
+        });
+
         await openPdfInNewTab(
             <IncapacidadDocument
                 title={`Incapacidad de ${patientFullName} ${todayFileSafe}`}

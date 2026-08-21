@@ -76,22 +76,24 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <SectionCard title="Procedimientos recientes" action={<VerTodos onClick={() => onNavigateTab?.("Procedimientos")} />}>
-          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-6 gap-y-4 text-sm">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Procedimiento</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Fecha</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Doctor asignado</span>
-            {(patient.procedimientos ?? []).map((p, i) => (
-              <Fragment key={i}>
-                <span className="text-slate-700">{p.nombre}</span>
-                <span className="text-slate-500">{p.fecha}</span>
-                <span className="flex items-center gap-2 text-slate-600">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[9px] font-semibold text-slate-500">
-                    {initials(p.doctor)}
+          <div className="overflow-x-auto">
+            <div className="grid grid-cols-[minmax(120px,1fr)_auto_auto] items-center gap-x-6 gap-y-4 text-sm min-w-[420px]">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Procedimiento</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Fecha</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Doctor asignado</span>
+              {(patient.procedimientos ?? []).map((p, i) => (
+                <Fragment key={i}>
+                  <span className="text-slate-700">{p.nombre}</span>
+                  <span className="text-slate-500">{p.fecha}</span>
+                  <span className="flex items-center gap-2 text-slate-600">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[9px] font-semibold text-slate-500">
+                      {initials(p.doctor)}
+                    </span>
+                    {p.doctor}
                   </span>
-                  {p.doctor}
-                </span>
-              </Fragment>
-            ))}
+                </Fragment>
+              ))}
+            </div>
           </div>
         </SectionCard>
 

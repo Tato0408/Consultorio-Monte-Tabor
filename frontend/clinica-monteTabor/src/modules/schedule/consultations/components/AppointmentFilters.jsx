@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar, Filter, Search, X } from "lucide-react";
+import { Calendar, Search, X } from "lucide-react";
 
 // Límite amplio pero real, evita años absurdos (5 o más dígitos) al
 // escribir a mano en el filtro de fechas, sin restringir la búsqueda
@@ -7,15 +7,8 @@ import { Calendar, Filter, Search, X } from "lucide-react";
 const MIN_DATE_STR = "2000-01-01";
 const MAX_DATE_STR = `${new Date().getFullYear() + 5}-12-31`;
 
-const STATUS_OPTIONS = [
-    { value: "pending, scheduled", label: "Agendados" },
-    { value: "", label: "Todos los estados" },
-    { value: "pending", label: "Agendado (sin confirmar)" },
-    { value: "scheduled", label: "En espera" },
-    { value: "completed", label: "Atendido" },
-    { value: "cancelled", label: "Cancelado" },
-];
-
+// El filtro de estado ya no vive aquí: se movió a tabs dentro de
+// AppointmentTable.jsx, al estilo de TreatmentsPatientsTable.jsx.
 const AppointmentFilters = ({ filters, onChange }) => {
     const hasDateFilter = Boolean(filters.dateFrom || filters.dateTo);
 
@@ -42,7 +35,7 @@ const AppointmentFilters = ({ filters, onChange }) => {
                     <Search size={16} className="text-[#0b66d6]" />
                     Buscar por paciente o doctor
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     {/* El botón de búsqueda vive dentro del input (a la derecha), la
                         clase pr-10 reserva ese espacio para que el texto escrito nunca
                         lo toque. El input nativo ya hace scroll del texto hacia la
@@ -78,13 +71,12 @@ const AppointmentFilters = ({ filters, onChange }) => {
                 </div>
             </div>
 
-            <div className="flex items-start justify-between">
             <div>
                 <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
                     <Calendar size={16} className="text-[#0b66d6]" />
                     Filtro por fechas
                 </div>
-                <div className="flex items-end gap-4">
+                <div className="flex flex-wrap items-end gap-4">
                     <div>
                         <label className="block text-xs text-slate-500 mb-1">Desde</label>
                         <input
@@ -120,24 +112,6 @@ const AppointmentFilters = ({ filters, onChange }) => {
                         </button>
                     )}
                 </div>
-            </div>
-
-            <div className="text-right">
-                <div className="flex items-center justify-end gap-2 text-sm font-medium text-slate-700 mb-2">
-                    <Filter size={16} className="text-[#0b66d6]" />
-                    Filtro por estado
-                </div>
-                <label className="block text-xs text-slate-500 mb-1">Estado actual</label>
-                <select
-                    value={filters.status || ""}
-                    onChange={(e) => onChange({ status: e.target.value })}
-                    className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#0b66d6] min-w-[180px]"
-                >
-                    {STATUS_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                </select>
-            </div>
             </div>
         </div>
     );

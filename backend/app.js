@@ -47,11 +47,13 @@ import swaggerDocument from "./src/utils/montetabor-60e-ptc-api-1.0.0-resolved.j
 import patientPortalRoutes from './src/routes/patientPortal/patientPortal.js'
 import wompiWebhookRoutes from './src/routes/webhooks/wompi.js'
 import wompiRoutes from './src/routes/wompiRoutes.js'
+import limiter from './src/middlewares/limiter.js'
 const app = express();
 
 
 app.set("trust proxy", 1);
 app.use(cookieParser());
+app.use(limiter)
 
 //Para que la API acepte JSON. El "verify" guarda también el cuerpo crudo en
 //req.rawBody, necesario para validar la firma HMAC de los webhooks de Wompi

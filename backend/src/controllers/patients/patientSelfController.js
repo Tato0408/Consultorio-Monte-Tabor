@@ -23,9 +23,11 @@ const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
 // Firma el mismo tipo de token que usa el login. Registrarse
 // funciona como un login escondido: el paciente queda autenticado de
-// inmediato, sin pasar por la pantalla de login.
+// inmediato, sin pasar por la pantalla de login. Misma duración de 30 días que
+// loginPatientController.login, para que esta sesión "escondida" no expire antes que
+// una iniciada por el formulario normal.
 const signPatientToken = (patient) =>
-    jsonwebtoken.sign({ id: patient._id, userType: "patient" }, config.JWT.secret, { expiresIn: "15m" });
+    jsonwebtoken.sign({ id: patient._id, userType: "patient" }, config.JWT.secret, { expiresIn: "30d" });
 
 const toUserPayload = (patient) => ({
     id: patient._id,

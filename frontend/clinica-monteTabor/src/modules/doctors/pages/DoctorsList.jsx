@@ -111,10 +111,10 @@ const DoctorsList = () => {
   const currentItems = doctors.slice(indexOfFirstItem, indexOfLastItem);
 
   return (
-    <div className="p-8 bg-white min-h-screen w-full">
+    <div className="p-4 sm:p-8 bg-white min-h-screen w-full">
       {/* SECCIÓN DEL ENCABEZADO */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Doctores</h1>
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Doctores</h1>
         <p className="text-sm text-slate-400 mt-1">
           Gestiona y administra a los diferentes doctores
         </p>
@@ -122,11 +122,11 @@ const DoctorsList = () => {
 
       <DoctorsStats doctors={doctors} stats={stats} loading={loading} />
 
-      {/* CONTENEDOR EN REJILLA DE 12 COLUMNAS */}
-      <div className="grid grid-cols-12 gap-6 mt-8">
-        
+      {/* CONTENEDOR EN REJILLA DE 12 COLUMNAS (una sola columna en móvil) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-8">
+
         {/* Columna izquierda: tabla y paginador (col-span-9) */}
-        <div className="col-span-9">
+        <div className="lg:col-span-9">
 
           <DoctorsTable
             doctors={doctors}
@@ -138,7 +138,7 @@ const DoctorsList = () => {
         </div>
 
         {/* Columna derecha: tarjeta de perfil (col-span-3) */}
-        <div className="col-span-3">
+        <div className="lg:col-span-3">
           <DoctorProfileCard
             doctor={selectedDoctor}
             onEdit={handleOpenEdit}

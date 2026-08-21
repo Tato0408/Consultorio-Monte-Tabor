@@ -28,6 +28,11 @@ const GenericTable = ({
   // buscador, a su izquierda, para no gastar una fila completa aparte solo para eso, dejando
   // espacio en blanco a la derecha tanto de ese contenido como del buscador.
   headerLeft,
+  // Fila de pestañas (ej. filtro por estado o tipo, ver AppointmentTable.jsx y
+  // TreatmentsPatientsTable.jsx para el mismo estilo) por encima de la barra de
+  // búsqueda. Va dentro del propio contenedor medido por onTableOffsetChange, para
+  // que su altura quede incluida en ese cálculo automáticamente.
+  tabsRow,
   // Filas extra a mostrar por encima de itemsPerPage, sin cambiar de página, para rellenar un
   // espacio vertical disponible (ej. un panel lateral más alto). La paginación (totalPages,
   // qué fila empieza cada página) sigue calculándose con itemsPerPage normal, esto solo
@@ -106,6 +111,7 @@ const GenericTable = ({
 
   return (
     <div ref={rootRef} className="space-y-4">
+      {tabsRow}
       {/* BARRA SUPERIOR CONTROLES */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         

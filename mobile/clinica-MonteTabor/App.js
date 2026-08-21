@@ -35,6 +35,7 @@ import MedicationsScreen from './src/screens/medication/medicationScreen';
 import AppointmentsScreen from './src/screens/appointments/AppointmentsScreen';
 import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
 import NewAppointmentScreen from './src/screens/appointments/NewAppointmentScreen';
+import PayAppointmentScreen from './src/screens/appointments/PayAppointmentScreen';
 import NotificationsScreen from './src/screens/notifications/NotificationsScreen';
 import AppointmentDetailScreen from './src/screens/appointments/AppointmentDetailScreen';
 import ConsultationDetailScreen from './src/screens/appointments/ConsultationDetailScreen';
@@ -74,6 +75,7 @@ function RootNavigator() {
             options={({ route }) => ({ animation: route.params?.tabSwitch ? "none" : "slide_from_right" })}
           />
           <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} />
+          <Stack.Screen name="PayAppointment" component={PayAppointmentScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
           <Stack.Screen name="ConsultationDetail" component={ConsultationDetailScreen} />

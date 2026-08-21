@@ -418,7 +418,10 @@ const DetailPanel = ({ appt, isDoctor, onClose, onRefresh, navigate, canUpdateAp
                     >
                         Ver expediente
                     </button>
-                    {canUpdateAppt && (
+                    {/* Reagendar solo aplica a una cita Programada: pendiente aún
+                        no está confirmada, y cancelada/completada/no_show/expired
+                        ya no se puede reagendar. */}
+                    {canUpdateAppt && appt.status === "scheduled" && (
                         <button
                             onClick={() => navigate(`/calendar/appointments/${appt._id}`, { state: { editMode: true, fromView: "calendar" } })}
                             className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium rounded-lg transition-colors"

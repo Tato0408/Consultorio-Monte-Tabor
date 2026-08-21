@@ -77,11 +77,11 @@ const SchedulePreview = ({ availability, breaks, bufferTime, blockDurations }) =
 
             {isOpen && (
                 <div
-                    className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4"
+                    className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto"
                     onClick={() => setIsOpen(false)}
                 >
                     <div
-                        className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl"
+                        className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex items-center justify-between mb-4">

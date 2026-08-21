@@ -36,17 +36,19 @@ export function VerTodos({ children = "Ver todos", onClick }) {
 // Tarjeta base.
 export function Card({ children, className = "" }) {
   return (
-    <div className={`rounded-2xl border border-slate-100 bg-white p-6 shadow-sm ${className}`}>
+    <div className={`rounded-2xl border border-slate-100 bg-white p-4 sm:p-6 shadow-sm ${className}`}>
       {children}
     </div>
   );
 }
 
-// Tarjeta con cabecera: título y acción a la derecha.
+// Tarjeta con cabecera: título y acción a la derecha. La cabecera envuelve
+// en pantallas angostas (flex-wrap) para que la acción nunca se salga del
+// borde de la tarjeta cuando no cabe junto al título.
 export function SectionCard({ title, action, children, className = "" }) {
   return (
     <Card className={className}>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h3 className="text-[15px] font-semibold text-slate-800">{title}</h3>
         {action}
       </div>

@@ -151,10 +151,16 @@ export default function NotificationBell() {
                                                 </div>
                                             </div>
                                         </button>
+                                        {/* Siempre visible (sin depender de hover): en touch/trackpad el hover
+                                            no siempre se activa antes del tap, así que un botón que solo
+                                            aparece con :hover puede parecer que "no funciona". */}
                                         <button
                                             type="button"
-                                            onClick={() => deleteNotification(n._id)}
-                                            className="absolute right-3 top-3 rounded-lg p-2 text-slate-300 opacity-100 transition-colors hover:bg-rose-50 hover:text-rose-500 sm:opacity-0 sm:group-hover:opacity-100"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                deleteNotification(n._id);
+                                            }}
+                                            className="absolute right-3 top-3 rounded-lg p-2 text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-500"
                                             aria-label={`Eliminar notificación: ${n.title || "Notificación"}`}
                                             title="Eliminar notificación"
                                         >

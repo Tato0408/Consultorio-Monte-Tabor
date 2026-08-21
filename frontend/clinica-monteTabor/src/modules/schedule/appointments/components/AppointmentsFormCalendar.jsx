@@ -130,7 +130,17 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
     }
     return new Date();
   });
-  const [status, setStatus]                   = useState("pending");
+  // Crear o editar una cita desde este formulario siempre la deja en
+  // Programada: cancelar y completar son acciones propias (botón
+  // Cancelar cita, y al finalizar y guardar una consulta), no un
+  // estado que se elija aquí. status solo guarda el estado real ya
+  // cargado, para mostrarlo de forma informativa al ver/editar.
+  const [status, setStatus]                   = useState("scheduled");
+  // Reagendar solo aplica a una cita Programada: pendiente aún no está
+  // confirmada, y cancelada/completada/no_show/expired ya no se puede
+  // reagendar (ver también los botones de origen en AppointmentsGrid.jsx
+  // y AppointmentsCalendar.jsx, que aplican el mismo criterio).
+  const canReschedule = status === "scheduled";
   const [notes, setNotes]                     = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
   const [total, setTotal]                     = useState("");
@@ -213,6 +223,13 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       // la cita), así que el auto relleno de abajo puede aplicar con
       // normalidad.
       justLoadedRef.current = true;
+      // Una cita cancelada o completada ya no se puede reagendar (ver
+      // también los botones de origen en AppointmentsGrid.jsx y
+      // AppointmentsCalendar.jsx, que ni siquiera abren este formulario
+      // en modo edición para esos estados).
+      if (cita.status !== "scheduled") {
+        setIsEditing(false);
+      }
     }).catch(() => showError("No se pudo recuperar la información de la cita."))
       .finally(() => setLoading(false));
   }, [id]);
@@ -274,6 +291,26 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       setFormData(p => ({ ...p, nurse_id: "" }));
     }
   }, [isNurseRequired]);
+
+  // El tipo de cita (catálogo del admin) queda anclado a la categoría
+  // que corresponde al tipo de procedimiento elegido: "consulta" para
+  // Consulta Médica General, "procedimiento" para cualquier
+  // procedimiento real. Así nunca queda una combinación cruzada (ej.
+  // un tipo de cita de procedimiento en una consulta general).
+  const activeCategory = procedure === "general" ? "consulta" : "procedimiento";
+  // "ambos" aparece como opción sin importar el tipo de procedimiento
+  // elegido, es un tipo de cita válido tanto para consulta como para
+  // procedimiento.
+  const filteredAppointmentTypes = appointmentTypes.filter(t => {
+    const category = t.category || "consulta";
+    return category === activeCategory || category === "ambos";
+  });
+  useEffect(() => {
+    if (appointmentType && !filteredAppointmentTypes.some(t => t.name === appointmentType)) {
+      setAppointmentType("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCategory, appointmentTypes]);
 
 
   useEffect(() => {
@@ -393,9 +430,12 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       end_time:          selectedSlot.end_time,
       duration_minutes:  durationMins,
       description:       notes.trim(),
-      status,
+      // Crear o editar desde este formulario siempre deja la cita
+      // Programada (ver tarjeta Estado más abajo): cancelar y
+      // completar son acciones propias, no un valor que se elija aquí.
+      status:            "scheduled",
       total:             Number(total),
-      cancellation_reason: status === "cancelled" ? cancellationReason.trim() : "",
+      cancellation_reason: "",
     };
 
     try {
@@ -494,7 +534,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {id && !isEditing && canUpdateAppt && (
+          {id && !isEditing && canUpdateAppt && canReschedule && (
             <button onClick={() => setIsEditing(true)} disabled={submitting}
               className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
               <Edit2 className="w-3.5 h-3.5" /> Editar
@@ -573,8 +613,14 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 label="Tipo de cita"
                 value={appointmentType}
                 onChange={setAppointmentType}
-                options={appointmentTypes.map(t => ({ value: t.name, label: t.name }))}
-                placeholder={appointmentTypes.length === 0 ? "Sin tipos de cita configurados" : "Sin especificar"}
+                options={filteredAppointmentTypes.map(t => ({ value: t.name, label: t.name }))}
+                placeholder={
+                  filteredAppointmentTypes.length === 0
+                    ? activeCategory === "consulta"
+                      ? "Sin tipos de consulta configurados"
+                      : "Sin tipos de procedimiento configurados"
+                    : "Sin especificar"
+                }
                 disabled={!isEditing}
               />
               <SelectField
@@ -780,27 +826,28 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
         <div className="flex flex-col gap-5">
 
           <SectionCard title="Estado" icon={CheckCircle2}>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                <button key={key} type="button" disabled={!isEditing}
-                  onClick={() => setStatus(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                    status === key ? cfg.color + " ring-2 ring-offset-1 ring-current" : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
-                  } disabled:opacity-60`}
-                >
-                  {cfg.label}
-                </button>
-              ))}
-            </div>
+            {isEditing ? (
+              <>
+                <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold border w-fit ${STATUS_CONFIG.scheduled.color}`}>
+                  {STATUS_CONFIG.scheduled.label}
+                </span>
+                <p className="text-[11px] text-slate-400 mt-2">
+                  Toda cita creada o editada aquí queda Programada. Si desea cancelar una cita o marcarla como completada, hacerlo en sus respectivos apartados del calendario y consultas.
+                </p>
+              </>
+            ) : (
+              <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold border w-fit ${(STATUS_CONFIG[status] || STATUS_CONFIG.scheduled).color}`}>
+                {(STATUS_CONFIG[status] || STATUS_CONFIG.scheduled).label}
+              </span>
+            )}
 
             {status === "cancelled" && (
               <div className="mt-3">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Motivo de cancelación</label>
-                <Textarea disabled={!isEditing} value={cancellationReason}
-                  onChange={e => setCancellationReason(e.target.value)}
-                  placeholder="¿Por qué se canceló la cita?"
+                <Textarea disabled value={cancellationReason}
+                  placeholder="Sin motivo registrado"
                   maxLength={300}
-                  className="min-h-[80px] border-red-200 focus-visible:ring-red-300 bg-red-50/30 rounded-xl resize-none text-sm" />
+                  className="min-h-[80px] border-red-200 bg-red-50/30 rounded-xl resize-none text-sm" />
               </div>
             )}
           </SectionCard>

@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import apiClient from "@/lib/apiClient";
+import { showError, confirmTakeOverAppointment } from "@/lib/alerts";
 
 // El ciclo real de una cita es pending, scheduled, completed o
 // cancelled (ver AppointmentsForm.jsx). scheduled (Programada)
@@ -30,16 +33,56 @@ const formatPersonName = (person) =>
 // siempre entre sí.
 const ROW_GRID = "grid grid-cols-[0.7fr_1.3fr_1.3fr_1.2fr_1fr] gap-x-6 px-8";
 
-const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, completedCount }) => {
+// Mismas pestañas que antes vivían como <select> en AppointmentFilters.jsx,
+// ahora como tabs (mismo estilo que TreatmentsPatientsTable.jsx). "" es
+// "Todos los estados", el punto de partida por defecto.
+const TABS = [
+    { key: "", label: "Todos" },
+    { key: "pending, scheduled", label: "Agendados" },
+    { key: "pending", label: "Sin confirmar" },
+    { key: "scheduled", label: "En espera" },
+    { key: "completed", label: "Atendido" },
+    { key: "cancelled", label: "Cancelado" },
+];
+
+const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, completedCount, statusFilter, onStatusChange }) => {
     const navigate = useNavigate();
-    const { hasPermission } = useAuth();
+    const { user, hasPermission } = useAuth();
     const canAttend = hasPermission("calendar.consultations", "create");
     const canEdit = hasPermission("calendar.consultations", "update");
+    // Evita doble clic mientras se resuelve la auto-asignación de una
+    // consulta sin médico (ver más abajo), por fila para no bloquear
+    // el resto de la tabla mientras tanto.
+    const [claimingId, setClaimingId] = useState(null);
 
-    const handleContinue = (appointmentId) => {
+    // Si la consulta está agendada sin confirmar (pending) y no tiene
+    // médico asignado, quien le dé clic a Continuar pasa a ser
+    // automáticamente su médico atendiente. Si ya tiene un médico
+    // asignado y es otro el que hace clic, se le pide confirmar que
+    // coordinó con ese médico y el paciente antes de seguir; no se
+    // reasigna nada en ese caso, es solo un aviso. Las canceladas
+    // nunca llegan aquí (el botón ni se muestra, ver más abajo).
+    const handleContinue = async (appt) => {
+        if (appt.status === "pending") {
+            const assignedDoctorId = appt.doctor_id?._id || appt.doctor_id || null;
+            if (!assignedDoctorId) {
+                setClaimingId(appt._id);
+                try {
+                    await apiClient(`/appointments/${appt._id}/accept`, { method: "PATCH" });
+                } catch (err) {
+                    showError(err.message || "No se pudo tomar esta consulta.");
+                    return;
+                } finally {
+                    setClaimingId(null);
+                }
+            } else if (assignedDoctorId !== user?.id) {
+                const confirmed = await confirmTakeOverAppointment(formatPersonName(appt.doctor_id));
+                if (!confirmed) return;
+            }
+        }
         // Navega al formulario de consulta. El cambio de estado a
         // completed ocurre al guardar la consulta, no en este click.
-        navigate(`/calendar/consultations/${appointmentId}`);
+        navigate(`/calendar/consultations/${appt._id}`);
     };
 
     return (
@@ -54,6 +97,23 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
                     {completedCount} Atendidas
                 </span>
+            </div>
+
+            <div className="flex items-center gap-1 mb-4 border-b border-slate-100 overflow-x-auto">
+                {TABS.map((t) => (
+                    <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => onStatusChange(t.key)}
+                        className={`px-3 py-2 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+                            (statusFilter || "") === t.key
+                                ? "border-blue-600 text-blue-600"
+                                : "border-transparent text-slate-400 hover:text-slate-600"
+                        }`}
+                    >
+                        {t.label}
+                    </button>
+                ))}
             </div>
 
             {/* Mismo patrón de columnas que la tabla comparativa de Reportes
@@ -116,12 +176,15 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                         >
                                             {canEdit ? "Editar" : "Ver registro"}
                                         </button>
+                                    ) : appt.status === "cancelled" ? (
+                                        <span className="text-xs text-slate-400 italic">No disponible</span>
                                     ) : canAttend ? (
                                         <button
-                                            onClick={() => handleContinue(appt._id)}
-                                            className="bg-[#0b66d6] text-white rounded-lg px-4 py-1.5 text-xs font-medium hover:bg-[#0a59ba]"
+                                            onClick={() => handleContinue(appt)}
+                                            disabled={claimingId === appt._id}
+                                            className="bg-[#0b66d6] text-white rounded-lg px-4 py-1.5 text-xs font-medium hover:bg-[#0a59ba] disabled:opacity-60 disabled:cursor-not-allowed"
                                         >
-                                            Continuar
+                                            {claimingId === appt._id ? "Tomando..." : "Continuar"}
                                         </button>
                                     ) : null}
                                 </div>

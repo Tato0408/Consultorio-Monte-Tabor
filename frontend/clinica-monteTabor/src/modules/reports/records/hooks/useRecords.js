@@ -142,12 +142,18 @@ const toRecordDetail = (patient) => {
       spo2: v.spo2 ?? "—",
     })),
     // El modelo no tiene una duración registrada por procedimiento, se deja
-    // como dato predeterminado hasta que exista ese campo.
+    // como dato predeterminado hasta que exista ese campo. El campo id es el
+    // _id real del subdocumento (Mongoose lo autogenera) y lo necesita el
+    // botón de eliminar; consultationId indica si viene de una consulta (para
+    // advertir en la confirmación que podría reaparecer si esa consulta se
+    // vuelve a editar, ver deleteProcedureHistory en el backend).
     procedimientos: procedures.map((p) => ({
+      id: String(p._id),
       nombre: p.procedure_name || "Procedimiento",
       fecha: formatFecha(p.date) || "—",
       doctor: p.doctor_name || "—",
       duracion: p.duration || "—",
+      consultationId: p.consultation_id ? String(p.consultation_id) : null,
     })),
     antecedentes,
     // El modelo no clasifica el tipo de antecedente (crónico, cardiológico,

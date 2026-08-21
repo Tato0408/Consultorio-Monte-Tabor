@@ -149,6 +149,34 @@ export const confirmDischarge = async () => {
   return result.isConfirmed;
 };
 
+// Se muestra cuando un doctor distinto al ya asignado le da clic a
+// Continuar sobre una consulta agendada sin confirmar (ver
+// AppointmentTable.jsx). Solo es un aviso de coordinación: continuar
+// no reasigna la cita, simplemente permite seguir con la acción ya
+// enterado de que otro médico la solicitó o la está atendiendo.
+export const confirmTakeOverAppointment = async (doctorName) => {
+  const result = await Swal.fire({
+    title: "Cita con médico asignado",
+    text: `Este paciente solicitó ser atendido por el Dr(a). ${doctorName}, o ya está siendo atendido por este médico. Por favor, coordine con el médico y el paciente antes de continuar con esta acción.`,
+    icon: "warning",
+    iconColor: "#fbbf24",
+    showCancelButton: true,
+    confirmButtonText: "Continuar",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#0b66d6",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return result.isConfirmed;
+};
+
 export const confirmCancelAppointment = async () => {
   const result = await Swal.fire({
     title: "¿Cancelar esta cita?",

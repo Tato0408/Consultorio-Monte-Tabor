@@ -54,7 +54,7 @@ const ConsultasDelDia = ({
     <Card className="space-y-6">
 
       {/* Fila de títulos de filtro */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-slate-700 font-medium text-sm">
           <Calendar size={16} className="text-blue-600" />
           Filtro por fechas

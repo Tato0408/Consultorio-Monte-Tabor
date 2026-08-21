@@ -8,7 +8,7 @@ const scheduleController = {};
 // Busca un schedule por doctorId exacto. Si no lo encuentra, busca
 // por nombre del doctor, para resolver el caso donde hay dos entradas
 // del mismo médico con distintos _id.
-const findScheduleByDoctorId = async (doctorId) => {
+export const findScheduleByDoctorId = async (doctorId) => {
     let schedule = await scheduleModel.findOne({ doctor_id: doctorId });
     if (schedule) return schedule;
 
@@ -259,12 +259,20 @@ scheduleController.getPatientDoctorsForSlot = async (req, res) => {
     }
 };
 
-// GET /api/schedule/:doctorId/slots?date=YYYY-MM-DD&duration=30
-// Devuelve los slots libres de un médico para una fecha y duración dada
+// GET /api/schedule/:doctorId/slots?date=YYYY-MM-DD&duration=30&includeBooked=true
+// Devuelve los slots de un médico para una fecha y duración dadas. Por
+// defecto (sin includeBooked) solo devuelve los libres, mismo comportamiento
+// de siempre para el personal (AppointmentsFormCalendar.jsx del panel
+// privado, que espera que todo lo que llegue en "slots" sea seleccionable).
+// Con includeBooked=true (portal público, tanto web como móvil, al elegir
+// doctor primero) también incluye los horarios ya ocupados por otra cita,
+// marcados con available:false, para que el paciente los vea bloqueados en
+// vez de que simplemente desaparezcan de la lista sin explicación.
 scheduleController.getAvailableSlots = async (req, res) => {
     try {
         const { doctorId } = req.params;
-        const { date, duration = 30 } = req.query;
+        const { date, duration = 30, includeBooked } = req.query;
+        const mostrarOcupados = includeBooked === "true";
 
         if (!date) return res.status(400).json({ message: "Se requiere el parámetro 'date'" });
 
@@ -359,9 +367,16 @@ scheduleController.getAvailableSlots = async (req, res) => {
                 // Excluye el slot si se solapa con una cita existente.
                 const isBooked = bookedRanges.some(r => current < r.end && slotEnd > r.start);
 
-                if (!inBreak && !isBooked) {
+                // Un descanso del doctor nunca fue un horario elegible para nadie (a
+                // diferencia de uno ocupado, no es "esta hora ya la tomaron", es "esta
+                // hora no se atiende"), así que ni siquiera con includeBooked se incluye.
+                if (!inBreak && (!isBooked || mostrarOcupados)) {
                     const startStr = `${hh}:${mm}`;
-                    slotsByStart.set(startStr, { start_time: startStr, end_time: `${hhe}:${mme}` });
+                    slotsByStart.set(startStr, {
+                        start_time: startStr,
+                        end_time: `${hhe}:${mme}`,
+                        ...(mostrarOcupados ? { available: !isBooked } : {}),
+                    });
                 }
 
                 current += durationMin + bufferMin;
@@ -375,6 +390,35 @@ scheduleController.getAvailableSlots = async (req, res) => {
         return res.status(200).json({ slots });
     } catch (error) {
         return res.status(500).json({ message: "Error al obtener slots", error: error.message });
+    }
+};
+
+// GET /api/patient-portal/schedule/:doctorId/working-days — qué días de la semana
+// atiende un doctor puntual y sus excepciones de fecha (vacaciones, días no
+// laborables, horario especial), para que el paciente pueda ver bloqueados de
+// entrada los días que no trabaja al elegir doctor primero, sin tener que consultar
+// slot por slot cada fecha. No expone horas ni bloques de tiempo, solo lo necesario
+// para pintar el selector de fecha: eso lo sigue resolviendo getAvailableSlots una
+// vez que el paciente ya eligió un día concreto.
+scheduleController.getDoctorWorkingDays = async (req, res) => {
+    try {
+        const { doctorId } = req.params;
+        const schedule = await findScheduleByDoctorId(doctorId);
+        if (!schedule) return res.status(404).json({ message: "Horario no configurado" });
+
+        const workingDays = schedule.weekly_availability
+            .filter((d) => d.is_available && (d.time_blocks || []).length > 0)
+            .map((d) => d.day);
+
+        const exceptions = schedule.exceptions.map((ex) => ({
+            date: ex.date,
+            end_date: ex.end_date || null,
+            type: ex.type,
+        }));
+
+        return res.status(200).json({ workingDays, exceptions });
+    } catch (error) {
+        return res.status(500).json({ message: "Error al obtener los días laborables", error: error.message });
     }
 };
 

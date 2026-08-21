@@ -1,9 +1,10 @@
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 import SectionCard from "./SectionCard";
+import { maskClinicalText } from "@/lib/inputMasks";
 
 const AntecedentsCard = ({ title, name, fields, readOnly }) => {
-    const { control, register, watch } = useFormContext();
+    const { control, register, setValue, watch } = useFormContext();
 
     // useFieldArray maneja agregar y quitar filas sin necesidad de
     // manipular arrays a mano con setState.
@@ -26,6 +27,13 @@ const AntecedentsCard = ({ title, name, fields, readOnly }) => {
                                     maxLength={field.maxLength || 100}
                                     disabled={readOnly}
                                     {...register(`${name}.${index}.${field.key}`)}
+                                    onChange={(e) =>
+                                        setValue(
+                                            `${name}.${index}.${field.key}`,
+                                            maskClinicalText(e.target.value, field.maxLength || 100),
+                                            { shouldValidate: true }
+                                        )
+                                    }
                                     className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
                                 />
                                 <span className="self-end text-[11px] text-gray-400">

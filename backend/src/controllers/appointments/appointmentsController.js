@@ -645,6 +645,19 @@ appointmentsController.updateAppointment = async (req, res) => {
             return res.status(400).json({ message: numberError });
         }
 
+        // Reagendar solo aplica a una cita Programada (ver
+        // AppointmentsFormCalendar.jsx, que ya no habilita el botón de
+        // editar para ningún otro estado): pendiente aún no está
+        // confirmada, y cancelada/completada/no_show/expired ya no se
+        // puede modificar.
+        const existing = await appointmentsModel.findById(req.params.id).select("status");
+        if (!existing) {
+            return res.status(404).json({ message: "Cita no encontrada" });
+        }
+        if (existing.status !== "scheduled") {
+            return res.status(400).json({ message: "Esta cita ya no puede modificarse." });
+        }
+
         const appointmentUpdated = await appointmentsModel.findByIdAndUpdate(
             req.params.id,
             {

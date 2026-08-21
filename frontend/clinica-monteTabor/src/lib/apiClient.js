@@ -1,4 +1,5 @@
 const API_URL = "https://clinica-monte-tabor.onrender.com/api";
+//const API_URL = "http://localhost:4000/api";
 
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     // Arma la URL de la petición combinando la URL base y el endpoint recibido.

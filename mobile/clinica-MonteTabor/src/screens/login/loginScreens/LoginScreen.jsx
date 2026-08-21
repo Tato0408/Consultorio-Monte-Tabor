@@ -67,8 +67,8 @@ const LoginScreen = ({ navigation }) => {
 
           <View style={styles.form}>
             <FormInput
-              label="Correo"
-              placeholder="Ingresa tu correo"
+              label="Correo electrónico"
+              placeholder="Ingresa tu correo electrónico"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"

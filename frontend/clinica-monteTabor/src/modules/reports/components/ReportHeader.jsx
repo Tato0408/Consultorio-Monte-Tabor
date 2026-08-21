@@ -45,7 +45,7 @@ const ReportHeader = ({
   return (
     <div className="space-y-4">
       {/* Breadcrumb + título + exportar */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
           {breadcrumb && (
             <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-1">
@@ -54,20 +54,21 @@ const ReportHeader = ({
               <span className="text-gray-700 font-medium">{breadcrumb}</span>
             </div>
           )}
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
           {subtitle && <p className="text-sm text-slate-400 mt-1">{subtitle}</p>}
         </div>
 
-        {/* La clase mt-8 baja el botón a la misma altura que el botón Guardar
+        {/* La clase sm:mt-8 baja el botón a la misma altura que el botón Guardar
             cambios de Horarios, para que no choque con la campana de
-            notificaciones (fixed, ver MainLayout.jsx). Este encabezado es
-            compartido por las cuatro páginas de reportes, así que el ajuste
-            aplica a todas a la vez. */}
+            notificaciones (fixed, ver MainLayout.jsx). En móvil se quita ese
+            desplazamiento porque el título ya pasa a su propia línea encima.
+            Este encabezado es compartido por las cuatro páginas de reportes,
+            así que el ajuste aplica a todas a la vez. */}
         <button
           type="button"
           onClick={onExport}
           disabled={exporting || disableExport}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors disabled:opacity-60 mt-8"
+          className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors disabled:opacity-60 sm:mt-8 self-start"
         >
           {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           {exporting ? "Generando..." : "Exportar"}
@@ -78,30 +79,32 @@ const ReportHeader = ({
           general, como si fueran dos pestañas: cuál está resaltada en azul
           indica cuál está activa en este momento, pero el rango de fechas
           nunca se deshabilita, para poder pasar al modo parametrizado con solo
-          elegir una fecha. */}
-      <div className="flex justify-end items-center gap-2 flex-wrap">
+          elegir una fecha. En móvil el filtro ocupa todo el ancho disponible
+          en vez de desbordarse: los dos inputs de fecha se reparten el
+          espacio con flex-1 y min-w-0 en lugar de usar su ancho nativo. */}
+      <div className="flex flex-col sm:flex-row sm:justify-end items-stretch sm:items-center gap-2">
         <div
-          className={`flex items-center gap-2 border rounded-xl px-3 py-2 shadow-sm transition-colors ${
+          className={`flex items-center gap-2 border rounded-xl px-3 py-2 shadow-sm transition-colors w-full sm:w-auto ${
             isGeneral ? "border-slate-200 bg-white" : "border-blue-200 bg-blue-50/40"
           }`}
         >
-          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+          <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
           <input
             type="date"
             min={MIN_DATE_STR}
             max={MAX_DATE_STR}
             value={dateFrom || ""}
             onChange={(e) => onChangeFrom(e.target.value)}
-            className="text-xs font-semibold text-slate-700 outline-none bg-transparent"
+            className="text-xs font-semibold text-slate-700 outline-none bg-transparent min-w-0 flex-1 sm:flex-initial"
           />
-          <span className="text-xs text-slate-400">–</span>
+          <span className="text-xs text-slate-400 flex-shrink-0">–</span>
           <input
             type="date"
             min={MIN_DATE_STR}
             max={MAX_DATE_STR}
             value={dateTo || ""}
             onChange={(e) => onChangeTo(e.target.value)}
-            className="text-xs font-semibold text-slate-700 outline-none bg-transparent"
+            className="text-xs font-semibold text-slate-700 outline-none bg-transparent min-w-0 flex-1 sm:flex-initial"
           />
         </div>
 

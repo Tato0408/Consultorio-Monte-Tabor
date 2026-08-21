@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, ChevronDown, Clock, Stethoscope, CalendarDays, Timer, Wallet, CreditCard } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, ChevronDown, Clock, Stethoscope, CalendarDays, Timer, Wallet, CreditCard, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getProcedures, bookAppointment } from "@/services/appointmentsService";
 import { showError, showSuccess } from "@/lib/alerts";
 import StepIndicator from "../components/StepIndicator";
 import StepTipoAtencion from "../components/StepTipoAtencion";
-import StepDoctor from "../components/StepDoctor";
+import StepChooseDoctor from "../components/StepChooseDoctor";
 import StepFechaHora from "../components/StepFechaHora";
 import TicketCita from "../components/TicketCita";
 
@@ -27,6 +27,97 @@ const METODOS_PAGO = [
   { key: "online", icon: CreditCard, title: "Pagar anticipo en línea", description: "Aparta tu hora pagando el 50% ahora (modo de prueba con Wompi). El resto se paga en recepción." },
 ];
 
+// Interruptor de modo del paso 2: "rápido" (por defecto) muestra primero los horarios
+// agregados entre todos los doctores, igual que la app móvil, y la cita queda sin
+// asignar (cualquier doctor disponible la acepta). "doctor" invierte el orden: se
+// elige doctor primero y luego se filtra el calendario a sus días y horas reales,
+// agregando un paso más al asistente (ver StepIndicator.PASOS_POR_MODO).
+const ModeToggle = ({ modo, onChange }) => (
+  <div className="inline-flex items-center gap-1 bg-gray-100 rounded-xl p-1 mb-6">
+    <button
+      type="button"
+      onClick={() => onChange("rapido")}
+      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+        modo === "rapido" ? "bg-white text-[#3B6FCA] shadow-sm" : "text-gray-500 hover:text-gray-700"
+      }`}
+    >
+      Horario primero
+    </button>
+    <button
+      type="button"
+      onClick={() => onChange("doctor")}
+      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+        modo === "doctor" ? "bg-white text-[#3B6FCA] shadow-sm" : "text-gray-500 hover:text-gray-700"
+      }`}
+    >
+      Elegir doctor primero
+    </button>
+  </div>
+);
+
+// Barra lateral con el resumen de lo elegido hasta el momento. Se reutiliza tanto en
+// el paso de horario agregado (modo rápido) como en el paso de horario ya filtrado
+// por doctor (modo doctor), por eso la fila de doctor es opcional.
+const ResumenCita = ({ tipoLabel, doctor, date, slot, duracion }) => (
+  <div className="w-full lg:w-72 flex-shrink-0">
+    <div className="bg-gray-50 rounded-2xl p-5 sticky top-24">
+      <p className="font-semibold text-gray-800 text-sm mb-4">Resumen de tu cita</p>
+
+      <div className="space-y-3 text-sm">
+        <div className="flex items-start gap-2">
+          <Stethoscope className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-xs text-gray-400">Tipo de atención</p>
+            <p className="font-medium text-gray-700">{tipoLabel}</p>
+          </div>
+        </div>
+        {doctor && (
+          <div className="flex items-start gap-2">
+            <User className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-gray-400">Doctor</p>
+              <p className="font-medium text-gray-700">Dr. {doctor.name} {doctor.last_name}</p>
+            </div>
+          </div>
+        )}
+        {date && (
+          <div className="flex items-start gap-2">
+            <CalendarDays className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-gray-400">Fecha</p>
+              <p className="font-medium text-gray-700 capitalize">{fmtFechaLarga(date)}</p>
+            </div>
+          </div>
+        )}
+        {slot && (
+          <div className="flex items-start gap-2">
+            <Clock className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-gray-400">Hora</p>
+              <p className="font-medium text-gray-700">{fmt12(slot.start_time)} - {fmt12(slot.end_time)}</p>
+            </div>
+          </div>
+        )}
+        <div className="flex items-start gap-2">
+          <Timer className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-xs text-gray-400">Duración</p>
+            <p className="font-medium text-gray-700">{duracion} minutos</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-2 bg-[#3B6FCA]/5 rounded-xl p-3 mt-4">
+        <Clock className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="text-xs font-semibold text-gray-700">Llegar 10 minutos antes</p>
+          <p className="text-xs text-gray-500 mt-0.5">Te recomendamos llegar unos minutos antes de tu cita.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const NewAppointment = () => {
   const navigate = useNavigate();
   const { patient, logout } = useAuth();
@@ -38,9 +129,11 @@ const NewAppointment = () => {
 
   // "general" o el _id de un procedimiento
   const [tipo, setTipo] = useState(null);
+  // "rapido" (por defecto, sin doctor) o "doctor" (elige doctor antes que fecha/hora)
+  const [modo, setModo] = useState("rapido");
   const [date, setDate] = useState(null);
   const [slot, setSlot] = useState(null);
-  // Doctor elegido (o autoseleccionado) en el paso 3, para el horario ya elegido
+  // Solo se usa en modo "doctor". En modo "rapido" la cita queda sin asignar.
   const [doctor, setDoctor] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -69,10 +162,10 @@ const NewAppointment = () => {
     ? "Evaluación con un médico general para problemas de salud comunes."
     : procedimientoSeleccionado?.description;
 
+  const totalSteps = modo === "doctor" ? 4 : 3;
+
   // Elegir un nuevo tipo invalida la fecha/hora/doctor ya elegidos, porque la
-  // duración y disponibilidad dependen del tipo. Elegir una nueva fecha u
-  // horario invalida el doctor, porque los doctores disponibles dependen de
-  // ambos.
+  // duración y disponibilidad dependen del tipo.
   const elegirTipo = (valor) => {
     setTipo(valor);
     setDate(null);
@@ -80,24 +173,40 @@ const NewAppointment = () => {
     setDoctor(null);
   };
 
-  const elegirFecha = (valor) => {
-    setDate(valor);
+  // Cambiar de modo dentro del paso 2 invalida todo lo elegido después de ese paso:
+  // los dos modos calculan la disponibilidad de forma distinta (agregada entre todos
+  // los doctores vs. filtrada a uno puntual), así que no tiene sentido conservarlo.
+  const cambiarModo = (nuevoModo) => {
+    setModo(nuevoModo);
+    setDate(null);
     setSlot(null);
     setDoctor(null);
   };
 
-  const elegirSlot = (valor) => {
-    setSlot(valor);
-    setDoctor(null);
+  const elegirDoctor = (valor) => {
+    setDoctor(valor);
+    setDate(null);
+    setSlot(null);
   };
+
+  const elegirFecha = (valor) => {
+    setDate(valor);
+    setSlot(null);
+  };
+
+  const elegirSlot = (valor) => setSlot(valor);
 
   const goBack = () => setStep((s) => Math.max(1, s - 1));
 
-  const puedeContinuar = (step === 1 && !!tipo) || (step === 2 && !!slot) || (step === 3 && !!doctor);
+  const puedeContinuar =
+    (step === 1 && !!tipo) ||
+    (step === 2 && modo === "rapido" && !!slot) ||
+    (step === 2 && modo === "doctor" && !!doctor) ||
+    (step === 3 && modo === "doctor" && !!slot);
 
   const handleContinuar = () => {
     if (!puedeContinuar) return;
-    setStep((s) => Math.min(4, s + 1));
+    setStep((s) => Math.min(totalSteps, s + 1));
   };
 
   const handleLogout = async () => {
@@ -110,7 +219,9 @@ const NewAppointment = () => {
     try {
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
       const res = await bookAppointment({
-        doctor_id: doctor._id,
+        // undefined en modo rápido: el backend crea la cita sin asignar y notifica a
+        // todos los doctores activos, cualquiera puede aceptarla.
+        doctor_id: doctor?._id,
         date: dateStr,
         start_time: slot.start_time,
         procedure_id: esGeneral ? undefined : tipo,
@@ -125,7 +236,11 @@ const NewAppointment = () => {
       }
 
       setConfirmada(res.appointment);
-      showSuccess("¡Solicitud enviada! Queda pendiente de que el doctor la acepte.");
+      showSuccess(
+        doctor
+          ? "¡Solicitud enviada! Queda pendiente de que el doctor la acepte."
+          : "¡Solicitud enviada! Queda pendiente de que algún doctor disponible la acepte."
+      );
     } catch (err) {
       showError(err.message || "No se pudo agendar la cita.");
     } finally {
@@ -143,7 +258,11 @@ const NewAppointment = () => {
               <CheckCircle2 className="w-7 h-7 text-emerald-600" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Solicitud enviada</h1>
-            <p className="text-gray-500 text-sm mt-1">Tu cita queda pendiente de que el doctor la acepte. Te avisaremos cuando lo haga.</p>
+            <p className="text-gray-500 text-sm mt-1">
+              {confirmada.doctor_id
+                ? "Tu cita queda pendiente de que el doctor la acepte. Te avisaremos cuando lo haga."
+                : "Tu cita queda pendiente de que algún doctor disponible la acepte. Te avisaremos cuando lo haga."}
+            </p>
           </div>
 
           <TicketCita
@@ -209,7 +328,7 @@ const NewAppointment = () => {
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-10">
-        <StepIndicator current={step} />
+        <StepIndicator current={step} modo={modo} />
 
         {loadingCatalogo ? (
           <div className="flex items-center justify-center py-20 text-gray-400 gap-2">
@@ -217,7 +336,7 @@ const NewAppointment = () => {
           </div>
         ) : (
           <>
-            {step === 4 ? (
+            {step === totalSteps ? (
               <div className="max-w-xl mx-auto">
                 <div className="text-center mb-6">
                   <h2 className="text-lg font-bold text-gray-900">¡Todo listo!</h2>
@@ -263,83 +382,52 @@ const NewAppointment = () => {
                 )}
 
                 {step === 2 && (
+                  <div>
+                    <ModeToggle modo={modo} onChange={cambiarModo} />
+
+                    {modo === "rapido" ? (
+                      <div className="flex flex-col lg:flex-row gap-6">
+                        <div className="flex-1 min-w-0">
+                          <StepFechaHora
+                            procedureId={esGeneral ? "general" : tipo}
+                            date={date}
+                            slot={slot}
+                            onSelectDate={elegirFecha}
+                            onSelectSlot={elegirSlot}
+                          />
+                        </div>
+                        <ResumenCita tipoLabel={tipoLabel} doctor={null} date={date} slot={slot} duracion={duracion} />
+                      </div>
+                    ) : (
+                      <StepChooseDoctor
+                        tipoLabel={tipoLabel}
+                        tipoDescription={tipoDescription}
+                        selected={doctor}
+                        onSelect={elegirDoctor}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {step === 3 && modo === "doctor" && (
                   <div className="flex flex-col lg:flex-row gap-6">
                     <div className="flex-1 min-w-0">
                       <StepFechaHora
-                        procedureId={esGeneral ? "general" : tipo}
+                        doctor={doctor}
+                        duration={duracion}
                         date={date}
                         slot={slot}
                         onSelectDate={elegirFecha}
                         onSelectSlot={elegirSlot}
                       />
                     </div>
-
-                    <div className="w-full lg:w-72 flex-shrink-0">
-                      <div className="bg-gray-50 rounded-2xl p-5 sticky top-24">
-                        <p className="font-semibold text-gray-800 text-sm mb-4">Resumen de tu cita</p>
-
-                        <div className="space-y-3 text-sm">
-                          <div className="flex items-start gap-2">
-                            <Stethoscope className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-400">Tipo de atención</p>
-                              <p className="font-medium text-gray-700">{tipoLabel}</p>
-                            </div>
-                          </div>
-                          {date && (
-                            <div className="flex items-start gap-2">
-                              <CalendarDays className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
-                              <div>
-                                <p className="text-xs text-gray-400">Fecha</p>
-                                <p className="font-medium text-gray-700 capitalize">{fmtFechaLarga(date)}</p>
-                              </div>
-                            </div>
-                          )}
-                          {slot && (
-                            <div className="flex items-start gap-2">
-                              <Clock className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
-                              <div>
-                                <p className="text-xs text-gray-400">Hora</p>
-                                <p className="font-medium text-gray-700">{fmt12(slot.start_time)} - {fmt12(slot.end_time)}</p>
-                              </div>
-                            </div>
-                          )}
-                          <div className="flex items-start gap-2">
-                            <Timer className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-400">Duración</p>
-                              <p className="font-medium text-gray-700">{duracion} minutos</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-start gap-2 bg-[#3B6FCA]/5 rounded-xl p-3 mt-4">
-                          <Clock className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700">Llegar 10 minutos antes</p>
-                            <p className="text-xs text-gray-500 mt-0.5">Te recomendamos llegar unos minutos antes de tu cita.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <ResumenCita tipoLabel={tipoLabel} doctor={doctor} date={date} slot={slot} duracion={duracion} />
                   </div>
-                )}
-
-                {step === 3 && (
-                  <StepDoctor
-                    date={date}
-                    slot={slot}
-                    procedureId={esGeneral ? "general" : tipo}
-                    tipoLabel={tipoLabel}
-                    tipoDescription={tipoDescription}
-                    selected={doctor}
-                    onSelect={setDoctor}
-                  />
                 )}
               </div>
             )}
 
-            <div className={`flex justify-between mt-6 ${step === 4 ? "max-w-xl mx-auto" : ""}`}>
+            <div className={`flex justify-between mt-6 ${step === totalSteps ? "max-w-xl mx-auto" : ""}`}>
               {step > 1 ? (
                 <button onClick={goBack} disabled={submitting} className="px-5 py-2.5 rounded-xl text-gray-500 hover:bg-gray-50 text-sm font-medium">
                   ← Atrás
@@ -348,7 +436,7 @@ const NewAppointment = () => {
                 <span />
               )}
 
-              {step < 4 && (
+              {step < totalSteps && (
                 <button
                   disabled={!puedeContinuar}
                   onClick={handleContinuar}
@@ -358,7 +446,7 @@ const NewAppointment = () => {
                 </button>
               )}
 
-              {step === 4 && (
+              {step === totalSteps && (
                 <button
                   onClick={handleConfirmar}
                   disabled={submitting}

@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, MapPin, DollarSign, Info, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { CalendarDays, Clock, MapPin, DollarSign, Info, ShieldCheck, CheckCircle2, User } from "lucide-react";
 
 const fmt12 = (t) => {
   if (!t) return "";
@@ -24,13 +24,17 @@ const TicketCita = ({ doctor, tipoLabel, generalidades, date, startTime, endTime
         <div className="w-11 h-11 rounded-full bg-[#3B6FCA]/10 flex items-center justify-center text-[#3B6FCA] font-bold flex-shrink-0 overflow-hidden">
           {doctor?.img_url ? (
             <img src={doctor.img_url} alt="" className="w-full h-full object-cover" />
+          ) : doctor?.name ? (
+            doctor.name[0]
           ) : (
-            doctor?.name?.[0]
+            <User className="w-5 h-5" />
           )}
         </div>
         <div>
           <p className="text-sm text-gray-400">Atendido por</p>
-          <p className="font-semibold text-gray-800">Dr. {doctor?.name} {doctor?.last_name}</p>
+          <p className="font-semibold text-gray-800">
+            {doctor ? `Dr. ${doctor.name} ${doctor.last_name}` : "Por asignar (cualquier doctor disponible)"}
+          </p>
         </div>
       </div>
 

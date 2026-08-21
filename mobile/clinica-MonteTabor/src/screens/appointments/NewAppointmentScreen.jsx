@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   Text,
   TextInput,
@@ -15,16 +16,27 @@ import { showError } from "../../lib/toast";
 import styles from "../../styles/appointments/newAppointmentStyle";
 
 const GENERAL_SERVICE = { _id: "general", name: "Consulta Médica General", estimated_duration: 30, price: 15 };
-const STEP_LABELS = ["Especialidad", "Fecha y hora", "Confirmación"];
 const SERVICE_ICONS = ["medkit-outline", "heart-outline", "fitness-outline", "bandage-outline", "flask-outline"];
+const PAYMENT_METHODS = [
+  { key: "reception", icon: "wallet-outline", title: "Pagar en recepción", description: "Paga el total en efectivo o con tarjeta el día de tu cita." },
+  { key: "online", icon: "card-outline", title: "Pagar anticipo en línea", description: "Aparta tu hora pagando el 50% ahora (modo de prueba con Wompi). El resto se paga en recepción." },
+];
+
+// Etiquetas del stepper según el modo elegido dentro del paso 2: en modo "rapido" (por
+// defecto, igual a como funcionaba antes esta pantalla) la cita queda sin asignar y
+// cualquier doctor disponible la puede aceptar. En modo "doctor" se elige doctor antes
+// que la fecha, así que se agrega un paso más y la fecha/hora queda filtrada a los
+// días y horas reales de ese doctor.
+const STEP_LABELS_BY_MODE = {
+  rapido: ["Especialidad", "Fecha y hora", "Confirmación"],
+  doctor: ["Especialidad", "Doctor", "Fecha y hora", "Confirmación"],
+};
 
 const toDateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 const longDate = (value) => new Date(`${value}T12:00:00`).toLocaleDateString("es-GT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
-// Días que se muestran en el selector de fecha: ya no se corta en el domingo
-// de la semana calendario, sino que ofrece un rango fijo de días hacia
-// adelante desde hoy, para poder agendar en cualquier fecha con horario libre.
+// Días que se muestran en el selector de fecha: rango fijo hacia adelante desde hoy.
 const UPCOMING_DAYS = 21;
 const getUpcomingDays = () => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -37,26 +49,29 @@ const getUpcomingDays = () => {
   return days;
 };
 
-const Stepper = ({ step }) => (
-  <View style={styles.stepper}>
-    {STEP_LABELS.map((label, index) => {
-      const number = index + 1;
-      const complete = number < step;
-      const active = number === step;
-      return (
-        <React.Fragment key={label}>
-          <View style={styles.stepItem}>
-            <View style={[styles.stepCircle, (active || complete) && styles.stepCircleActive]}>
-              {complete ? <Ionicons name="checkmark" size={14} color="#FFF" /> : <Text style={[styles.stepNumber, active && styles.stepNumberActive]}>{number}</Text>}
+const Stepper = ({ step, modo }) => {
+  const labels = STEP_LABELS_BY_MODE[modo] || STEP_LABELS_BY_MODE.rapido;
+  return (
+    <View style={styles.stepper}>
+      {labels.map((label, index) => {
+        const number = index + 1;
+        const complete = number < step;
+        const active = number === step;
+        return (
+          <React.Fragment key={label}>
+            <View style={styles.stepItem}>
+              <View style={[styles.stepCircle, (active || complete) && styles.stepCircleActive]}>
+                {complete ? <Ionicons name="checkmark" size={14} color="#FFF" /> : <Text style={[styles.stepNumber, active && styles.stepNumberActive]}>{number}</Text>}
+              </View>
+              <Text style={[styles.stepLabel, active && styles.stepLabelActive]}>{label}</Text>
             </View>
-            <Text style={[styles.stepLabel, active && styles.stepLabelActive]}>{label}</Text>
-          </View>
-          {index < STEP_LABELS.length - 1 ? <View style={[styles.stepLine, complete && styles.stepLineActive]} /> : null}
-        </React.Fragment>
-      );
-    })}
-  </View>
-);
+            {index < labels.length - 1 ? <View style={[styles.stepLine, complete && styles.stepLineActive]} /> : null}
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+};
 
 const SummaryRow = ({ icon, label, value }) => (
   <View style={styles.summaryRow}>
@@ -68,14 +83,29 @@ const SummaryRow = ({ icon, label, value }) => (
   </View>
 );
 
+// Interruptor "Horario primero" / "Elegir doctor primero" dentro del paso 2.
+const ModeToggle = ({ modo, onChange }) => (
+  <View style={styles.modeToggle}>
+    <TouchableOpacity style={[styles.modeOption, modo === "rapido" && styles.modeOptionActive]} onPress={() => onChange("rapido")}>
+      <Text style={[styles.modeOptionText, modo === "rapido" && styles.modeOptionTextActive]}>Horario primero</Text>
+    </TouchableOpacity>
+    <TouchableOpacity style={[styles.modeOption, modo === "doctor" && styles.modeOptionActive]} onPress={() => onChange("doctor")}>
+      <Text style={[styles.modeOptionText, modo === "doctor" && styles.modeOptionTextActive]}>Elegir doctor</Text>
+    </TouchableOpacity>
+  </View>
+);
+
 export default function NewAppointmentScreen({ navigation }) {
   const [step, setStep] = useState(1);
   const [services, setServices] = useState([GENERAL_SERVICE]);
   const [selectedId, setSelectedId] = useState(null);
+  // "rapido" (por defecto, sin doctor) o "doctor" (elige doctor antes que fecha/hora)
+  const [modo, setModo] = useState("rapido");
   const [date, setDate] = useState(toDateKey(new Date()));
   const [slots, setSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState("");
   const [description, setDescription] = useState("");
+  const [metodoPago, setMetodoPago] = useState("reception");
   const [loading, setLoading] = useState(true);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -85,6 +115,18 @@ export default function NewAppointmentScreen({ navigation }) {
   const selectedService = services.find((service) => service._id === selectedId);
   const selectedSlot = slots.find((slot) => slot.start_time === selectedTime);
 
+  // Paso "elegir doctor" (modo doctor primero): solo doctores con horario configurado.
+  const [doctors, setDoctors] = useState([]);
+  const [doctorsLoading, setDoctorsLoading] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  // Días laborables y excepciones del doctor elegido, para bloquear en el selector de
+  // fecha los días que no atiende. null mientras no aplica ningún bloqueo (modo rápido
+  // o mientras todavía no llega la respuesta).
+  const [workingDays, setWorkingDays] = useState(null);
+  const [exceptions, setExceptions] = useState([]);
+
+  const totalSteps = modo === "doctor" ? 4 : 3;
+
   useEffect(() => {
     apiClient("/appointments/patient/procedures")
       .then((response) => setServices([GENERAL_SERVICE, ...(response.data || [])]))
@@ -92,20 +134,86 @@ export default function NewAppointmentScreen({ navigation }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Lista de doctores agendables al entrar en modo "doctor".
   useEffect(() => {
-    if (step !== 2 || !selectedId) return;
+    if (modo !== "doctor") return;
+    setDoctorsLoading(true);
+    apiClient("/patient-portal/doctors-schedulable")
+      .then((response) => setDoctors(response || []))
+      .catch((error) => { setDoctors([]); showError(error.message || "No se pudieron cargar los doctores."); })
+      .finally(() => setDoctorsLoading(false));
+  }, [modo]);
+
+  // Días laborables del doctor elegido, para bloquear el selector de fecha.
+  useEffect(() => {
+    if (!selectedDoctor) { setWorkingDays(null); setExceptions([]); return; }
+    apiClient(`/patient-portal/schedule/${selectedDoctor._id}/working-days`)
+      .then((response) => { setWorkingDays(response.workingDays || []); setExceptions(response.exceptions || []); })
+      .catch(() => { setWorkingDays([]); setExceptions([]); });
+  }, [selectedDoctor]);
+
+  // Horarios: agregados entre todos los doctores (paso 2, modo rápido) o del doctor ya
+  // elegido (paso 3, modo doctor). Ambos casos ocurren en el paso donde vive el
+  // selector de fecha y hora de cada modo.
+  useEffect(() => {
+    const enPasoDeHorarioRapido = modo === "rapido" && step === 2;
+    const enPasoDeHorarioDoctor = modo === "doctor" && step === 3;
+    if (!enPasoDeHorarioRapido && !enPasoDeHorarioDoctor) return;
+    if (!selectedId) return;
+    if (enPasoDeHorarioDoctor && !selectedDoctor) return;
+
     setSlotsLoading(true);
     setSelectedTime("");
-    apiClient("/schedule/patient-available-slots", { params: { date, procedure_id: selectedId } })
+    // includeBooked: true trae también los horarios ya ocupados por otra cita de este
+    // doctor (marcados con available:false), para pintarlos bloqueados en vez de que
+    // simplemente desaparezcan de la lista sin explicación.
+    const solicitud = enPasoDeHorarioDoctor
+      ? apiClient(`/patient-portal/schedule/${selectedDoctor._id}/slots`, { params: { date, duration: selectedService?.estimated_duration || 30, includeBooked: true } })
+      : apiClient("/schedule/patient-available-slots", { params: { date, procedure_id: selectedId } });
+
+    solicitud
       .then((response) => setSlots(response.slots || []))
       .catch((error) => { setSlots([]); showError(error.message || "No se pudo consultar la disponibilidad."); })
       .finally(() => setSlotsLoading(false));
-  }, [date, selectedId, step]);
+  }, [date, selectedId, step, modo, selectedDoctor]);
+
+  // Un día cae dentro de una excepción bloqueante (vacaciones, día no laborable) si su
+  // fecha está en el rango [date, end_date]. "special_hours" no bloquea el día, solo
+  // cambia el horario dentro de él (ya lo resuelve el cálculo de slots del servidor).
+  const fechaDentroDeExcepcionBloqueante = (key) => exceptions.some((ex) => {
+    if (ex.type === "special_hours") return false;
+    const desde = new Date(ex.date).toISOString().slice(0, 10);
+    const hasta = ex.end_date ? new Date(ex.end_date).toISOString().slice(0, 10) : desde;
+    return key >= desde && key <= hasta;
+  });
+
+  const diaDeshabilitado = (day, key) => {
+    if (workingDays === null) return false;
+    if (!workingDays.includes(day.getDay())) return true;
+    return fechaDentroDeExcepcionBloqueante(key);
+  };
+
+  const cambiarModo = (nuevoModo) => {
+    setModo(nuevoModo);
+    setDate(toDateKey(new Date()));
+    setSelectedTime("");
+    setSlots([]);
+    setSelectedDoctor(null);
+  };
+
+  const elegirDoctor = (doctor) => {
+    setSelectedDoctor(doctor);
+    setDate(toDateKey(new Date()));
+    setSelectedTime("");
+    setSlots([]);
+  };
 
   const next = () => {
     if (step === 1 && !selectedService) return showError("Selecciona el tipo de consulta.");
-    if (step === 2 && !selectedSlot) return showError("Selecciona un horario disponible.");
-    setStep((current) => Math.min(current + 1, 3));
+    if (step === 2 && modo === "rapido" && !selectedSlot) return showError("Selecciona un horario disponible.");
+    if (step === 2 && modo === "doctor" && !selectedDoctor) return showError("Selecciona un doctor.");
+    if (step === 3 && modo === "doctor" && !selectedSlot) return showError("Selecciona un horario disponible.");
+    setStep((current) => Math.min(current + 1, totalSteps));
   };
 
   const goBack = () => {
@@ -117,16 +225,26 @@ export default function NewAppointmentScreen({ navigation }) {
     if (description.trim() && description.trim().length < 3) return showError("El motivo debe tener al menos 3 caracteres.");
     setSaving(true);
     try {
-      await apiClient("/appointments/patient", {
+      const response = await apiClient("/patient-portal/appointments", {
         method: "POST",
         body: {
-          procedure_id: selectedId,
-          date: `${date}T00:00:00.000Z`,
+          // undefined en modo rápido: la cita queda sin asignar y la puede aceptar
+          // cualquier doctor disponible.
+          doctor_id: selectedDoctor?._id,
+          procedure_id: selectedId === "general" ? undefined : selectedId,
+          date,
           start_time: selectedSlot.start_time,
-          end_time: selectedSlot.end_time,
-          description: description.trim(),
+          description: description.trim() || undefined,
+          payment_method: metodoPago,
         },
       });
+
+      // Pagar en línea: la cita queda "pending" y se pasa a la pantalla de pago propia.
+      if (response.requiresPayment) {
+        navigation.navigate("PayAppointment", { appointmentId: response.appointment._id, tabSwitch: false });
+        return;
+      }
+
       setSuccess(true);
     } catch (error) {
       showError(error.message || "No se pudo agendar la cita.");
@@ -141,9 +259,14 @@ export default function NewAppointmentScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.successContent}>
           <View style={styles.successCircle}><Ionicons name="checkmark" size={45} color="#FFF" /></View>
           <Text style={styles.successTitle}>¡Cita solicitada con éxito!</Text>
-          <Text style={styles.successText}>Tu solicitud quedó pendiente. Un doctor podrá aceptarla y verás cualquier cambio en Consultas.</Text>
+          <Text style={styles.successText}>
+            {selectedDoctor
+              ? "Tu solicitud quedó pendiente de que el doctor la acepte. Verás cualquier cambio en Consultas."
+              : "Tu solicitud quedó pendiente. Cualquier doctor disponible podrá aceptarla y verás cualquier cambio en Consultas."}
+          </Text>
           <View style={styles.summaryCard}>
             <SummaryRow icon="medkit-outline" label="Servicio" value={selectedService.name} />
+            {selectedDoctor && <SummaryRow icon="person-outline" label="Doctor" value={`Dr. ${selectedDoctor.name} ${selectedDoctor.last_name}`} />}
             <SummaryRow icon="calendar-outline" label="Fecha" value={longDate(date)} />
             <SummaryRow icon="time-outline" label="Hora" value={`${selectedSlot.start_time} – ${selectedSlot.end_time}`} />
             <SummaryRow icon="hourglass-outline" label="Estado" value="Pendiente de asignación" />
@@ -165,6 +288,15 @@ export default function NewAppointmentScreen({ navigation }) {
   }
 
   const filteredServices = services.filter((service) => service.name.toLowerCase().includes(search.trim().toLowerCase()));
+  // El paso de confirmación (step === totalSteps) nunca depende de esta validación: para
+  // llegar ahí ya se cumplieron todos los pasos anteriores, y su botón se controla aparte
+  // con "saving" únicamente (ver el TouchableOpacity del footer).
+  const puedeContinuar =
+    step === totalSteps ||
+    (step === 1 && !!selectedService) ||
+    (step === 2 && modo === "rapido" && !!selectedSlot) ||
+    (step === 2 && modo === "doctor" && !!selectedDoctor) ||
+    (step === 3 && modo === "doctor" && !!selectedSlot);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -173,7 +305,7 @@ export default function NewAppointmentScreen({ navigation }) {
         <Text style={styles.headerTitle}>Agendar cita</Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}><Ionicons name="close" size={23} color="#111827" /></TouchableOpacity>
       </View>
-      <Stepper step={step} />
+      <Stepper step={step} modo={modo} />
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {step === 1 ? (
@@ -199,14 +331,63 @@ export default function NewAppointmentScreen({ navigation }) {
 
         {step === 2 ? (
           <>
+            <ModeToggle modo={modo} onChange={cambiarModo} />
+
+            {modo === "rapido" ? (
+              <>
+                <Text style={styles.title}>Elige la fecha y hora</Text>
+                <Text style={styles.subtitle}>Mostramos horarios donde hay al menos un doctor disponible</Text>
+                <View style={styles.panel}>
+                  <Text style={styles.panelTitle}>Selecciona fecha</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.days}>
+                    {upcomingDays.map((day) => {
+                      const key = toDateKey(day); const active = key === date;
+                      return <TouchableOpacity key={key} style={[styles.day, active && styles.dayActive]} onPress={() => setDate(key)}>
+                        <Text style={[styles.dayName, active && styles.dayTextActive]}>{day.toLocaleDateString("es-GT", { weekday: "short" }).replace(".", "")}</Text>
+                        <Text style={[styles.dayNumber, active && styles.dayTextActive]}>{day.getDate()}</Text>
+                      </TouchableOpacity>;
+                    })}
+                  </ScrollView>
+                  <Text style={[styles.panelTitle, styles.timeTitle]}>Selecciona hora</Text>
+                  {slotsLoading ? <ActivityIndicator color="#2F6BFF" style={styles.loader} /> : slots.length ? (
+                    <View style={styles.slots}>{slots.map((slot) => (
+                      <TouchableOpacity key={slot.start_time} style={[styles.slot, selectedTime === slot.start_time && styles.slotActive]} onPress={() => setSelectedTime(slot.start_time)}>
+                        <Text style={[styles.slotText, selectedTime === slot.start_time && styles.slotTextActive]}>{slot.start_time}</Text>
+                      </TouchableOpacity>
+                    ))}</View>
+                  ) : <View style={styles.noSlots}><Ionicons name="time-outline" size={24} color="#B7791F" /><Text style={styles.noSlotsText}>No hay horarios disponibles para esta fecha.</Text></View>}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.title}>Elige tu doctor</Text>
+                <Text style={styles.subtitle}>Solo se muestran doctores con horario ya configurado</Text>
+                {doctorsLoading ? <ActivityIndicator color="#2F6BFF" style={styles.loader} /> : doctors.length === 0 ? (
+                  <View style={styles.noSlots}><Ionicons name="alert-circle-outline" size={24} color="#B7791F" /><Text style={styles.noSlotsText}>No hay doctores con horario configurado por el momento.</Text></View>
+                ) : doctors.map((doctor) => (
+                  <TouchableOpacity key={doctor._id} style={[styles.doctorCard, selectedDoctor?._id === doctor._id && styles.doctorCardSelected]} onPress={() => elegirDoctor(doctor)}>
+                    <View style={styles.doctorAvatar}>
+                      {doctor.img_url ? <Image source={{ uri: doctor.img_url }} style={styles.doctorAvatarImg} /> : <Ionicons name="person" size={20} color="#5368D9" />}
+                    </View>
+                    <Text style={styles.doctorName}>Dr. {doctor.name} {doctor.last_name}</Text>
+                    <Ionicons name={selectedDoctor?._id === doctor._id ? "checkmark-circle" : "chevron-forward"} size={21} color={selectedDoctor?._id === doctor._id ? "#2F6BFF" : "#111827"} />
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+          </>
+        ) : null}
+
+        {step === 3 && modo === "doctor" ? (
+          <>
             <Text style={styles.title}>Elige la fecha y hora</Text>
-            <Text style={styles.subtitle}>Mostramos horarios donde hay al menos un doctor disponible</Text>
+            <Text style={styles.subtitle}>Días y horarios disponibles de Dr. {selectedDoctor?.name} {selectedDoctor?.last_name}</Text>
             <View style={styles.panel}>
               <Text style={styles.panelTitle}>Selecciona fecha</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.days}>
                 {upcomingDays.map((day) => {
-                  const key = toDateKey(day); const active = key === date;
-                  return <TouchableOpacity key={key} style={[styles.day, active && styles.dayActive]} onPress={() => setDate(key)}>
+                  const key = toDateKey(day); const active = key === date; const disabled = diaDeshabilitado(day, key);
+                  return <TouchableOpacity key={key} disabled={disabled} style={[styles.day, active && styles.dayActive, disabled && styles.dayDisabled]} onPress={() => setDate(key)}>
                     <Text style={[styles.dayName, active && styles.dayTextActive]}>{day.toLocaleDateString("es-GT", { weekday: "short" }).replace(".", "")}</Text>
                     <Text style={[styles.dayNumber, active && styles.dayTextActive]}>{day.getDate()}</Text>
                   </TouchableOpacity>;
@@ -214,27 +395,52 @@ export default function NewAppointmentScreen({ navigation }) {
               </ScrollView>
               <Text style={[styles.panelTitle, styles.timeTitle]}>Selecciona hora</Text>
               {slotsLoading ? <ActivityIndicator color="#2F6BFF" style={styles.loader} /> : slots.length ? (
-                <View style={styles.slots}>{slots.map((slot) => (
-                  <TouchableOpacity key={slot.start_time} style={[styles.slot, selectedTime === slot.start_time && styles.slotActive]} onPress={() => setSelectedTime(slot.start_time)}>
-                    <Text style={[styles.slotText, selectedTime === slot.start_time && styles.slotTextActive]}>{slot.start_time}</Text>
-                  </TouchableOpacity>
-                ))}</View>
+                <View style={styles.slots}>{slots.map((slot) => {
+                  const ocupado = slot.available === false;
+                  return (
+                    <TouchableOpacity
+                      key={slot.start_time}
+                      disabled={ocupado}
+                      style={[styles.slot, selectedTime === slot.start_time && styles.slotActive, ocupado && styles.slotDisabled]}
+                      onPress={() => setSelectedTime(slot.start_time)}
+                    >
+                      <Text style={[styles.slotText, selectedTime === slot.start_time && styles.slotTextActive, ocupado && styles.slotTextDisabled]}>
+                        {slot.start_time}
+                      </Text>
+                      {ocupado && <Text style={styles.slotOccupiedLabel}>Ocupado</Text>}
+                    </TouchableOpacity>
+                  );
+                })}</View>
               ) : <View style={styles.noSlots}><Ionicons name="time-outline" size={24} color="#B7791F" /><Text style={styles.noSlotsText}>No hay horarios disponibles para esta fecha.</Text></View>}
             </View>
           </>
         ) : null}
 
-        {step === 3 ? (
+        {step === totalSteps ? (
           <>
             <Text style={styles.title}>Confirma los detalles de tu cita</Text>
             <Text style={styles.subtitle}>Revisa que la información sea correcta</Text>
             <View style={styles.summaryCard}>
               <SummaryRow icon="medkit-outline" label="Servicio" value={selectedService.name} />
+              {selectedDoctor && <SummaryRow icon="person-outline" label="Doctor" value={`Dr. ${selectedDoctor.name} ${selectedDoctor.last_name}`} />}
               <SummaryRow icon="calendar-outline" label="Fecha" value={longDate(date)} />
               <SummaryRow icon="time-outline" label="Hora" value={`${selectedSlot.start_time} – ${selectedSlot.end_time}`} />
               <SummaryRow icon="cash-outline" label="Costo" value={money(selectedService.price)} />
               <SummaryRow icon="hourglass-outline" label="Estado inicial" value="Pendiente de asignación" />
             </View>
+
+            <Text style={[styles.panelTitle, styles.timeTitle]}>Método de pago</Text>
+            {PAYMENT_METHODS.map((method) => (
+              <TouchableOpacity key={method.key} style={[styles.paymentCard, metodoPago === method.key && styles.paymentCardSelected]} onPress={() => setMetodoPago(method.key)}>
+                <View style={styles.paymentIcon}><Ionicons name={method.icon} size={18} color="#5368D9" /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.paymentTitle}>{method.title}</Text>
+                  <Text style={styles.paymentDescription}>{method.description}</Text>
+                </View>
+                <Ionicons name={metodoPago === method.key ? "checkmark-circle" : "ellipse-outline"} size={20} color={metodoPago === method.key ? "#2F6BFF" : "#CBD5E1"} />
+              </TouchableOpacity>
+            ))}
+
             <Text style={styles.inputLabel}>Motivo de la consulta <Text style={styles.optional}>(opcional)</Text></Text>
             <TextInput
               value={description}
@@ -252,8 +458,8 @@ export default function NewAppointmentScreen({ navigation }) {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity disabled={saving} style={[styles.primaryButton, ((step === 1 && !selectedService) || (step === 2 && !selectedSlot) || saving) && styles.buttonDisabled]} onPress={step === 3 ? save : next}>
-          {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryButtonText}>{step === 3 ? "Confirmar cita" : "Continuar"}</Text>}
+        <TouchableOpacity disabled={saving} style={[styles.primaryButton, (!puedeContinuar || saving) && styles.buttonDisabled]} onPress={step === totalSteps ? save : next}>
+          {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryButtonText}>{step === totalSteps ? (metodoPago === "online" ? "Pagar anticipo" : "Confirmar cita") : "Continuar"}</Text>}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

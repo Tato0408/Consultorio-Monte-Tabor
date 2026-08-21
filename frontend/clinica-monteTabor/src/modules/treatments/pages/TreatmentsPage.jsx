@@ -67,26 +67,26 @@ const TreatmentsPage = () => {
         </div>
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Columna principal */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
+        {/* Estadísticas: fila superior completa */}
+        <div className="order-1 lg:col-start-1 lg:col-span-8 lg:row-start-1">
           <TreatmentsStats stats={stats} loading={loading} />
+        </div>
 
+        {/* Tabla de pacientes en seguimiento */}
+        <div className="order-2 lg:col-start-1 lg:col-span-8 lg:row-start-2">
           <TreatmentsPatientsTable
             patients={patients}
             loading={loading}
             onSelectPatient={(p) => setSelectedPatientId(p.id)}
             selectedPatientId={selectedPatient?.id}
           />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <EvolutionChart data={chartData} loading={loading} />
-            <UpcomingControls controls={upcomingControls} loading={loading} />
-          </div>
         </div>
 
-        {/* Panel lateral del paciente seleccionado */}
-        <div className="lg:col-span-4">
-          <div className="sticky top-6">
+        {/* Panel del paciente seleccionado: en móvil va justo debajo de la tabla
+            (orden de apilado), en escritorio queda fijo a la derecha abarcando
+            la altura de estadísticas, tabla y gráficas. */}
+        <div className="order-3 lg:col-start-9 lg:col-span-4 lg:row-start-1 lg:row-span-3">
+          <div className="lg:sticky lg:top-6">
             <PatientTreatmentPanel
               patient={selectedPatient}
               onClose={() => setSelectedPatientId(null)}
@@ -102,6 +102,12 @@ const TreatmentsPage = () => {
               onDischarge={() => discharge(selectedPatient.id)}
             />
           </div>
+        </div>
+
+        {/* Gráficas: fila inferior completa */}
+        <div className="order-4 lg:col-start-1 lg:col-span-8 lg:row-start-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <EvolutionChart data={chartData} loading={loading} />
+          <UpcomingControls controls={upcomingControls} loading={loading} />
         </div>
       </div>
       )}

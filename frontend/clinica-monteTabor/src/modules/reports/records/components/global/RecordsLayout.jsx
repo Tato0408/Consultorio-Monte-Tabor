@@ -21,7 +21,7 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
   const fullName = `${patient.nombre ?? ""} ${patient.apellido ?? ""}`.trim();
 
   return (
-    <div className="min-h-screen bg-white px-10 py-6 text-slate-800">
+    <div className="min-h-screen bg-white px-4 sm:px-10 py-6 text-slate-800">
       {/* Breadcrumb */}
       <nav className="mb-5 flex items-center gap-2 text-sm">
         {onBack ? (
@@ -39,14 +39,16 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
         <span className="font-semibold text-slate-800">{fullName || "Paciente"}</span>
       </nav>
 
-      {/* Tabs (navegación por tabIndex) */}
-      <div className="mb-6 flex gap-8 border-b border-slate-100">
+      {/* Tabs (navegación por tabIndex). overflow-x-auto y whitespace-nowrap
+          evitan que las seis pestañas se salgan del ancho de la pantalla en
+          móvil: en vez de desbordar, la fila se desplaza horizontalmente. */}
+      <div className="mb-6 flex gap-5 sm:gap-8 border-b border-slate-100 overflow-x-auto">
         {tabs.map((t, i) => (
           <button
             key={t.label}
             type="button"
             onClick={() => setTab(i)}
-            className={`relative -mb-px pb-3 text-sm transition-colors ${
+            className={`relative -mb-px flex-shrink-0 whitespace-nowrap pb-3 text-sm transition-colors ${
               current === i ? "font-medium text-blue-600" : "text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -75,9 +77,9 @@ function PatientBar({ patient, onPatientUpdated }) {
   const female = (patient.sexo || patient.sexoCorto || "").toLowerCase().startsWith("f");
 
   return (
-    <div className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-slate-100 pb-6">
+    <div className="flex flex-wrap items-center gap-x-6 sm:gap-x-8 gap-y-4 border-b border-slate-100 pb-6">
       {/* Avatar y nombre */}
-      <div className="flex items-center gap-3 pr-6">
+      <div className="flex items-center gap-3 pr-4 sm:pr-6">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-2xl text-blue-500">
           {female ? "♀" : "♂"}
         </div>
