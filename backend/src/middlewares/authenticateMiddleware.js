@@ -23,7 +23,18 @@ export const authenticate = (req, res, next) => {
                 .json({ message: "No se encontró la cookie de sesión, se requiere autorización" });
         }
 
-        const decoded = jsonwebToken.verify(token, config.JWT.secret);
+        let decoded;
+        try {
+            decoded = jsonwebToken.verify(token, config.JWT.secret);
+        } catch (verifyError) {
+            // Igual que validateAuthCookie: un token vencido o inválido no es una
+            // falla real del servidor, así que se responde 401 (no 500) para que
+            // el cliente pueda distinguirlo y cerrar la sesión automáticamente.
+            if (verifyError.name === "TokenExpiredError") {
+                return res.status(401).json({ message: "Tu sesión expiró, inicia sesión de nuevo." });
+            }
+            return res.status(401).json({ message: "Sesión inválida, inicia sesión de nuevo." });
+        }
 
         req.user = { id: decoded.id, role: decoded.userType };
 

@@ -9,6 +9,7 @@ import medicationLogModel from "../../models/medicationLog/medicationLog.js";
 import patientsModel from "../../models/patients/patients.js";
 import notificationModel from "../../models/notifications/notification.js";
 import nursesModel from "../../models/nurses/nurses.js";
+import appointmentTypeModel from "../../models/appointmentTypes/appointmentType.js";
 import { isNurseAvailable } from "../../controllers/schedule/nurseScheduleController.js";
 import { getTransactionStatus } from "../../utils/wompi.js";
 
@@ -51,6 +52,27 @@ const getDayRange = (dateStr) => {
     const start = new Date(year, month - 1, day, 0, 0, 0, 0);
     const end = new Date(year, month - 1, day, 23, 59, 59, 999);
     return { start, end };
+};
+
+// Resuelve automáticamente el "appointment_type" (catálogo del admin, el que pinta
+// la leyenda/color en el calendario) para una cita agendada desde el portal del
+// paciente, que nunca lo elige a mano (a diferencia del formulario del panel privado,
+// ver AppointmentsFormCalendar.jsx). Sin esto la cita queda con el color/etiqueta
+// genéricos de respaldo (ver FALLBACK_COLOR en AppointmentsCalendar.jsx) en vez de la
+// etiqueta real creada por el admin en Horarios > Tipos de cita.
+// Primero intenta calzar por nombre exacto (con el procedimiento elegido, o con
+// "Consulta Médica General"); si no hay coincidencia, cae al primer tipo de esa
+// categoría (o "ambos") como mejor aproximación, en vez de dejarlo vacío.
+const resolveAppointmentType = async (category, matchName) => {
+    const candidates = await appointmentTypeModel
+        .find({ category: { $in: [category, "ambos"] } })
+        .select("name")
+        .lean();
+    if (candidates.length === 0) return undefined;
+    const exact = matchName
+        ? candidates.find((t) => t.name.trim().toLowerCase() === matchName.trim().toLowerCase())
+        : null;
+    return (exact || candidates[0]).name;
 };
 
 // Convierte una fecha a formato YYYY-MM-DD en hora local.
@@ -220,7 +242,7 @@ patientPortalController.bookAppointment = async (req, res) => {
         }
 
         // Según sea consulta general o un procedimiento, se arma tipo/duración/precio/indicaciones
-        let type, duration, total, instructions, procedureRef, requiresNurse = false;
+        let type, duration, total, instructions, procedureRef, procedureName, requiresNurse = false;
         if (procedure_id) {
             const procedure = await procedureModel.findOne({ _id: procedure_id, is_active: true });
             if (!procedure) {
@@ -231,6 +253,7 @@ patientPortalController.bookAppointment = async (req, res) => {
             total = Number(procedure.price) || 0;
             instructions = procedure.pre_care_instructions || GENERAL_CONSULT.instructions;
             procedureRef = procedure._id;
+            procedureName = procedure.name;
             requiresNurse = !!procedure.requires_nurse;
         } else {
             type = GENERAL_CONSULT.type;
@@ -239,6 +262,14 @@ patientPortalController.bookAppointment = async (req, res) => {
             instructions = GENERAL_CONSULT.instructions;
             procedureRef = undefined;
         }
+
+        // El paciente nunca elige el tipo de cita del catálogo del admin (a diferencia
+        // del formulario del panel privado): se resuelve solo para que la cita no quede
+        // con la etiqueta/color genéricos de respaldo en el calendario.
+        const appointmentTypeName = await resolveAppointmentType(
+            procedure_id ? "procedimiento" : "consulta",
+            procedure_id ? procedureName : GENERAL_CONSULT.type
+        );
 
         const end_time = addMinutes(start_time, duration);
         const { start: dayStart, end: dayEnd } = getDayRange(date);
@@ -288,6 +319,7 @@ patientPortalController.bookAppointment = async (req, res) => {
             patient_id: req.user.id,
             procedure_id: procedureRef,
             type,
+            appointment_type: appointmentTypeName,
             date: dayStart,
             start_time,
             end_time,

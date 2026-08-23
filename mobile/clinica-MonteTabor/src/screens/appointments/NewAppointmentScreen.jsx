@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
+import { formatTime12h } from "../../utils/date";
 import styles from "../../styles/appointments/newAppointmentStyle";
 
 const GENERAL_SERVICE = { _id: "general", name: "Consulta Médica General", estimated_duration: 30, price: 15 };
@@ -70,6 +71,66 @@ const Stepper = ({ step, modo }) => {
         );
       })}
     </View>
+  );
+};
+
+// Igual que StepFechaHora.jsx (web): horarios agrupados por franja según la hora de
+// inicio, en el mismo orden Mañana/Tarde/Noche.
+const FRANJAS = [
+  { key: "manana", label: "Mañana", icon: "sunny-outline" },
+  { key: "tarde", label: "Tarde", icon: "partly-sunny-outline" },
+  { key: "noche", label: "Noche", icon: "moon-outline" },
+];
+
+const groupSlotsByFranja = (slots) => {
+  const grupos = { manana: [], tarde: [], noche: [] };
+  for (const s of slots) {
+    const hora = Number(String(s.start_time).split(":")[0]);
+    if (hora < 12) grupos.manana.push(s);
+    else if (hora < 18) grupos.tarde.push(s);
+    else grupos.noche.push(s);
+  }
+  return grupos;
+};
+
+// Cuadrícula de horarios agrupada por franja, con hora de inicio + hora de finalización
+// en cada botón — mismo formato que usa el paso de fecha/hora en la web (StepFechaHora.jsx).
+const SlotPicker = ({ slots, selectedTime, onSelect }) => {
+  const franjas = groupSlotsByFranja(slots);
+  return (
+    <>
+      {FRANJAS.map(({ key, label, icon }) =>
+        franjas[key].length === 0 ? null : (
+          <View key={key} style={styles.franjaBlock}>
+            <View style={styles.franjaHeader}>
+              <Ionicons name={icon} size={13} color="#64748B" />
+              <Text style={styles.franjaLabel}>{label}</Text>
+            </View>
+            <View style={styles.slots}>
+              {franjas[key].map((slot) => {
+                const ocupado = slot.available === false;
+                const active = selectedTime === slot.start_time;
+                return (
+                  <TouchableOpacity
+                    key={slot.start_time}
+                    disabled={ocupado}
+                    style={[styles.slot, active && styles.slotActive, ocupado && styles.slotDisabled]}
+                    onPress={() => onSelect(slot.start_time)}
+                  >
+                    <Text style={[styles.slotText, active && styles.slotTextActive, ocupado && styles.slotTextDisabled]}>
+                      {formatTime12h(slot.start_time)}
+                    </Text>
+                    <Text style={[styles.slotSubText, active && styles.slotSubTextActive, ocupado && styles.slotTextDisabled]}>
+                      {ocupado ? "Ocupado" : `hasta ${formatTime12h(slot.end_time)}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )
+      )}
+    </>
   );
 };
 
@@ -134,13 +195,22 @@ export default function NewAppointmentScreen({ navigation }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // Lista de doctores agendables al entrar en modo "doctor".
+  // Lista de doctores agendables al entrar en modo "doctor". Se guarda el paso actual en
+  // un ref para que, si la respuesta llega tarde (después de que el paciente ya eligió
+  // doctor y avanzó al paso de horarios), no aparezca un error de "no se pudieron cargar
+  // los doctores" fuera de lugar: para entonces esa lista ya no importa.
+  const stepRef = useRef(step);
+  useEffect(() => { stepRef.current = step; }, [step]);
+
   useEffect(() => {
     if (modo !== "doctor") return;
     setDoctorsLoading(true);
     apiClient("/patient-portal/doctors-schedulable")
       .then((response) => setDoctors(response || []))
-      .catch((error) => { setDoctors([]); showError(error.message || "No se pudieron cargar los doctores."); })
+      .catch((error) => {
+        setDoctors([]);
+        if (stepRef.current === 2) showError(error.message || "No se pudieron cargar los doctores.");
+      })
       .finally(() => setDoctorsLoading(false));
   }, [modo]);
 
@@ -350,11 +420,7 @@ export default function NewAppointmentScreen({ navigation }) {
                   </ScrollView>
                   <Text style={[styles.panelTitle, styles.timeTitle]}>Selecciona hora</Text>
                   {slotsLoading ? <ActivityIndicator color="#2F6BFF" style={styles.loader} /> : slots.length ? (
-                    <View style={styles.slots}>{slots.map((slot) => (
-                      <TouchableOpacity key={slot.start_time} style={[styles.slot, selectedTime === slot.start_time && styles.slotActive]} onPress={() => setSelectedTime(slot.start_time)}>
-                        <Text style={[styles.slotText, selectedTime === slot.start_time && styles.slotTextActive]}>{slot.start_time}</Text>
-                      </TouchableOpacity>
-                    ))}</View>
+                    <SlotPicker slots={slots} selectedTime={selectedTime} onSelect={setSelectedTime} />
                   ) : <View style={styles.noSlots}><Ionicons name="time-outline" size={24} color="#B7791F" /><Text style={styles.noSlotsText}>No hay horarios disponibles para esta fecha.</Text></View>}
                 </View>
               </>
@@ -395,22 +461,7 @@ export default function NewAppointmentScreen({ navigation }) {
               </ScrollView>
               <Text style={[styles.panelTitle, styles.timeTitle]}>Selecciona hora</Text>
               {slotsLoading ? <ActivityIndicator color="#2F6BFF" style={styles.loader} /> : slots.length ? (
-                <View style={styles.slots}>{slots.map((slot) => {
-                  const ocupado = slot.available === false;
-                  return (
-                    <TouchableOpacity
-                      key={slot.start_time}
-                      disabled={ocupado}
-                      style={[styles.slot, selectedTime === slot.start_time && styles.slotActive, ocupado && styles.slotDisabled]}
-                      onPress={() => setSelectedTime(slot.start_time)}
-                    >
-                      <Text style={[styles.slotText, selectedTime === slot.start_time && styles.slotTextActive, ocupado && styles.slotTextDisabled]}>
-                        {slot.start_time}
-                      </Text>
-                      {ocupado && <Text style={styles.slotOccupiedLabel}>Ocupado</Text>}
-                    </TouchableOpacity>
-                  );
-                })}</View>
+                <SlotPicker slots={slots} selectedTime={selectedTime} onSelect={setSelectedTime} />
               ) : <View style={styles.noSlots}><Ionicons name="time-outline" size={24} color="#B7791F" /><Text style={styles.noSlotsText}>No hay horarios disponibles para esta fecha.</Text></View>}
             </View>
           </>

@@ -27,14 +27,19 @@ const styles = StyleSheet.create({
   panelTitle: { fontSize: 13, fontWeight: "800", color: "#111827", marginBottom: 12 }, days: { gap: 8 },
   day: { width: 55, height: 70, borderRadius: 12, borderWidth: 1, borderColor: "#E2E6ED", alignItems: "center", justifyContent: "center" },
   dayActive: { backgroundColor: "#2F6BFF", borderColor: "#2F6BFF" }, dayName: { fontSize: 10, color: "#64748B", textTransform: "uppercase" }, dayNumber: { fontSize: 17, fontWeight: "800", color: "#111827", marginTop: 5 }, dayTextActive: { color: "#FFF" },
-  timeTitle: { marginTop: 22 }, slots: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-  slot: { width: "30.5%", borderWidth: 1, borderColor: "#DDE2EA", borderRadius: 9, paddingVertical: 11, alignItems: "center" }, slotActive: { backgroundColor: "#2F6BFF", borderColor: "#2F6BFF" }, slotText: { fontSize: 12, fontWeight: "700", color: "#334155" }, slotTextActive: { color: "#FFF" },
+  timeTitle: { marginTop: 22 },
+  // Bloque de horarios agrupados por franja (Mañana/Tarde/Noche), igual que en la web.
+  franjaBlock: { marginBottom: 14 },
+  franjaHeader: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 },
+  franjaLabel: { fontSize: 10, fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: 0.3 },
+  slots: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+  slot: { width: "30.5%", borderWidth: 1, borderColor: "#DDE2EA", borderRadius: 9, paddingVertical: 9, alignItems: "center" }, slotActive: { backgroundColor: "#2F6BFF", borderColor: "#2F6BFF" }, slotText: { fontSize: 12, fontWeight: "700", color: "#334155" }, slotTextActive: { color: "#FFF" },
+  slotSubText: { fontSize: 9, color: "#94A3B8", marginTop: 2 }, slotSubTextActive: { color: "rgba(255,255,255,0.75)" },
   // Horario ya ocupado por otra cita del doctor (ver includeBooked en la llamada a
   // /schedule/:doctorId/slots): se muestra tachado y deshabilitado en vez de
   // desaparecer de la lista, para que el paciente entienda por qué no puede elegirlo.
   slotDisabled: { backgroundColor: "#F1F5F9", borderColor: "#E2E8F0" },
   slotTextDisabled: { color: "#94A3B8", textDecorationLine: "line-through" },
-  slotOccupiedLabel: { fontSize: 9, fontWeight: "600", color: "#94A3B8", marginTop: 2 },
   noSlots: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "#FFFBEB", borderRadius: 10, padding: 13 }, noSlotsText: { flex: 1, fontSize: 12, color: "#92400E" },
   summaryCard: { backgroundColor: "#FFF", borderRadius: 14, borderWidth: 1, borderColor: "#E2E6ED", padding: 16, ...shadow },
   summaryRow: { flexDirection: "row", alignItems: "center", minHeight: 54 }, summaryIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#F0F3FF", alignItems: "center", justifyContent: "center", marginRight: 11 }, summaryText: { flex: 1 }, summaryLabel: { fontSize: 11, color: "#8A94A6" }, summaryValue: { fontSize: 13, fontWeight: "700", color: "#111827", marginTop: 2, textTransform: "capitalize" },
