@@ -8,12 +8,21 @@ export default StyleSheet.create({
   backButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, textAlign: "center", fontSize: 15, fontWeight: "800", color: "#111827" },
 
-  // ── Hub: dos botones grandes apilados, ocupando toda la pantalla ──
-  hubContent: { flex: 1, padding: 18, gap: 16 },
-  hubButton: { flex: 1, borderRadius: 22, padding: 22, justifyContent: "flex-end", ...shadow },
-  hubButtonIconWrap: { width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center", marginBottom: 14 },
-  hubButtonTitle: { color: "#FFF", fontSize: 20, fontWeight: "800" },
-  hubButtonSubtitle: { color: "rgba(255,255,255,0.85)", fontSize: 12.5, marginTop: 4, lineHeight: 17 },
+  // ── Hub: dos cards pastel apiladas, mismo lenguaje visual que el resto de la app
+  // (fondo tenue + insignia de ícono a color + link con chevron, ver appointmentsStyle.js) ──
+  hubContent: { flex: 1, padding: 18, gap: 14 },
+  docTypeCard: { flex: 1, borderRadius: 20, borderWidth: 1, padding: 20, justifyContent: "center", ...shadow },
+  docTypeIconWrap: { width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 14 },
+  docTypeTitle: { fontSize: 18, fontWeight: "800", color: "#111827" },
+  docTypeSubtitle: { fontSize: 12, color: "#64748B", marginTop: 4, lineHeight: 17 },
+
+  docTypeStatsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 18, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(15,23,42,0.08)" },
+  docTypeStatsLabel: { fontSize: 11, color: "#64748B", fontWeight: "600" },
+  docTypeStatsValue: { fontSize: 22, fontWeight: "800", color: "#111827", marginTop: 2 },
+  docTypeStatsIconWrap: { width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.6)", alignItems: "center", justifyContent: "center" },
+
+  docTypeLinkRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 14 },
+  docTypeLinkText: { fontSize: 12.5, fontWeight: "700" },
 
   // ── Lista de documentos ──
   listContent: { padding: 18, paddingBottom: 38, flexGrow: 1 },
