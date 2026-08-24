@@ -47,7 +47,6 @@ const nurseScheduleSchema = new Schema({
 
     buffer_time:         { type: Number, default: 10 },
     buffer_time_options: { type: [Number], default: [0, 5, 10, 15, 20, 30] },
-    block_durations:     { type: [Number], default: [15, 30, 45, 60] },
     allow_outside_hours: { type: Boolean, default: false }
 
 }, {

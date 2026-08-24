@@ -11,6 +11,7 @@ import { getNonNegativeError } from "../../utils/validators.js";
 
 const appointmentsController = {};
 const GENERAL_CONSULTATION_PRICE = 15;
+const GENERAL_CONSULTATION_DURATION = 30;
 
 // Resuelve tipo, duración y precio del servicio elegido por el paciente,
 // tomando el catálogo del servidor o la consulta general por defecto.
@@ -37,6 +38,41 @@ async function resolvePatientService(procedureId) {
     };
 }
 
+const toMinutes = (t) => {
+    const [h, m] = String(t || "0:0").split(":").map(Number);
+    return h * 60 + m;
+};
+
+// A diferencia del paciente (que siempre toma type/duración/total del
+// catálogo), el personal sí puede fijar un costo distinto al de lista
+// (descuentos, tarifas especiales), así que total no se fuerza aquí. Lo que
+// sí se valida es que duration_minutes sea coherente con el horario elegido
+// y, si hay procedimiento, con su duración real — evita que una cita quede
+// con datos internamente contradictorios si el formulario falla o cambia.
+async function validateStaffServiceCoherence({ procedure_id, type, duration_minutes, start_time, end_time }) {
+    const rangeMinutes = toMinutes(end_time) - toMinutes(start_time);
+    if (rangeMinutes <= 0 || Number(duration_minutes) !== rangeMinutes) {
+        return "La duración no coincide con el horario seleccionado.";
+    }
+
+    if (!procedure_id || procedure_id === "general") {
+        if (type !== "Consulta Médica General" || Number(duration_minutes) !== GENERAL_CONSULTATION_DURATION) {
+            return "Los datos de la consulta general no son válidos.";
+        }
+        return null;
+    }
+
+    const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: true })
+        .select("estimated_duration");
+    if (!procedure) {
+        return "El procedimiento seleccionado no está disponible.";
+    }
+    if (type !== "Procedimiento" || Number(duration_minutes) !== (Number(procedure.estimated_duration) || 30)) {
+        return "Los datos del procedimiento no son válidos.";
+    }
+    return null;
+}
+
 // Interpreta "YYYY-MM-DD" como año/mes/día locales, evitando el corrimiento
 // de un día que provoca leer una fecha UTC con métodos de hora local.
 function getDayRange(dateInput) {
@@ -53,31 +89,6 @@ function getDayRange(dateInput) {
     const start = new Date(year, month - 1, day, 0, 0, 0, 0);
     const end = new Date(year, month - 1, day, 23, 59, 59, 999);
     return { start, end };
-}
-
-// La fecha de la cita se guarda como medianoche UTC y la hora vive en
-// start_time. Se reconstruye como fecha/hora local para impedir cambios una
-// vez que la cita ya comenzÃ³, incluso si su estado aÃºn no fue actualizado.
-function hasAppointmentStarted(appointment, now = new Date()) {
-    const date = new Date(appointment.date);
-    const [hours, minutes] = String(appointment.start_time || "00:00")
-        .split(":")
-        .map(Number);
-
-    if (Number.isNaN(date.getTime()) || !Number.isFinite(hours) || !Number.isFinite(minutes)) {
-        return false;
-    }
-
-    const startsAt = new Date(
-        date.getUTCFullYear(),
-        date.getUTCMonth(),
-        date.getUTCDate(),
-        hours,
-        minutes,
-        0,
-        0
-    );
-    return startsAt <= now;
 }
 
 // Tiempo máximo que una cita puede esperar sin que ningún doctor la acepte
@@ -377,80 +388,6 @@ appointmentsController.getAppointmentById = async (req, res) => {
     }
 };
 
-// Calcula los horarios libres de un doctor para una fecha y duración dadas.
-appointmentsController.getAvailableSlots = async (req, res) => {
-    try {
-        const { doctor_id, date, duration = 30 } = req.query;
-
-        if (!doctor_id || !date) {
-            return res.status(400).json({
-                message: "doctor_id y date son obligatorios"
-            });
-        }
-
-        const { start: dayStart, end: dayEnd } = getDayRange(date);
-
-        // Citas del doctor ese día (las canceladas no ocupan horario).
-        const appointments = await appointmentsModel.find({
-            doctor_id,
-            date: { $gte: dayStart, $lte: dayEnd },
-            status: { $ne: "cancelled" }
-        });
-
-        const occupied = appointments.map(a => a.start_time);
-
-        const allSlots = [
-            "9:00 AM",
-            "9:30 AM",
-            "10:00 AM",
-            "10:30 AM",
-            "11:00 AM",
-            "11:30 AM",
-            "1:00 PM",
-            "1:30 PM",
-            "2:00 PM",
-            "2:30 PM",
-            "3:00 PM",
-            "3:30 PM",
-            "4:00 PM",
-            "4:30 PM",
-        ];
-
-        // Convierte "hh:mm AM/PM" a minutos desde medianoche.
-        const toMinutes = (time) => {
-            const [clock, period] = time.split(" ");
-            let [h, m] = clock.split(":").map(Number);
-
-            if (period === "PM" && h !== 12) h += 12;
-            if (period === "AM" && h === 12) h = 0;
-
-            return h * 60 + m;
-        };
-
-        const clinicClose = toMinutes("5:00 PM");
-
-        // Descarta los slots que terminarían después del cierre o que ya están ocupados.
-        const availableSlots = allSlots.filter(slot => {
-            const start = toMinutes(slot);
-
-            if (start + Number(duration) > clinicClose)
-                return false;
-
-            return !occupied.includes(slot);
-        });
-
-        res.json({
-            availableSlots
-        });
-
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({
-            message: "Error interno del servidor"
-        });
-    }
-};
-
 // Crea una cita nueva.
 appointmentsController.insertAppointment = async (req, res) => {
     try {
@@ -542,6 +479,13 @@ appointmentsController.insertAppointment = async (req, res) => {
             return res.status(400).json({ message: numberError });
         }
 
+        if (req.user.role !== "patient") {
+            const coherenceError = await validateStaffServiceCoherence({ procedure_id, type, duration_minutes, start_time, end_time });
+            if (coherenceError) {
+                return res.status(400).json({ message: coherenceError });
+            }
+        }
+
         const newAppointment = new appointmentsModel({
             doctor_id,
             patient_id,
@@ -569,8 +513,10 @@ appointmentsController.insertAppointment = async (req, res) => {
                 ? "Recepción te asignó una nueva cita."
                 : "Se te asignó una nueva cita.",
             patientMessage: "La clínica registró una cita para ti.",
+            nurseMessage: "Se te asignó como enfermera de una nueva cita.",
             doctorTitle: "Nueva cita asignada",
             patientTitle: "Nueva cita registrada",
+            nurseTitle: "Nueva cita asignada",
             type: "appointment_created",
             actor: req.user,
         }).catch((error) => console.log("Error notificando nueva cita:", error));
@@ -645,6 +591,11 @@ appointmentsController.updateAppointment = async (req, res) => {
             return res.status(400).json({ message: numberError });
         }
 
+        const coherenceError = await validateStaffServiceCoherence({ procedure_id, type, duration_minutes, start_time, end_time });
+        if (coherenceError) {
+            return res.status(400).json({ message: coherenceError });
+        }
+
         // Reagendar solo aplica a una cita Programada (ver
         // AppointmentsFormCalendar.jsx, que ya no habilita el botón de
         // editar para ningún otro estado): pendiente aún no está
@@ -686,8 +637,10 @@ appointmentsController.updateAppointment = async (req, res) => {
         await notifyAppointmentRecipients(appointmentUpdated, {
             doctorMessage: "Una cita asignada a ti fue actualizada.",
             patientMessage: "La información de tu cita fue actualizada.",
+            nurseMessage: "Una cita asignada a ti fue actualizada.",
             doctorTitle: "Cita actualizada",
             patientTitle: "Tu cita fue actualizada",
+            nurseTitle: "Cita actualizada",
             type: "appointment_updated",
             actor: req.user,
         }).catch((error) => console.log("Error notificando actualización de cita:", error));
@@ -765,21 +718,24 @@ appointmentsController.cancelPatientAppointment = async (req, res) => {
         if (!appointment) {
             return res.status(404).json({ message: "Cita no encontrada." });
         }
+        // Se puede cancelar en cualquier momento, incluso si la cita ya comenz\u00f3 o su fecha
+        // ya pas\u00f3, mientras no est\u00e9 ya completada/cancelada/no presentada/vencida (misma
+        // regla en las tres plataformas, ver patientPortalController.cancelMyAppointment
+        // para la web y AppointmentDetailScreen.jsx para el cliente m\u00f3vil).
         if (["completed", "cancelled", "no_show", "expired"].includes(appointment.status)) {
             return res.status(400).json({ message: "Esta cita ya no puede cancelarse." });
-        }
-        if (hasAppointmentStarted(appointment)) {
-            return res.status(400).json({ message: "No puedes cancelar una cita que ya comenz\u00f3 o cuya fecha ya pas\u00f3." });
         }
 
         appointment.status = "cancelled";
         appointment.cancellation_reason = reason;
         await appointment.save();
 
-        if (appointment.doctor_id) {
+        if (appointment.doctor_id || appointment.nurse_id) {
             await notifyAppointmentRecipients(appointment, {
                 doctorMessage: "El paciente canceló una cita asignada a ti.",
+                nurseMessage: "El paciente canceló una cita asignada a ti.",
                 doctorTitle: "Cita cancelada por el paciente",
+                nurseTitle: "Cita cancelada por el paciente",
                 type: "appointment_cancelled",
                 actor: req.user,
             }).catch((error) => console.log("Error notificando cancelación del paciente:", error));
@@ -801,8 +757,10 @@ appointmentsController.deleteAppointment = async (req, res) => {
         await notifyAppointmentRecipients(appointment, {
             doctorMessage: "Una cita asignada a ti fue eliminada.",
             patientMessage: "Una cita registrada para ti fue eliminada.",
+            nurseMessage: "Una cita asignada a ti fue eliminada.",
             doctorTitle: "Cita eliminada",
             patientTitle: "Cita eliminada",
+            nurseTitle: "Cita eliminada",
             type: "appointment_deleted",
             navigable: false,
             actor: req.user,
@@ -815,6 +773,19 @@ appointmentsController.deleteAppointment = async (req, res) => {
 };
 
 // Cambia únicamente el status de una cita (y el motivo si se cancela).
+// Transiciones permitidas desde cada estado actual. completed/cancelled/no_show/expired
+// son finales: una vez ahí, esta ruta ya no puede volver a moverla (antes se podía
+// "reabrir" una cita completada o cancelada de vuelta a scheduled con solo mandar ese
+// status, sin ninguna validación).
+const VALID_STATUS_TRANSITIONS = {
+    pending: ["cancelled"],
+    scheduled: ["completed", "cancelled", "no_show"],
+    completed: [],
+    cancelled: [],
+    no_show: [],
+    expired: [],
+};
+
 appointmentsController.updateAppointmentStatus = async (req, res) => {
     try {
         const { status, cancellation_reason } = req.body;
@@ -822,21 +793,32 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
         if (!status) {
             return res.status(400).json({ message: "El estado es requerido." });
         }
-
-        const update = { status };
-        if (status === "cancelled" && cancellation_reason) {
-            update.cancellation_reason = cancellation_reason.trim();
+        // El modelo no restringe "status" a un enum (ver appointments.js), así que sin esto
+        // cualquier texto se guardaba tal cual. Se valida acá, en el único lugar donde el
+        // valor viene directo del cliente sin pasar por un flujo dedicado (aceptar,
+        // asignar, cancelar).
+        if (!Object.keys(VALID_STATUS_TRANSITIONS).includes(status)) {
+            return res.status(400).json({ message: "Estado inválido." });
         }
 
-        const appointmentUpdated = await appointmentsModel.findByIdAndUpdate(
-            req.params.id,
-            update,
-            { new: true }
-        );
-
-        if (!appointmentUpdated) {
+        const appointment = await appointmentsModel.findById(req.params.id);
+        if (!appointment) {
             return res.status(404).json({ message: "Cita no encontrada" });
         }
+
+        const permitido = VALID_STATUS_TRANSITIONS[appointment.status] || [];
+        if (!permitido.includes(status)) {
+            return res.status(400).json({
+                message: `No se puede cambiar una cita de "${appointment.status}" a "${status}".`,
+            });
+        }
+
+        appointment.status = status;
+        if (status === "cancelled" && cancellation_reason) {
+            appointment.cancellation_reason = cancellation_reason.trim();
+        }
+        await appointment.save();
+        const appointmentUpdated = appointment;
 
         const statusLabels = {
             pending: "Pendiente",
@@ -850,8 +832,10 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
         await notifyAppointmentRecipients(appointmentUpdated, {
             doctorMessage: `El estado de una cita asignada a ti cambió a ${translatedStatus}.`,
             patientMessage: `El estado de tu cita cambió a ${translatedStatus}.`,
+            nurseMessage: `El estado de una cita asignada a ti cambió a ${translatedStatus}.`,
             doctorTitle: "Estado de cita actualizado",
             patientTitle: "Estado de tu cita actualizado",
+            nurseTitle: "Estado de cita actualizado",
             type: status === "cancelled" ? "appointment_cancelled" : "appointment_status_changed",
             actor: req.user,
         }).catch((error) => console.log("Error notificando cambio de estado:", error));
@@ -937,7 +921,9 @@ appointmentsController.acceptAppointment = async (req, res) => {
 
         await notifyAppointmentRecipients(accepted, {
             patientMessage: `${doctorName} aceptó tu cita.`,
+            nurseMessage: "Se te asignó como enfermera de una cita aceptada por el doctor.",
             patientTitle: "Cita aceptada",
+            nurseTitle: "Nueva cita asignada",
             type: "appointment_accepted",
             actor: req.user,
         }).catch((error) => console.log("Error notificando aceptación de cita:", error));
@@ -1018,8 +1004,10 @@ appointmentsController.assignDoctor = async (req, res) => {
         await notifyAppointmentRecipients(assigned, {
             doctorMessage: "Se te asignó una nueva cita.",
             patientMessage: "Tu cita fue asignada a un doctor.",
+            nurseMessage: "Se te asignó como enfermera de una nueva cita.",
             doctorTitle: "Nueva cita asignada",
             patientTitle: "Doctor asignado a tu cita",
+            nurseTitle: "Nueva cita asignada",
             type: "appointment_assigned",
             actor: req.user,
         }).catch((error) => console.log("Error notificando asignación de cita:", error));

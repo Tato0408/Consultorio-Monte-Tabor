@@ -23,6 +23,10 @@ const fmt12 = (t) => {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 };
 const timeToMins = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+// Misma duración fija que GENERAL_CONSULT.duration en patientPortalController.js:
+// una Consulta Médica General ya no elige duración a mano (antes salía de
+// block_durations, la lista propia de cada doctor), siempre son 30 min.
+const GENERAL_DURATION = 30;
 
 const STATUS_CONFIG = {
   pending:   { label: "Pendiente",   color: "bg-amber-100 text-amber-700 border-amber-200" },
@@ -144,7 +148,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   const [notes, setNotes]                     = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
   const [total, setTotal]                     = useState("");
-  const [duration, setDuration]               = useState(30);
+  const [duration, setDuration]               = useState(GENERAL_DURATION);
   const [availableSlots, setAvailableSlots]   = useState([]);
   const [slotsLoading, setSlotsLoading]       = useState(false);
   const [selectedSlot, setSelectedSlot]       = useState(null);
@@ -242,29 +246,6 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       .catch(() => setScheduleData(null));
   }, [formData.doctor_id]);
 
-  // Las duraciones seleccionables no son fijas, cada doctor arma su
-  // propia lista (block_durations, ver ScheduleSettingsSection.jsx).
-  // Al cambiar de doctor, si la duración elegida no está en su lista,
-  // se usa la primera disponible para no pedir horarios con una
-  // duración que ese doctor no ofrece. Esto solo aplica a Consulta
-  // Médica General, un procedimiento real fija su propia duración
-  // (ver el efecto de auto relleno más abajo).
-  const durationOptions = scheduleData?.block_durations?.length ? scheduleData.block_durations : [15, 30, 45, 60];
-  useEffect(() => {
-    if (procedure !== "general") return;
-    // Al editar una cita ya guardada, scheduleData pasa primero por un
-    // valor placeholder ({_id: cita.schedule_id}, sin block_durations)
-    // mientras se carga el horario real del doctor (ver el useEffect
-    // de arriba). Sin este guard, ese placeholder hacía caer
-    // durationOptions al valor genérico por defecto y reseteaba la
-    // duración ya guardada de la cita antes de que el horario real
-    // terminara de cargar. Solo se reajusta una vez que se conoce la
-    // lista real de duraciones del doctor.
-    if (!scheduleData?.block_durations?.length) return;
-    if (!durationOptions.includes(duration)) setDuration(durationOptions[0]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleData, procedure]);
-
   // Procedimiento seleccionado (objeto completo) y si exige asignar enfermera.
   const selectedProcedure = procedures.find(p => p._id === procedure);
   const isNurseRequired = procedure !== "general" && !!selectedProcedure?.requires_nurse;
@@ -278,6 +259,14 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   useEffect(() => {
     if (justLoadedRef.current) { justLoadedRef.current = false; return; }
     if (procedure === "general") {
+      // La duración de una Consulta Médica General ya no la elige el
+      // usuario (antes salía de block_durations, ver
+      // ScheduleSettingsSection.jsx): queda fija en GENERAL_DURATION,
+      // igual que en el portal del paciente (GENERAL_CONSULT.duration
+      // en patientPortalController.js). Sin este reseteo explícito,
+      // volver de un procedimiento real a Consulta Médica General
+      // dejaba pegada la duración del procedimiento anterior.
+      setDuration(GENERAL_DURATION);
       setTotal("15");
     } else if (selectedProcedure) {
       setDuration(Number(selectedProcedure.estimated_duration) || 30);
@@ -305,12 +294,23 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
     const category = t.category || "consulta";
     return category === activeCategory || category === "ambos";
   });
+  // Autocompleta el tipo de cita según el tipo de procedimiento elegido, en vez de
+  // solo limpiarlo cuando deja de ser válido: busca primero un tipo del catálogo cuyo
+  // nombre calce exacto con "Consulta Médica General" o con el procedimiento elegido: si
+  // no hay coincidencia exacta, usa el primero de la categoría como valor por defecto.
+  // El usuario sigue pudiendo elegir cualquier otro tipo de esa misma categoría (o
+  // "ambos") desde el selector; esto solo decide el valor inicial. No pisa un valor ya
+  // válido (ej. uno cargado al editar una cita existente).
   useEffect(() => {
-    if (appointmentType && !filteredAppointmentTypes.some(t => t.name === appointmentType)) {
-      setAppointmentType("");
-    }
+    if (appointmentType && filteredAppointmentTypes.some(t => t.name === appointmentType)) return;
+    if (filteredAppointmentTypes.length === 0) { setAppointmentType(""); return; }
+    const matchName = procedure === "general" ? "Consulta Médica General" : selectedProcedure?.name;
+    const exact = matchName
+      ? filteredAppointmentTypes.find(t => t.name.trim().toLowerCase() === matchName.trim().toLowerCase())
+      : null;
+    setAppointmentType((exact || filteredAppointmentTypes[0]).name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCategory, appointmentTypes]);
+  }, [activeCategory, appointmentTypes, procedure, selectedProcedure]);
 
 
   useEffect(() => {
@@ -741,13 +741,13 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                       </span>
                     )}
                   </div>
-                  {/* La duración queda fija (deshabilitada) cuando hay
-                      un procedimiento real seleccionado, la define el
-                      procedimiento y no se elige a mano. */}
-                  <select value={duration} onChange={e => setDuration(Number(e.target.value))} disabled={!isEditing || procedure !== "general"}
-                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white disabled:opacity-60">
-                    {(procedure !== "general" && selectedProcedure ? [duration] : durationOptions).map(d => <option key={d} value={d}>{d} min</option>)}
-                  </select>
+                  {/* La duración ya no se elige a mano: siempre la define el
+                      tipo de procedimiento elegido (o el valor fijo de
+                      Consulta Médica General), ver el efecto de auto
+                      relleno más arriba. */}
+                  <span className="text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
+                    Duración: {duration} min
+                  </span>
                 </div>
 
                 {slotsLoading ? (

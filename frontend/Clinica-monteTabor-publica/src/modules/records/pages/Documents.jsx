@@ -1,9 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, Loader2, Download, FileText, FileStack } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { getPrescriptions, getSickLeaves, getReferrals } from "@/services/patientPortalService";
 import { showError } from "@/lib/alerts";
 import { downloadTextFile } from "@/lib/downloadFile";
+import { descargarIncapacidadPdf, descargarRecetaPdf } from "@/lib/pdf/patientDocuments";
 
 const fmtFecha = (iso) =>
   iso ? new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric" }) : "—";
@@ -11,23 +13,26 @@ const fmtFecha = (iso) =>
 const TIPO_LABEL = { receta: "Receta médica", incapacidad: "Incapacidad médica", referencia: "Referencia médica" };
 const TIPO_COLOR = { receta: "text-red-400", incapacidad: "text-[#3B6FCA]", referencia: "text-emerald-500" };
 
-// Arma el texto descargable según el tipo de documento
+// Arma el texto descargable de una referencia médica — recetas e incapacidades ya
+// generan un PDF con formato real (ver descargarIncapacidadPdf/descargarRecetaPdf), no
+// hay un formato de referencia definido todavía, así que se queda en texto plano.
 const buildTexto = (doc) => {
-  const lineas = ["CLÍNICA FAMILIAR MONTE TABOR", TIPO_LABEL[doc.type], `Fecha: ${fmtFecha(doc.date)}`];
-  if (doc.doctor) lineas.push(`Doctor: Dr. ${doc.doctor.name} ${doc.doctor.last_name}`);
-
-  if (doc.type === "receta") {
-    lineas.push("", "Medicamentos:", ...doc.medications.map((m) => `- ${m.name} ${m.dose} — ${m.frequency}, ${m.duration}`));
-  } else if (doc.type === "incapacidad") {
-    lineas.push("", `Diagnóstico: ${doc.diagnosis || "—"}`, `Del ${fmtFecha(doc.start_date)} al ${fmtFecha(doc.end_date)}`, `Estado: ${doc.status}`);
-  } else if (doc.type === "referencia") {
-    lineas.push("", `Motivo: ${doc.reason}`, `Referido a: ${doc.referred_to || "—"}`, `Estado: ${doc.status}`);
-  }
+  const lineas = [
+    "CLÍNICA FAMILIAR MONTE TABOR",
+    TIPO_LABEL[doc.type],
+    `Fecha: ${fmtFecha(doc.date)}`,
+    doc.doctor ? `Doctor: Dr. ${doc.doctor.name} ${doc.doctor.last_name}` : "",
+    "",
+    `Motivo: ${doc.reason}`,
+    `Referido a: ${doc.referred_to || "—"}`,
+    `Estado: ${doc.status}`,
+  ];
   return lineas.filter(Boolean).join("\n");
 };
 
 // Reúne recetas, incapacidades y referencias médicas reales del paciente en una sola vista
 const Documents = () => {
+  const { patient } = useAuth();
   const [prescriptions, setPrescriptions] = useState([]);
   const [sickLeaves, setSickLeaves] = useState([]);
   const [referrals, setReferrals] = useState([]);
@@ -50,12 +55,21 @@ const Documents = () => {
 
   const documentos = useMemo(() => {
     const todos = [
-      ...prescriptions.map((p) => ({ type: "receta", date: p.issued_at, doctor: p.doctor, medications: p.medications })),
-      ...sickLeaves.map((s) => ({ type: "incapacidad", date: s.start_date, doctor: s.doctor_id, diagnosis: s.diagnosis, start_date: s.start_date, end_date: s.end_date, status: s.status })),
+      // raw: se conserva el documento completo (medicamentos, órdenes de laboratorio,
+      // indicaciones) para poder armar el PDF real al descargar, sin perder esos campos
+      // en el aplanado que usa esta lista.
+      ...prescriptions.map((p) => ({ type: "receta", date: p.issued_at, doctor: p.doctor, medications: p.medications, raw: p })),
+      ...sickLeaves.map((s) => ({ type: "incapacidad", date: s.start_date, doctor: s.doctor_id, diagnosis: s.diagnosis, start_date: s.start_date, end_date: s.end_date, status: s.status, raw: s })),
       ...referrals.map((r) => ({ type: "referencia", date: r.date, doctor: r.doctor, reason: r.reason, referred_to: r.referred_to, status: r.status })),
     ];
     return todos.filter((d) => d.date).sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [prescriptions, sickLeaves, referrals]);
+
+  const descargar = (doc) => {
+    if (doc.type === "receta") return descargarRecetaPdf(patient, doc.raw);
+    if (doc.type === "incapacidad") return descargarIncapacidadPdf(patient, doc.raw);
+    return downloadTextFile(`${doc.type}-${fmtFecha(doc.date)}.txt`, buildTexto(doc));
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -93,7 +107,7 @@ const Documents = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => downloadTextFile(`${d.type}-${fmtFecha(d.date)}.txt`, buildTexto(d))}
+                  onClick={() => descargar(d)}
                   className="p-2 rounded-lg hover:bg-gray-50 text-[#3B6FCA] flex-shrink-0"
                   title="Descargar"
                 >

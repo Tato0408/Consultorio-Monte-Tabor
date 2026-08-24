@@ -8,7 +8,7 @@ import FormInput from "../../../components/profile/FormInput";
 import styles from "../../../styles/loginStyle";
 import { showSuccess, showError } from "../../../lib/toast";
 import { EMAIL_REGEX } from "../../../utils/validation";
-import { useRecoveryPatient, RECOVERY_ERROR_MESSAGES } from "../../../hooks/recovery/useRecoveryPatient";
+import { useRecoveryPatient } from "../../../hooks/recovery/useRecoveryPatient";
 
 // Primer paso de recuperación de contraseña: pide el correo y solicita el código al backend
 // (basado en Recovery.jsx de la web, sin el "probar cada rol" porque móvil solo tiene pacientes).
@@ -37,7 +37,7 @@ const RecoveryScreen = ({ navigation }) => {
       navigation.navigate("VerifyCode", { email: email.trim(), recoveryToken: data.recoveryToken });
     } catch (err) {
       console.log("[Recovery] Falló requestCode:", err.message);
-      showError(RECOVERY_ERROR_MESSAGES[err.message] || err.message || "No se pudo enviar el código.");
+      showError(err.message || "No se pudo enviar el código.");
     }
   };
 

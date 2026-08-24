@@ -17,6 +17,7 @@ import {
   formatCardNumber, formatExpiry, formatCvv, detectarMarca, luhnValido, longitudValida,
   expiryValida, cvvValido, nombreValido,
 } from "../../lib/paymentValidators";
+import { formatTime12h } from "../../utils/date";
 import styles from "../../styles/appointments/payAppointmentStyle";
 
 const longDate = (iso) => new Date(iso).toLocaleDateString("es-GT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -265,7 +266,7 @@ export default function PayAppointmentScreen({ route, navigation }) {
                 <Text style={styles.summaryDoctor} numberOfLines={1}>
                   {cita.doctor_id ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}` : "Por asignar"}
                 </Text>
-                <Text style={styles.summaryType} numberOfLines={1}>{cita.type}</Text>
+                <Text style={styles.summaryType} numberOfLines={1}>{cita.procedure_id?.name || cita.type}</Text>
               </View>
             </View>
             <View style={{ alignItems: "flex-end" }}>
@@ -274,7 +275,7 @@ export default function PayAppointmentScreen({ route, navigation }) {
             </View>
           </View>
 
-          <Text style={styles.summaryType}>{longDate(cita.date)} · {cita.start_time}</Text>
+          <Text style={styles.summaryType}>{longDate(cita.date)} · {formatTime12h(cita.start_time)}</Text>
 
           {cita.wompi_transaction_id && (
             <View style={styles.warningBox}>

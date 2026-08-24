@@ -20,8 +20,10 @@ const formatAppointmentDate = (appointment) => {
 export async function notifyAppointmentRecipients(appointment, {
     doctorMessage,
     patientMessage,
+    nurseMessage,
     doctorTitle = "Actualización de cita",
     patientTitle = "Actualización de tu cita",
+    nurseTitle = "Actualización de cita",
     type = "general",
     actor,
     navigable = true,
@@ -69,6 +71,21 @@ export async function notifyAppointmentRecipients(appointment, {
             message: `${patientMessage} Médico: ${doctorName}. Fecha: ${scheduleText}.`,
             appointment_id: appointment._id,
             action_url: navigable ? `/appointments/${appointment._id}/edit` : null,
+        });
+    }
+
+    // El resto del personal se entera de cambios en sus citas por la campana; a la
+    // enfermera asignada (appointment.nurse_id) le llegaba lo mismo que a nadie, aunque el
+    // modelo de citas sí la vincula igual que al doctor.
+    if (nurseMessage && appointment.nurse_id && appointment.nurse_id.toString() !== actorId) {
+        notifications.push({
+            recipient_role: "nurse",
+            recipient_id: appointment.nurse_id,
+            title: nurseTitle,
+            type,
+            message: `${nurseMessage} Paciente: ${patientName}. Fecha: ${scheduleText}.`,
+            appointment_id: appointment._id,
+            action_url: navigable ? `/calendar/appointments/${appointment._id}` : null,
         });
     }
 

@@ -177,6 +177,28 @@ export const confirmTakeOverAppointment = async (doctorName) => {
   return result.isConfirmed;
 };
 
+export const confirmNoShow = async () => {
+  const result = await Swal.fire({
+    title: "¿Marcar como no presentado?",
+    text: "El paciente no llegó a esta cita. El estado cambiará a No se presentó y ya no se podrá continuar una consulta desde ella.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Sí, no se presentó",
+    cancelButtonText: "Volver",
+    confirmButtonColor: "#f59e0b",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return result.isConfirmed;
+};
+
 export const confirmCancelAppointment = async () => {
   const result = await Swal.fire({
     title: "¿Cancelar esta cita?",

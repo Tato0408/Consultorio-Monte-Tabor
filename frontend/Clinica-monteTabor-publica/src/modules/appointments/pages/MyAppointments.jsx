@@ -3,11 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ChevronLeft, ChevronDown, Plus, CalendarDays, Clock, History, XCircle,
   MapPin, Trash2, CalendarCheck, HeartPulse, IdCard, CalendarX,
-  Loader2, User, CreditCard,
+  Loader2, User, CreditCard, CalendarClock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getMyAppointments, cancelAppointment } from "@/services/appointmentsService";
-import { showSuccess, showError, confirmAction } from "@/lib/alerts";
+import { showSuccess, showError, confirmAction, confirmActionWithReason } from "@/lib/alerts";
 
 const STATUS_LABELS = { pending: "Pendiente", scheduled: "Programada", completed: "Completada", cancelled: "Cancelada", no_show: "No se presentó" };
 const STATUS_COLORS = { pending: "bg-amber-100 text-amber-700", scheduled: "bg-emerald-100 text-emerald-700", completed: "bg-slate-100 text-slate-600", cancelled: "bg-red-100 text-red-600", no_show: "bg-gray-100 text-gray-500" };
@@ -24,13 +24,27 @@ const fmtFecha = (iso) =>
 
 const esCancelable = (status) => ["pending", "scheduled"].includes(status);
 
+// Reagendar solo tiene sentido hasta 1 hora antes de la hora de inicio: después de
+// ese límite, la única opción que queda es cancelar (ver puedeReagendar). "date" llega
+// como medianoche UTC del día de la cita (el backend no le mete zona horaria), así que
+// se leen sus componentes UTC y se combinan con la hora local de start_time, mismo
+// criterio que ya usa el resto del proyecto (ver formatLongDate en la app móvil).
+const LIMITE_REAGENDAR_MS = 60 * 60 * 1000;
+const inicioDeCita = (cita) => {
+  const d = new Date(cita.date);
+  const [h, m] = (cita.start_time || "0:0").split(":").map(Number);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h, m, 0, 0);
+};
+const puedeReagendar = (cita) =>
+  esCancelable(cita.status) && inicioDeCita(cita).getTime() - Date.now() > LIMITE_REAGENDAR_MS;
+
 const TABS = [
   { key: "proximas", label: "Próximas citas", icon: CalendarDays, badge: "Próxima cita" },
   { key: "pasadas", label: "Citas pasadas", icon: History, badge: "Cita pasada" },
   { key: "canceladas", label: "Citas canceladas", icon: XCircle, badge: "Cancelada" },
 ];
 
-const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onPagar, expandedId, setExpandedId }) => {
+const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, reagendando, onPagar, expandedId, setExpandedId }) => {
   const expandida = expandedId === cita._id;
   const depositoPendiente = cita.status === "pending" && cita.deposit_amount != null && !cita.deposit_paid;
   const depositoPagado = cita.deposit_paid && cita.deposit_amount != null;
@@ -107,11 +121,20 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onPagar, expande
       )}
 
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-50">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {puedeReagendar(cita) && (
+            <button
+              onClick={() => onReagendar(cita)}
+              disabled={reagendando || cancelando}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#3B6FCA]/20 text-[#3B6FCA] hover:bg-[#3B6FCA]/5 text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              <CalendarClock className="w-4 h-4" /> Reagendar cita
+            </button>
+          )}
           {esCancelable(cita.status) && (
             <button
               onClick={() => onCancelar(cita)}
-              disabled={cancelando}
+              disabled={cancelando || reagendando}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 text-sm font-semibold transition-colors disabled:opacity-50"
             >
               <Trash2 className="w-4 h-4" /> Cancelar cita
@@ -145,6 +168,7 @@ const MyAppointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancelandoId, setCancelandoId] = useState(null);
+  const [reagendandoId, setReagendandoId] = useState(null);
   const [tab, setTab] = useState("proximas");
   const [expandedId, setExpandedId] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -176,25 +200,72 @@ const MyAppointments = () => {
   const tabActivo = TABS.find((t) => t.key === tab);
   const lista = grupos[tab] || [];
 
+  // Lleva al asistente de agendar cita con el tipo, doctor y motivo de la cita anterior
+  // ya elegidos — solo quedan vacíos fecha y hora, que el paciente vuelve a elegir.
+  const irAReagendar = (cita) => {
+    navigate("/agendar-cita", {
+      state: {
+        prefill: {
+          tipo: cita.procedure_id?._id || "general",
+          doctorId: cita.doctor_id?._id || null,
+          motivo: cita.description || "",
+        },
+      },
+    });
+  };
+
   const handleCancelar = async (cita) => {
     // El mensaje cambia según si ya hay un anticipo pagado (se pierde, no se reembolsa)
     // o solo un intento de pago sin confirmar (cancelar no revisa ni revierte ese cobro)
-    let mensaje = "¿Seguro que deseas cancelar esta cita?";
+    let mensaje = "¿Por qué deseas cancelar esta cita?";
     if (cita.deposit_paid) {
-      mensaje = `Ya pagaste un anticipo de $${Number(cita.deposit_amount).toFixed(2)} para esta cita. Si cancelas, ese anticipo no será reembolsado. ¿Deseas continuar?`;
+      mensaje = `Ya pagaste un anticipo de $${Number(cita.deposit_amount).toFixed(2)} para esta cita. Si cancelas, ese anticipo no será reembolsado. Cuéntanos por qué cancelas:`;
     } else if (cita.wompi_transaction_id) {
-      mensaje = "Ya existe un intento de pago para esta cita. Si cancelas, no se verificará ningún cobro pendiente automáticamente. ¿Seguro que deseas cancelar de todos modos?";
+      mensaje = "Ya existe un intento de pago para esta cita. Si cancelas, no se verificará ningún cobro pendiente automáticamente. Cuéntanos por qué cancelas:";
     }
-    if (!(await confirmAction(mensaje, { confirmLabel: "Sí, cancelar", danger: true }))) return;
+    // El motivo real que se escriba acá es lo que se guarda (ver cancelMyAppointment en
+    // el backend) — antes se guardaba siempre el mismo texto fijo sin importar lo que el
+    // paciente hubiera querido explicar.
+    const motivo = await confirmActionWithReason(mensaje, { confirmLabel: "Sí, cancelar", placeholder: "Ej. Ya no puedo asistir a esa hora..." });
+    if (!motivo) return;
+    // Se evalúa ANTES de cancelar: una vez cancelada, cita.status ya no calza con
+    // esCancelable y puedeReagendar siempre daría false.
+    const ofrecerReagendar = puedeReagendar(cita);
     setCancelandoId(cita._id);
     try {
-      await cancelAppointment(cita._id);
+      await cancelAppointment(cita._id, motivo);
       showSuccess("Cita cancelada.");
       cargar();
+      if (ofrecerReagendar) {
+        const quiereReagendar = await confirmAction("¿Deseas reagendar esta cita? Podrás elegir una nueva fecha y hora ahora mismo.", {
+          confirmLabel: "Sí, reagendar",
+          cancelLabel: "No, gracias",
+        });
+        if (quiereReagendar) irAReagendar(cita);
+      }
     } catch (err) {
       showError(err.message || "No se pudo cancelar la cita.");
     } finally {
       setCancelandoId(null);
+    }
+  };
+
+  // Reagendar = cancelar esta cita (para liberar el horario) y llevar al paciente
+  // directo al asistente de agendar con los mismos datos, listo para elegir horario nuevo.
+  const handleReagendar = async (cita) => {
+    const confirmado = await confirmAction(
+      "¿Deseas reagendar esta cita? Se cancelará esta cita para que puedas elegir una nueva fecha y hora.",
+      { confirmLabel: "Sí, reagendar" }
+    );
+    if (!confirmado) return;
+    setReagendandoId(cita._id);
+    try {
+      await cancelAppointment(cita._id, "Cancelada por el paciente para reagendar");
+      irAReagendar(cita);
+    } catch (err) {
+      showError(err.message || "No se pudo reagendar la cita.");
+    } finally {
+      setReagendandoId(null);
     }
   };
 
@@ -290,6 +361,8 @@ const MyAppointments = () => {
                     badge={tabActivo.badge}
                     onCancelar={handleCancelar}
                     cancelando={cancelandoId === cita._id}
+                    onReagendar={handleReagendar}
+                    reagendando={reagendandoId === cita._id}
                     onPagar={handlePagar}
                     expandedId={expandedId}
                     setExpandedId={setExpandedId}

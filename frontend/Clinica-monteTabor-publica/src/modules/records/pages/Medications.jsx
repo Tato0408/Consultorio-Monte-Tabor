@@ -7,7 +7,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { getTodayMedications, markMedicationTaken, getPrescriptions } from "@/services/patientPortalService";
 import { showError } from "@/lib/alerts";
-import { downloadTextFile } from "@/lib/downloadFile";
+import { descargarRecetaPdf } from "@/lib/pdf/patientDocuments";
 
 const fmtFecha = (iso) =>
   iso ? new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -43,19 +43,6 @@ const COLORES = [
   { bg: "bg-purple-50", text: "text-purple-500" },
   { bg: "bg-amber-50", text: "text-amber-500" },
 ];
-
-const buildRecetaTexto = (receta) => {
-  const lineas = [
-    "CLÍNICA FAMILIAR MONTE TABOR",
-    "Receta médica",
-    `Fecha: ${fmtFecha(receta.issued_at)}`,
-    receta.doctor ? `Doctor: Dr. ${receta.doctor.name} ${receta.doctor.last_name}` : "",
-    "",
-    "Medicamentos:",
-    ...(receta.medications || []).map((m) => `- ${m.name} ${m.dose} — ${m.frequency}, ${m.duration}`),
-  ];
-  return lineas.filter(Boolean).join("\n");
-};
 
 // Medicamentos activos hoy (con marcar tomado/pendiente) e historial de recetas anteriores
 const Medications = () => {
@@ -101,7 +88,7 @@ const Medications = () => {
   };
 
   const handleVerReceta = (receta) => {
-    downloadTextFile(`receta-${fmtFecha(receta.issued_at)}.txt`, buildRecetaTexto(receta));
+    descargarRecetaPdf(patient, receta);
   };
 
   const handleLogout = async () => {

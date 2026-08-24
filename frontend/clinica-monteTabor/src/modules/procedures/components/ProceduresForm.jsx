@@ -43,6 +43,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
     price: "",
     requires_nurse: false,
     is_active: true,
+    pre_care_instructions: "",
     post_operative_instructions: "",
     materials: [{ insumo: "", quantity: 1, name: "" }],
   };
@@ -286,6 +287,29 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
           >
             <Plus className="w-4 h-4" /> Agregar material
           </button>
+        </div>
+
+        <div className="bg-white border border-gray-100 rounded-xl p-4 md:p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
+            <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+            <h3 className="font-bold text-gray-900 text-sm">Indicaciones previas</h3>
+          </div>
+          {/* Se le muestran al paciente al confirmar su cita desde el portal
+              (patientPortalController.bookAppointment, GENERAL_CONSULT.instructions
+              como respaldo si queda vacío). */}
+          <p className="text-xs text-gray-500">Instrucciones que el paciente debe leer antes de la cita: ayuno, documentos que debe traer, medicamentos a suspender, etc.</p>
+          <div>
+            <textarea
+              placeholder="Describa las indicaciones previas al procedimiento..."
+              rows={4}
+              maxLength={1000}
+              {...register("pre_care_instructions")}
+              className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:bg-white transition-colors resize-none"
+            />
+            <span className="text-[10px] text-gray-400 float-right mt-1">
+              {(watchedValues.pre_care_instructions || "").length}/1000
+            </span>
+          </div>
         </div>
 
         <div className="bg-white border border-gray-100 rounded-xl p-4 md:p-6 shadow-sm space-y-4">

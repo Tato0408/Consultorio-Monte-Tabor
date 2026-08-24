@@ -46,12 +46,11 @@ const useNurse = () => {
       await apiClient("/nurses", {
         method: "POST",
         body: formData,
-        headers: { "Content-Type": "multipart/form-data" },
       });
       await fetchNurses();
       return { success: true };
     } catch (err) {
-      return { success: false, error: err.response?.data?.message || err.message || "Error al crear registro" };
+      return { success: false, error: err.message || "Error al crear registro" };
     }
   }, [fetchNurses]);
 
@@ -61,12 +60,11 @@ const useNurse = () => {
       await apiClient(`/nurses/${id}`, {
         method: "PUT",
         body: formData,
-        headers: { "Content-Type": "multipart/form-data" },
       });
       await fetchNurses();
       return { success: true };
     } catch (err) {
-      return { success: false, error: err.response?.data?.message || err.message || "Error al actualizar registro" };
+      return { success: false, error: err.message || "Error al actualizar registro" };
     }
   }, [fetchNurses]);
 

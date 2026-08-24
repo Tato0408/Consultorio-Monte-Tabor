@@ -15,6 +15,7 @@ const STATUS_BADGE = {
     scheduled: { label: "En espera", className: "bg-amber-100 text-amber-700" },
     completed: { label: "Atendido", className: "bg-emerald-100 text-emerald-700" },
     cancelled: { label: "Cancelado", className: "bg-red-100 text-red-700" },
+    no_show: { label: "No se presentó", className: "bg-slate-100 text-slate-500" },
 };
 
 const formatPersonName = (person) =>
@@ -43,6 +44,7 @@ const TABS = [
     { key: "scheduled", label: "En espera" },
     { key: "completed", label: "Atendido" },
     { key: "cancelled", label: "Cancelado" },
+    { key: "no_show", label: "No presentado" },
 ];
 
 const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, completedCount, statusFilter, onStatusChange }) => {
@@ -176,7 +178,7 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                         >
                                             {canEdit ? "Editar" : "Ver registro"}
                                         </button>
-                                    ) : appt.status === "cancelled" ? (
+                                    ) : appt.status === "cancelled" || appt.status === "no_show" ? (
                                         <span className="text-xs text-slate-400 italic">No disponible</span>
                                     ) : canAttend ? (
                                         <button

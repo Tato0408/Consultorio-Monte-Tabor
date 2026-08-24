@@ -3,15 +3,14 @@ import receptionistsController from "../../controllers/receptionist/receptionist
 import upload from "../../utils/CloudinaryConfig.js";
 import { authenticate } from "../../middlewares/authenticateMiddleware.js";
 import { authorize } from "../../middlewares/authorizeMiddleware.js";
-import { validateAuthCookie } from "../../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 router
   .route("/")
-  .get(authenticate, authorize("users.receptionist", "view"), receptionistsController.getReceptionists)
+  .get(authenticate(), authorize("users.receptionist", "view"), receptionistsController.getReceptionists)
   .post(
-    authenticate,
+    authenticate(),
     authorize("users.receptionist", "create"),
     upload.fields([
       {
@@ -27,7 +26,7 @@ router
 router
   .route("/profile/update")
   .put(
-    validateAuthCookie(["receptionist"]),
+    authenticate(["receptionist"]),
     upload.fields([{ name: "receptionistImage", maxCount: 1 }]),
     receptionistsController.updateOwnProfile
   );
@@ -35,7 +34,7 @@ router
 router
   .route("/:id")
   .put(
-    authenticate,
+    authenticate(),
     authorize("users.receptionist", "update"),
     upload.fields([
       {
@@ -45,10 +44,10 @@ router
     ]),
     receptionistsController.updateReceptionist
   )
-  .delete(authenticate, authorize("users.receptionist", "delete"), receptionistsController.deleteReceptionist);
+  .delete(authenticate(), authorize("users.receptionist", "delete"), receptionistsController.deleteReceptionist);
 
 router
 .route("/search")
-.get(authenticate, authorize("users.receptionist", "view"), receptionistsController.searchReceptionist);
+.get(authenticate(), authorize("users.receptionist", "view"), receptionistsController.searchReceptionist);
 
 export default router;

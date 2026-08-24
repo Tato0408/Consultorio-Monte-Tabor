@@ -16,6 +16,7 @@ import FormSelect from "../../components/profile/FormSelect";
 import FormDateInput from "../../components/profile/FormDateInput";
 import apiClient from "../../lib/apiClient";
 import { showError, showSuccess } from "../../lib/toast";
+import { displayToIso } from "../../utils/date";
 import styles from "../../styles/profile/editProfileStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
@@ -43,13 +44,6 @@ const isoToDisplay = (iso) => {
   return `${dd}/${mm}/${date.getUTCFullYear()}`;
 };
 
-// "DD/MM/AAAA" -> ISO. Devuelve null si está incompleta, para no mandar "Invalid Date"
-const displayToIso = (value) => {
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value?.trim() || "");
-  if (!match) return null;
-  const [, dd, mm, yyyy] = match;
-  return new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd))).toISOString();
-};
 
 // API (inglés) -> formulario (español)
 const fromApi = (patient) => ({

@@ -40,8 +40,11 @@ export const bookAppointment = (data) =>
 
 export const getMyAppointments = () => apiClient("/patient-portal/appointments");
 
-export const cancelAppointment = (id) =>
-  apiClient(`/patient-portal/appointments/${id}/cancel`, { method: "PATCH" });
+export const cancelAppointment = (id, reason) =>
+  apiClient(`/patient-portal/appointments/${id}/cancel`, {
+    method: "PATCH",
+    body: reason ? { cancellation_reason: reason } : undefined,
+  });
 
 // Confirma (contra la propia API de Wompi, del lado del servidor) que la transacción ya cobrada
 // realmente fue aprobada, y recién ahí pasa la cita de "pending" a "scheduled"

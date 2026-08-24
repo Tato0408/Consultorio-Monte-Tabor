@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import InputField from "@/components/ui/InputField";
 import { getMyAppointments, confirmPayment } from "@/services/appointmentsService";
 import { generarTokenWompi, tokenizarTarjeta, cobrarTarjeta } from "@/services/wompiService";
-import { showError } from "@/lib/alerts";
+import { showError, showWarning } from "@/lib/alerts";
 import {
   formatCardNumber, formatExpiry, formatCvv, detectarMarca, luhnValido, longitudValida,
   expiryValida, cvvValido, nombreValido, posicionCursorTrasFormatear,
@@ -85,9 +85,24 @@ const PayAppointment = () => {
       return;
     }
     getMyAppointments()
-      .then((lista) => setCita(lista.find((a) => a._id === appointmentId) || null))
+      .then((lista) => {
+        const encontrada = lista.find((a) => a._id === appointmentId) || null;
+        // Si el anticipo de esta cita ya quedó pagado (o la cita ya no está "pending",
+        // por ejemplo porque el doctor ya la aceptó o el paciente la canceló), no se
+        // debe mostrar el formulario de tarjeta de nuevo: volver a esta URL con el
+        // botón atrás del navegador, o refrescar tras un redirect fallido, cobraría el
+        // anticipo una segunda vez del lado de Wompi antes de que exista cualquier
+        // protección de idempotencia en el backend.
+        if (encontrada && (encontrada.deposit_paid || encontrada.status !== "pending")) {
+          showWarning("Esta cita ya no está pendiente de pago.");
+          navigate("/mis-citas", { replace: true });
+          return;
+        }
+        setCita(encontrada);
+      })
       .catch(() => showError("No se pudo cargar la información de la cita."))
       .finally(() => setCargando(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointmentId]);
 
   const marca = detectarMarca(form.numeroTarjeta);

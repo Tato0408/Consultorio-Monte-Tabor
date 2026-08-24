@@ -14,6 +14,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import EmptyMedications from "../../components/medications/EmptyMedications";
 import BottomNav from "../../components/BottomNav";
+import NotificationBell from "../../components/NotificationBell";
 import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
 import styles from "../../styles/medications/medicationStyle";
@@ -245,9 +246,7 @@ const MedicationsScreen = ({ navigation }) => {
           Recordatorios de Medicina
         </Text>
 
-        <TouchableOpacity style={styles.headerSide} activeOpacity={0.7}>
-          <Ionicons name="notifications-outline" size={20} color={colors.text} />
-        </TouchableOpacity>
+        <NotificationBell navigation={navigation} color={colors.text} />
       </View>
 
       <ScrollView

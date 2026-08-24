@@ -34,11 +34,20 @@ export const findScheduleByDoctorId = async (doctorId) => {
 // patrón que appointmentsController.getNursesForAcceptance.
 const isDoctorScheduleManager = (role) => ["doctor", "admin"].includes(role);
 
+// Un doctor solo puede ver/editar SU PROPIO horario, nunca el de un colega — antes solo
+// se verificaba el rol, así que cualquier doctor autenticado podía sobrescribir el
+// horario de otro con solo cambiar el :doctorId de la URL. El admin queda exento (sigue
+// pudiendo administrar el horario de cualquier doctor, es su función).
+const ownsSchedule = (req) => req.user.role === "admin" || req.params.doctorId === req.user.id;
+
 // GET /api/schedule/:doctorId, obtiene el horario del médico.
 scheduleController.getSchedule = async (req, res) => {
     try {
         if (!isDoctorScheduleManager(req.user.role)) {
             return res.status(403).json({ message: "No tienes permiso para consultar este horario." });
+        }
+        if (!ownsSchedule(req)) {
+            return res.status(403).json({ message: "Solo puedes consultar tu propio horario." });
         }
         const schedule = await findScheduleByDoctorId(req.params.doctorId);
         if (!schedule) return res.status(404).json({ message: "Horario no configurado aún" });
@@ -53,6 +62,9 @@ scheduleController.saveSchedule = async (req, res) => {
     try {
         if (!isDoctorScheduleManager(req.user.role)) {
             return res.status(403).json({ message: "No tienes permiso para editar este horario." });
+        }
+        if (!ownsSchedule(req)) {
+            return res.status(403).json({ message: "Solo puedes editar tu propio horario." });
         }
         const { doctorId } = req.params;
         const data = req.body;
@@ -130,12 +142,26 @@ export const isSlotFreeForDoctor = async (doctorId, date, start_time, end_time, 
         ...(excludeAppointmentId ? { _id: { $ne: excludeAppointmentId } } : {}),
     }).select({ start_time: 1, end_time: 1 });
 
-    const isBooked = existingAppointments.some(a => {
+    // El tiempo entre citas (buffer_time) debe respetarse sin importar cuál
+    // de las dos citas va antes: no basta con que los rangos no se toquen,
+    // tiene que quedar al menos buffer_time minutos de separación con
+    // cualquier otra cita ya agendada. Antes esto solo comparaba solape
+    // estricto, así que el buffer configurado nunca se hacía cumplir de
+    // verdad al confirmar una cita, solo al sugerir horarios.
+    const bufferMin = schedule.buffer_time || 0;
+    const conflict = existingAppointments.some(a => {
         if (!a.start_time || !a.end_time) return false;
-        return start < toMins(a.end_time) && end > toMins(a.start_time);
+        const aStart = toMins(a.start_time);
+        const aEnd = toMins(a.end_time);
+        return !(end + bufferMin <= aStart || aEnd + bufferMin <= start);
     });
-    if (isBooked) {
-        return { free: false, reason: "Ya existe otra cita en ese horario." };
+    if (conflict) {
+        return {
+            free: false,
+            reason: bufferMin > 0
+                ? `Ese horario no deja los ${bufferMin} minutos de espacio requeridos entre citas.`
+                : "Ya existe otra cita en ese horario.",
+        };
     }
 
     return { free: true };
@@ -161,6 +187,54 @@ const addMinutesToTime = (time, minutes) => {
     return `${hh}:${mm}`;
 };
 
+// Convierte minutos desde medianoche de vuelta a "HH:mm".
+const minsToStr = (mins) => `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+
+// Arma los horarios libres de duración durationMin dentro de una lista de
+// bloques de trabajo, saltando por encima de cualquier obstáculo (descansos
+// y citas ya agendadas) en vez de generar una grilla fija desde el inicio
+// de cada bloque. Antes, un bloque se recorría en pasos fijos de
+// duration+buffer desde su propio inicio sin importar qué hubiera agendado
+// dentro: si una cita de 45 min no calzaba con esos pasos, el horario justo
+// después de que terminaba (ej. 11:45) nunca aparecía como candidato,
+// aunque estuviera realmente libre. Ahora, al toparse con un obstáculo, el
+// cursor salta directo a donde ese obstáculo termina (más su propio
+// espacio de separación, si aplica) y sigue tileando desde ahí — así el
+// siguiente horario disponible siempre se acopla a lo que el doctor ya
+// tiene agendado ese día, sea cual sea la duración de esa cita.
+// obstacles: [{ start, end, gapAfter }] en minutos desde medianoche.
+// gapAfter es el tiempo que debe dejarse libre después de ESE obstáculo en
+// particular (buffer_time para citas reales, 0 para descansos).
+const tileFreeSlots = (timeBlocks, obstacles, durationMin, bufferMin) => {
+    const results = [];
+    for (const block of timeBlocks || []) {
+        const blockStart = toMins(block.start_time);
+        const blockEnd = toMins(block.end_time);
+        const blockObstacles = obstacles.filter(o => o.start < blockEnd && o.end > blockStart);
+
+        let current = blockStart;
+        while (current + durationMin <= blockEnd) {
+            const slotEnd = current + durationMin;
+            // Si el candidato choca con más de un obstáculo (ej. dos citas
+            // seguidas), salta hasta después del que termine más tarde.
+            let jumpTo = null;
+            for (const o of blockObstacles) {
+                if (current < o.end && slotEnd > o.start) {
+                    const past = o.end + (o.gapAfter || 0);
+                    if (jumpTo === null || past > jumpTo) jumpTo = past;
+                }
+            }
+            if (jumpTo !== null) {
+                current = jumpTo;
+                continue;
+            }
+            results.push({ start: current, end: slotEnd });
+            current += durationMin + (bufferMin || 0);
+        }
+    }
+    return results;
+};
+
 // Horarios que puede solicitar un paciente: se incluyen solo si al menos un
 // doctor con horario configurado puede atenderlos. No revela qué doctor es.
 scheduleController.getPatientAvailableSlots = async (req, res) => {
@@ -179,32 +253,83 @@ scheduleController.getPatientAvailableSlots = async (req, res) => {
             return res.status(400).json({ message: "El procedimiento seleccionado no está disponible." });
         }
 
-        const schedules = await scheduleModel.find({}).select("doctor_id weekly_availability buffer_time").lean();
+        // Solo doctores activos: un horario cuyo único doctor cubridor está
+        // dado de baja no debe ofrecerse como "disponible" (antes se incluía
+        // igual, y el paciente se topaba con un callejón sin salida al elegir
+        // ese horario, en getPatientDoctorsForSlot).
+        const activeDoctors = await doctorModel.find({ is_active: true }).select("_id").lean();
+        const activeDoctorIds = activeDoctors.map((d) => d._id);
+
+        const schedules = await scheduleModel
+            .find({ doctor_id: { $in: activeDoctorIds } })
+            .select("doctor_id weekly_availability breaks exceptions buffer_time")
+            .lean();
+
         const [year, month, day] = date.split("-").map(Number);
         const dayOfWeek = new Date(year, month - 1, day).getDay();
-        const candidateSlots = new Map();
         const isToday = requested.getTime() === today.getTime();
         const now = new Date();
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-        for (const schedule of schedules) {
-            const dayConfig = schedule.weekly_availability?.find((entry) => entry.day === dayOfWeek && entry.is_available);
-            if (!dayConfig) continue;
-            for (const block of dayConfig.time_blocks || []) {
-                let current = toMins(block.start_time);
-                const end = toMins(block.end_time);
-                while (current + minutes <= end) {
-                    // Una hora que ya comenzó (o ya pasó) no puede reservarse.
-                    if (isToday && current <= currentMinutes) {
-                        current += minutes + (schedule.buffer_time || 0);
-                        continue;
-                    }
-                    const start_time = `${String(Math.floor(current / 60)).padStart(2, "0")}:${String(current % 60).padStart(2, "0")}`;
-                    const slotEnd = current + minutes;
-                    const end_time = `${String(Math.floor(slotEnd / 60)).padStart(2, "0")}:${String(slotEnd % 60).padStart(2, "0")}`;
-                    const available = await isSlotFreeForDoctor(schedule.doctor_id, date, start_time, end_time);
-                    if (available.free) candidateSlots.set(start_time, { start_time, end_time });
-                    current += minutes + (schedule.buffer_time || 0);
+        const toDateStr = (d) => {
+            if (!d) return "";
+            if (typeof d === "string") return d.split("T")[0];
+            return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+        };
+
+        const relevantSchedules = schedules.filter((s) =>
+            s.weekly_availability?.some((entry) => entry.day === dayOfWeek && entry.is_available)
+        );
+
+        // Una sola consulta para las citas de TODOS los doctores relevantes ese
+        // día, en vez de reconsultar la base de datos por cada horario
+        // candidato de cada doctor (antes esto era un patrón N+1: docenas de
+        // consultas por una sola petición de horarios agregados).
+        const dayStart = new Date(`${date}T00:00:00.000Z`);
+        const dayEnd = new Date(`${date}T23:59:59.999Z`);
+        const allAppointments = await appointmentsModel.find({
+            doctor_id: { $in: relevantSchedules.map((s) => s.doctor_id) },
+            date: { $gte: dayStart, $lte: dayEnd },
+            status: { $nin: ["cancelled"] },
+        }).select({ doctor_id: 1, start_time: 1, end_time: 1 }).lean();
+
+        const appointmentsByDoctor = new Map();
+        for (const a of allAppointments) {
+            if (!a.start_time || !a.end_time) continue;
+            const key = String(a.doctor_id);
+            if (!appointmentsByDoctor.has(key)) appointmentsByDoctor.set(key, []);
+            appointmentsByDoctor.get(key).push({ start: toMins(a.start_time), end: toMins(a.end_time) });
+        }
+
+        const candidateSlots = new Map();
+
+        for (const schedule of relevantSchedules) {
+            // Una excepción (vacaciones, día no laborable) puntual de este
+            // doctor lo saca por completo del cálculo de ese día.
+            const exception = (schedule.exceptions || []).find((ex) => {
+                if (ex.end_date) return date >= toDateStr(ex.date) && date <= toDateStr(ex.end_date);
+                return toDateStr(ex.date) === date;
+            });
+            if (exception && exception.type !== "special_hours") continue;
+
+            const dayConfig = schedule.weekly_availability.find((entry) => entry.day === dayOfWeek && entry.is_available);
+            const bufferMin = schedule.buffer_time || 0;
+            const doctorKey = String(schedule.doctor_id);
+
+            const obstacles = [
+                ...(schedule.breaks || [])
+                    .filter((br) => br.day === dayOfWeek)
+                    .map((br) => ({ start: toMins(br.start_time), end: toMins(br.end_time), gapAfter: 0 })),
+                ...(appointmentsByDoctor.get(doctorKey) || [])
+                    .map((r) => ({ start: r.start, end: r.end, gapAfter: bufferMin })),
+            ];
+
+            for (const free of tileFreeSlots(dayConfig.time_blocks, obstacles, minutes, bufferMin)) {
+                // Una hora que ya comenzó (o ya pasó) no puede reservarse.
+                if (isToday && free.start <= currentMinutes) continue;
+                const start_time = minsToStr(free.start);
+                if (!candidateSlots.has(start_time)) {
+                    candidateSlots.set(start_time, { start_time, end_time: minsToStr(free.end) });
                 }
             }
         }
@@ -323,64 +448,45 @@ scheduleController.getAvailableSlots = async (req, res) => {
             status: { $nin: ["cancelled"] },
         }).select({ start_time: 1, end_time: 1 });
 
-        console.log(`[slots] doctor=${doctorId} date=${date} dayStart=${dayStart.toISOString()} dayEnd=${dayEnd.toISOString()} appointments found=${existingAppointments.length}`);
-        if (existingAppointments.length > 0) {
-            console.log("[slots] booked times:", existingAppointments.map(a => `${a.start_time}-${a.end_time}`));
-        }
-
-        // Convierte una hora en formato HH:mm a minutos, para poder
-        // comparar rangos.
-        const toMins = (t) => { const [h, m] = (t || "0:0").split(":").map(Number); return h * 60 + m; };
         const bookedRanges = existingAppointments
             .filter(a => a.start_time && a.end_time)
-            .map(a => ({
-                start: toMins(a.start_time),
-                end:   toMins(a.end_time),
-            }));
+            .map(a => ({ start: toMins(a.start_time), end: toMins(a.end_time) }));
 
         // Map en vez de array: si dos bloques se solapan (ej. el médico los definió por error
         // encimados), el mismo start_time no debe aparecer dos veces en la respuesta.
         const slotsByStart = new Map();
 
-        for (const block of dayConfig.time_blocks) {
-            const [startH, startM] = block.start_time.split(":").map(Number);
-            const [endH,   endM]   = block.end_time.split(":").map(Number);
-            let current = startH * 60 + startM;
-            const end   = endH   * 60 + endM;
-
-            while (current + durationMin <= end) {
-                const hh  = String(Math.floor(current / 60)).padStart(2, "0");
-                const mm  = String(current % 60).padStart(2, "0");
-                const slotEnd = current + durationMin;
-                const hhe = String(Math.floor(slotEnd / 60)).padStart(2, "0");
-                const mme = String(slotEnd % 60).padStart(2, "0");
-
-                const inBreak = schedule.breaks.some(br => {
-                    if (br.day !== dayOfWeek) return false;
-                    const [bh, bm] = br.start_time.split(":").map(Number);
-                    const [eh, em] = br.end_time.split(":").map(Number);
-                    const bStart = bh * 60 + bm;
-                    const bEnd   = eh * 60 + em;
-                    return current < bEnd && slotEnd > bStart;
-                });
-
-                // Excluye el slot si se solapa con una cita existente.
-                const isBooked = bookedRanges.some(r => current < r.end && slotEnd > r.start);
-
-                // Un descanso del doctor nunca fue un horario elegible para nadie (a
-                // diferencia de uno ocupado, no es "esta hora ya la tomaron", es "esta
-                // hora no se atiende"), así que ni siquiera con includeBooked se incluye.
-                if (!inBreak && (!isBooked || mostrarOcupados)) {
-                    const startStr = `${hh}:${mm}`;
-                    slotsByStart.set(startStr, {
-                        start_time: startStr,
-                        end_time: `${hhe}:${mme}`,
-                        ...(mostrarOcupados ? { available: !isBooked } : {}),
-                    });
-                }
-
-                current += durationMin + bufferMin;
+        // Con includeBooked, cada cita real ocupada se muestra tal cual (su propio
+        // horario exacto), en vez de derivarla de la grilla de horarios libres —
+        // más preciso que antes, que podía mostrar varias celdas "ocupado"
+        // parciales para una misma cita si su duración no calzaba con la grilla.
+        if (mostrarOcupados) {
+            for (const r of bookedRanges) {
+                const startStr = minsToStr(r.start);
+                slotsByStart.set(startStr, { start_time: startStr, end_time: minsToStr(r.end), available: false });
             }
+        }
+
+        // Un descanso del doctor nunca fue un horario elegible para nadie (a
+        // diferencia de uno ocupado, no es "esta hora ya la tomaron", es "esta
+        // hora no se atiende"), así que ni siquiera con includeBooked se incluye:
+        // no lleva gapAfter porque no compite por el buffer entre citas, solo
+        // bloquea directamente el tramo que cubre.
+        const dayBreaks = (schedule.breaks || [])
+            .filter(br => br.day === dayOfWeek)
+            .map(br => ({ start: toMins(br.start_time), end: toMins(br.end_time), gapAfter: 0 }));
+        const obstacles = [
+            ...dayBreaks,
+            ...bookedRanges.map(r => ({ start: r.start, end: r.end, gapAfter: bufferMin })),
+        ];
+
+        for (const free of tileFreeSlots(dayConfig.time_blocks, obstacles, durationMin, bufferMin)) {
+            const startStr = minsToStr(free.start);
+            slotsByStart.set(startStr, {
+                start_time: startStr,
+                end_time: minsToStr(free.end),
+                ...(mostrarOcupados ? { available: true } : {}),
+            });
         }
 
         // Orden cronológico: al iterar bloque por bloque, un bloque que empieza más tarde en el

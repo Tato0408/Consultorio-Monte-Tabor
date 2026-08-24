@@ -4,6 +4,11 @@ const nurseScheduleController = {};
 
 const toMins = (t) => { const [h, m] = (t || "0:0").split(":").map(Number); return h * 60 + m; };
 
+// Una enfermera solo puede ver/editar SU PROPIO horario, nunca el de otra — antes solo
+// se verificaba el rol, cualquier enfermera autenticada podía sobrescribir el horario de
+// otra con solo cambiar el :nurseId de la URL. El admin queda exento.
+const ownsSchedule = (req) => req.user.role === "admin" || req.params.nurseId === req.user.id;
+
 // GET /api/nurse-schedule/:nurseId, igual que scheduleController.getSchedule
 // pero para enfermeras.
 // Solo la propia enfermera o un admin pueden consultarlo o editarlo
@@ -13,6 +18,9 @@ nurseScheduleController.getSchedule = async (req, res) => {
     try {
         if (!["nurse", "admin"].includes(req.user.role)) {
             return res.status(403).json({ message: "No tienes permiso para consultar este horario." });
+        }
+        if (!ownsSchedule(req)) {
+            return res.status(403).json({ message: "Solo puedes consultar tu propio horario." });
         }
         const schedule = await nurseScheduleModel.findOne({ nurse_id: req.params.nurseId });
         if (!schedule) return res.status(404).json({ message: "Horario no configurado aún" });
@@ -27,6 +35,9 @@ nurseScheduleController.saveSchedule = async (req, res) => {
     try {
         if (!["nurse", "admin"].includes(req.user.role)) {
             return res.status(403).json({ message: "No tienes permiso para editar este horario." });
+        }
+        if (!ownsSchedule(req)) {
+            return res.status(403).json({ message: "Solo puedes editar tu propio horario." });
         }
         const { nurseId } = req.params;
         const data = req.body;

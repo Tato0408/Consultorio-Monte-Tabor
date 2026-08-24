@@ -17,8 +17,7 @@ const recoveryPasswordController = {};
 // navegador la reenvía sola. La app móvil no tiene cookie jar, así
 // que además de la cookie se manda recoveryToken en el body de la
 // respuesta, y aquí se acepta de vuelta por header Authorization
-// Bearer token (mismo patrón ya usado en authenticateMiddleware.js y
-// authMiddleware.js).
+// Bearer token (mismo patrón ya usado en authenticateMiddleware.js).
 const getRecoveryToken = (req) => {
   if (req.cookies?.recoveryCookie) return req.cookies.recoveryCookie;
   const authHeader = req.headers.authorization;
@@ -97,6 +96,12 @@ recoveryPasswordController.verifyCode = async (req, res) => {
 
     return res.status(200).json({ message: "Código verificado correctamente", recoveryToken: newToken });
   } catch (error) {
+    // Si el token expiró, la cookie ya no es válida. Antes esto caía al catch genérico y
+    // el paciente veía "Error interno del servidor" sin ninguna pista de qué pasó ni de
+    // que debía reiniciar el proceso (mismo fix que ya tenía resendCode, ver abajo).
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "La sesión de recuperación expiró, vuelve a empezar" });
+    }
     console.log("error" + error);
     return res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -131,6 +136,9 @@ recoveryPasswordController.newPassword = async (req, res) => {
 
     return res.status(200).json({ message: "Contraseña actualizada" });
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "La sesión de recuperación expiró, vuelve a empezar" });
+    }
     console.log("error" + error);
     return res.status(500).json({ message: "Error interno del servidor" });
   }

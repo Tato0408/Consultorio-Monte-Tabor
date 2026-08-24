@@ -2,7 +2,7 @@ import express from 'express'
 import nurseController from "../../controllers/nurses/nursesController.js"
 import upload from '../../utils/CloudinaryConfig.js'
 import { authorize } from '../../middlewares/authorizeMiddleware.js'
-import { validateAuthCookie } from '../../middlewares/authMiddleware.js'
+import { authenticate } from '../../middlewares/authenticateMiddleware.js'
 const router = express.Router()
 
 router.route("/")
@@ -26,7 +26,7 @@ router.route("/countProcedures")
 router
 .route("/profile/update")
 .put(
-    validateAuthCookie(["nurse"]),
+    authenticate(["nurse"]),
     upload.single("img_url"),
     nurseController.updateOwnProfile
 );

@@ -4,6 +4,6 @@ import { getMyPermissions } from "../../controllers/permissions/permissionsContr
 
 const router = Router();
 
-router.get("/me", authenticate, getMyPermissions);
+router.get("/me", authenticate(), getMyPermissions);
 
 export default router;

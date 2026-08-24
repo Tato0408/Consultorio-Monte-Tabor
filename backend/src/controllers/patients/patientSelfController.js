@@ -533,7 +533,14 @@ patientSelfController.getMyConsultationById = async (req, res) => {
             .findOne({ _id: req.params.consultationId, patient_id: req.user.id })
             .populate({
                 path: "appointment_id",
-                populate: { path: "doctor_id", select: "name last_name specialty img_url" },
+                // model: "procedure" a mano porque el ref del schema de Appointments dice
+                // "Procedure" (con mayúscula) pero el modelo real está registrado como
+                // "procedure" (minúscula) — sin esto, populate tira MissingSchemaError,
+                // mismo mismatch que ya resuelve así patientPortalController.getMyAppointments.
+                populate: [
+                    { path: "doctor_id", select: "name last_name specialty img_url" },
+                    { path: "procedure_id", model: "procedure", select: "name" },
+                ],
             });
 
         if (!consultation) {

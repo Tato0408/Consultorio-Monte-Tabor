@@ -9,7 +9,7 @@ import styles from "../../../styles/loginStyle";
 import formStyles from "../../../styles/profile/editProfileStyle";
 import { colors } from "../../../styles/profile/profileStyle";
 import { showSuccess, showError } from "../../../lib/toast";
-import { useRecoveryPatient, RECOVERY_ERROR_MESSAGES } from "../../../hooks/recovery/useRecoveryPatient";
+import { useRecoveryPatient } from "../../../hooks/recovery/useRecoveryPatient";
 
 // El código lo genera el backend con crypto.randomBytes(3).toString("hex") — 6 caracteres
 // hexadecimales (0-9, a-f), no solo dígitos. Misma regla que codeRules en VerifyCode.jsx (web).
@@ -62,8 +62,7 @@ const VerifyCodeScreen = ({ navigation, route }) => {
       navigation.navigate("NewPassword", { email, recoveryToken: data.recoveryToken });
     } catch (err) {
       console.log("[VerifyCode] Falló verifyCode:", err.message);
-      const message = RECOVERY_ERROR_MESSAGES[err.message] || "Código incorrecto o expirado.";
-      setError(message);
+      setError(err.message || "Código incorrecto o expirado.");
     }
   };
 
@@ -78,7 +77,7 @@ const VerifyCodeScreen = ({ navigation, route }) => {
       showSuccess("Código reenviado correctamente.");
     } catch (err) {
       console.log("[VerifyCode] Falló resend:", err.message);
-      showError(RECOVERY_ERROR_MESSAGES[err.message] || "No se pudo reenviar el código.");
+      showError(err.message || "No se pudo reenviar el código.");
     }
   };
 

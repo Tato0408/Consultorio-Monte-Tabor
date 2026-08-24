@@ -8,6 +8,7 @@ import { showError } from "../../lib/toast";
 import { formatLongDate, formatTime12h } from "../../utils/date";
 import { badgeTones } from "../../styles/appointments/appointmentsStyle";
 import styles from "../../styles/appointments/consultationDetailStyle";
+import { descargarIncapacidadPdf, descargarRecetaPdf } from "../../lib/pdf/patientDocuments";
 
 const VITALS = [
   { key: "blood_pressure", label: "Presión arterial", unit: "" },
@@ -50,6 +51,9 @@ export default function ConsultationDetailScreen({ navigation, route }) {
   const { consultationId } = route.params || {};
   const [consultation, setConsultation] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Guarda cuál documento se está generando ("prescription" o "sickLeave") para
+  // deshabilitar solo ese botón mientras se genera, no toda la pantalla.
+  const [descargando, setDescargando] = useState(null);
 
   const load = useCallback(async () => {
     if (!consultationId) {
@@ -70,6 +74,25 @@ export default function ConsultationDetailScreen({ navigation, route }) {
   }, [consultationId, navigation]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // El doctor real de esta consulta viene de la cita (appointment_id.doctor_id), no de la
+  // receta ni de la incapacidad — se lo pasamos a mano porque el helper de PDF solo sabe
+  // leerlo de prescription.doctor / sickLeave.doctor_id (ver patientDocuments.js).
+  const handleDescargar = async (tipo) => {
+    const doctorDeLaConsulta = consultation.appointment_id?.doctor_id;
+    setDescargando(tipo);
+    try {
+      if (tipo === "prescription") {
+        await descargarRecetaPdf({ ...consultation.prescription, doctor: doctorDeLaConsulta });
+      } else {
+        await descargarIncapacidadPdf({ ...consultation.sickLeave, doctor_id: doctorDeLaConsulta });
+      }
+    } catch (error) {
+      showError(error.message || "No se pudo generar el documento.");
+    } finally {
+      setDescargando(null);
+    }
+  };
 
   if (loading || !consultation) {
     return (
@@ -132,7 +155,7 @@ export default function ConsultationDetailScreen({ navigation, route }) {
         <View style={styles.infoCard}>
           <DetailItem icon="calendar-outline" label="Fecha" value={appointment ? formatLongDate(appointment.date) : "—"} />
           <DetailItem icon="time-outline" label="Horario" value={appointment ? formatTime12h(appointment.start_time) : "—"} />
-          <DetailItem icon="medkit-outline" label="Servicio" value={appointment?.type || "—"} />
+          <DetailItem icon="medkit-outline" label="Servicio" value={appointment?.procedure_id?.name || appointment?.type || "—"} />
         </View>
 
         <Section icon="clipboard-outline" title="Diagnóstico">
@@ -260,6 +283,59 @@ export default function ConsultationDetailScreen({ navigation, route }) {
         {consultation.follow_up_date ? (
           <Section icon="calendar-clear-outline" title="Próximo control">
             <Text style={styles.sectionText}>{formatLongDate(consultation.follow_up_date)}</Text>
+          </Section>
+        ) : null}
+
+        {/* Documentos generados en ESTA consulta puntual, descargables al momento — a
+            diferencia de "Mis documentos" en Perfil, que junta los de todas las consultas. */}
+        {(hasPrescription || sickLeave) ? (
+          <Section icon="folder-open-outline" title="Documentos">
+            {hasPrescription ? (
+              <View style={[styles.documentRow, !sickLeave && styles.documentRowLast]}>
+                <View style={styles.documentIcon}><Ionicons name="document-text-outline" size={18} color="#2F6BFF" /></View>
+                <View style={styles.documentInfo}>
+                  <Text style={styles.documentTitle}>Receta médica</Text>
+                  <Text style={styles.documentSubtitle}>{appointment ? formatLongDate(appointment.date) : ""}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.downloadButton}
+                  disabled={descargando === "prescription"}
+                  onPress={() => handleDescargar("prescription")}
+                >
+                  {descargando === "prescription" ? (
+                    <ActivityIndicator size="small" color="#2F6BFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="download-outline" size={14} color="#2F6BFF" />
+                      <Text style={styles.downloadButtonText}>Descargar</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            {sickLeave ? (
+              <View style={[styles.documentRow, styles.documentRowLast]}>
+                <View style={styles.documentIcon}><Ionicons name="id-card-outline" size={18} color="#2F6BFF" /></View>
+                <View style={styles.documentInfo}>
+                  <Text style={styles.documentTitle}>Incapacidad médica</Text>
+                  <Text style={styles.documentSubtitle}>{sickLeave.start_date ? formatLongDate(sickLeave.start_date) : ""}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.downloadButton}
+                  disabled={descargando === "sickLeave"}
+                  onPress={() => handleDescargar("sickLeave")}
+                >
+                  {descargando === "sickLeave" ? (
+                    <ActivityIndicator size="small" color="#2F6BFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="download-outline" size={14} color="#2F6BFF" />
+                      <Text style={styles.downloadButtonText}>Descargar</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </Section>
         ) : null}
 

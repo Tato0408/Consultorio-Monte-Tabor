@@ -25,7 +25,6 @@ import registerAdminRoute from "./src/routes/admin/registerAdmin.js"
 import recoveryAdminPassword from "./src/routes/admin/recoveryPasswordAdmin.js"
 import recoveryNursePassword from "./src/routes/nurse/recoveryPasswordNurse.js"
 import recoveryPatientPassword from "./src/routes/patients/recoveryPasswordPatient.js"
-import { validateAuthCookie } from './src/middlewares/authMiddleware.js';
 import { authenticate } from './src/middlewares/authenticateMiddleware.js';
 import { authorize } from './src/middlewares/authorizeMiddleware.js';
 import registerPatientRoutes from "./src/routes/patients/registerPatients.js"
@@ -66,7 +65,11 @@ app.use(cors({
     // TEMPORAL: 5176 agregado solo para pruebas locales de esta sesión (varios
     // dev servers corriendo a la vez se van a puertos consecutivos). Quitarlo
     // antes de hacer commit/push si no se necesita.
-    origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "https://clinica-monte-tabor.vercel.app", "https://clinica-monte-tabor-6h9mwf7j4-fvp1233s-projects.vercel.app", "https://clinica-monte-tabor-3guj.vercel.app", "clinica-monte-tabor-3guj-mtduj4uws-fvp1233s-projects.vercel.app"],
+    // El último dominio le faltaba el esquema "https://": el navegador siempre manda el
+    // Origin completo (con esquema), así que tal como estaba escrito nunca podía calzar
+    // con nada — ese despliegue de Vercel quedaba bloqueado por CORS sin que nada lo
+    // explicara en los logs (el navegador simplemente no manda el error real a JS).
+    origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "https://clinica-monte-tabor.vercel.app", "https://clinica-monte-tabor-6h9mwf7j4-fvp1233s-projects.vercel.app", "https://clinica-monte-tabor-3guj.vercel.app", "https://clinica-monte-tabor-3guj-mtduj4uws-fvp1233s-projects.vercel.app"],
     // Permite el envío de cookies y credenciales
     credentials: true
 }))
@@ -85,38 +88,38 @@ app.use("/api/recoveryNursePassword", recoveryNursePassword);
 app.use("/api/recoveryPatientPassword", recoveryPatientPassword);
 
 //Endpoints privados
-app.use("/api/registerDoctors", authenticate, authorize("users.doctors", "create"), registerDoctorRoutes);
+app.use("/api/registerDoctors", authenticate(), authorize("users.doctors", "create"), registerDoctorRoutes);
 app.use("/api/doctors", doctorsRoutes);
 app.use("/api/loginDoctors", loginDoctorRoutes);
 
 app.use("/api/admin" ,adminRoutes);
 
-app.use("/api/registerRecepcionist", authenticate, authorize("users.receptionist", "create"), registerReceptionistRoutes);
+app.use("/api/registerRecepcionist", authenticate(), authorize("users.receptionist", "create"), registerReceptionistRoutes);
 app.use("/api/recepcionist", receptionistRoutes);
 
-app.use("/api/patients", authenticate, patientsRoute);
+app.use("/api/patients", authenticate(), patientsRoute);
 app.use("/api/registerPatient", registerPatientRoutes);
 // Autoservicio de pacientes, usado por la app móvil. La ruta /register es
 // pública y /me requiere sesión, validada a nivel de ruta dentro de
 // patientSelf.js, por eso no se aplica authenticate en este archivo.
 app.use("/api/patientAccount", patientSelfRoutes);
 
-app.use("/api/nurses", authenticate, nurseRoutes);
+app.use("/api/nurses", authenticate(), nurseRoutes);
 
-app.use("/api/consultations", authenticate, consultationsRoutes);
-app.use("/api/appointments" , authenticate , appointmentsRoutes);
+app.use("/api/consultations", authenticate(), consultationsRoutes);
+app.use("/api/appointments" , authenticate() , appointmentsRoutes);
 app.use("/api/appointment-types", appointmentTypesRoutes);
-app.use("/api/inventory", authenticate, inventoryRoutes);
-app.use("/api/procedures", authenticate, proceduresRoutes);
-app.use("/api/treatments", authenticate, treatmentsRoutes);
-app.use("/api/schedule", authenticate, scheduleRoutes);
-app.use("/api/nurse-schedule", authenticate, nurseScheduleRoutes);
-app.use("/api/dashboard", validateAuthCookie(["admin"]), dashboardRoutes);
-app.use("/api/doctor-dashboard", validateAuthCookie(["doctor"]), doctorDashboardRoutes);
-app.use("/api/receptionist-dashboard", validateAuthCookie(["receptionist"]), receptionistDashboardRoutes);
-app.use("/api/nurse-dashboard", validateAuthCookie(["nurse"]), nurseDashboardRoutes);
+app.use("/api/inventory", authenticate(), inventoryRoutes);
+app.use("/api/procedures", authenticate(), proceduresRoutes);
+app.use("/api/treatments", authenticate(), treatmentsRoutes);
+app.use("/api/schedule", authenticate(), scheduleRoutes);
+app.use("/api/nurse-schedule", authenticate(), nurseScheduleRoutes);
+app.use("/api/dashboard", authenticate(["admin"]), dashboardRoutes);
+app.use("/api/doctor-dashboard", authenticate(["doctor"]), doctorDashboardRoutes);
+app.use("/api/receptionist-dashboard", authenticate(["receptionist"]), receptionistDashboardRoutes);
+app.use("/api/nurse-dashboard", authenticate(["nurse"]), nurseDashboardRoutes);
 
-// Sin validateAuthCookie: cerrar sesión debe limpiar la cookie sin
+// Sin authenticate(): cerrar sesión debe limpiar la cookie sin
 // importar si el token que trae todavía es válido, si no, un token ya
 // vencido o corrupto dejaría la cookie pegada en el navegador para
 // siempre en vez de borrarla.
@@ -124,14 +127,14 @@ app.use("/api/logout", logoutRoute);
 app.use("/api/nurse_notes",  nurse_noteRoute);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permissions", permissionsRoutes);
-app.use("/api/reports", authenticate, reportsRoutes);
-app.use("/api/sick-leaves", authenticate, sickLeavesRoutes);
-app.use("/api/notifications", authenticate, notificationsRoutes);
+app.use("/api/reports", authenticate(), reportsRoutes);
+app.use("/api/sick-leaves", authenticate(), sickLeavesRoutes);
+app.use("/api/notifications", authenticate(), notificationsRoutes);
 
 // Portal del paciente, sitio público solo para pacientes logueados. Sus
 // endpoints propios no dependen de los permisos de staff (admin, doctor,
 // enfermera, recepcionista).
-app.use("/api/patient-portal", validateAuthCookie(["patient"]), patientPortalRoutes);
+app.use("/api/patient-portal", authenticate(["patient"]), patientPortalRoutes);
 
 // Webhook de Wompi: no lleva cookie de sesión porque lo llama Wompi, no un
 // navegador logueado. La seguridad la da la firma HMAC verificada dentro
@@ -141,6 +144,6 @@ app.use("/api/webhooks/wompi", wompiWebhookRoutes);
 // Proxy directo hacia la API de Wompi (token, tokenizar tarjeta, cobrar),
 // usado por la página de pago del paciente. Solo pacientes logueados
 // pueden llamarlo.
-app.use("/api/wompi", validateAuthCookie(["patient"]), wompiRoutes);
+app.use("/api/wompi", authenticate(["patient"]), wompiRoutes);
 
 export default app;

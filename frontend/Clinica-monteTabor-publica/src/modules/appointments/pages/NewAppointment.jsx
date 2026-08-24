@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, ChevronDown, Clock, Stethoscope, CalendarDays, Timer, Wallet, CreditCard, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getProcedures, bookAppointment } from "@/services/appointmentsService";
+import { getProcedures, getSchedulableDoctors, bookAppointment } from "@/services/appointmentsService";
 import { showError, showSuccess } from "@/lib/alerts";
 import StepIndicator from "../components/StepIndicator";
 import StepTipoAtencion from "../components/StepTipoAtencion";
@@ -120,6 +120,7 @@ const ResumenCita = ({ tipoLabel, doctor, date, slot, duracion }) => (
 
 const NewAppointment = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { patient, logout } = useAuth();
 
   const [step, setStep] = useState(1);
@@ -139,12 +140,50 @@ const NewAppointment = () => {
   const [submitting, setSubmitting] = useState(false);
   const [confirmada, setConfirmada] = useState(null);
   const [metodoPago, setMetodoPago] = useState("reception");
+  // Motivo de consulta: opcional, el backend lo acepta y lo guarda (ver
+  // patientPortalController.bookAppointment) pero este asistente nunca lo pedía —
+  // a diferencia de la app móvil, un doctor nunca veía por qué el paciente agendó.
+  const [motivo, setMotivo] = useState("");
+  const [motivoError, setMotivoError] = useState("");
 
   useEffect(() => {
     getProcedures()
       .then(setProcedures)
       .catch(() => showError("No se pudieron cargar los procedimientos disponibles."))
       .finally(() => setLoadingCatalogo(false));
+  }, []);
+
+  // Viene de "Reagendar cita" en Mis citas (ver MyAppointments.jsx): trae el tipo de
+  // atención, doctor y motivo de la cita cancelada, y salta directo al paso de fecha y
+  // hora para que el paciente no tenga que volver a llenar todo desde cero.
+  useEffect(() => {
+    const prefill = location.state?.prefill;
+    if (!prefill) return;
+    setTipo(prefill.tipo || "general");
+    setMotivo(prefill.motivo || "");
+    if (prefill.doctorId) {
+      setModo("doctor");
+      getSchedulableDoctors()
+        .then((list) => {
+          const encontrado = list.find((d) => d._id === prefill.doctorId);
+          if (encontrado) {
+            setDoctor(encontrado);
+            setStep(3);
+          } else {
+            // El doctor de la cita anterior ya no está disponible: se vuelve al modo
+            // rápido en vez de dejar el asistente atascado sin poder avanzar.
+            setModo("rapido");
+            setStep(2);
+          }
+        })
+        .catch(() => { setModo("rapido"); setStep(2); });
+    } else {
+      setStep(2);
+    }
+    // Se limpia el state de navegación para que un refresh no vuelva a aplicar el
+    // prefill (y, sobre todo, para que no reaparezca si el paciente navega para atrás).
+    navigate(location.pathname, { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const esGeneral = tipo === "general";
@@ -215,6 +254,12 @@ const NewAppointment = () => {
   };
 
   const handleConfirmar = async () => {
+    const motivoLimpio = motivo.trim();
+    if (motivoLimpio && (motivoLimpio.length < 3 || motivoLimpio.length > 500)) {
+      setMotivoError("El motivo debe tener entre 3 y 500 caracteres.");
+      return;
+    }
+    setMotivoError("");
     setSubmitting(true);
     try {
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -226,6 +271,7 @@ const NewAppointment = () => {
         start_time: slot.start_time,
         procedure_id: esGeneral ? undefined : tipo,
         payment_method: metodoPago,
+        description: motivoLimpio || undefined,
       });
 
       // Si eligió pagar en línea, la cita queda "pending" y se pasa a la página de pago
@@ -374,6 +420,31 @@ const NewAppointment = () => {
                   pagoOnline={metodoPago === "online"}
                   deposit={deposito}
                 />
+
+                <div className="mt-4">
+                  <label htmlFor="motivo" className="text-sm font-semibold text-gray-800">
+                    Motivo de la consulta <span className="text-gray-400 font-normal">(opcional)</span>
+                  </label>
+                  <textarea
+                    id="motivo"
+                    value={motivo}
+                    onChange={(e) => { setMotivo(e.target.value); if (motivoError) setMotivoError(""); }}
+                    maxLength={500}
+                    rows={3}
+                    placeholder="Cuéntanos brevemente el motivo de tu consulta, para que el doctor llegue mejor preparado."
+                    className={`w-full mt-2 px-3 py-2.5 text-sm rounded-xl border resize-none focus:outline-none transition-colors ${
+                      motivoError
+                        ? "border-red-400 bg-red-50/30 focus:border-red-500"
+                        : "border-gray-200 bg-gray-50 focus:border-[#3B6FCA] focus:bg-white"
+                    }`}
+                  />
+                  <div className="flex justify-between items-start mt-1">
+                    {motivoError ? (
+                      <span className="text-xs text-red-500 font-medium">{motivoError}</span>
+                    ) : <span />}
+                    <span className="text-[11px] text-gray-400 ml-auto">{motivo.length}/500</span>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">

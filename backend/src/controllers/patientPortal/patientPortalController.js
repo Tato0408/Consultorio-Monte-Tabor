@@ -11,6 +11,7 @@ import notificationModel from "../../models/notifications/notification.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import appointmentTypeModel from "../../models/appointmentTypes/appointmentType.js";
 import { isNurseAvailable } from "../../controllers/schedule/nurseScheduleController.js";
+import { isSlotFreeForDoctor } from "../../controllers/schedule/scheduleController.js";
 import { getTransactionStatus } from "../../utils/wompi.js";
 
 const patientPortalController = {};
@@ -286,16 +287,14 @@ patientPortalController.bookAppointment = async (req, res) => {
         // mientras el paciente completaba el formulario. Sin doctor elegido no hay una
         // agenda puntual contra la cual revalidar (cualquier doctor podría aceptarla
         // después), así que esta revalidación solo aplica cuando sí se eligió doctor.
+        // Usa la misma validación que aceptar/asignar una cita (isSlotFreeForDoctor) en
+        // vez de un solape a mano: así también respeta el tiempo entre citas (buffer_time)
+        // del doctor, que antes solo se usaba para sugerir horarios pero nunca se hacía
+        // cumplir de verdad al confirmar uno.
         if (!sinDoctorElegido) {
-            const sameDayAppointments = await appointmentsModel
-                .find({ doctor_id, date: { $gte: dayStart, $lte: dayEnd }, status: { $ne: "cancelled" } })
-                .select("start_time end_time");
-
-            const overlaps = sameDayAppointments.some(a =>
-                toMinutes(start_time) < toMinutes(a.end_time) && toMinutes(end_time) > toMinutes(a.start_time)
-            );
-            if (overlaps) {
-                return res.status(409).json({ message: "Ese horario ya no está disponible. Por favor elige otro." });
+            const { free, reason } = await isSlotFreeForDoctor(doctor_id, date, start_time, end_time);
+            if (!free) {
+                return res.status(409).json({ message: reason || "Ese horario ya no está disponible. Por favor elige otro." });
             }
         }
 
@@ -435,14 +434,23 @@ patientPortalController.cancelMyAppointment = async (req, res) => {
         if (appointment.patient_id.toString() !== req.user.id) {
             return res.status(403).json({ message: "No puedes modificar esta cita." });
         }
-        if (["completed", "cancelled"].includes(appointment.status)) {
+        if (["completed", "cancelled", "no_show", "expired"].includes(appointment.status)) {
             return res.status(400).json({ message: "Esta cita ya no se puede cancelar." });
+        }
+
+        // El motivo real que escribió el paciente (mobile ya lo manda; el portal web manda
+        // uno propio según si viene de "Cancelar cita" o de "Reagendar cita"). Antes esto
+        // ignoraba por completo lo que llegara en el body y siempre guardaba el mismo texto
+        // fijo, así que el personal nunca veía la razón real de la cancelación.
+        const reasonEnviado = String(req.body.cancellation_reason || "").trim();
+        if (reasonEnviado && (reasonEnviado.length < 3 || reasonEnviado.length > 500)) {
+            return res.status(400).json({ message: "El motivo debe tener entre 3 y 500 caracteres." });
         }
 
         // El anticipo ya pagado (si lo hay) no se reembolsa por política de la clínica:
         // solo aparta la hora, así que cancelar no dispara ningún reembolso ni reversión.
         appointment.status = "cancelled";
-        appointment.cancellation_reason = "Cancelada por el paciente";
+        appointment.cancellation_reason = reasonEnviado || "Cancelada por el paciente";
         await appointment.save();
 
         return res.status(200).json({ message: "Cita cancelada correctamente" });

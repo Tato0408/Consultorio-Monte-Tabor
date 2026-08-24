@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../lib/apiClient";
 import { showError, showSuccess } from "../../lib/toast";
+import { formatTime12h } from "../../utils/date";
 import styles from "../../styles/appointments/appointmentDetailStyle";
 
 const STATUS = {
@@ -27,23 +28,6 @@ const STATUS = {
 const longDate = (value) => new Date(value).toLocaleDateString("es-GT", {
   weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
 });
-
-const hasAppointmentStarted = (appointment, now = new Date()) => {
-  const date = new Date(appointment.date);
-  const [hours, minutes] = String(appointment.start_time || "00:00").split(":").map(Number);
-  if (Number.isNaN(date.getTime()) || !Number.isFinite(hours) || !Number.isFinite(minutes)) return false;
-
-  const startsAt = new Date(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate(),
-    hours,
-    minutes,
-    0,
-    0
-  );
-  return startsAt <= now;
-};
 
 const DetailItem = ({ icon, label, value }) => (
   <View style={styles.detailItem}>
@@ -129,7 +113,6 @@ export default function AppointmentDetailScreen({ navigation, route }) {
   const service = appointment.procedure_id?.name || appointment.type;
   const status = STATUS[appointment.status];
   const initials = doctor ? `${doctor.name?.[0] || ""}${doctor.last_name?.[0] || ""}` : "?";
-  const appointmentStarted = hasAppointmentStarted(appointment);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -149,7 +132,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
 
         <View style={styles.infoCard}>
           <DetailItem icon="calendar-outline" label="Fecha" value={longDate(appointment.date)} />
-          <DetailItem icon="time-outline" label="Horario" value={`${appointment.start_time} – ${appointment.end_time}`} />
+          <DetailItem icon="time-outline" label="Horario" value={`${formatTime12h(appointment.start_time)} – ${formatTime12h(appointment.end_time)}`} />
           <DetailItem icon="hourglass-outline" label="Duración" value={`${appointment.duration_minutes || 30} minutos`} />
           <DetailItem icon="medkit-outline" label="Servicio" value={service} />
           <DetailItem icon="cash-outline" label="Costo estimado" value={`$${Number(appointment.total || 0).toFixed(2)}`} />
@@ -166,17 +149,13 @@ export default function AppointmentDetailScreen({ navigation, route }) {
           <Text style={[styles.noticeText, { color: status.color }]}>{appointment.status === "pending" ? "La solicitud aún debe ser aceptada por un doctor." : "Tu cita fue aceptada y está programada."}</Text>
         </View>
 
-        {appointmentStarted ? (
-          <View style={styles.cancellationUnavailable}>
-            <Ionicons name="information-circle-outline" size={20} color="#64748B" />
-            <Text style={styles.cancellationUnavailableText}>{"Esta cita ya comenz\u00f3 o su fecha pas\u00f3, por lo que ya no puede cancelarse."}</Text>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.cancelButton} onPress={() => setCancelVisible(true)}>
-            <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
-            <Text style={styles.cancelButtonText}>Cancelar cita</Text>
-          </TouchableOpacity>
-        )}
+        {/* Se puede cancelar en cualquier momento mientras la cita siga pending/scheduled
+            (ver el filtro justo arriba de este return), incluso si ya comenz\u00f3 o su fecha
+            ya pas\u00f3 \u2014 misma regla que la web y que ya aplica el backend. */}
+        <TouchableOpacity style={styles.cancelButton} onPress={() => setCancelVisible(true)}>
+          <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
+          <Text style={styles.cancelButtonText}>Cancelar cita</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       <Modal

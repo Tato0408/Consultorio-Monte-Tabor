@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit, Eye, Trash2, Ban, Plus, Loader2, Search, ArrowUp, ArrowDown, X } from "lucide-react";
+import { Edit, Eye, Trash2, Ban, UserX, Plus, Loader2, Search, ArrowUp, ArrowDown, X } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import {
     confirmDelete,
     confirmCancelAppointment,
+    confirmNoShow,
     showSuccess,
     showError
 } from "@/lib/alerts";
@@ -289,6 +290,23 @@ export default function AppointmentsGrid() {
             showSuccess("La cita fue cancelada correctamente");
         } catch (error) {
             showError("No se pudo cancelar la cita");
+        }
+    };
+
+    // El paciente no llegó a una cita Programada. No borra el registro, solo cambia el
+    // status (igual que handleCancelar); una vez marcada, ya no se puede continuar una
+    // consulta desde ella (ver AppointmentTable.jsx).
+    const handleNoShow = async (id) => {
+        const confirmed = await confirmNoShow();
+
+        if (!confirmed) return;
+
+        try {
+            await updateStatus(id, "no_show");
+
+            showSuccess("La cita quedó marcada como no presentada");
+        } catch (error) {
+            showError("No se pudo marcar la cita como no presentada");
         }
     };
 
@@ -578,7 +596,24 @@ export default function AppointmentsGrid() {
                                         {cita.total
                                             ? `$${cita.total}`
                                             : "$15"}
+                                        {/* Cita agendada desde el portal público pagando el anticipo en línea:
+                                            se muestra cuánto ya se cobró aparte del total, para que el
+                                            personal no vuelva a cobrarlo completo el día de la cita. */}
+                                        {cita.deposit_paid && (
+                                            <span className="text-emerald-600 font-semibold">
+                                                {" "}— ${Number(cita.deposit_amount).toFixed(2)} pagado por anticipo
+                                            </span>
+                                        )}
                                     </p>
+
+                                    {cita.deposit_paid && (
+                                        <p>
+                                            <span className="text-slate-400">
+                                                Nota:
+                                            </span>{" "}
+                                            Ya se pagó ${Number(cita.deposit_amount).toFixed(2)} de anticipo en línea. Resta ${Number((cita.total || 0) - cita.deposit_amount).toFixed(2)} por cobrar en recepción.
+                                        </p>
+                                    )}
 
                                     {/* Motivo de cancelación, solo si aplica. */}
                                     {cita.status === "cancelled" && (
@@ -698,6 +733,20 @@ export default function AppointmentsGrid() {
                                                         }
                                                     >
                                                         <Ban className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+
+                                                {/* Solo aplica a una cita Programada, mismo criterio que Reagendar. */}
+                                                {canUpdate && cita.status === "scheduled" && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                                                        onClick={() =>
+                                                            handleNoShow(cita._id)
+                                                        }
+                                                    >
+                                                        <UserX className="h-4 w-4" />
                                                     </Button>
                                                 )}
                                             </>
@@ -835,6 +884,21 @@ export default function AppointmentsGrid() {
                             <p><span className="font-semibold text-slate-500">Fecha: </span>{new Date(pendingAppointmentDetails.date).toLocaleDateString()}</p>
                             <p><span className="font-semibold text-slate-500">Horario: </span>{pendingAppointmentDetails.start_time} - {pendingAppointmentDetails.end_time}</p>
                             <p><span className="font-semibold text-slate-500">Duración: </span>{pendingAppointmentDetails.duration_minutes || 30} min</p>
+                            <p>
+                                <span className="font-semibold text-slate-500">Total: </span>
+                                {pendingAppointmentDetails.total ? `$${pendingAppointmentDetails.total}` : "$15"}
+                                {pendingAppointmentDetails.deposit_paid && (
+                                    <span className="text-emerald-600 font-semibold">
+                                        {" "}— ${Number(pendingAppointmentDetails.deposit_amount).toFixed(2)} pagado por anticipo
+                                    </span>
+                                )}
+                            </p>
+                            {pendingAppointmentDetails.deposit_paid && (
+                                <p>
+                                    <span className="font-semibold text-slate-500">Nota: </span>
+                                    Ya se pagó ${Number(pendingAppointmentDetails.deposit_amount).toFixed(2)} de anticipo en línea. Resta ${Number((pendingAppointmentDetails.total || 0) - pendingAppointmentDetails.deposit_amount).toFixed(2)} por cobrar en recepción.
+                                </p>
+                            )}
                             <p><span className="font-semibold text-slate-500">Notas: </span>{pendingAppointmentDetails.description || "Sin notas"}</p>
                         </div>
                         <div className="mt-6 flex justify-end gap-3">

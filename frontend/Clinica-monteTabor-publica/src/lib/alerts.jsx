@@ -1,3 +1,4 @@
+import { useState } from "react";
 import toast from "react-hot-toast";
 
 // ── Custom toast renderers ──────────────────────────────────────────────────
@@ -121,6 +122,75 @@ export const confirmAction = (message, { confirmLabel = "Confirmar", cancelLabel
           danger={danger}
           onConfirm={() => { toast.dismiss(t.id); resolve(true); }}
           onCancel={() => { toast.dismiss(t.id); resolve(false); }}
+        />
+      ),
+      { duration: Infinity }
+    );
+  });
+
+const ReasonConfirmCard = ({ t, message, confirmLabel, cancelLabel, placeholder, minLength, onConfirm, onCancel }) => {
+  const [valor, setValor] = useState("");
+  const valido = valor.trim().length >= minLength;
+
+  return (
+    <div
+      style={{
+        opacity: t.visible ? 1 : 0,
+        transform: t.visible ? "translateY(0) scale(1)" : "translateY(-10px) scale(0.97)",
+        transition: "all 0.2s cubic-bezier(.34,1.56,.64,1)",
+      }}
+      className="bg-white border border-gray-100 rounded-2xl shadow-lg shadow-gray-200/60 p-4 max-w-sm w-full"
+    >
+      <p className="text-sm font-semibold text-gray-800 leading-snug">{message}</p>
+      <textarea
+        autoFocus
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+        placeholder={placeholder}
+        maxLength={500}
+        rows={3}
+        className="w-full mt-3 px-3 py-2 text-sm rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:border-red-400 focus:bg-white resize-none"
+      />
+      <div className="flex justify-between items-center mt-1">
+        <span className="text-[11px] text-gray-400">{valor.trim().length < minLength ? `Mínimo ${minLength} caracteres` : ""}</span>
+        <span className="text-[11px] text-gray-400">{valor.length}/500</span>
+      </div>
+      <div className="flex justify-end gap-2 mt-3">
+        <button
+          onClick={onCancel}
+          className="px-3.5 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+        >
+          {cancelLabel}
+        </button>
+        <button
+          onClick={() => valido && onConfirm(valor.trim())}
+          disabled={!valido}
+          className="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white transition-colors bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Igual que confirmAction, pero además pide un motivo en un textarea — el paciente
+// escribe el texto real que se guarda tal cual (ver cancelMyAppointment en el backend),
+// en vez de un motivo fijo que no reflejaba lo que realmente pasó. Devuelve el texto
+// escrito (trim) si se confirma, o null si se cancela.
+export const confirmActionWithReason = (message, { confirmLabel = "Confirmar", cancelLabel = "Cancelar", placeholder = "Escribe el motivo...", minLength = 3 } = {}) =>
+  new Promise((resolve) => {
+    toast.custom(
+      (t) => (
+        <ReasonConfirmCard
+          t={t}
+          message={message}
+          confirmLabel={confirmLabel}
+          cancelLabel={cancelLabel}
+          placeholder={placeholder}
+          minLength={minLength}
+          onConfirm={(reason) => { toast.dismiss(t.id); resolve(reason); }}
+          onCancel={() => { toast.dismiss(t.id); resolve(null); }}
         />
       ),
       { duration: Infinity }

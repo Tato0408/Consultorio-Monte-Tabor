@@ -10,9 +10,6 @@ router.route("/stats")
 router.route("/history")
     .get(authorize("calendar.appointments", "view"), appointmentsController.getAppointmentsHistory);
 
-router
-    .get("/available-slots", authorize("calendar.appointments", "view"), appointmentsController.getAvailableSlots);
-
 // Flujo de portal público: el controller limita los datos al paciente de la
 // sesión. No usa la matriz interna de permisos destinada al personal.
 router.route("/patient")

@@ -83,7 +83,11 @@ const ProfileScreen = ({ navigation }) => {
     { icon: "male-female-outline", label: "Género", value: patient?.gender || EMPTY, chevron: true },
     { icon: "call-outline", label: "Teléfono", value: patient?.phone || EMPTY, chevron: true },
     { icon: "mail-outline", label: "Correo electrónico", value: patient?.email || EMPTY, chevron: true },
-  ], [patient]);
+    // A diferencia de las filas de arriba, esta NO lleva a EditProfile: define su propio
+    // onPress, que se respeta en el .map() de abajo (antes todas las filas de esta lista
+    // caían siempre en EditProfile sin importar lo que trajeran).
+    { icon: "document-text-outline", label: "Mis documentos", value: "Recetas e incapacidades", chevron: true, onPress: () => navigation.navigate("DocumentsHub") },
+  ], [patient, navigation]);
 
   // Solo campos que existen en clinical_history: no hay alergias ni medicamentos actuales
   const healthInfo = useMemo(() => {
@@ -140,13 +144,13 @@ const ProfileScreen = ({ navigation }) => {
       icon: "notifications-outline",
       label: "Configuración de notificaciones",
       chevron: true,
-      onPress: () => console.log("Pressed: notificaciones"),
+      onPress: () => navigation.navigate("NotificationSettings"),
     },
     {
       icon: "shield-checkmark-outline",
       label: "Privacidad y datos",
       chevron: true,
-      onPress: () => console.log("Pressed: privacidad"),
+      onPress: () => navigation.navigate("PrivacySettings"),
     },
     {
       icon: "log-out-outline",
@@ -202,7 +206,7 @@ const ProfileScreen = ({ navigation }) => {
               title="Información personal"
               items={personalInfo.map((i) => ({
                 ...i,
-                onPress: () => navigation.navigate("EditProfile", { patient }),
+                onPress: i.onPress || (() => navigation.navigate("EditProfile", { patient })),
               }))}
             />
 

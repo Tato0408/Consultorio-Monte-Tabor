@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import useAppointmentsApi from "../hooks/useAppointmentsApi";
 import useSchedule from "../hooks/useSchedule";
 import useAppointmentTypes from "../hooks/useAppointmentTypes";
-import { confirmDelete, showError, showSuccess } from "@/lib/alerts";
+import { confirmDelete, confirmNoShow, showError, showSuccess } from "@/lib/alerts";
 import apiClient from "@/lib/apiClient";
 
 
@@ -335,6 +335,27 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
         }
     };
 
+    // Marca que el paciente no llegó a una cita Programada. Igual que cancelar/reagendar,
+    // solo aplica a "scheduled": una cita ya no se puede volver a tocar una vez
+    // completada, cancelada, marcada como no_show o vencida (ver también
+    // AppointmentTable.jsx, que ya no deja continuar una consulta desde una cita en
+    // ninguno de esos dos últimos estados).
+    const [markingNoShow, setMarkingNoShow] = useState(false);
+    const handleNoShow = async () => {
+        const ok = await confirmNoShow();
+        if (!ok) return;
+        setMarkingNoShow(true);
+        try {
+            await updateAppointmentStatus(appt._id, "no_show");
+            onRefresh();
+            onClose();
+        } catch {
+            showError("No se pudo marcar la cita como no presentada. Intente de nuevo.");
+        } finally {
+            setMarkingNoShow(false);
+        }
+    };
+
     // Aceptar (doctor) / asignar (admin) una cita "pending" con un clic, sin pasar
     // por el formulario completo — igual que en AppointmentsGrid.jsx (pestaña
     // Citas). Si el procedimiento requiere enfermera, el backend rechaza sin una
@@ -586,6 +607,17 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
                             {cancelling ? "Cancelando..." : "Cancelar cita"}
                         </button>
                     )}
+                    {/* Mismo criterio que Reagendar: solo una cita Programada puede marcarse
+                        como no presentada. */}
+                    {canUpdateAppt && appt.status === "scheduled" && (
+                        <button
+                            onClick={handleNoShow}
+                            disabled={markingNoShow}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-500 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                        >
+                            {markingNoShow ? "Guardando..." : "No se presentó"}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -651,8 +683,10 @@ const AppointmentsCalendar = () => {
 
     useEffect(() => {
         if (isDoctor) return;
-        fetch("http://localhost:4000/api/doctors", { credentials: "include" })
-            .then(r => r.json())
+        // Antes llamaba a una URL fija a localhost:4000, que en producción nunca
+        // resuelve: la petición fallaba en silencio y el filtro "por doctor"
+        // quedaba vacío para siempre. apiClient ya resuelve la URL base correcta.
+        apiClient("/doctors")
             .then(list => setDoctors(Array.isArray(list) ? list : []))
             .catch(() => {});
     }, [isDoctor]);
