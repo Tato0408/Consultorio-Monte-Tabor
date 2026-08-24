@@ -67,45 +67,47 @@ const ReportSection = ({ section, defaultOpen = false }) => {
       >
         <div className="overflow-hidden min-h-0">
           <div
-            className={`transition-opacity duration-200 ease-out ${
+            className={`transition-opacity duration-200 ease-out overflow-x-auto ${
               isOpen ? "opacity-100 delay-100" : "opacity-0"
             }`}
           >
-            {/* Cabecera de tabla */}
-            <div className="grid grid-cols-4 gap-x-4 px-6 py-2 bg-slate-50 border-t border-slate-100">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
-                Proceso a comparar
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
-                Actual
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
-                Período anterior
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
-                Variación
-              </span>
-            </div>
-
-            {/* Filas */}
-            {section.rows.map((row, i) => (
-              <div
-                key={i}
-                className={`grid grid-cols-4 gap-x-4 px-6 py-3.5 items-center border-t border-slate-50 ${
-                  i % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2 flex-wrap text-center">
-                  <span className="text-sm text-slate-700">{row.proceso}</span>
-                  {row.badge && <StatusBadge label={row.badge.label} color={row.badge.color} />}
-                </div>
-                <span className="text-sm font-semibold text-slate-800 text-center">{row.actual}</span>
-                <span className="text-sm text-slate-400 text-center">{row.anterior}</span>
-                <div className="text-center">
-                  <VariacionCell value={row.variacion} />
-                </div>
+            <div className="min-w-[560px]">
+              {/* Cabecera de tabla */}
+              <div className="grid grid-cols-4 gap-x-4 px-6 py-2 bg-slate-50 border-t border-slate-100">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
+                  Proceso a comparar
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
+                  Actual
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
+                  Período anterior
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
+                  Variación
+                </span>
               </div>
-            ))}
+
+              {/* Filas */}
+              {section.rows.map((row, i) => (
+                <div
+                  key={i}
+                  className={`grid grid-cols-4 gap-x-4 px-6 py-3.5 items-center border-t border-slate-50 ${
+                    i % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2 flex-wrap text-center">
+                    <span className="text-sm text-slate-700">{row.proceso}</span>
+                    {row.badge && <StatusBadge label={row.badge.label} color={row.badge.color} />}
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800 text-center">{row.actual}</span>
+                  <span className="text-sm text-slate-400 text-center">{row.anterior}</span>
+                  <div className="text-center">
+                    <VariacionCell value={row.variacion} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -152,6 +152,9 @@ const Dashboard = () => {
         >
           <RefreshCw className="w-4 h-4" /> Reintentar
         </button>
+        <Link to="/login" className="mt-4 text-sm font-semibold text-[#3B6FCA] hover:underline">
+          Volver al inicio de sesión
+        </Link>
       </div>
     );
   }
@@ -358,7 +361,10 @@ const Dashboard = () => {
                     <div className="flex flex-col gap-2 text-sm text-gray-600">
                       <span className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-gray-400 flex-shrink-0" /> {fmt12(nextAppointment.start_time)}</span>
                       <span className="flex items-center gap-1.5"><Stethoscope className="w-4 h-4 text-gray-400 flex-shrink-0" /> {nextAppointment.type}</span>
-                      <span className="flex items-center gap-1.5"><User className="w-4 h-4 text-gray-400 flex-shrink-0" /> Dr. {nextAppointment.doctor_id?.name} {nextAppointment.doctor_id?.last_name}</span>
+                      <span className="flex items-center gap-1.5">
+                        <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        {nextAppointment.doctor_id ? `Dr. ${nextAppointment.doctor_id.name} ${nextAppointment.doctor_id.last_name}` : "Por asignar"}
+                      </span>
                       {nextAppointment.deposit_amount != null && !nextAppointment.deposit_paid && (
                         <span className="text-amber-600 font-medium">Anticipo pendiente: ${Number(nextAppointment.deposit_amount).toFixed(2)}</span>
                       )}

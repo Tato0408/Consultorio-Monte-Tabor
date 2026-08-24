@@ -23,7 +23,6 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import ProfileScreen from './src/screens/profile/profileScreen';
 import EditProfileScreen from './src/screens/profile/editProfileScreen';
 import ChangePasswordScreen from './src/screens/profile/changePasswordScreen';
-import ListDetailScreen from './src/screens/profile/listDetailScreen';
 import HealthInfoScreen from './src/screens/profile/healthInfoScreen';
 import BloodTypeScreen from './src/screens/profile/bloodTypeScreen';
 import AddBloodTypeScreen from './src/screens/profile/addBloodTypeScreen';
@@ -35,9 +34,14 @@ import MedicationsScreen from './src/screens/medication/medicationScreen';
 import AppointmentsScreen from './src/screens/appointments/AppointmentsScreen';
 import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
 import NewAppointmentScreen from './src/screens/appointments/NewAppointmentScreen';
+import PayAppointmentScreen from './src/screens/appointments/PayAppointmentScreen';
 import NotificationsScreen from './src/screens/notifications/NotificationsScreen';
 import AppointmentDetailScreen from './src/screens/appointments/AppointmentDetailScreen';
 import ConsultationDetailScreen from './src/screens/appointments/ConsultationDetailScreen';
+
+import DocumentsHubScreen from './src/screens/documents/DocumentsHubScreen';
+import DocumentsListScreen from './src/screens/documents/DocumentsListScreen';
+import ComingSoonScreen from './src/screens/profile/comingSoonScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -74,6 +78,7 @@ function RootNavigator() {
             options={({ route }) => ({ animation: route.params?.tabSwitch ? "none" : "slide_from_right" })}
           />
           <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} />
+          <Stack.Screen name="PayAppointment" component={PayAppointmentScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
           <Stack.Screen name="ConsultationDetail" component={ConsultationDetailScreen} />
@@ -86,7 +91,18 @@ function RootNavigator() {
           />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-          <Stack.Screen name="ListDetail" component={ListDetailScreen} />
+          <Stack.Screen name="DocumentsHub" component={DocumentsHubScreen} />
+          <Stack.Screen name="DocumentsList" component={DocumentsListScreen} />
+          <Stack.Screen
+            name="NotificationSettings"
+            component={ComingSoonScreen}
+            initialParams={{ title: "Notificaciones", icon: "notifications-outline", text: "Pronto podrás elegir qué notificaciones recibir y cómo." }}
+          />
+          <Stack.Screen
+            name="PrivacySettings"
+            component={ComingSoonScreen}
+            initialParams={{ title: "Privacidad y datos", icon: "shield-checkmark-outline", text: "Pronto podrás administrar tus datos y preferencias de privacidad aquí." }}
+          />
 
           {/* ---------- Historia clínica ----------
               El "name" es el string que reciben los navigation.navigate(): tiene que

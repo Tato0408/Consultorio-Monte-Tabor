@@ -15,6 +15,7 @@ const defaultValues = {
     estimated_duration: 30,
     price: 0,
     requires_nurse: false,
+    pre_care_instructions: "",
     post_operative_instructions: "",
 };
 
@@ -214,6 +215,25 @@ export default function ProcedureModal({ isOpen, onClose, onProcedureCreated }) 
                                     value={field.value}
                                     onChange={field.onChange}
                                     placeholder="Objetivos o notas del procedimiento..."
+                                    maxLength={500}
+                                    className="bg-gray-50 border-gray-200 rounded-lg min-h-[50px] resize-none focus-visible:ring-[#0b66d6]"
+                                />
+                            )}
+                        />
+                    </div>
+
+                    {/* Indicaciones previas: opcional. Se le muestran al paciente al
+                        confirmar su cita desde el portal (patientPortalController.js). */}
+                    <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-gray-600">Indicaciones previas</Label>
+                        <Controller
+                            name="pre_care_instructions"
+                            control={control}
+                            render={({ field }) => (
+                                <Textarea
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    placeholder="Ej. Llegar en ayunas, traer documento de identidad..."
                                     maxLength={500}
                                     className="bg-gray-50 border-gray-200 rounded-lg min-h-[50px] resize-none focus-visible:ring-[#0b66d6]"
                                 />

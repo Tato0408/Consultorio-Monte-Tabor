@@ -9,7 +9,20 @@ import { maskLettersOnly } from "@/lib/inputMasks";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
 
-const emptyType = () => ({ name: "", color: COLORS[0] });
+// A qué tipo de procedimiento queda anclado el tipo de cita: uno
+// "consulta" solo aparece como opción cuando la cita es Consulta
+// Médica General, uno "procedimiento" solo cuando se eligió un
+// procedimiento real (ver el selector "Tipo de cita" en
+// AppointmentsFormCalendar.jsx).
+const CATEGORIES = [
+    { value: "ambos", label: "Ambos" },
+    { value: "consulta", label: "Consulta" },
+    { value: "procedimiento", label: "Procedimiento" },
+];
+
+const CATEGORY_LABELS = { ambos: "Ambos", procedimiento: "Procedimiento", consulta: "Consulta" };
+
+const emptyType = () => ({ name: "", color: COLORS[0], category: "consulta" });
 
 // Catálogo global de tipos de cita (nombre y color), solo lo ve y
 // edita el rol admin (ver ScheduleConfig.jsx). Alimenta la leyenda
@@ -41,7 +54,7 @@ const AppointmentTypesSection = ({ editing }) => {
     useEffect(() => { load(); }, []);
 
     const startNew  = () => { setForm(emptyType()); setRowEditing("new"); };
-    const startEdit = (i) => { setForm({ name: types[i].name, color: types[i].color }); setRowEditing(i); };
+    const startEdit = (i) => { setForm({ name: types[i].name, color: types[i].color, category: types[i].category || "consulta" }); setRowEditing(i); };
     const cancel    = () => setRowEditing(null);
 
     const save = async () => {
@@ -97,15 +110,23 @@ const AppointmentTypesSection = ({ editing }) => {
                         <thead>
                             <tr className="border-b border-slate-100">
                                 <th className="text-left text-xs text-slate-400 font-normal pb-2">Tipo de cita</th>
+                                <th className="text-left text-xs text-slate-400 font-normal pb-2">Anclado a</th>
                                 <th className="text-right text-xs text-slate-400 font-normal pb-2">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {types.map((t, i) => (
                                 <tr key={t._id} className="border-b border-slate-50">
-                                    <td className="py-2.5 flex items-center gap-2">
-                                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
-                                        <span className="text-slate-700 text-sm">{t.name}</span>
+                                    <td className="py-2.5">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
+                                            <span className="text-slate-700 text-sm">{t.name}</span>
+                                        </div>
+                                    </td>
+                                    <td className="py-2.5">
+                                        <span className="text-xs text-slate-400">
+                                            {CATEGORY_LABELS[t.category] || "Consulta"}
+                                        </span>
                                     </td>
                                     <td className="py-2.5 text-right">
                                         {/* Deshabilitados mientras hay otra fila en edición: evita perder ese
@@ -135,7 +156,7 @@ const AppointmentTypesSection = ({ editing }) => {
 
                             {rowEditing !== null && (
                                 <tr className="border-b border-blue-100 bg-blue-50/40">
-                                    <td className="py-2.5 pr-2">
+                                    <td className="py-2.5 pr-2" colSpan={2}>
                                         <div className="flex items-center gap-2">
                                             {/* Círculos de color en vez de texto con el código hexadecimal. */}
                                             <Select value={form.color} onValueChange={c => setForm(p => ({ ...p, color: c }))}>
@@ -160,6 +181,16 @@ const AppointmentTypesSection = ({ editing }) => {
                                                 onChange={e => setForm(p => ({ ...p, name: maskLettersOnly(e.target.value, 30) }))}
                                                 className="flex-1"
                                             />
+                                            <Select value={form.category} onValueChange={c => setForm(p => ({ ...p, category: c }))}>
+                                                <SelectTrigger className="w-36 h-9 flex-shrink-0">
+                                                    <SelectValue placeholder="Anclado a" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {CATEGORIES.map(c => (
+                                                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     </td>
                                     <td className="py-2.5 text-right">

@@ -4,8 +4,9 @@ semanal, descansos y excepciones (vacaciones, horario especial, etc).
 buffer_time es el tiempo entre citas actualmente seleccionado.
 buffer_time_options es la lista propia del doctor de tiempos entre citas
 disponibles para elegir.
-block_durations es la lista propia del doctor de duraciones de bloque
-disponibles al agendar.
+La duración de cada cita ya no es una configuración propia del doctor
+(ya no existe block_durations): siempre la define el procedimiento
+elegido al agendar, o un valor fijo para Consulta Médica General.
 */
 
 import mongoose, { Schema, model } from "mongoose";
@@ -57,7 +58,6 @@ const scheduleSchema = new Schema({
 
     buffer_time:         { type: Number, default: 10 },
     buffer_time_options: { type: [Number], default: [0, 5, 10, 15, 20, 30] },
-    block_durations:     { type: [Number], default: [15, 30, 45, 60] },
     allow_outside_hours: { type: Boolean, default: false }
 
 }, {

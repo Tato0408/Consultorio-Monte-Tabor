@@ -1,4 +1,5 @@
 import { config } from "../../config.js";
+import { validarDatosTarjeta, validarDatosCobro } from "../utils/cardValidators.js";
 
 // Proxy delgado hacia la API real de Wompi El Salvador. Usa fetch
 // nativo de Node (ya disponible desde Node 18) en vez de agregar la
@@ -36,6 +37,14 @@ wompiController.tokenizarTarjeta = async (req, res) => {
     try {
         const { token, formData } = req.body;
 
+        // El frontend ya enmascara y valida (paymentValidators.js), pero el servidor
+        // nunca debe confiar solo en eso: una petición hecha directo a esta ruta (sin
+        // pasar por el formulario) se saltaría esas máscaras por completo. Validar acá
+        // también evita gastar una llamada real a Wompi con datos que ya se sabe que
+        // van a fallar.
+        const errorTarjeta = validarDatosTarjeta(formData || {});
+        if (errorTarjeta) return res.status(400).json({ message: errorTarjeta });
+
         const response = await fetch("https://api.wompi.sv/Tokenizacion", {
             method: "POST",
             headers: {
@@ -61,6 +70,9 @@ wompiController.paymentTest = async (req, res) => {
     try {
         const { token, formData } = req.body;
 
+        const errorCobro = validarDatosCobro(formData || {});
+        if (errorCobro) return res.status(400).json({ message: errorCobro });
+
         const response = await fetch("https://api.wompi.sv/TransaccionCompra/TokenizadaSin3Ds", {
             method: "POST",
             headers: {
@@ -85,6 +97,9 @@ wompiController.paymentTest = async (req, res) => {
 wompiController.payment3DS = async (req, res) => {
     try {
         const { token, formData } = req.body;
+
+        const errorCobro = validarDatosCobro(formData || {});
+        if (errorCobro) return res.status(400).json({ message: errorCobro });
 
         const response = await fetch("https://api.wompi.sv/TransaccionCompra/3DS", {
             method: "POST",

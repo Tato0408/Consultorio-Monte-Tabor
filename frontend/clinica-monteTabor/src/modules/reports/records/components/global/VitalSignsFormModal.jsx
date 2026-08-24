@@ -179,8 +179,8 @@ const VitalSignsFormModal = ({ isOpen, onClose, patientId, onSaved, editEntry })
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl relative my-auto max-h-[90vh] overflow-y-auto">
         <button
           type="button"
           onClick={close}

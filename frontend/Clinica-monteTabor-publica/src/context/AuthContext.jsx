@@ -15,6 +15,22 @@ export const AuthProvider = ({ children }) => {
     const checkSession = useCallback(async () => {
         try {
             const response = await apiClient("/auth/me");
+            // /auth/me es compartido con el panel privado y valida "cualquier
+            // usuario autenticado" (admin, doctor, enfermera, recepcionista o
+            // paciente), sin importar el tipo. Si en el mismo navegador hay una
+            // cookie de sesión del panel privado (userType distinto de
+            // "patient"), esta llamada igual responde 200, pero el resto del
+            // portal (/patient-portal/*) exige específicamente rol "patient" y
+            // la rechazaría con 401. Sin este chequeo, isLoggedIn quedaba en
+            // true con una sesión que no sirve para el portal del paciente:
+            // ProtectedRoute dejaba pasar, el dashboard fallaba con 401, y
+            // Login.jsx rebotaba de vuelta al dashboard en bucle porque
+            // también veía isLoggedIn en true.
+            if (response.userType !== "patient") {
+                setPatient(null);
+                setIsLoggedIn(false);
+                return;
+            }
             setPatient(response.user);
             setIsLoggedIn(true);
         } catch {

@@ -1,6 +1,13 @@
 import { useState } from "react";
-import { Eye, X, Clock } from "lucide-react";
+import { Eye, X } from "lucide-react";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
+
+// La duración de cada cita ya no es una configuración propia del doctor: la
+// define siempre el procedimiento elegido al agendar (o un valor fijo para
+// Consulta Médica General). Esta vista previa solo ilustra cómo se
+// combinan los bloques de horario con el tiempo entre citas, con una
+// duración de referencia de 30 min.
+const PREVIEW_DURATION = 30;
 
 const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
@@ -40,30 +47,25 @@ const generateDaySlots = (dayConfig, breaks, bufferTime, duration) => {
 
 // Botón que abre un modal parecido al selector de horarios de
 // Agendar cita, donde el doctor puede alternar entre sus días
-// disponibles y sus propias duraciones de bloque configuradas (ver
-// ScheduleSettingsSection.jsx) para ver cómo se combinan con su
-// tiempo entre citas real.
-const SchedulePreview = ({ availability, breaks, bufferTime, blockDurations }) => {
+// disponibles para ver cómo se combinan con su tiempo entre citas real.
+const SchedulePreview = ({ availability, breaks, bufferTime }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [selectedDay, setSelectedDay] = useState(null);
-    const [selectedDuration, setSelectedDuration] = useState(null);
 
     const availableDays = (availability || []).filter((d) => d.is_available);
-    const durations = blockDurations?.length ? blockDurations : [30];
 
     const openPreview = () => {
         setSelectedDay(availableDays[0]?.day ?? null);
-        setSelectedDuration(durations[0]);
         setIsOpen(true);
     };
 
     const dayConfig = availability?.find((d) => d.day === selectedDay);
-    const slots = dayConfig ? generateDaySlots(dayConfig, breaks || [], bufferTime, selectedDuration) : [];
+    const slots = dayConfig ? generateDaySlots(dayConfig, breaks || [], bufferTime, PREVIEW_DURATION) : [];
 
     return (
         <CollapsibleCard
             title="Vista previa de tu agenda"
-            subtitle="Revisa cómo se ven tus horarios semanales combinando tu tiempo entre citas y tus duraciones de bloque."
+            subtitle="Revisa cómo se ven tus horarios semanales combinados con tu tiempo entre citas (con una duración de referencia de 30 min por cita)."
             defaultOpen={false}
         >
             <button
@@ -77,11 +79,11 @@ const SchedulePreview = ({ availability, breaks, bufferTime, blockDurations }) =
 
             {isOpen && (
                 <div
-                    className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4"
+                    className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto"
                     onClick={() => setIsOpen(false)}
                 >
                     <div
-                        className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl"
+                        className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex items-center justify-between mb-4">
@@ -118,30 +120,6 @@ const SchedulePreview = ({ availability, breaks, bufferTime, blockDurations }) =
                                         </button>
                                     ))}
                                 </div>
-
-                                {/* Selector de duración, las mismas que se configuraron en
-                                    Duraciones de bloque disponibles (ScheduleSettingsSection.jsx). */}
-                                {durations.length > 1 && (
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {durations.map((d) => (
-                                                <button
-                                                    key={d}
-                                                    type="button"
-                                                    onClick={() => setSelectedDuration(d)}
-                                                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                                                        selectedDuration === d
-                                                            ? "bg-slate-800 text-white border-slate-800"
-                                                            : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                                                    }`}
-                                                >
-                                                    {d} min
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
 
                                 {/* Grid de horarios resultante */}
                                 {slots.length === 0 ? (

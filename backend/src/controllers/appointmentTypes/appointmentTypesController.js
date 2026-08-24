@@ -2,6 +2,7 @@ import appointmentTypeModel from "../../models/appointmentTypes/appointmentType.
 import { escapeRegex } from "../../utils/validators.js";
 
 const appointmentTypesController = {};
+const VALID_CATEGORIES = ["consulta", "procedimiento", "ambos"];
 
 // Evita dos tipos con el mismo nombre (insensible a mayúsculas y
 // espacios), mismo criterio que procedimientos e inventario.
@@ -29,9 +30,12 @@ appointmentTypesController.getAll = async (req, res) => {
 
 appointmentTypesController.create = async (req, res) => {
     try {
-        const { name, color } = req.body;
+        const { name, color, category } = req.body;
         if (!name || !String(name).trim()) {
             return res.status(400).json({ message: "El nombre es requerido" });
+        }
+        if (category && !VALID_CATEGORIES.includes(category)) {
+            return res.status(400).json({ message: "Categoría de tipo de cita inválida" });
         }
 
         const duplicateError = await findDuplicateName(name);
@@ -40,6 +44,7 @@ appointmentTypesController.create = async (req, res) => {
         const created = await new appointmentTypeModel({
             name: String(name).trim(),
             color: color || undefined,
+            category: category || undefined,
         }).save();
 
         return res.status(201).json(created);
@@ -50,9 +55,12 @@ appointmentTypesController.create = async (req, res) => {
 
 appointmentTypesController.update = async (req, res) => {
     try {
-        const { name, color } = req.body;
+        const { name, color, category } = req.body;
         if (!name || !String(name).trim()) {
             return res.status(400).json({ message: "El nombre es requerido" });
+        }
+        if (category && !VALID_CATEGORIES.includes(category)) {
+            return res.status(400).json({ message: "Categoría de tipo de cita inválida" });
         }
 
         const duplicateError = await findDuplicateName(name, req.params.id);
@@ -60,7 +68,7 @@ appointmentTypesController.update = async (req, res) => {
 
         const updated = await appointmentTypeModel.findByIdAndUpdate(
             req.params.id,
-            { name: String(name).trim(), color },
+            { name: String(name).trim(), color, ...(category ? { category } : {}) },
             { new: true }
         );
         if (!updated) return res.status(404).json({ message: "Tipo de cita no encontrado" });

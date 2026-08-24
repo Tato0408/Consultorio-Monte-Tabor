@@ -11,9 +11,13 @@ function useInventory() {
     useEffect(() => {
         let isMounted = true;
 
-        apiClient("/inventory")
+        // GET /inventory devuelve { insumos, total, totalPages, currentPage } (paginado, 8
+        // por página si no se manda "limit"), nunca { data }. Un límite alto trae el
+        // catálogo completo para llenar el <select> de materiales, en vez de solo los
+        // primeros 8 insumos.
+        apiClient("/inventory", { params: { limit: 1000 } })
             .then((res) => {
-                if (isMounted) setInventory(res.data);
+                if (isMounted) setInventory(res.insumos || []);
             })
             .catch((err) => {
                 if (isMounted) setError(err.message);

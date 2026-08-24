@@ -51,5 +51,11 @@ export default StyleSheet.create({
   emptySection: { alignItems: "center", padding: 24 },
   emptySectionText: { fontSize: 12, color: "#94A3B8", marginTop: 8, textAlign: "center" },
 
+  documentRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E7EBF2" }, documentRowLast: { borderBottomWidth: 0 },
+  documentIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#EEF3FF", alignItems: "center", justifyContent: "center", marginRight: 11 },
+  documentInfo: { flex: 1 }, documentTitle: { fontSize: 12.5, fontWeight: "700", color: "#111827" }, documentSubtitle: { fontSize: 11, color: "#8A94A6", marginTop: 2 },
+  downloadButton: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 7, paddingHorizontal: 11, borderRadius: 9, backgroundColor: "#EEF3FF" },
+  downloadButtonText: { fontSize: 11, fontWeight: "700", color: "#2F6BFF" },
+
   unavailable: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28 }, unavailableTitle: { fontSize: 16, fontWeight: "800", color: "#111827", textAlign: "center", marginTop: 13 }, unavailableText: { fontSize: 12, lineHeight: 18, color: "#8A94A6", textAlign: "center", marginTop: 7 },
 });

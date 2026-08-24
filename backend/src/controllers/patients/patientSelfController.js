@@ -23,9 +23,11 @@ const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
 // Firma el mismo tipo de token que usa el login. Registrarse
 // funciona como un login escondido: el paciente queda autenticado de
-// inmediato, sin pasar por la pantalla de login.
+// inmediato, sin pasar por la pantalla de login. Misma duración de 30 días que
+// loginPatientController.login, para que esta sesión "escondida" no expire antes que
+// una iniciada por el formulario normal.
 const signPatientToken = (patient) =>
-    jsonwebtoken.sign({ id: patient._id, userType: "patient" }, config.JWT.secret, { expiresIn: "15m" });
+    jsonwebtoken.sign({ id: patient._id, userType: "patient" }, config.JWT.secret, { expiresIn: "30d" });
 
 const toUserPayload = (patient) => ({
     id: patient._id,
@@ -531,7 +533,14 @@ patientSelfController.getMyConsultationById = async (req, res) => {
             .findOne({ _id: req.params.consultationId, patient_id: req.user.id })
             .populate({
                 path: "appointment_id",
-                populate: { path: "doctor_id", select: "name last_name specialty img_url" },
+                // model: "procedure" a mano porque el ref del schema de Appointments dice
+                // "Procedure" (con mayúscula) pero el modelo real está registrado como
+                // "procedure" (minúscula) — sin esto, populate tira MissingSchemaError,
+                // mismo mismatch que ya resuelve así patientPortalController.getMyAppointments.
+                populate: [
+                    { path: "doctor_id", select: "name last_name specialty img_url" },
+                    { path: "procedure_id", model: "procedure", select: "name" },
+                ],
             });
 
         if (!consultation) {

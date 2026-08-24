@@ -23,6 +23,10 @@ const fmt12 = (t) => {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 };
 const timeToMins = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+// Misma duración fija que GENERAL_CONSULT.duration en patientPortalController.js:
+// una Consulta Médica General ya no elige duración a mano (antes salía de
+// block_durations, la lista propia de cada doctor), siempre son 30 min.
+const GENERAL_DURATION = 30;
 
 const STATUS_CONFIG = {
   pending:   { label: "Pendiente",   color: "bg-amber-100 text-amber-700 border-amber-200" },
@@ -130,11 +134,21 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
     }
     return new Date();
   });
-  const [status, setStatus]                   = useState("pending");
+  // Crear o editar una cita desde este formulario siempre la deja en
+  // Programada: cancelar y completar son acciones propias (botón
+  // Cancelar cita, y al finalizar y guardar una consulta), no un
+  // estado que se elija aquí. status solo guarda el estado real ya
+  // cargado, para mostrarlo de forma informativa al ver/editar.
+  const [status, setStatus]                   = useState("scheduled");
+  // Reagendar solo aplica a una cita Programada: pendiente aún no está
+  // confirmada, y cancelada/completada/no_show/expired ya no se puede
+  // reagendar (ver también los botones de origen en AppointmentsGrid.jsx
+  // y AppointmentsCalendar.jsx, que aplican el mismo criterio).
+  const canReschedule = status === "scheduled";
   const [notes, setNotes]                     = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
   const [total, setTotal]                     = useState("");
-  const [duration, setDuration]               = useState(30);
+  const [duration, setDuration]               = useState(GENERAL_DURATION);
   const [availableSlots, setAvailableSlots]   = useState([]);
   const [slotsLoading, setSlotsLoading]       = useState(false);
   const [selectedSlot, setSelectedSlot]       = useState(null);
@@ -213,6 +227,13 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       // la cita), así que el auto relleno de abajo puede aplicar con
       // normalidad.
       justLoadedRef.current = true;
+      // Una cita cancelada o completada ya no se puede reagendar (ver
+      // también los botones de origen en AppointmentsGrid.jsx y
+      // AppointmentsCalendar.jsx, que ni siquiera abren este formulario
+      // en modo edición para esos estados).
+      if (cita.status !== "scheduled") {
+        setIsEditing(false);
+      }
     }).catch(() => showError("No se pudo recuperar la información de la cita."))
       .finally(() => setLoading(false));
   }, [id]);
@@ -224,29 +245,6 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       .then(s => setScheduleData(s))
       .catch(() => setScheduleData(null));
   }, [formData.doctor_id]);
-
-  // Las duraciones seleccionables no son fijas, cada doctor arma su
-  // propia lista (block_durations, ver ScheduleSettingsSection.jsx).
-  // Al cambiar de doctor, si la duración elegida no está en su lista,
-  // se usa la primera disponible para no pedir horarios con una
-  // duración que ese doctor no ofrece. Esto solo aplica a Consulta
-  // Médica General, un procedimiento real fija su propia duración
-  // (ver el efecto de auto relleno más abajo).
-  const durationOptions = scheduleData?.block_durations?.length ? scheduleData.block_durations : [15, 30, 45, 60];
-  useEffect(() => {
-    if (procedure !== "general") return;
-    // Al editar una cita ya guardada, scheduleData pasa primero por un
-    // valor placeholder ({_id: cita.schedule_id}, sin block_durations)
-    // mientras se carga el horario real del doctor (ver el useEffect
-    // de arriba). Sin este guard, ese placeholder hacía caer
-    // durationOptions al valor genérico por defecto y reseteaba la
-    // duración ya guardada de la cita antes de que el horario real
-    // terminara de cargar. Solo se reajusta una vez que se conoce la
-    // lista real de duraciones del doctor.
-    if (!scheduleData?.block_durations?.length) return;
-    if (!durationOptions.includes(duration)) setDuration(durationOptions[0]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleData, procedure]);
 
   // Procedimiento seleccionado (objeto completo) y si exige asignar enfermera.
   const selectedProcedure = procedures.find(p => p._id === procedure);
@@ -261,6 +259,14 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   useEffect(() => {
     if (justLoadedRef.current) { justLoadedRef.current = false; return; }
     if (procedure === "general") {
+      // La duración de una Consulta Médica General ya no la elige el
+      // usuario (antes salía de block_durations, ver
+      // ScheduleSettingsSection.jsx): queda fija en GENERAL_DURATION,
+      // igual que en el portal del paciente (GENERAL_CONSULT.duration
+      // en patientPortalController.js). Sin este reseteo explícito,
+      // volver de un procedimiento real a Consulta Médica General
+      // dejaba pegada la duración del procedimiento anterior.
+      setDuration(GENERAL_DURATION);
       setTotal("15");
     } else if (selectedProcedure) {
       setDuration(Number(selectedProcedure.estimated_duration) || 30);
@@ -274,6 +280,37 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       setFormData(p => ({ ...p, nurse_id: "" }));
     }
   }, [isNurseRequired]);
+
+  // El tipo de cita (catálogo del admin) queda anclado a la categoría
+  // que corresponde al tipo de procedimiento elegido: "consulta" para
+  // Consulta Médica General, "procedimiento" para cualquier
+  // procedimiento real. Así nunca queda una combinación cruzada (ej.
+  // un tipo de cita de procedimiento en una consulta general).
+  const activeCategory = procedure === "general" ? "consulta" : "procedimiento";
+  // "ambos" aparece como opción sin importar el tipo de procedimiento
+  // elegido, es un tipo de cita válido tanto para consulta como para
+  // procedimiento.
+  const filteredAppointmentTypes = appointmentTypes.filter(t => {
+    const category = t.category || "consulta";
+    return category === activeCategory || category === "ambos";
+  });
+  // Autocompleta el tipo de cita según el tipo de procedimiento elegido, en vez de
+  // solo limpiarlo cuando deja de ser válido: busca primero un tipo del catálogo cuyo
+  // nombre calce exacto con "Consulta Médica General" o con el procedimiento elegido: si
+  // no hay coincidencia exacta, usa el primero de la categoría como valor por defecto.
+  // El usuario sigue pudiendo elegir cualquier otro tipo de esa misma categoría (o
+  // "ambos") desde el selector; esto solo decide el valor inicial. No pisa un valor ya
+  // válido (ej. uno cargado al editar una cita existente).
+  useEffect(() => {
+    if (appointmentType && filteredAppointmentTypes.some(t => t.name === appointmentType)) return;
+    if (filteredAppointmentTypes.length === 0) { setAppointmentType(""); return; }
+    const matchName = procedure === "general" ? "Consulta Médica General" : selectedProcedure?.name;
+    const exact = matchName
+      ? filteredAppointmentTypes.find(t => t.name.trim().toLowerCase() === matchName.trim().toLowerCase())
+      : null;
+    setAppointmentType((exact || filteredAppointmentTypes[0]).name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCategory, appointmentTypes, procedure, selectedProcedure]);
 
 
   useEffect(() => {
@@ -393,9 +430,12 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       end_time:          selectedSlot.end_time,
       duration_minutes:  durationMins,
       description:       notes.trim(),
-      status,
+      // Crear o editar desde este formulario siempre deja la cita
+      // Programada (ver tarjeta Estado más abajo): cancelar y
+      // completar son acciones propias, no un valor que se elija aquí.
+      status:            "scheduled",
       total:             Number(total),
-      cancellation_reason: status === "cancelled" ? cancellationReason.trim() : "",
+      cancellation_reason: "",
     };
 
     try {
@@ -494,7 +534,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {id && !isEditing && canUpdateAppt && (
+          {id && !isEditing && canUpdateAppt && canReschedule && (
             <button onClick={() => setIsEditing(true)} disabled={submitting}
               className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
               <Edit2 className="w-3.5 h-3.5" /> Editar
@@ -573,8 +613,14 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 label="Tipo de cita"
                 value={appointmentType}
                 onChange={setAppointmentType}
-                options={appointmentTypes.map(t => ({ value: t.name, label: t.name }))}
-                placeholder={appointmentTypes.length === 0 ? "Sin tipos de cita configurados" : "Sin especificar"}
+                options={filteredAppointmentTypes.map(t => ({ value: t.name, label: t.name }))}
+                placeholder={
+                  filteredAppointmentTypes.length === 0
+                    ? activeCategory === "consulta"
+                      ? "Sin tipos de consulta configurados"
+                      : "Sin tipos de procedimiento configurados"
+                    : "Sin especificar"
+                }
                 disabled={!isEditing}
               />
               <SelectField
@@ -695,13 +741,13 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                       </span>
                     )}
                   </div>
-                  {/* La duración queda fija (deshabilitada) cuando hay
-                      un procedimiento real seleccionado, la define el
-                      procedimiento y no se elige a mano. */}
-                  <select value={duration} onChange={e => setDuration(Number(e.target.value))} disabled={!isEditing || procedure !== "general"}
-                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white disabled:opacity-60">
-                    {(procedure !== "general" && selectedProcedure ? [duration] : durationOptions).map(d => <option key={d} value={d}>{d} min</option>)}
-                  </select>
+                  {/* La duración ya no se elige a mano: siempre la define el
+                      tipo de procedimiento elegido (o el valor fijo de
+                      Consulta Médica General), ver el efecto de auto
+                      relleno más arriba. */}
+                  <span className="text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
+                    Duración: {duration} min
+                  </span>
                 </div>
 
                 {slotsLoading ? (
@@ -780,27 +826,28 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
         <div className="flex flex-col gap-5">
 
           <SectionCard title="Estado" icon={CheckCircle2}>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                <button key={key} type="button" disabled={!isEditing}
-                  onClick={() => setStatus(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                    status === key ? cfg.color + " ring-2 ring-offset-1 ring-current" : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
-                  } disabled:opacity-60`}
-                >
-                  {cfg.label}
-                </button>
-              ))}
-            </div>
+            {isEditing ? (
+              <>
+                <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold border w-fit ${STATUS_CONFIG.scheduled.color}`}>
+                  {STATUS_CONFIG.scheduled.label}
+                </span>
+                <p className="text-[11px] text-slate-400 mt-2">
+                  Toda cita creada o editada aquí queda Programada. Si desea cancelar una cita o marcarla como completada, hacerlo en sus respectivos apartados del calendario y consultas.
+                </p>
+              </>
+            ) : (
+              <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold border w-fit ${(STATUS_CONFIG[status] || STATUS_CONFIG.scheduled).color}`}>
+                {(STATUS_CONFIG[status] || STATUS_CONFIG.scheduled).label}
+              </span>
+            )}
 
             {status === "cancelled" && (
               <div className="mt-3">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Motivo de cancelación</label>
-                <Textarea disabled={!isEditing} value={cancellationReason}
-                  onChange={e => setCancellationReason(e.target.value)}
-                  placeholder="¿Por qué se canceló la cita?"
+                <Textarea disabled value={cancellationReason}
+                  placeholder="Sin motivo registrado"
                   maxLength={300}
-                  className="min-h-[80px] border-red-200 focus-visible:ring-red-300 bg-red-50/30 rounded-xl resize-none text-sm" />
+                  className="min-h-[80px] border-red-200 bg-red-50/30 rounded-xl resize-none text-sm" />
               </div>
             )}
           </SectionCard>

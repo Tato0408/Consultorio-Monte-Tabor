@@ -15,6 +15,11 @@ const TABS = [
 
 const AdminAppointments = () => {
     const location = useLocation();
+    // El link de una notificación (action_url guardado en Mongo) es un string
+    // simple: no puede llevar el "state" de React Router, así que ese caso usa el
+    // query param ?view= en vez de location.state. Se revisa primero porque, a
+    // diferencia de location.state, sigue funcionando aunque la navegación no
+    // venga de dentro de la SPA (ej. abrir el link en una pestaña nueva).
     // Al volver del detalle de una cita (botón de cerrar de
     // AppointmentsFormCalendar.jsx), location.state.initialView indica
     // desde qué pestaña se abrió esa cita (calendar o citas). Sin esto,

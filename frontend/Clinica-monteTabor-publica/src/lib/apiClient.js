@@ -1,8 +1,5 @@
-// TEMPORAL: apuntado a localhost para probar en local los cambios de esta sesión
-// (agendar sin doctor, notificación a enfermeras, cierre de sesión por token vencido)
-// antes de desplegarlos. Revertir a la URL de Render antes de hacer commit/push.
+const API_URL = "https://clinica-monte-tabor.onrender.com/api";
 //const API_URL = "http://localhost:4000/api";
- const API_URL = "https://clinica-monte-tabor.onrender.com/api";
 
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     //Construimos la url de la peticion enviando primero la url y segundo el endpoint que queremos
@@ -32,6 +29,15 @@ async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     // Intentamos parsear JSON siempre, incluso en errores, porque la API devuelve { message: "..." } tanto en éxito como en fallos controlados.
     const data = await response.json().catch(() => null);
 
+    // 401 en este backend siempre significa lo mismo: la cookie de sesión es válida pero
+    // no corresponde a un paciente (ver validateAuthCookie en el backend). Pasa, por
+    // ejemplo, cuando en el mismo navegador se inicia sesión en el panel privado
+    // (admin/doctor/etc.) mientras seguía abierta una pestaña del portal público: ambos
+    // sitios comparten la misma cookie por dominio (sin importar el puerto en
+    // localhost), así que la sesión de staff termina reemplazando a la del paciente a
+    // media navegación. Se limpia la sesión local para que el resto del sitio deje de
+    // comportarse como si siguiera logueado con una identidad que el servidor ya no
+    // reconoce como paciente.
     if (!response.ok) {
         // 401 = la cookie de sesión expiró o ya no es válida. Se avisa por evento global
         // (en vez de importar AuthContext aquí, para no acoplar este cliente HTTP genérico
@@ -42,8 +48,12 @@ async function apiClient(path, { method = "GET", body, params, signal } = {}) {
             window.dispatchEvent(new Event("session-expired"));
         }
         //Extrae el mensaje enviado del backend
-        const message = data?.message || `Error ${response.status}`;
-        throw new Error(message);
+        const message = response.status === 401
+            ? "Tu sesión ya no es válida. Inicia sesión de nuevo."
+            : data?.message || `Error ${response.status}`;
+        const error = new Error(message);
+        error.status = response.status;
+        throw error;
     }
 
     //Si la peticion fue exitosa retorna los datos parseados para utilizarlos como el endpoint

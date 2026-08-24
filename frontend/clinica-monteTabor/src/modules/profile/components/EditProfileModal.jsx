@@ -97,8 +97,8 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
         }`;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-8 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative my-auto max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
 
                 <button
                     onClick={close}

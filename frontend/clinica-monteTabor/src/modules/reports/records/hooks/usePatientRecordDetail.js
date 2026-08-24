@@ -13,6 +13,16 @@ const daysBetween = (start, end) => {
   return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)) + 1);
 };
 
+// Vigente mientras la fecha de finalización no haya pasado (o no
+// exista, ej. registros antiguos sin end_date, que se asumen
+// vigentes por no tener forma de saber lo contrario).
+const isSickLeaveVigente = (endDate) => {
+  if (!endDate) return true;
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+  return end >= new Date();
+};
+
 const getLatestByDate = (items = [], dateField) =>
   items.reduce((latest, item) => {
     if (!item[dateField]) return latest;
@@ -82,9 +92,29 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, patientName)
     const days = daysBetween(s.start_date, s.end_date);
     const suffix = days ? ` (${days} día${days > 1 ? "s" : ""})` : "";
     return {
+      id: s._id,
       nombre: `${s.diagnosis || "Incapacidad"}${suffix}`,
       fecha: formatFecha(s.start_date) || "—",
-      estado: s.status || "Activa",
+      fechaFin: formatFecha(s.end_date) || "—",
+      // Vigente/No vigente se calcula contra la fecha de finalización real,
+      // no contra el campo status guardado (que nunca se actualiza solo):
+      // así el estado siempre refleja si la incapacidad ya venció o no, sin
+      // importar cuándo se haya creado el registro.
+      estado: isSickLeaveVigente(s.end_date) ? "Vigente" : "No vigente",
+      // Campos crudos (sin formatear) para el botón de generar PDF y el
+      // modal de editar: diagnóstico y fechas tal cual, días de reposo ya
+      // calculado, y el doctor que la emitió (id + nombre), necesario para
+      // restringir quién puede generar el PDF y para la firma del documento.
+      diagnosisRaw: s.diagnosis || "",
+      startDateRaw: s.start_date,
+      endDateRaw: s.end_date,
+      restDays: days || 1,
+      doctorId: s.doctor_id?._id ? String(s.doctor_id._id) : null,
+      // Sin prefijo "Dr.": PdfSignature (mismo componente que usa
+      // ConsultationForm.jsx) ya imprime el nombre tal cual bajo la línea
+      // de firma, sin anteponerlo, para que el PDF salga con el mismo
+      // formato exacto sin importar desde dónde se generó.
+      doctorName: s.doctor_id ? `${s.doctor_id.name || ""} ${s.doctor_id.last_name || ""}`.trim() : "",
     };
   });
 

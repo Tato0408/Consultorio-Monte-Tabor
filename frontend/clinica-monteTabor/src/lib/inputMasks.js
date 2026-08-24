@@ -21,6 +21,17 @@ export const maskDigitsOnly = (raw, maxLength) => {
 export const maskAlnum = (raw, maxLength = 30) =>
   raw.replace(/[^A-Za-zÀ-ÿ0-9\s'-]/g, "").slice(0, maxLength);
 
+// Permite letras, dígitos, espacios y la puntuación normal de un texto redactado (punto,
+// coma, punto y coma, dos puntos, comillas, paréntesis, guion, diagonal y signo de
+// porcentaje). Bloquea símbolos sueltos que no pertenecen a una nota clínica en prosa
+// (<, >, {, }, [, ], \, |, ^, ~, `, @, #, $, &, *, =, _, +). Se usa en notas de evolución,
+// recetas, procedimientos y antecedentes: campos de texto libre que sí necesitan números
+// (dosis, edades, fechas en prosa) pero no símbolos ajenos a la redacción.
+export const maskClinicalText = (raw, maxLength) => {
+  const cleaned = raw.replace(/[^A-Za-zÀ-ÿ0-9\s.,;:'"()\-/%]/g, "");
+  return maxLength ? cleaned.slice(0, maxLength) : cleaned;
+};
+
 // Permite dígitos y un único punto decimal. Se usa en precios, pesos y medidas.
 export const maskDecimalOnly = (raw, maxLength) => {
   const cleaned = raw.replace(/[^0-9.]/g, "");

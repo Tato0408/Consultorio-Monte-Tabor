@@ -1,13 +1,21 @@
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 import SectionCard from "./SectionCard";
+import { maskClinicalText } from "@/lib/inputMasks";
 
 // Clase del borde de un campo: rojo cuando el campo tiene un error de
 // validación pendiente, gris en cualquier otro caso.
 const borderClass = (hasError) => (hasError ? "border-red-400" : "border-slate-200");
 
 const PrescriptionCard = ({ readOnly }) => {
-    const { control, register, watch, formState: { errors } } = useFormContext();
+    const { control, register, setValue, watch, formState: { errors } } = useFormContext();
+
+    // Aplica la máscara de texto clínico y actualiza react-hook-form. Se reutiliza en
+    // todos los inputs de esta tarjeta (medicamentos, órdenes de laboratorio e
+    // indicaciones), que son de texto libre pero sí necesitan números (dosis,
+    // frecuencias, días) y puntuación normal, solo se bloquean símbolos sueltos.
+    const maskChange = (path, maxLength) => (e) =>
+        setValue(path, maskClinicalText(e.target.value, maxLength), { shouldValidate: true });
     const { fields: rows, append, remove } = useFieldArray({
         control,
         name: "prescription.medications",
@@ -34,6 +42,7 @@ const PrescriptionCard = ({ readOnly }) => {
                                     {...register(`prescription.medications.${index}.name`, {
                                         required: "El nombre del medicamento es obligatorio",
                                     })}
+                                    onChange={maskChange(`prescription.medications.${index}.name`, 100)}
                                     className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.name)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
@@ -50,6 +59,7 @@ const PrescriptionCard = ({ readOnly }) => {
                                     {...register(`prescription.medications.${index}.dose`, {
                                         required: "La dosis es obligatoria",
                                     })}
+                                    onChange={maskChange(`prescription.medications.${index}.dose`, 50)}
                                     className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.dose)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
@@ -70,6 +80,7 @@ const PrescriptionCard = ({ readOnly }) => {
                                     {...register(`prescription.medications.${index}.frequency`, {
                                         required: "La frecuencia es obligatoria",
                                     })}
+                                    onChange={maskChange(`prescription.medications.${index}.frequency`, 50)}
                                     className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.frequency)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
@@ -86,6 +97,7 @@ const PrescriptionCard = ({ readOnly }) => {
                                     {...register(`prescription.medications.${index}.duration`, {
                                         required: "La duración es obligatoria",
                                     })}
+                                    onChange={maskChange(`prescription.medications.${index}.duration`, 50)}
                                     className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.duration)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
@@ -134,6 +146,7 @@ const PrescriptionCard = ({ readOnly }) => {
                                     {...register(`prescription.lab_orders.${index}.test_name`, {
                                         required: "El examen o estudio es obligatorio",
                                     })}
+                                    onChange={maskChange(`prescription.lab_orders.${index}.test_name`, 100)}
                                     className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.lab_orders?.[index]?.test_name)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
@@ -150,6 +163,7 @@ const PrescriptionCard = ({ readOnly }) => {
                                     {...register(`prescription.lab_orders.${index}.notes`, {
                                         required: "Agrega una nota para esta orden",
                                     })}
+                                    onChange={maskChange(`prescription.lab_orders.${index}.notes`, 200)}
                                     className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.lab_orders?.[index]?.notes)}`}
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
@@ -190,6 +204,7 @@ const PrescriptionCard = ({ readOnly }) => {
                 disabled={readOnly}
                 placeholder="Ej. Reposo relativo, abundantes líquidos y control en 3 días si no mejora"
                 {...register("prescription.indications")}
+                onChange={maskChange("prescription.indications", 500)}
                 className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />
             <div className="flex justify-end mb-3">

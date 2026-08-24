@@ -7,7 +7,7 @@ import mongoose, { Schema, model } from "mongoose";
 const notificationSchema = new Schema({
     recipient_role: {
         type: String,
-        enum: ["doctor", "patient", "receptionist", "admin"],
+        enum: ["doctor", "patient", "receptionist", "admin", "nurse"],
         required: true,
     },
     recipient_id: { type: mongoose.Schema.Types.ObjectId, required: true },

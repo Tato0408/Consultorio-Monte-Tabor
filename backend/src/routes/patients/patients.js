@@ -31,4 +31,11 @@ router.route("/:patientId/pathological/:pathologicalId")
   .put(authorize("users.patients", "update"), patientsController.updatePathological)
   .delete(authorize("users.patients", "delete"), patientsController.deletePathological)
 
+// Elimina un procedimiento puntual del historial clínico (botón de
+// la tabla, pestaña Procedimientos del Expediente). PUT /:id de
+// arriba (new_procedure) solo agrega registros, igual que en
+// vital-signs/hereditary/pathological.
+router.route("/:patientId/procedures/:procedureEntryId")
+  .delete(authorize("users.patients", "delete"), patientsController.deleteProcedureHistory)
+
 export default router

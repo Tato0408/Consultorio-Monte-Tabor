@@ -1,17 +1,51 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, MoreVertical, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import ProcedureRecordModal from "../global/ProcedureRecordModal";
+import apiClient from "@/lib/apiClient";
+import { confirmDelete, showSuccess, showError } from "@/lib/alerts";
+import { useAuth } from "@/context/AuthContext";
 
 // Espera que patient.procedimientos sea una lista de objetos con nombre,
-// fecha, doctor y duracion.
+// fecha, doctor, duracion, id (del subdocumento) y consultationId.
 export default function ProcedimientosTab({ patient = {}, onSaved }) {
+  const { hasPermission } = useAuth();
+  const canDelete = hasPermission("users.patients", "delete");
   const data = patient.procedimientos ?? [];
 
   const [rowsPerPage, setRowsPerPage] = useState(8);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+
+  // Eliminar solo borra el registro del expediente: no revierte el
+  // material ya descontado del inventario al registrarlo, y si el
+  // procedimiento viene de una consulta podría reaparecer si esa
+  // consulta se edita de nuevo. Se advierte ambas cosas aquí, en vez
+  // de bloquear la acción, para no impedir corregir un registro mal
+  // capturado.
+  const handleDelete = async (row) => {
+    const extra = row.consultationId
+      ? " Este procedimiento viene de una consulta: si esa consulta se vuelve a editar, podría volver a aparecer."
+      : "";
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar este procedimiento?",
+      text: `Esta acción no se puede deshacer. No revierte el material ya descontado del inventario al registrarlo.${extra}`,
+    });
+    if (!confirmed) return;
+
+    setDeletingId(row.id);
+    try {
+      await apiClient(`/patients/${patient.id}/procedures/${row.id}`, { method: "DELETE" });
+      showSuccess("Procedimiento eliminado correctamente");
+      onSaved?.();
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar el procedimiento");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const totalPages = Math.max(1, Math.ceil(data.length / rowsPerPage));
   const start = (page - 1) * rowsPerPage;
@@ -30,40 +64,53 @@ export default function ProcedimientosTab({ patient = {}, onSaved }) {
         </button>
       </div>
 
-      {/* Encabezados */}
-      <div className="grid grid-cols-5 gap-4 px-2 pb-4 text-center text-sm text-slate-400">
-        <span>Procedimiento</span>
-        <span>Fecha</span>
-        <span>Doctor encargado</span>
-        <span>Duración</span>
-        <span>Acciones</span>
-      </div>
-
-      {/* Filas */}
-      <div>
-        {rows.map((p, i) => (
-          <div
-            key={i}
-            className="grid grid-cols-5 items-center gap-4 border-t border-slate-50 px-2 py-5 text-center text-[15px] text-slate-700"
-          >
-            <span>{p.nombre}</span>
-            <span className="text-slate-600">{p.fecha}</span>
-            <span className="text-slate-600">{p.doctor}</span>
-            <span className="text-slate-600">{p.duracion}</span>
-            <span className="flex justify-center">
-              {/* Editar o eliminar un procedimiento puntual no tiene destino todavía
-                  (el PUT a /patients/:id actual solo permite agregar, no editar ni
-                  quitar uno existente). */}
-              <button type="button" className="text-slate-300 cursor-not-allowed" disabled title="Próximamente">
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </span>
+      {/* Encabezados y filas: overflow-x-auto evita que las 5 columnas se
+          desborden del ancho de la pantalla en móvil, deslizando en su
+          lugar. */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[600px]">
+          <div className="grid grid-cols-5 gap-4 px-2 pb-4 text-center text-sm text-slate-400">
+            <span>Procedimiento</span>
+            <span>Fecha</span>
+            <span>Doctor encargado</span>
+            <span>Duración</span>
+            <span>Acciones</span>
           </div>
-        ))}
+
+          {/* Filas */}
+          <div>
+            {rows.map((p, i) => (
+              <div
+                key={i}
+                className="grid grid-cols-5 items-center gap-4 border-t border-slate-50 px-2 py-5 text-center text-[15px] text-slate-700"
+              >
+                <span>{p.nombre}</span>
+                <span className="text-slate-600">{p.fecha}</span>
+                <span className="text-slate-600">{p.doctor}</span>
+                <span className="text-slate-600">{p.duracion}</span>
+                <span className="flex justify-center">
+                  {canDelete ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(p)}
+                      disabled={deletingId === p.id}
+                      title="Eliminar procedimiento"
+                      className="text-slate-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <span className="text-slate-200">—</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Pie: filas por página y paginación */}
-      <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-5 text-sm text-slate-500">
+      <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 pt-5 text-sm text-slate-500">
         <div className="flex items-center gap-2">
           <span>Filas por página</span>
           <div className="relative">

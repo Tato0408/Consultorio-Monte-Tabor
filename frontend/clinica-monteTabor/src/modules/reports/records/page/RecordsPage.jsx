@@ -48,8 +48,8 @@ const RecordsPage = () => {
   }
 
   return (
-    <div className="px-10 py-8 text-slate-800">
-      <h1 className="mb-8 text-3xl font-normal text-slate-400">
+    <div className="px-4 sm:px-10 py-6 sm:py-8 text-slate-800">
+      <h1 className="mb-6 sm:mb-8 text-2xl sm:text-3xl font-normal text-slate-400">
         Expedientes de pacientes
       </h1>
 

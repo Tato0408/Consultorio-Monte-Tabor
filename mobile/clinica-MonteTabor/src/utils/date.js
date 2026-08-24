@@ -1,3 +1,14 @@
+/** "12/03/1996" -> "1996-03-12T00:00:00.000Z" (null si el formato no calza).
+ * Estaba duplicada casi idéntica en editProfileScreen.jsx, addBloodTypeScreen.jsx y
+ * addPathologicalScreen.jsx — un solo lugar evita que una corrección en un formulario
+ * quede desactualizada en los otros dos. */
+export const displayToIso = (value) => {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value?.trim() || "");
+  if (!match) return null;
+  const [, dd, mm, yyyy] = match;
+  return new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd))).toISOString();
+};
+
 /** "12/03/1996" -> Date */
 export const parseDate = (str) => {
   if (!str) return new Date(2000, 0, 1);

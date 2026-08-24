@@ -1,8 +1,9 @@
 import { useState } from "react";
 import GenericTable from "@/components/ui/GenericTable";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { TYPE_LABEL, TYPE_STYLE, fmtMovementDate } from "../utils/movementTypes";
 
+// Mismas pestañas que antes vivían como <select>, ahora como tabs (mismo
+// estilo que TreatmentsPatientsTable.jsx).
 const TYPE_FILTERS = [
   { value: "all", label: "Todos los tipos" },
   { value: "Stock entry", label: TYPE_LABEL["Stock entry"] },
@@ -54,21 +55,24 @@ const MovementsTable = ({ movements, loading, onSelectMovement, onTableOffsetCha
     },
   ];
 
-  // Va en la misma fila que el buscador de GenericTable, mediante
-  // el prop headerLeft.
-  const typeFilterControl = (
-    <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl px-3 h-[42px] w-fit flex-shrink-0">
-      <span className="text-xs text-slate-400 font-normal whitespace-nowrap">Filtrar por tipo</span>
-      <Select value={typeFilter} onValueChange={setTypeFilter}>
-        <SelectTrigger className="h-7 border-none bg-transparent p-0 shadow-none focus:ring-0 gap-1 text-slate-800 font-semibold text-xs min-w-[150px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent sideOffset={6}>
-          {TYPE_FILTERS.map((f) => (
-            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+  // Pestañas de tipo de movimiento (mismo estilo que TreatmentsPatientsTable.jsx),
+  // por encima de la barra de búsqueda de GenericTable.
+  const typeTabs = (
+    <div className="flex items-center gap-1 mb-4 border-b border-slate-100 overflow-x-auto">
+      {TYPE_FILTERS.map((f) => (
+        <button
+          key={f.value}
+          type="button"
+          onClick={() => setTypeFilter(f.value)}
+          className={`px-3 py-2 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+            typeFilter === f.value
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          {f.label}
+        </button>
+      ))}
     </div>
   );
 
@@ -84,7 +88,7 @@ const MovementsTable = ({ movements, loading, onSelectMovement, onTableOffsetCha
       onTableOffsetChange={onTableOffsetChange}
       extraRows={extraRows}
       onItemsPerPageChange={onItemsPerPageChange}
-      headerLeft={typeFilterControl}
+      tabsRow={typeTabs}
       // La tabla rellena el espacio en blanco que deja debajo (ver
       // extraRows más arriba), así que paginar de 5 en 5 no sirve
       // de nada, ya que siempre quedaría relleno con filas extra.

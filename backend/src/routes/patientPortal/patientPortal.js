@@ -6,11 +6,17 @@ const router = express.Router();
 
 // Catálogos que el paciente necesita para armar su cita
 router.get("/doctors", patientPortalController.getDoctors);
+// Solo doctores con horario ya configurado, para el paso "elegir doctor" del
+// agendamiento (ver getSchedulableDoctors en el controller).
+router.get("/doctors-schedulable", patientPortalController.getSchedulableDoctors);
 router.get("/procedures", patientPortalController.getProcedures);
 
 // Reutiliza el mismo cálculo de horarios libres que usa el
 // personal de la clínica
 router.get("/schedule/:doctorId/slots", scheduleController.getAvailableSlots);
+// Días de la semana que el doctor atiende y sus excepciones de fecha, para
+// bloquear en el calendario los días que no trabaja al elegir doctor primero.
+router.get("/schedule/:doctorId/working-days", scheduleController.getDoctorWorkingDays);
 
 // Citas del propio paciente
 router.get("/appointments", patientPortalController.getMyAppointments);

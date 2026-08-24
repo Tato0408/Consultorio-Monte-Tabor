@@ -10,7 +10,7 @@ import formStyles from "../../../styles/profile/editProfileStyle";
 import { colors } from "../../../styles/profile/profileStyle";
 import { showSuccess, showError } from "../../../lib/toast";
 import { getPasswordError } from "../../../utils/validation";
-import { useRecoveryPatient, RECOVERY_ERROR_MESSAGES } from "../../../hooks/recovery/useRecoveryPatient";
+import { useRecoveryPatient } from "../../../hooks/recovery/useRecoveryPatient";
 
 // Tercer paso: nueva contraseña + confirmación. Mismas reglas de contraseña que RegisterScreen
 // (utils/validation.js) y basado en NewPassword.jsx de la web.
@@ -64,7 +64,7 @@ const NewPasswordScreen = ({ navigation, route }) => {
       navigation.navigate("PasswordUpdated");
     } catch (err) {
       console.log("[NewPassword] Falló newPassword:", err.message);
-      showError(RECOVERY_ERROR_MESSAGES[err.message] || "No se pudo cambiar la contraseña.");
+      showError(err.message || "No se pudo cambiar la contraseña.");
     }
   };
 

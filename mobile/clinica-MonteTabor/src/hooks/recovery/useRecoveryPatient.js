@@ -54,16 +54,4 @@ export const useRecoveryPatient = () => {
   return { loading, requestCode, verifyCode, newPassword };
 };
 
-// Traducción de los mensajes que devuelve el backend de recuperación
-export const RECOVERY_ERROR_MESSAGES = {
-  "User not found": "No se encontró una cuenta con ese correo electrónico.",
-  "Invalid code": "El código ingresado es incorrecto.",
-  "Password doesnt match": "Las contraseñas no coinciden.",
-  "Code not verified": "Debes verificar el código antes de continuar.",
-  "Error sending mail": "No se pudo enviar el correo. Intenta de nuevo.",
-  "Internal server error": "Error en el servidor. Intenta más tarde.",
-  "No active recovery session found": "Tu sesión de recuperación expiró. Vuelve a empezar.",
-  "Recovery session expired, please start again": "El código expiró. Vuelve a empezar el proceso.",
-};
-
 export default useRecoveryPatient;

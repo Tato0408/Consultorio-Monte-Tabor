@@ -550,4 +550,37 @@ patientsController.deletePathological = async (req, res) => {
   }
 };
 
+// DELETE de un procedimiento puntual del historial clínico — botón de
+// eliminar en la tabla "Procedimientos" del Expediente. Solo borra el
+// registro del expediente: no revierte el material ya descontado del
+// inventario al registrarlo (no queda una referencia confiable hacia
+// atrás desde el movimiento de inventario hasta este procedimiento
+// puntual), y si el procedimiento está ligado a una consulta
+// (consultation_id), podría volver a aparecer si esa consulta se
+// edita de nuevo (ver syncProcedureHistory en consultation.js). El
+// frontend avisa ambas cosas en la confirmación antes de llamar aquí.
+patientsController.deleteProcedureHistory = async (req, res) => {
+  try {
+    const { patientId, procedureEntryId } = req.params;
+
+    const patient = await patientsModel.findById(patientId);
+    if (!patient) {
+      return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    const entry = patient.clinical_history?.procedures?.id(procedureEntryId);
+    if (!entry) {
+      return res.status(404).json({ message: "Procedimiento no encontrado" });
+    }
+
+    patient.clinical_history.procedures.pull(procedureEntryId);
+    await patient.save();
+
+    return res.status(200).json({ message: "Procedimiento eliminado" });
+  } catch (error) {
+    console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
 export default patientsController;

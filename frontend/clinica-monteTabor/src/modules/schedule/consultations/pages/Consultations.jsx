@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { useAuth } from "@/context/AuthContext";
 import useAppointments from "../../appointments/hooks/useAppointment";
 import useAppointmentStats from "../../appointments/hooks/useAppointmentStats";
@@ -19,14 +19,13 @@ const getTodayString = () => {
 
 const Consultations =() => {
      const today = getTodayString();
-     const { user, userType } = useAuth();
-     const isDoctor = userType === "doctor";
+     const { user } = useAuth();
 
-   // Por defecto la tabla muestra todas las fechas (el filtro de
-    // fechas es secundario, se activa solo si se necesita) con citas
-    // pending (agendadas sin confirmar) y scheduled (confirmadas, en
-    // espera). Las completed se ven en el Historial del Día, no en
-    // esta tabla operativa.
+   // Por defecto la tabla muestra todas las fechas (el filtro de fechas es
+    // secundario, se activa solo si se necesita) y todos los estados: el
+    // filtro de estado ya no es un valor inicial que "arranque estrecho" y
+    // necesite ampliarse después, el propio tab "Todos" (ver
+    // AppointmentTable.jsx) es el punto de partida.
     const {
         appointments,
         pagination,
@@ -36,38 +35,8 @@ const Consultations =() => {
         updateFilters,
         goToPage,
     } = useAppointments({
-        status: "scheduled, pending",
         limit: 8,
     });
-
-    // El backend ya restringe /appointments a las citas propias del doctor
-    // que inició sesión (más las solicitudes pendientes sin asignar que
-    // podría aceptar), a partir de la cookie de sesión y sin importar los
-    // filtros que mande el frontend (ver appointmentsController.getAppointments,
-    // "Alcance forzado por rol"). Por eso la tabla ya arranca mostrando
-    // solo las citas de ese doctor, sin necesidad de mandar doctor_id
-    // desde aquí, lo cual además excluiría esas solicitudes sin asignar.
-    //
-    // Lo único que hace falta cubrir en el frontend es que, si ese doctor
-    // no tiene ninguna cita agendada ni en espera (el estado por defecto),
-    // se amplía el filtro a "Todos los estados" para no dejar la tabla
-    // vacía apenas se entra a la pantalla. Se revisa una sola vez, para no
-    // pisar un cambio de filtro manual posterior.
-    const checkedStatusFallbackRef = useRef(false);
-    useEffect(() => {
-        if (
-            checkedStatusFallbackRef.current ||
-            !isDoctor ||
-            isLoadingAppointments ||
-            filters.status !== "scheduled, pending"
-        ) {
-            return;
-        }
-        checkedStatusFallbackRef.current = true;
-        if (appointments.length === 0) {
-            updateFilters({ status: "" });
-        }
-    }, [isDoctor, isLoadingAppointments, filters, appointments, updateFilters]);
 
     const { stats, isLoading: isLoadingStats } = useAppointmentStats(today);
     const { history, isLoading: isLoadingHistory, error: historyError } = useAppointmentHistory(today, 5);
@@ -95,14 +64,14 @@ const Consultations =() => {
     const handleStatCardClick = (statusValue) => {
         const isSameFilterActive = filters.status === statusValue && filters.doctor_id === user?.id;
         if (isSameFilterActive) {
-            updateFilters({ status: "pending, scheduled", doctor_id: undefined });
+            updateFilters({ status: undefined, doctor_id: undefined });
         } else {
             updateFilters({ status: statusValue, doctor_id: user?.id });
         }
     };
 
     return (
-        <div className="p-8">
+        <div className="p-4 sm:p-8">
             <p className="text-slate-500 mb-6">
                 Listado operacional de atenciones médicas y seguimiento clínico
             </p>
@@ -124,6 +93,8 @@ const Consultations =() => {
                         error={appointmentsError}
                         waitingCount={waitingCount}
                         completedCount={completedCount}
+                        statusFilter={filters.status}
+                        onStatusChange={(status) => handleFilterChange({ status })}
                     />
  
                     <TablePagination

@@ -261,7 +261,7 @@ const DoctorForm = ({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-[28px] w-full max-w-4xl p-8 shadow-2xl relative my-8 animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-[28px] w-full max-w-4xl p-8 shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
 
         {/* Cierre */}
         <button

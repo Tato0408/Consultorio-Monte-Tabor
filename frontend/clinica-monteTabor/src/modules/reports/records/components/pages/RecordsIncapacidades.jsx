@@ -1,20 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { Badge } from "../global/ui";
 import { useAuth } from "@/context/AuthContext";
 import IncapacidadFormModal from "../global/IncapacidadFormModal";
+import apiClient from "@/lib/apiClient";
+import { confirmDelete, showSuccess, showError } from "@/lib/alerts";
+import { calculateAge } from "@/lib/validators";
+import { openPdfInNewTab } from "@/modules/schedule/consultations/pdf/openPdfInNewTab";
+import IncapacidadDocument from "@/modules/schedule/consultations/pdf/IncapacidadDocument";
 
 // Mismo patrón de tabla paginada que usa RecordsProcedures.jsx. Las
 // incapacidades pueden acumularse con el tiempo, así que no van en un
 // modal (ver el análisis del expediente).
 // Espera que patient.incapacidades sea una lista de objetos con nombre,
-// fecha y estado, que arma usePatientRecordDetail.
+// fecha, fechaFin, estado y los campos crudos (diagnosisRaw, startDateRaw,
+// restDays, doctorId, doctorName) que arma usePatientRecordDetail.
 export default function IncapacidadesTab({ patient = {}, onSaved }) {
-  const { hasPermission, user } = useAuth();
+  const { hasPermission, user, userType } = useAuth();
   const canCreate = hasPermission("reports.records", "create");
+  const canUpdate = hasPermission("reports.records", "update");
+  const canDelete = hasPermission("reports.records", "delete");
+  // Generar el PDF no depende de quién emitió la incapacidad: cualquiera
+  // con permiso de ver el expediente clínico puede reimprimirlo (ej. un
+  // admin, si el paciente perdió su copia).
+  const canGeneratePdf = hasPermission("reports.records", "view");
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const data = patient.incapacidades ?? [];
   const [rowsPerPage, setRowsPerPage] = useState(8);
@@ -24,13 +38,67 @@ export default function IncapacidadesTab({ patient = {}, onSaved }) {
   const start = (page - 1) * rowsPerPage;
   const rows = data.slice(start, start + rowsPerPage);
 
+  const openCreate = () => { setEditingEntry(null); setModalOpen(true); };
+  const openEdit = (row) => { setEditingEntry(row); setModalOpen(true); };
+
+  const handleDelete = async (row) => {
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar esta incapacidad?",
+      text: "Esta acción no se puede deshacer.",
+    });
+    if (!confirmed) return;
+
+    setDeletingId(row.id);
+    try {
+      await apiClient(`/sick-leaves/${row.id}`, { method: "DELETE" });
+      showSuccess("Incapacidad eliminada correctamente");
+      onSaved?.();
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar la incapacidad");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const patientFullName = `${patient.nombre || ""} ${patient.apellido || ""}`.trim();
+
+  const handleGeneratePdf = async (row) => {
+    const issueDate = row.startDateRaw ? new Date(row.startDateRaw) : new Date();
+    const dateFormatted = issueDate.toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const dateFileSafe = dateFormatted.replace(/\//g, "-");
+    // Quien genera el PDF firma con su propio nombre si es doctor o
+    // admin (por ejemplo, un admin reimprimiéndola, o un doctor distinto
+    // al que atendió). Cualquier otro rol (enfermería, recepción) no
+    // firma nada clínico, así que ahí se mantiene el nombre del doctor
+    // que realmente atendió al paciente.
+    const signatureName = userType === "doctor" || userType === "admin"
+      ? `${user?.name || ""} ${user?.last_name || ""}`.trim() || row.doctorName
+      : row.doctorName;
+    try {
+      await openPdfInNewTab(
+        <IncapacidadDocument
+          title={`Incapacidad de ${patientFullName} ${dateFileSafe}`}
+          patientName={patientFullName}
+          dui={patient.dui}
+          age={calculateAge(patient.birthDate)}
+          diagnosis={row.diagnosisRaw}
+          restDays={row.restDays}
+          doctorName={signatureName}
+          date={dateFormatted}
+        />
+      );
+    } catch (err) {
+      showError(err?.message || "No se pudo generar el PDF de la incapacidad.");
+    }
+  };
+
   return (
     <div className="px-2 py-2 text-slate-800">
       {canCreate && (
         <div className="mb-6 flex justify-end">
           <button
             type="button"
-            onClick={() => setModalOpen(true)}
+            onClick={openCreate}
             className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             Agregar <Plus className="h-4 w-4" />
@@ -38,33 +106,76 @@ export default function IncapacidadesTab({ patient = {}, onSaved }) {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4 px-2 pb-4 text-center text-sm text-slate-400">
-        <span>Diagnóstico</span>
-        <span>Fecha de inicio</span>
-        <span>Estado</span>
-      </div>
-
-      <div>
-        {rows.map((r, i) => (
-          <div
-            key={i}
-            className="grid grid-cols-3 items-center gap-4 border-t border-slate-50 px-2 py-5 text-center text-[15px] text-slate-700"
-          >
-            <span>{r.nombre}</span>
-            <span className="text-slate-600">{r.fecha}</span>
-            <span className="flex justify-center">
-              <Badge tone={r.estado === "Finalizada" ? "gray" : "green"}>{r.estado}</Badge>
-            </span>
+      <div className="overflow-x-auto">
+        <div className="min-w-[640px]">
+          <div className="grid grid-cols-5 gap-4 px-2 pb-4 text-center text-sm text-slate-400">
+            <span>Diagnóstico</span>
+            <span>Fecha de inicio</span>
+            <span>Fecha de finalización</span>
+            <span>Estado</span>
+            <span>Acciones</span>
           </div>
-        ))}
 
-        {rows.length === 0 && (
-          <p className="py-8 text-center text-sm text-slate-400">No hay incapacidades registradas.</p>
-        )}
+          <div>
+            {rows.map((r, i) => (
+              <div
+                key={r.id || i}
+                className="grid grid-cols-5 items-center gap-4 border-t border-slate-50 px-2 py-5 text-center text-[15px] text-slate-700"
+              >
+                <span>{r.nombre}</span>
+                <span className="text-slate-600">{r.fecha}</span>
+                <span className="text-slate-600">{r.fechaFin}</span>
+                <span className="flex justify-center">
+                  <Badge tone={r.estado === "No vigente" ? "gray" : "green"}>{r.estado}</Badge>
+                </span>
+                <span className="flex justify-center items-center gap-3">
+                  {canGeneratePdf && (
+                    <button
+                      type="button"
+                      onClick={() => handleGeneratePdf(r)}
+                      title="Generar PDF"
+                      className="text-slate-400 hover:text-blue-600"
+                    >
+                      <FileDown className="h-4 w-4" />
+                    </button>
+                  )}
+                  {canUpdate && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(r)}
+                      title="Editar incapacidad"
+                      className="text-slate-400 hover:text-amber-600"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(r)}
+                      disabled={deletingId === r.id}
+                      title="Eliminar incapacidad"
+                      className="text-slate-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                  {!canGeneratePdf && !canUpdate && !canDelete && (
+                    <span className="text-slate-200">—</span>
+                  )}
+                </span>
+              </div>
+            ))}
+
+            {rows.length === 0 && (
+              <p className="py-8 text-center text-sm text-slate-400">No hay incapacidades registradas.</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {data.length > 0 && (
-        <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-5 text-sm text-slate-500">
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 pt-5 text-sm text-slate-500">
           <div className="flex items-center gap-2">
             <span>Filas por página</span>
             <div className="relative">
@@ -105,7 +216,8 @@ export default function IncapacidadesTab({ patient = {}, onSaved }) {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         patientId={patient.id}
-        doctorId={user?.id}
+        doctorId={editingEntry ? editingEntry.doctorId : user?.id}
+        editEntry={editingEntry}
         onSaved={onSaved}
       />
     </div>

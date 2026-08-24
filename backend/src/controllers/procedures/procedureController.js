@@ -66,6 +66,7 @@ proceduresController.insertProcedure = async (req, res) => {
             estimated_duration,
             price,
             materials,
+            pre_care_instructions,
             post_operative_instructions,
             requires_nurse,
             is_active
@@ -92,6 +93,7 @@ proceduresController.insertProcedure = async (req, res) => {
             estimated_duration,
             price,
             materials: cleanMaterials,
+            pre_care_instructions,
             post_operative_instructions,
             requires_nurse,
             is_active
@@ -117,6 +119,7 @@ proceduresController.updateProcedure = async (req, res) => {
             estimated_duration,
             price,
             materials,
+            pre_care_instructions,
             post_operative_instructions,
             requires_nurse,
             is_active
@@ -143,6 +146,7 @@ proceduresController.updateProcedure = async (req, res) => {
             estimated_duration,
             price,
             materials: cleanMaterials,
+            pre_care_instructions,
             post_operative_instructions,
             requires_nurse,
             is_active

@@ -3,6 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import useInventory from "@/modules/inventory/hooks/useInventory";
 import useProcedures from "@/modules/procedures/hooks/useProcedures";
 import apiClient from "@/lib/apiClient";
+import { maskClinicalText } from "@/lib/inputMasks";
 import { useEffect, useState } from "react";
 
 // Clase del borde de un campo: rojo cuando el campo tiene un error de
@@ -117,6 +118,7 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
                 disabled={readOnly}
                 placeholder="Ej. Procedimiento realizado sin complicaciones, buena tolerancia"
                 {...register(`procedure.${index}.notes`)}
+                onChange={(e) => setValue(`procedure.${index}.notes`, maskClinicalText(e.target.value, 500), { shouldValidate: true })}
                 className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />
             <div className="flex justify-end mb-3">

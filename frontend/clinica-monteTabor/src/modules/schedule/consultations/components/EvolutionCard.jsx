@@ -1,5 +1,6 @@
 import { Controller, useFormContext } from "react-hook-form";
 import SectionCard from "./SectionCard";
+import { maskClinicalText } from "@/lib/inputMasks";
 
 const EvolutionCard = ({ readOnly }) => {
     const { control, watch, formState: { errors } } = useFormContext();
@@ -16,6 +17,7 @@ const EvolutionCard = ({ readOnly }) => {
                 render={({ field }) => (
                     <textarea
                         {...field}
+                        onChange={(e) => field.onChange(maskClinicalText(e.target.value, 500))}
                         rows={4}
                         maxLength={500}
                         disabled={readOnly}

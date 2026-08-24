@@ -10,6 +10,7 @@ import { ErrorState } from "../../components/common/ScreenState";
 import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
 import { useMyConsultations } from "../../hooks/appointments/useMyConsultations";
+import { formatTime12h } from "../../utils/date";
 import styles from "../../styles/appointments/appointmentsStyle";
 
 const STATUS = {
@@ -38,7 +39,7 @@ const AppointmentCard = ({ appointment, onPress }) => {
       <View style={styles.requestCardTop}>
         <View style={styles.requestDateIcon}><Ionicons name="calendar-outline" size={21} color="#2F6BFF" /></View>
         <View style={styles.requestHeading}>
-          <Text style={styles.requestDate}>{dateLabel(appointment.date)} · {appointment.start_time}</Text>
+          <Text style={styles.requestDate}>{dateLabel(appointment.date)} · {formatTime12h(appointment.start_time)}</Text>
           <Text style={styles.requestTitle}>{appointment.procedure_id?.name || appointment.type}</Text>
           <Text style={styles.requestDoctor}>{doctor}</Text>
         </View>

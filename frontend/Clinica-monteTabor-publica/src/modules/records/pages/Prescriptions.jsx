@@ -1,35 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, Loader2, Download, Pill } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { getPrescriptions } from "@/services/patientPortalService";
 import { showError } from "@/lib/alerts";
-import { downloadTextFile } from "@/lib/downloadFile";
+import { descargarRecetaPdf } from "@/lib/pdf/patientDocuments";
 
 const fmtFecha = (iso) =>
   iso ? new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric" }) : "—";
 
-// Arma un texto plano descargable con el contenido de la receta
-const buildRecetaTexto = (receta) => {
-  const lineas = [
-    "CLÍNICA FAMILIAR MONTE TABOR",
-    "Receta médica",
-    `Fecha: ${fmtFecha(receta.issued_at)}`,
-    receta.doctor ? `Doctor: Dr. ${receta.doctor.name} ${receta.doctor.last_name}` : "",
-    "",
-    "Medicamentos:",
-    ...receta.medications.map((m) => `- ${m.name} ${m.dose} — ${m.frequency}, ${m.duration}${m.instructions ? ` (${m.instructions})` : ""}`),
-  ];
-  if (receta.lab_orders?.length) {
-    lineas.push("", "Órdenes de laboratorio:", ...receta.lab_orders.map((l) => `- ${l.test_name}${l.notes ? ` (${l.notes})` : ""}`));
-  }
-  if (receta.post_operative_instructions) {
-    lineas.push("", "Indicaciones:", receta.post_operative_instructions);
-  }
-  return lineas.filter(Boolean).join("\n");
-};
-
 // Recetas médicas reales del paciente (generadas por el doctor durante una consulta)
 const Prescriptions = () => {
+  const { patient } = useAuth();
   const [recetas, setRecetas] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -69,7 +51,7 @@ const Prescriptions = () => {
                     {r.doctor && <p className="text-sm text-gray-500">Dr. {r.doctor.name} {r.doctor.last_name}</p>}
                   </div>
                   <button
-                    onClick={() => downloadTextFile(`receta-${fmtFecha(r.issued_at)}.txt`, buildRecetaTexto(r))}
+                    onClick={() => descargarRecetaPdf(patient, r)}
                     className="flex items-center gap-1.5 text-xs font-semibold text-[#3B6FCA] hover:underline flex-shrink-0"
                   >
                     <Download className="w-3.5 h-3.5" /> Descargar

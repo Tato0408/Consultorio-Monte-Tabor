@@ -50,14 +50,18 @@ loginController.login = async (req, res) => {
     response.loginAttemps = 0;
     response.timeOut = null;
     await response.save();
+    // Misma duración que la sesión de staff (ver loginController.loginCommonRole): 15
+    // minutos aquí dejaba al paciente sin sesión a mitad de cualquier trámite un poco
+    // largo (agendar cita, llenar el formulario de pago), forzándolo a iniciar sesión
+    // de nuevo constantemente.
     const token = jsonwebtoken.sign(
       { id: response._id, userType: "patient" },
       config.JWT.secret,
-      { expiresIn: "15m" },
+      { expiresIn: "30d" },
     );
 
     res.cookie("authCookie", token, {
-      maxAge: 15 * 60 * 1000,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       secure: true,
       sameSite: "none"
