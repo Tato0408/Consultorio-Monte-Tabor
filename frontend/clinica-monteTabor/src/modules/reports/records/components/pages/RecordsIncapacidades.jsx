@@ -66,12 +66,11 @@ export default function IncapacidadesTab({ patient = {}, onSaved }) {
     const issueDate = row.startDateRaw ? new Date(row.startDateRaw) : new Date();
     const dateFormatted = issueDate.toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" });
     const dateFileSafe = dateFormatted.replace(/\//g, "-");
-    // Quien genera el PDF firma con su propio nombre si es doctor o
-    // admin (por ejemplo, un admin reimprimiéndola, o un doctor distinto
-    // al que atendió). Cualquier otro rol (enfermería, recepción) no
-    // firma nada clínico, así que ahí se mantiene el nombre del doctor
-    // que realmente atendió al paciente.
-    const signatureName = userType === "doctor" || userType === "admin"
+    // Quien genera el PDF firma con su propio nombre si es doctor, admin o enfermera (por
+    // ejemplo, un admin reimprimiéndola, un doctor distinto al que atendió, o la enfermera
+    // asignada a un procedimiento sin doctor). Recepción no firma nada clínico, así que ahí
+    // se mantiene el nombre de quien realmente atendió al paciente.
+    const signatureName = userType === "doctor" || userType === "admin" || userType === "nurse"
       ? `${user?.name || ""} ${user?.last_name || ""}`.trim() || row.doctorName
       : row.doctorName;
     try {

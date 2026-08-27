@@ -13,6 +13,16 @@ const fmtFecha = (iso) =>
 const TIPO_LABEL = { receta: "Receta médica", incapacidad: "Incapacidad médica", referencia: "Referencia médica" };
 const TIPO_COLOR = { receta: "text-red-400", incapacidad: "text-[#3B6FCA]", referencia: "text-emerald-500" };
 
+// Misma regla que usePatientRecordDetail.js (expediente clínico, web privada): vigente
+// mientras la fecha de finalización no haya pasado, o no exista (registros antiguos sin
+// end_date, que se asumen vigentes por no tener forma de saber lo contrario).
+const isSickLeaveVigente = (endDate) => {
+  if (!endDate) return true;
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+  return end >= new Date();
+};
+
 // Arma el texto descargable de una referencia médica — recetas e incapacidades ya
 // generan un PDF con formato real (ver descargarIncapacidadPdf/descargarRecetaPdf), no
 // hay un formato de referencia definido todavía, así que se queda en texto plano.
@@ -100,7 +110,18 @@ const Documents = () => {
                     <FileText className={`w-5 h-5 ${TIPO_COLOR[d.type]}`} />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-medium text-gray-800 truncate">{TIPO_LABEL[d.type]}</p>
+                    <p className="font-medium text-gray-800 truncate flex items-center gap-2">
+                      {TIPO_LABEL[d.type]}
+                      {d.type === "incapacidad" && (
+                        <span
+                          className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                            isSickLeaveVigente(d.end_date) ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {isSickLeaveVigente(d.end_date) ? "Vigente" : "No vigente"}
+                        </span>
+                      )}
+                    </p>
                     <p className="text-sm text-gray-400 truncate">
                       {d.doctor ? `Dr. ${d.doctor.name} ${d.doctor.last_name} — ` : ""}{fmtFecha(d.date)}
                     </p>

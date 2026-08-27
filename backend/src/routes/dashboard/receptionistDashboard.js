@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.get("/stats", receptionistDashboardController.getStats);
 router.get("/doctors-agenda", receptionistDashboardController.getDoctorsAgenda);
+router.get("/nurses-agenda", receptionistDashboardController.getNursesAgenda);
 router.get("/upcoming-appointments", receptionistDashboardController.getUpcomingAppointments);
 router.get("/pending-confirmations", receptionistDashboardController.getPendingConfirmations);
 

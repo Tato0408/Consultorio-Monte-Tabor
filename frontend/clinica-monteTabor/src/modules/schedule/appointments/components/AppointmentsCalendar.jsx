@@ -316,7 +316,7 @@ const BreakCard = ({ brk }) => {
 };
 
 
-const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, canUpdateAppt, colorMap }) => {
+const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, navigate, canUpdateAppt, canDeleteAppt, colorMap }) => {
     const { updateAppointmentStatus } = useAppointmentsApi();
     const [cancelling, setCancelling] = useState(false);
 
@@ -332,6 +332,30 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
             showError("No se pudo cancelar la cita. Intente de nuevo.");
         } finally {
             setCancelling(false);
+        }
+    };
+
+    // Elimina la cita por completo (a diferencia de Cancelar, que solo cambia el
+    // estado). Mismo endpoint, mismo texto de confirmación y misma restricción que
+    // el botón equivalente de la pestaña Citas (ver handleEliminar en
+    // AppointmentsGrid.jsx): el doctor nunca la ve, sin importar el permiso.
+    const [deletingAppt, setDeletingAppt] = useState(false);
+    const handleEliminar = async () => {
+        const ok = await confirmDelete({
+            title: "¿Eliminar esta cita?",
+            text: "Esta acción es irreversible y la información no se podrá recuperar.",
+        });
+        if (!ok) return;
+        setDeletingAppt(true);
+        try {
+            await apiClient(`/appointments/${appt._id}`, { method: "DELETE" });
+            showSuccess("La cita fue eliminada correctamente");
+            onRefresh();
+            onClose();
+        } catch (err) {
+            showError(err.message || "No se pudo eliminar la cita. Intente de nuevo.");
+        } finally {
+            setDeletingAppt(false);
         }
     };
 
@@ -362,7 +386,13 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
     // (ver appointmentsController.acceptAppointment/assignDoctor), así que ahí se
     // pide elegir una de la lista de enfermeras libres en ese horario antes de
     // confirmar, en vez de aceptar directo.
-    const isPendingAction = appt.status === "pending" && (isDoctor || isAdmin);
+    // Un procedimiento sin doctor (requires_doctor false) invierte quién puede aceptar o
+    // asignar: la enfermera en vez del doctor, ver acceptAppointmentAsNurse/assignNurse en
+    // el backend. La consulta médica general (sin procedure_id) siempre requiere doctor.
+    const procedureRequiresDoctor = !appt.procedure_id || appt.procedure_id.requires_doctor !== false;
+    const isPendingAction = appt.status === "pending" && (
+        procedureRequiresDoctor ? (isDoctor || isAdmin) : (isNurse || isAdmin)
+    );
     const nurseRequired = !!appt.procedure_id?.requires_nurse;
     const [resolvingAccept, setResolvingAccept] = useState(false);
     const [needsNurseChoice, setNeedsNurseChoice] = useState(false);
@@ -415,9 +445,45 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
         }
     };
 
+    // La enfermera acepta una cita sin doctor (ella es la proveedora principal, no hay
+    // enfermera de apoyo que elegir aparte): un solo clic, igual que finishAccept() sin
+    // enfermera requerida.
+    const finishAcceptAsNurse = async () => {
+        setConfirming(true);
+        try {
+            await apiClient(`/appointments/${appt._id}/accept-nurse`, { method: "PATCH" });
+            showSuccess("Cita aceptada correctamente");
+            onRefresh(appt._id);
+        } catch (err) {
+            showError(err.message || "No se pudo aceptar la cita");
+        } finally {
+            setConfirming(false);
+        }
+    };
+
+    // El admin asigna una enfermera como proveedora principal (procedimiento sin doctor).
+    const finishAssignNurse = async (nurseId) => {
+        if (!nurseId) { showError("Selecciona una enfermera."); return; }
+        setConfirming(true);
+        try {
+            await apiClient(`/appointments/${appt._id}/assign-nurse`, {
+                method: "PATCH",
+                body: { nurse_id: nurseId },
+            });
+            showSuccess("Cita asignada correctamente");
+            onRefresh(appt._id);
+        } catch (err) {
+            showError(err.message || "No se pudo asignar la cita");
+        } finally {
+            setConfirming(false);
+        }
+    };
+
     // Doctor: un clic si no requiere enfermera; si requiere, primero carga las
-    // libres en ese horario y pide elegir una.
+    // libres en ese horario y pide elegir una. Enfermera (procedimiento sin doctor):
+    // siempre un clic, ella misma es la proveedora principal.
     const handleAcceptClick = async () => {
+        if (!procedureRequiresDoctor) return finishAcceptAsNurse();
         if (!nurseRequired) return finishAccept();
         setResolvingAccept(true);
         try {
@@ -432,10 +498,17 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
     };
 
     // Admin: siempre elige el doctor a mano; si el procedimiento requiere
-    // enfermera, también carga las libres en ese horario.
+    // enfermera, también carga las libres en ese horario. Para un procedimiento sin
+    // doctor, elige directamente entre las enfermeras libres en ese horario.
     const handleAssignClick = async () => {
         setResolvingAccept(true);
         try {
+            if (!procedureRequiresDoctor) {
+                const nursesResponse = await apiClient("/appointments/nurses-for-acceptance", { params: nurseParams });
+                setNurseOptions(Array.isArray(nursesResponse) ? nursesResponse : nursesResponse.data || []);
+                setNeedsNurseChoice(true);
+                return;
+            }
             const doctorsResponse = await apiClient("/doctors/catalog");
             setDoctorOptions(Array.isArray(doctorsResponse) ? doctorsResponse : doctorsResponse.data || []);
             if (nurseRequired) {
@@ -444,7 +517,7 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
             }
             setNeedsNurseChoice(true);
         } catch (err) {
-            showError(err.message || "No se pudieron cargar los doctores.");
+            showError(err.message || "No se pudieron cargar las opciones.");
         } finally {
             setResolvingAccept(false);
         }
@@ -518,6 +591,25 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
                     </div>
                 )}
 
+                {/* Enfermera como proveedora principal (procedimiento sin doctor, solo
+                    admin) — la enfermera de apoyo (procedimiento con doctor) no se muestra
+                    aparte aquí, solo se elige al aceptar/asignar. */}
+                {!procedureRequiresDoctor && !isNurse && appt.nurse_id && (
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Enfermera</p>
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-emerald-600 text-sm flex-shrink-0">
+                                {appt.nurse_id?.name?.[0]}
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-slate-800">
+                                    {appt.nurse_id.name} {appt.nurse_id.last_name}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {appt.description && (
                     <div className="mt-4 pt-4 border-t border-slate-100">
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Notas</p>
@@ -531,7 +623,7 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
 
                     {isPendingAction && needsNurseChoice ? (
                         <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 space-y-2.5">
-                            {isAdmin && (
+                            {isAdmin && procedureRequiresDoctor && (
                                 <select
                                     value={chosenDoctorId}
                                     onChange={(e) => setChosenDoctorId(e.target.value)}
@@ -543,7 +635,10 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
                                     ))}
                                 </select>
                             )}
-                            {nurseRequired && (
+                            {/* Enfermera de apoyo (procedimiento con doctor que requiere enfermera) o
+                                enfermera como proveedora principal (procedimiento sin doctor, siempre
+                                el admin en este punto, ver handleAssignClick). */}
+                            {(procedureRequiresDoctor ? nurseRequired : true) && (
                                 <select
                                     value={chosenNurseId}
                                     onChange={(e) => setChosenNurseId(e.target.value)}
@@ -563,8 +658,15 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
                                     Cancelar
                                 </button>
                                 <button
-                                    disabled={confirming || (nurseRequired && !chosenNurseId) || (isAdmin && !chosenDoctorId)}
-                                    onClick={() => (isAdmin ? finishAssign(chosenDoctorId, chosenNurseId) : finishAccept(chosenNurseId))}
+                                    disabled={
+                                        confirming
+                                        || ((procedureRequiresDoctor ? nurseRequired : true) && !chosenNurseId)
+                                        || (procedureRequiresDoctor && isAdmin && !chosenDoctorId)
+                                    }
+                                    onClick={() => {
+                                        if (!procedureRequiresDoctor) return finishAssignNurse(chosenNurseId);
+                                        return isAdmin ? finishAssign(chosenDoctorId, chosenNurseId) : finishAccept(chosenNurseId);
+                                    }}
                                     className="flex-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
                                 >
                                     {confirming ? "Confirmando..." : "Confirmar"}
@@ -618,6 +720,17 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, onClose, onRefresh, navigate, ca
                             {markingNoShow ? "Guardando..." : "No se presentó"}
                         </button>
                     )}
+                    {/* El doctor nunca elimina citas, sin importar el permiso (mismo
+                        criterio que la pestaña Citas, ver AppointmentsGrid.jsx). */}
+                    {canDeleteAppt && !isDoctor && !isPendingAction && (
+                        <button
+                            onClick={handleEliminar}
+                            disabled={deletingAppt}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-red-200 hover:bg-red-50 text-red-600 text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                        >
+                            {deletingAppt ? "Eliminando..." : "Eliminar cita"}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -634,8 +747,12 @@ const AppointmentsCalendar = () => {
     // de aceptarla él mismo, la asigna a un doctor (ver DetailPanel más abajo,
     // mismo criterio que AppointmentsGrid.jsx).
     const isAdmin   = userType === "admin";
+    // Mismo criterio que isDoctor arriba, pero para citas de un procedimiento sin doctor
+    // (requires_doctor false): ahí la enfermera acepta/asigna en vez del doctor.
+    const isNurse   = userType === "nurse";
     const canCreateAppt = hasPermission("calendar.appointments", "create");
     const canUpdateAppt = hasPermission("calendar.appointments", "update");
+    const canDeleteAppt = hasPermission("calendar.appointments", "delete");
     const { getAppointments, getAppointmentsStats } = useAppointmentsApi();
     const { getSchedule } = useSchedule();
     const { getAppointmentTypes } = useAppointmentTypes();
@@ -821,7 +938,7 @@ const AppointmentsCalendar = () => {
                                     Dr. {stats.nextAppointment.doctor_id?.name} {stats.nextAppointment.doctor_id?.last_name}
                                 </p>
                                 <p className="text-[9px] sm:text-[10px] text-green-500 font-medium">Disponible</p>
-                                <p className="text-[9px] sm:text-[10px] text-slate-400">Próx.: {fmt12(stats.nextAppointment.start_time)}</p>
+                                <p className="text-[9px] sm:text-[10px] text-slate-400">Próx.: {fmt12(stats.nextAppointment.start_time)} - {fmt12(stats.nextAppointment.end_time)}</p>
                             </div>
                         </div>
                     ) : (
@@ -1076,10 +1193,12 @@ const AppointmentsCalendar = () => {
                         appt={selected}
                         isDoctor={isDoctor}
                         isAdmin={isAdmin}
+                        isNurse={isNurse}
                         onClose={() => setSelected(null)}
                         onRefresh={refreshAndReselect}
                         navigate={navigate}
                         canUpdateAppt={canUpdateAppt}
+                        canDeleteAppt={canDeleteAppt}
                         colorMap={colorMap}
                     />
                 )}

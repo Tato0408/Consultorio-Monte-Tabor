@@ -172,7 +172,10 @@ consultationController.getConsultations = async (req, res) => {
       .populate("patient_id")
       .populate({
         path: "appointment_id",
-        populate: { path: "doctor_id", select: "name last_name" },
+        populate: [
+          { path: "doctor_id", select: "name last_name" },
+          { path: "nurse_id", select: "name last_name" },
+        ],
       });
 
     // Adjuntamos la prescripción de cada consulta (misma relación que ya usa

@@ -37,6 +37,7 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
   const { hasPermission } = useAuth();
   const canAttend = hasPermission("calendar.consultations", "create");
   const canEdit = hasPermission("calendar.consultations", "update");
+  const canDeleteConsulta = hasPermission("reports.records", "delete");
   const [activeTab, setActiveTab] = useState(0);
 
   // Elimina una consulta médica ya atendida (el documento Consultation
@@ -48,7 +49,7 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
   const handleEliminarConsulta = async (c) => {
     const ok = await confirmDelete({
       title: "¿Eliminar esta consulta?",
-      text: "Se borrará el registro clínico (diagnóstico, notas, receta). Esta acción no se puede deshacer.",
+      text: "Esta acción es irreversible y la información no se podrá recuperar.",
     });
     if (!ok) return;
     try {
@@ -117,11 +118,13 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
           patient={patient}
           canAttend={canAttend}
           canEdit={canEdit}
+          canDelete={canDeleteConsulta}
           onContinuar={(c) => c.appointmentId && navigate(`/calendar/consultations/${c.appointmentId}`)}
           onVerRegistro={(c) =>
             c.appointmentId &&
             navigate(`/calendar/consultations/${c.appointmentId}${canEdit ? "" : "?mode=view"}`)
           }
+          onEliminar={handleEliminarConsulta}
         />
       ),
     },

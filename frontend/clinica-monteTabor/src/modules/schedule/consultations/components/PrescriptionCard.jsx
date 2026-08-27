@@ -31,7 +31,7 @@ const PrescriptionCard = ({ readOnly }) => {
                 {rows.map((row, index) => (
                     <div key={row.id} className="border border-slate-100 rounded-lg p-3">
                         {/* Fila 1: Medicamento y Dosis */}
-                        <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                             <div className="flex flex-col gap-0.5">
                                 <label className="text-xs text-slate-500">Medicamento</label>
                                 <input
@@ -69,7 +69,7 @@ const PrescriptionCard = ({ readOnly }) => {
                         </div>
 
                         {/* Fila 2: Frecuencia y Duración */}
-                        <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                             <div className="flex flex-col gap-0.5">
                                 <label className="text-xs text-slate-500">Frecuencia</label>
                                 <input
@@ -135,7 +135,7 @@ const PrescriptionCard = ({ readOnly }) => {
             <div className="space-y-3 mb-3">
                 {labRows.map((row, index) => (
                     <div key={row.id} className="border border-slate-100 rounded-lg p-3">
-                        <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                             <div className="flex flex-col gap-0.5">
                                 <label className="text-xs text-slate-500">Examen / estudio</label>
                                 <input

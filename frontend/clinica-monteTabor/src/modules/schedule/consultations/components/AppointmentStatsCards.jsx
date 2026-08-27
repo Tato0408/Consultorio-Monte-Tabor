@@ -70,7 +70,7 @@ const AppointmentStatsCards = ({ stats, isLoading, onFilterClick, activeFilter }
                 </div>
                 {next ? (
                     <>
-                        <p className="text-xl font-bold leading-tight">{next.start_time}</p>
+                        <p className="text-xl font-bold leading-tight">{next.start_time} - {next.end_time}</p>
                         <p className="text-sm font-medium truncate">{formatPatientName(next.patient_id)}</p>
                         <p className="text-xs text-blue-100 truncate">{next.type}</p>
                     </>

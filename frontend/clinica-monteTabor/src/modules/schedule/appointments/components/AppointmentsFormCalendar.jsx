@@ -6,9 +6,9 @@ import { es } from "date-fns/locale"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import useAppointments from "../hooks/useAppointments"
 import useMedicalData from "../hooks/useMedicalData";
-import useAppointmentTypes from "../hooks/useAppointmentTypes";
-import { showSuccess, showError } from "@/lib/alerts";
+import { showSuccess, showError, confirmProceedWithoutNurse } from "@/lib/alerts";
 import useSchedule from "../hooks/useSchedule";
+import useNurseSchedule from "../hooks/useNurseSchedule";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import ProcedureModal from "./ProcedureModal.jsx";
@@ -23,10 +23,6 @@ const fmt12 = (t) => {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 };
 const timeToMins = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-// Misma duración fija que GENERAL_CONSULT.duration en patientPortalController.js:
-// una Consulta Médica General ya no elige duración a mano (antes salía de
-// block_durations, la lista propia de cada doctor), siempre son 30 min.
-const GENERAL_DURATION = 30;
 
 const STATUS_CONFIG = {
   pending:   { label: "Pendiente",   color: "bg-amber-100 text-amber-700 border-amber-200" },
@@ -87,21 +83,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   const { getAppointmentById, createAppointment, updateAppointment, submitting } = useAppointments();
   const { patients, doctors, procedures, loadingData: loadingMedicalData, fetchMedicalData } = useMedicalData();
   const { getAvailableSlots, getSchedule } = useSchedule();
-
-  // Catálogo global de tipos de cita (nombre y color), administrado
-  // por el rol admin desde Horarios. Son los mismos que aparecen en la
-  // leyenda del calendario. Es un campo aparte del tipo de
-  // procedimiento: solo categoriza y colorea la cita, no afecta precio
-  // ni duración.
-  const { getAppointmentTypes } = useAppointmentTypes();
-  const [appointmentTypes, setAppointmentTypes] = useState([]);
-  const [loadingAppointmentTypes, setLoadingAppointmentTypes] = useState(true);
-  useEffect(() => {
-    getAppointmentTypes()
-      .then(setAppointmentTypes)
-      .catch(() => setAppointmentTypes([]))
-      .finally(() => setLoadingAppointmentTypes(false));
-  }, []);
+  const { getAvailableSlots: getNurseAvailableSlots, getSchedule: getNurseSchedule } = useNurseSchedule();
 
   // El modo edición inicial respeta el permiso: sin create no arranca en modo
   // creación habilitado, y sin update no arranca en modo edición habilitado
@@ -118,13 +100,14 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
 
 
   const [formData, setFormData] = useState({ patient_id: "", doctor_id: "", nurse_id: "" });
-  // Tipo de cita: catálogo global del admin, usado solo para color y
-  // leyenda (ver appointmentTypes arriba).
+  // Tipo de cita: catálogo global del admin, limitado a los tipos que el propio
+  // procedimiento elegido declaró como elegibles (ver procedure.appointment_type_ids,
+  // eligibleAppointmentTypes más abajo). Usado solo para color y leyenda.
   const [appointmentType, setAppointmentType] = useState("");
-  // Tipo de procedimiento: puede ser general (Consulta Médica General)
-  // o el id de un procedimiento real del catálogo. Define el tipo, la
-  // duración, el precio y si la cita requiere enfermera.
-  const [procedure, setProcedure] = useState("general");
+  // Tipo de procedimiento: el id de un procedimiento real del catálogo (incluida la
+  // Consulta Médica General, que ahora es un procedimiento normal, no un caso especial).
+  // Define el tipo, la duración, el precio y si la cita requiere enfermera.
+  const [procedure, setProcedure] = useState("");
   const [isProcedureModalOpen, setIsProcedureModalOpen] = useState(false);
   const [date, setDate]                       = useState(() => {
     const param = new URLSearchParams(location.search).get("date");
@@ -148,7 +131,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   const [notes, setNotes]                     = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
   const [total, setTotal]                     = useState("");
-  const [duration, setDuration]               = useState(GENERAL_DURATION);
+  const [duration, setDuration]               = useState(30);
   const [availableSlots, setAvailableSlots]   = useState([]);
   const [slotsLoading, setSlotsLoading]       = useState(false);
   const [selectedSlot, setSelectedSlot]       = useState(null);
@@ -159,6 +142,16 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   // abajo).
   const [availableNurses, setAvailableNurses] = useState([]);
   const [loadingNurses, setLoadingNurses]     = useState(false);
+  // Enfermeras con horario ya configurado, para cuando la enfermera es la proveedora
+  // principal de la cita (procedimiento sin doctor): una enfermera sin horario no tiene
+  // forma de calcular horarios libres, así que no debe aparecer como opción ahí. Mismo
+  // criterio que QuickAppointmentForm.jsx y que "doctors" más abajo para el caso doctor.
+  const [schedulableNurses, setSchedulableNurses] = useState([]);
+  useEffect(() => {
+    apiClient("/nurses/catalog/schedulable")
+      .then((list) => setSchedulableNurses(Array.isArray(list) ? list : []))
+      .catch(() => setSchedulableNurses([]));
+  }, []);
   // Recuerda el horario original de la cita que se está editando
   // (fecha, doctor y horario), para no perderlo cuando el efecto de
   // abajo vuelve a pedir los horarios disponibles. El backend no
@@ -189,20 +182,18 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
     getAppointmentById(id).then(cita => {
       if (!cita) return;
       const doctorId = cita.doctor_id?._id || cita.doctor_id || "";
+      const nurseId = cita.nurse_id?._id || cita.nurse_id || "";
       setFormData({
         patient_id: cita.patient_id?._id || "",
         doctor_id:  doctorId,
-        nurse_id:   cita.nurse_id?._id   || cita.nurse_id  || "",
+        nurse_id:   nurseId,
       });
       setAppointmentType(cita.appointment_type || "");
-      // El valor general identifica una Consulta Médica General, en
-      // contraste con un procedimiento real que tiene su propio id.
-      let procedureValue = "general";
-      if (cita.type !== "Consulta Médica General" && cita.procedure_id) {
-        const procId = typeof cita.procedure_id === "object" ? cita.procedure_id._id : cita.procedure_id;
-        procedureValue = procId || "general";
-      }
-      setProcedure(procedureValue);
+      // Toda cita (incluida una Consulta Médica General) tiene ahora un procedure_id real.
+      // Una cita histórica de antes de esta migración puede no traerlo — queda sin
+      // procedimiento seleccionado, para que se vuelva a elegir explícitamente al editarla.
+      const procId = typeof cita.procedure_id === "object" ? cita.procedure_id?._id : cita.procedure_id;
+      setProcedure(procId || "");
       const loadedDate = cita.date ? new Date(cita.date) : new Date();
       setDate(loadedDate);
       setStatus(cita.status || "pending");
@@ -219,6 +210,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
         originalSlotRef.current = {
           date: `${loadedDate.getFullYear()}-${String(loadedDate.getMonth() + 1).padStart(2, "0")}-${String(loadedDate.getDate()).padStart(2, "0")}`,
           doctor_id: doctorId,
+          nurse_id: nurseId,
           ...slot,
         };
       }
@@ -239,87 +231,98 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   }, [id]);
 
 
-  useEffect(() => {
-    if (!formData.doctor_id) { setScheduleData(null); return; }
-    getSchedule(formData.doctor_id)
-      .then(s => setScheduleData(s))
-      .catch(() => setScheduleData(null));
-  }, [formData.doctor_id]);
-
-  // Procedimiento seleccionado (objeto completo) y si exige asignar enfermera.
+  // Procedimiento seleccionado (objeto completo) y si exige asignar enfermera. Declarados
+  // antes del efecto de horario de abajo (que depende de requiresDoctorForProcedure): un
+  // const referenciado antes de su propia línea de declaración revienta con
+  // "Cannot access before initialization" en cada render, aunque esté más abajo en el
+  // mismo cuerpo de función — no es como una function declaration, que sí queda hoisted.
   const selectedProcedure = procedures.find(p => p._id === procedure);
-  const isNurseRequired = procedure !== "general" && !!selectedProcedure?.requires_nurse;
+  const isNurseRequired = !!selectedProcedure?.requires_nurse;
+  // Un procedimiento sin doctor (requires_doctor false) lo atiende una enfermera como
+  // proveedora principal, sin doctor: ahí "Doctor asignado" se deshabilita y "Enfermera
+  // asignada" pasa a ser el campo principal (elige primero, como el doctor en el resto de
+  // los casos), en vez de ser un apoyo elegido después del horario. Sin procedimiento
+  // elegido todavía, por defecto se asume que sí requiere doctor (undefined !== false).
+  const requiresDoctorForProcedure = selectedProcedure?.requires_doctor !== false;
 
-  // El tipo de procedimiento define su propia duración y precio. Para
-  // Consulta Médica General la duración se sigue eligiendo libremente
-  // entre las opciones del doctor (arriba), y el precio por defecto es
-  // el de una consulta general. El guard de justLoadedRef evita pisar
-  // los valores reales de una cita ya guardada justo después de
-  // cargarla (ver ese ref más arriba).
+  // Horario del proveedor principal de la cita: del doctor normalmente, o de la
+  // enfermera cuando el procedimiento elegido no requiere doctor. Mismo dato
+  // (scheduleData) sin importar cuál de los dos sea, ambos horarios tienen la misma
+  // forma (weekly_availability, breaks, exceptions, buffer_time).
+  useEffect(() => {
+    if (requiresDoctorForProcedure) {
+      if (!formData.doctor_id) { setScheduleData(null); return; }
+      getSchedule(formData.doctor_id)
+        .then(s => setScheduleData(s))
+        .catch(() => setScheduleData(null));
+    } else {
+      if (!formData.nurse_id) { setScheduleData(null); return; }
+      getNurseSchedule(formData.nurse_id)
+        .then(s => setScheduleData(s))
+        .catch(() => setScheduleData(null));
+    }
+  }, [requiresDoctorForProcedure, formData.doctor_id, formData.nurse_id]);
+
+  // El procedimiento elegido define su propia duración y precio (incluida la Consulta
+  // Médica General, que ahora es un procedimiento real con estimated_duration/price
+  // propios en vez de un valor fijo en el código). El guard de justLoadedRef evita pisar
+  // los valores reales de una cita ya guardada justo después de cargarla (ver ese ref más
+  // arriba).
   useEffect(() => {
     if (justLoadedRef.current) { justLoadedRef.current = false; return; }
-    if (procedure === "general") {
-      // La duración de una Consulta Médica General ya no la elige el
-      // usuario (antes salía de block_durations, ver
-      // ScheduleSettingsSection.jsx): queda fija en GENERAL_DURATION,
-      // igual que en el portal del paciente (GENERAL_CONSULT.duration
-      // en patientPortalController.js). Sin este reseteo explícito,
-      // volver de un procedimiento real a Consulta Médica General
-      // dejaba pegada la duración del procedimiento anterior.
-      setDuration(GENERAL_DURATION);
-      setTotal("15");
-    } else if (selectedProcedure) {
+    if (selectedProcedure) {
       setDuration(Number(selectedProcedure.estimated_duration) || 30);
       setTotal(String(selectedProcedure.price ?? ""));
     }
   }, [procedure, selectedProcedure]);
 
-  // Si el procedimiento deja de requerir enfermera, se limpia la ya elegida.
+  // Si el procedimiento deja de requerir enfermera, se limpia la ya elegida. Un
+  // procedimiento sin doctor siempre requiere enfermera (invariante del backend), así que
+  // esto nunca limpia el nurse_id de un procedimiento sin doctor por accidente.
   useEffect(() => {
     if (!isNurseRequired && formData.nurse_id) {
       setFormData(p => ({ ...p, nurse_id: "" }));
     }
   }, [isNurseRequired]);
 
-  // El tipo de cita (catálogo del admin) queda anclado a la categoría
-  // que corresponde al tipo de procedimiento elegido: "consulta" para
-  // Consulta Médica General, "procedimiento" para cualquier
-  // procedimiento real. Así nunca queda una combinación cruzada (ej.
-  // un tipo de cita de procedimiento en una consulta general).
-  const activeCategory = procedure === "general" ? "consulta" : "procedimiento";
-  // "ambos" aparece como opción sin importar el tipo de procedimiento
-  // elegido, es un tipo de cita válido tanto para consulta como para
-  // procedimiento.
-  const filteredAppointmentTypes = appointmentTypes.filter(t => {
-    const category = t.category || "consulta";
-    return category === activeCategory || category === "ambos";
-  });
-  // Autocompleta el tipo de cita según el tipo de procedimiento elegido, en vez de
-  // solo limpiarlo cuando deja de ser válido: busca primero un tipo del catálogo cuyo
-  // nombre calce exacto con "Consulta Médica General" o con el procedimiento elegido: si
-  // no hay coincidencia exacta, usa el primero de la categoría como valor por defecto.
-  // El usuario sigue pudiendo elegir cualquier otro tipo de esa misma categoría (o
-  // "ambos") desde el selector; esto solo decide el valor inicial. No pisa un valor ya
-  // válido (ej. uno cargado al editar una cita existente).
+  // Si el procedimiento pasa a no requerir doctor, se limpia el doctor ya elegido (o
+  // pre-rellenado, ver el efecto de arriba para el rol doctor): "Enfermera asignada" pasa
+  // a ser el proveedor principal en su lugar.
   useEffect(() => {
-    if (appointmentType && filteredAppointmentTypes.some(t => t.name === appointmentType)) return;
-    if (filteredAppointmentTypes.length === 0) { setAppointmentType(""); return; }
-    const matchName = procedure === "general" ? "Consulta Médica General" : selectedProcedure?.name;
-    const exact = matchName
-      ? filteredAppointmentTypes.find(t => t.name.trim().toLowerCase() === matchName.trim().toLowerCase())
-      : null;
-    setAppointmentType((exact || filteredAppointmentTypes[0]).name);
+    if (!requiresDoctorForProcedure && formData.doctor_id) {
+      setFormData(p => ({ ...p, doctor_id: "" }));
+    }
+  }, [requiresDoctorForProcedure]);
+
+  // El tipo de cita (catálogo del admin) queda limitado a los que el propio procedimiento
+  // elegido declaró como elegibles (procedure.appointment_type_ids, ver el modelo): el
+  // admin decide esto al crear o editar cada procedimiento, ya no se infiere comparando
+  // categorías contra un valor especial "general". Populado por el backend con name/color.
+  const eligibleAppointmentTypes = selectedProcedure?.appointment_type_ids || [];
+  // Autocompleta el tipo de cita al elegir procedimiento, en vez de solo limpiarlo cuando
+  // deja de ser válido: usa el primer tipo elegible como valor por defecto. El usuario
+  // sigue pudiendo elegir cualquier otro de la lista; esto solo decide el valor inicial.
+  // No pisa un valor ya válido (ej. uno cargado al editar una cita existente).
+  useEffect(() => {
+    if (appointmentType && eligibleAppointmentTypes.some(t => t.name === appointmentType)) return;
+    setAppointmentType(eligibleAppointmentTypes[0]?.name || "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCategory, appointmentTypes, procedure, selectedProcedure]);
+  }, [eligibleAppointmentTypes]);
 
 
   useEffect(() => {
-    if (!formData.doctor_id || !date) { setAvailableSlots([]); setSelectedSlot(null); return; }
+    // Proveedor principal de la cita: el doctor normalmente, o la enfermera cuando el
+    // procedimiento elegido no requiere doctor (ver requiresDoctorForProcedure arriba).
+    const providerId = requiresDoctorForProcedure ? formData.doctor_id : formData.nurse_id;
+    const providerKey = requiresDoctorForProcedure ? "doctor_id" : "nurse_id";
+    const fetchSlots = requiresDoctorForProcedure ? getAvailableSlots : getNurseAvailableSlots;
+
+    if (!providerId || !date) { setAvailableSlots([]); setSelectedSlot(null); return; }
     setSlotsLoading(true);
     // Usa la fecha local para evitar que cambie de día en husos
     // horarios adelantados a UTC.
     const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
-    getAvailableSlots(formData.doctor_id, dateStr, duration)
+    fetchSlots(providerId, dateStr, duration)
       .then(res => {
         let slots = res.slots || [];
         // Si se está editando la cita y su horario original no aparece
@@ -327,7 +330,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
         // calcular qué horarios ya están ocupados), se reinyecta para
         // no perder la selección ya guardada.
         const original = originalSlotRef.current;
-        if (original && original.date === dateStr && original.doctor_id === formData.doctor_id) {
+        if (original && original.date === dateStr && original[providerKey] === providerId) {
           const yaIncluido = slots.some(s => s.start_time === original.start_time);
           if (!yaIncluido) {
             slots = [{ start_time: original.start_time, end_time: original.end_time }, ...slots];
@@ -336,10 +339,10 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
         setAvailableSlots(slots);
         // Conserva la selección actual si sigue siendo válida en la
         // nueva lista. Si no, mantiene el horario original de la cita
-        // (mismo doctor y fecha) en vez de dejarla en blanco.
+        // (mismo proveedor y fecha) en vez de dejarla en blanco.
         setSelectedSlot(prev => {
           if (prev && slots.some(s => s.start_time === prev.start_time)) return prev;
-          if (original && original.date === dateStr && original.doctor_id === formData.doctor_id) {
+          if (original && original.date === dateStr && original[providerKey] === providerId) {
             return { start_time: original.start_time, end_time: original.end_time };
           }
           return null;
@@ -347,7 +350,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       })
       .catch(() => setAvailableSlots([]))
       .finally(() => setSlotsLoading(false));
-  }, [formData.doctor_id, date, duration]);
+  }, [requiresDoctorForProcedure, formData.doctor_id, formData.nurse_id, date, duration]);
 
   // Enfermeras disponibles para el horario ya elegido, usa el mismo
   // endpoint que AppointmentsGrid.jsx al aceptar o asignar una cita.
@@ -397,8 +400,11 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
-    if (!formData.patient_id || !formData.doctor_id) {
-      showError("Debe seleccionar un paciente y un doctor."); return;
+    if (!procedure) {
+      showError("Debe seleccionar un tipo de procedimiento."); return;
+    }
+    if (!formData.patient_id || (requiresDoctorForProcedure ? !formData.doctor_id : !formData.nurse_id)) {
+      showError(requiresDoctorForProcedure ? "Debe seleccionar un paciente y un doctor." : "Debe seleccionar un paciente y una enfermera."); return;
     }
     if (!selectedSlot) {
       showError("Debe seleccionar un horario."); return;
@@ -407,20 +413,38 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       showError("Debe ingresar un costo válido."); return;
     }
     if (!scheduleId) {
-      showError("El doctor seleccionado no tiene horario configurado."); return;
+      showError(requiresDoctorForProcedure ? "El doctor seleccionado no tiene horario configurado." : "La enfermera seleccionada no tiene horario configurado."); return;
     }
-    if (isNurseRequired && !formData.nurse_id) {
-      showError(`El procedimiento "${selectedProcedure?.name}" requiere obligatoriamente asignar una enfermera.`); return;
+    // Un procedimiento con doctor + enfermera de apoyo sin enfermera elegida no bloquea el
+    // guardado sin salida: si hay enfermeras disponibles para este horario, sigue siendo
+    // obligatorio elegir una; si de verdad no hay ninguna, se ofrece continuar igual con
+    // confirmación explícita en vez de dejar atascado el flujo de agendar (ver
+    // confirmProceedWithoutNurse en alerts.jsx, mismo criterio que AppointmentsGrid.jsx al
+    // aceptar/asignar una cita).
+    let confirmNoNurse = false;
+    if (requiresDoctorForProcedure && isNurseRequired && !formData.nurse_id) {
+      if (loadingNurses) {
+        showError("Espera a que termine de cargar la lista de enfermeras."); return;
+      }
+      if (availableNurses.length > 0) {
+        showError(`El procedimiento "${selectedProcedure?.name}" requiere obligatoriamente asignar una enfermera.`); return;
+      }
+      const confirmed = await confirmProceedWithoutNurse();
+      if (!confirmed) return;
+      confirmNoNurse = true;
     }
 
     const durationMins = timeToMins(selectedSlot.end_time) - timeToMins(selectedSlot.start_time);
     const appointmentData = {
-      doctor_id:         formData.doctor_id,
+      doctor_id:         requiresDoctorForProcedure ? formData.doctor_id : undefined,
       patient_id:        formData.patient_id,
       nurse_id:          formData.nurse_id || undefined,
-      procedure_id:      procedure === "general" ? null : procedure,
+      procedure_id:      procedure,
       schedule_id:       scheduleId,
-      type:              procedure === "general" ? "Consulta Médica General" : "Procedimiento",
+      // "Consulta Médica General" ahora es un procedimiento real más (no un caso
+      // especial): se identifica por nombre solo para mantener el mismo campo type de
+      // siempre (usado por los reportes para separar consultas de procedimientos).
+      type:              selectedProcedure?.name === "Consulta Médica General" ? "Consulta Médica General" : "Procedimiento",
       // appointment_type (el catálogo del admin) solo categoriza y
       // colorea la cita en la leyenda del calendario, es independiente
       // del tipo de procedimiento.
@@ -436,6 +460,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       status:            "scheduled",
       total:             Number(total),
       cancellation_reason: "",
+      confirm_no_nurse:  confirmNoNurse || undefined,
     };
 
     try {
@@ -458,7 +483,10 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
 
   const selectedPatient = patients.find(p => p._id === formData.patient_id);
   const selectedDoctor  = doctors.find(d => d._id === formData.doctor_id);
-  const selectedNurse   = availableNurses.find(n => n._id === formData.nurse_id);
+  // En modo enfermera proveedora principal, sus opciones salen del catálogo de enfermeras
+  // con horario configurado (schedulableNurses), no de availableNurses (el filtro por
+  // horario del modo de apoyo, que en ese modo nunca se llega a pedir).
+  const selectedNurse   = (requiresDoctorForProcedure ? availableNurses : schedulableNurses).find(n => n._id === formData.nurse_id);
 
   // Filtra slots ya pasados cuando la fecha seleccionada es hoy
   const now = new Date();
@@ -510,7 +538,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   // (pacientes, doctores, enfermeras, procedimientos y tipos de cita) terminen de cargar,
   // tanto al crear como al editar. Sin esto, un clic en un dropdown antes de que la petición
   // resuelva mostraba la lista vacía.
-  if (loading || loadingMedicalData || loadingAppointmentTypes) return (
+  if (loading || loadingMedicalData) return (
     <div className="w-full min-h-screen flex flex-col items-center justify-center bg-slate-50">
       <Loader2 className="h-8 w-8 text-blue-600 animate-spin mb-3" />
       <p className="text-sm text-slate-500">Cargando cita...</p>
@@ -587,7 +615,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                     disabled={!isEditing}
                     className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 bg-white disabled:bg-slate-50 disabled:text-slate-400 transition-all"
                   >
-                    <option value="general">Consulta Médica General</option>
+                    <option value="">Seleccione un procedimiento</option>
                     {procedures.map(proc => (
                       <option key={proc._id} value={proc._id}>{proc.name}</option>
                     ))}
@@ -601,7 +629,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
-                {procedure !== "general" && selectedProcedure && (
+                {selectedProcedure && (
                   <p className="text-[11px] text-slate-400">
                     Duración: {selectedProcedure.estimated_duration ?? 30} min · Precio: ${selectedProcedure.price ?? 0}
                     {selectedProcedure.requires_nurse && " · Requiere enfermera"}
@@ -613,13 +641,13 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 label="Tipo de cita"
                 value={appointmentType}
                 onChange={setAppointmentType}
-                options={filteredAppointmentTypes.map(t => ({ value: t.name, label: t.name }))}
+                options={eligibleAppointmentTypes.map(t => ({ value: t.name, label: t.name }))}
                 placeholder={
-                  filteredAppointmentTypes.length === 0
-                    ? activeCategory === "consulta"
-                      ? "Sin tipos de consulta configurados"
-                      : "Sin tipos de procedimiento configurados"
-                    : "Sin especificar"
+                  !selectedProcedure
+                    ? "Elija primero un procedimiento"
+                    : eligibleAppointmentTypes.length === 0
+                      ? "Este procedimiento no tiene tipos de cita configurados"
+                      : "Sin especificar"
                 }
                 disabled={!isEditing}
               />
@@ -628,31 +656,43 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 value={formData.doctor_id}
                 onChange={v => setFormData(p => ({ ...p, doctor_id: v }))}
                 options={doctors.map(d => ({ value: d._id, label: `Dr. ${d.name} ${d.last_name}` }))}
-                placeholder="Seleccione un doctor"
-                disabled={isDoctor || !isEditing}
+                placeholder={requiresDoctorForProcedure ? "Seleccione un doctor" : "No requerido para este servicio"}
+                disabled={isDoctor || !isEditing || !requiresDoctorForProcedure}
               />
+              {/* Cuando el procedimiento no requiere doctor, este campo pasa a ser el
+                  proveedor principal de la cita (se elige primero, como el doctor en el
+                  resto de los casos): sus opciones salen del catálogo completo de
+                  enfermeras, no del filtro por horario ya elegido que usa el modo de apoyo. */}
               <SelectField
                 label="Enfermera asignada"
                 value={formData.nurse_id}
                 onChange={v => setFormData(p => ({ ...p, nurse_id: v }))}
-                options={availableNurses.map(n => ({ value: n._id, label: `${n.name} ${n.last_name}` }))}
-                placeholder={
-                  !isNurseRequired
-                    ? "No requerida para este servicio"
-                    : !selectedSlot
-                      ? "Elija primero doctor, fecha y horario"
-                      : loadingNurses
-                        ? "Buscando enfermeras disponibles..."
-                        : availableNurses.length === 0
-                          ? "Sin enfermeras disponibles en ese horario"
-                          : "Seleccione una enfermera"
+                options={
+                  requiresDoctorForProcedure
+                    ? availableNurses.map(n => ({ value: n._id, label: `${n.name} ${n.last_name}` }))
+                    : schedulableNurses.map(n => ({ value: n._id, label: `${n.name} ${n.last_name}` }))
                 }
-                disabled={!isEditing || !isNurseRequired || !selectedSlot || loadingNurses}
+                placeholder={
+                  !requiresDoctorForProcedure
+                    ? "Seleccione una enfermera"
+                    : !isNurseRequired
+                      ? "No requerida para este servicio"
+                      : !selectedSlot
+                        ? "Elija primero doctor, fecha y horario"
+                        : loadingNurses
+                          ? "Buscando enfermeras disponibles..."
+                          : availableNurses.length === 0
+                            ? "Sin enfermeras disponibles en ese horario"
+                            : "Seleccione una enfermera"
+                }
+                disabled={
+                  !isEditing || (requiresDoctorForProcedure && (!isNurseRequired || !selectedSlot || loadingNurses))
+                }
               />
             </div>
 
 
-            {(selectedDoctor || selectedPatient) && (
+            {(selectedDoctor || (!requiresDoctorForProcedure && selectedNurse) || selectedPatient) && (
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-50">
                 {selectedDoctor && (
                   <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5">
@@ -661,6 +701,21 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                     </div>
                     <span className="text-xs font-medium text-blue-800">Dr. {selectedDoctor.name} {selectedDoctor.last_name}</span>
                     {selectedDoctor.specialty && <span className="text-xs text-blue-500">· {selectedDoctor.specialty}</span>}
+                    {scheduleId
+                      ? <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full font-medium">Horario ✓</span>
+                      : <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full font-medium">Sin horario</span>
+                    }
+                  </div>
+                )}
+                {/* Enfermera como proveedora principal (procedimiento sin doctor). La
+                    enfermera de apoyo (isNurseRequired con doctor) no lleva chip propio, ya
+                    lo tenía así antes de este cambio. */}
+                {!requiresDoctorForProcedure && selectedNurse && (
+                  <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5">
+                    <div className="w-6 h-6 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0">
+                      {selectedNurse.name?.[0]}
+                    </div>
+                    <span className="text-xs font-medium text-emerald-800">{selectedNurse.name} {selectedNurse.last_name}</span>
                     {scheduleId
                       ? <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full font-medium">Horario ✓</span>
                       : <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full font-medium">Sin horario</span>
@@ -755,12 +810,14 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                     <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
                     <span className="text-xs">Cargando horarios...</span>
                   </div>
-                ) : !formData.doctor_id ? (
+                ) : (requiresDoctorForProcedure ? !formData.doctor_id : !formData.nurse_id) ? (
                   <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
                     <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
                       <Stethoscope className="w-6 h-6 text-slate-300" />
                     </div>
-                    <p className="text-xs text-slate-400 max-w-[160px]">Selecciona un doctor para ver los horarios</p>
+                    <p className="text-xs text-slate-400 max-w-[160px]">
+                      {requiresDoctorForProcedure ? "Selecciona un doctor para ver los horarios" : "Selecciona una enfermera para ver los horarios"}
+                    </p>
                   </div>
                 ) : visibleSlots.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 text-center gap-2">

@@ -58,7 +58,7 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
 
     return (
         <div className="border border-slate-100 rounded-lg p-3">
-            <div className="grid grid-cols-2 gap-2 mb-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                 <div>
                     <label className="text-xs text-slate-500 block mb-1">
                         Procedimiento <span className="text-red-500">*</span>
@@ -130,7 +130,7 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
             <label className="text-xs text-slate-500 block mb-1">Material utilizado</label>
             <div className="space-y-2 mb-2">
                 {materials.map((material, materialIndex) => (
-                    <div key={material.id} className="grid grid-cols-[1fr_90px_auto] gap-2 items-end">
+                    <div key={material.id} className="grid grid-cols-1 sm:grid-cols-[1fr_90px_auto] gap-2 sm:items-end">
                         <div className="flex flex-col gap-0.5">
                             <label className="text-[11px] text-slate-500">Insumo</label>
                             <select

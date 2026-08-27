@@ -24,6 +24,9 @@ const LOCKED_TRUE_PERMISSIONS = {
         // La enfermera no tiene registro rápido de pacientes (a diferencia de recepción), así
         // que solo necesita poder ver el listado para buscar un paciente al agendar una cita.
         "users.patients": ["view"],
+        // Sin esto el formulario de agendar cita no puede traer el catálogo de procedimientos
+        // ni crear uno nuevo desde el modal de creación rápida.
+        "procedures": ["view", "create"],
     },
     doctor: {
         // El doctor siempre debe poder ver, crear y actualizar sus propias citas.

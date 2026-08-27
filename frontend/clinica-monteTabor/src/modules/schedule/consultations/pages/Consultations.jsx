@@ -34,6 +34,7 @@ const Consultations =() => {
         filters,
         updateFilters,
         goToPage,
+        fetchAppointments,
     } = useAppointments({
         limit: 8,
     });
@@ -95,6 +96,7 @@ const Consultations =() => {
                         completedCount={completedCount}
                         statusFilter={filters.status}
                         onStatusChange={(status) => handleFilterChange({ status })}
+                        onDeleted={fetchAppointments}
                     />
  
                     <TablePagination

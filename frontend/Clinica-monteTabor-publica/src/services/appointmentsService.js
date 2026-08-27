@@ -11,6 +11,11 @@ export const getDoctors = () => apiClient("/patient-portal/doctors");
 // puede aparecer como opción ahí.
 export const getSchedulableDoctors = () => apiClient("/patient-portal/doctors-schedulable");
 
+// Mismo criterio que getSchedulableDoctors, pero para procedimientos sin doctor
+// (requires_doctor false): ahí la enfermera es la proveedora principal, así que el
+// paso "elegir doctor primero" pasa a listar enfermeras en su lugar.
+export const getSchedulableNurses = () => apiClient("/patient-portal/nurses-schedulable");
+
 export const getProcedures = () => apiClient("/patient-portal/procedures");
 
 // includeBooked: true trae también los horarios ya ocupados por otra cita de
@@ -20,11 +25,20 @@ export const getProcedures = () => apiClient("/patient-portal/procedures");
 export const getAvailableSlots = (doctorId, date, duration) =>
   apiClient(`/patient-portal/schedule/${doctorId}/slots`, { params: { date, duration, includeBooked: true } });
 
+// Mirror de getAvailableSlots para una enfermera proveedora principal (procedimiento
+// sin doctor, ver getSchedulableNurses).
+export const getNurseAvailableSlots = (nurseId, date, duration) =>
+  apiClient(`/patient-portal/nurse-schedule/${nurseId}/slots`, { params: { date, duration, includeBooked: true } });
+
 // Días de la semana (0 a 6) que el doctor atiende y sus excepciones de fecha
 // (vacaciones, días no laborables, horario especial), para bloquear en el
 // calendario los días que no trabaja antes de elegir una fecha puntual.
 export const getDoctorWorkingDays = (doctorId) =>
   apiClient(`/patient-portal/schedule/${doctorId}/working-days`);
+
+// Mirror de getDoctorWorkingDays para una enfermera proveedora principal.
+export const getNurseWorkingDays = (nurseId) =>
+  apiClient(`/patient-portal/nurse-schedule/${nurseId}/working-days`);
 
 // Horarios agregados entre todos los doctores para una fecha y tipo de
 // atención, sin revelar todavía qué doctor los cubre.

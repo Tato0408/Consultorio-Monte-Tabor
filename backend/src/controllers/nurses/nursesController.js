@@ -2,6 +2,7 @@ import nursesModel from "../../models/nurses/nurses.js"
 import appointmentsModel from "../../models/appointments/appointments.js"
 import proceduresModel from "../../models/procedures/procedures.js"
 import nurseNotesModel from "../../models/nurse_notes/nurse_notes.js"
+import nurseScheduleModel from "../../models/schedule/nurseSchedule.js"
 import { v2 as cloudinary } from "cloudinary"
 import bcrypt from 'bcryptjs'
 import { config } from "../../../config.js"
@@ -17,6 +18,42 @@ nursesController.getAllNurses = async (req, res) => {
             return res.status(404).json({ message: "Enfermera no encontrada" });
         }
         return res.status(200).json(response);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+}
+
+// GET /nurses/catalog — catálogo liviano que solo exige sesión iniciada, sin el permiso
+// authorize("users.nurses", "view") (mismo patrón que doctorsController.getDoctorsCatalog).
+// Recepción, doctores y la propia enfermera necesitan esta lista para agendar citas aunque
+// su rol no tenga permiso sobre el módulo de administración de enfermeras: GET "/" sí exige
+// ese permiso, por eso este catálogo separado cubre el caso de agendar citas.
+nursesController.getNursesCatalog = async (req, res) => {
+    try {
+        const nurses = await nursesModel.find().select("-password");
+        return res.status(200).json(nurses);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+}
+
+// GET /nurses/catalog/schedulable — igual que /nurses/catalog, pero solo devuelve
+// enfermeras activas que ya configuraron al menos un día laborable en su horario (mismo
+// criterio que doctorController.getSchedulableDoctorsCatalog y
+// patientPortalController.getSchedulableNurses). Se usa en el registro rápido de citas y en
+// "Agregar cita" cuando el procedimiento elegido no requiere doctor: ahí la enfermera es la
+// proveedora principal, y una sin horario no tiene forma de calcular horarios libres.
+nursesController.getSchedulableNursesCatalog = async (req, res) => {
+    try {
+        const schedules = await nurseScheduleModel
+            .find({ "weekly_availability.is_available": true })
+            .select("nurse_id");
+        const nurseIds = schedules.map((s) => s.nurse_id);
+
+        const nurses = await nursesModel
+            .find({ _id: { $in: nurseIds }, is_active: true })
+            .select("-password");
+        return res.status(200).json(nurses);
     } catch (error) {
         return res.status(500).json({ message: error.message });
     }

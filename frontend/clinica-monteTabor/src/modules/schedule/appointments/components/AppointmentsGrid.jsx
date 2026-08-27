@@ -20,6 +20,7 @@ import {
     confirmDelete,
     confirmCancelAppointment,
     confirmNoShow,
+    confirmProceedWithoutNurse,
     showSuccess,
     showError
 } from "@/lib/alerts";
@@ -41,6 +42,9 @@ export default function AppointmentsGrid() {
     // El admin tiene el mismo flujo de por aceptar, pero en vez de
     // aceptar la cita él mismo, la asigna a un doctor.
     const isAdmin = userType === "admin";
+    // Mismo criterio que isDoctor arriba, pero para citas de un procedimiento sin doctor
+    // (requires_doctor false): ahí la enfermera acepta en vez del doctor.
+    const isNurse = userType === "nurse";
 
     const {
         appointments,
@@ -53,6 +57,8 @@ export default function AppointmentsGrid() {
         updateStatus,
         acceptAppointment,
         assignDoctor,
+        acceptAppointmentAsNurse,
+        assignNurse,
         updateFilters,
         goToPage
     } = useAppointments({ sortOrder: "desc" });
@@ -81,6 +87,10 @@ export default function AppointmentsGrid() {
     // (citas asignadas). El admin ve todas, no solo las de un doctor
     // en particular.
     const [adminTab, setAdminTab] = useState(location.state?.initialTab || "pending");
+    // Mismo criterio que doctorTab: pending (por aceptar) o mine (resueltas). El backend ya
+    // limita nurse_id a la propia enfermera (o pending sin asignar de un procedimiento sin
+    // doctor), aquí solo se controla el status.
+    const [nurseTab, setNurseTab] = useState(location.state?.initialTab || "pending");
     const [appointmentToAccept, setAppointmentToAccept] = useState(null);
     const [appointmentToAssign, setAppointmentToAssign] = useState(null);
     const [pendingAppointmentDetails, setPendingAppointmentDetails] = useState(null);
@@ -111,12 +121,12 @@ export default function AppointmentsGrid() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Estado combinado de la sub-pestaña activa (doctor o admin), para
+    // Estado combinado de la sub-pestaña activa (doctor, enfermera o admin), para
     // reutilizar la misma barra de pestañas y la misma lógica de filtros.
-    const activeTab = isDoctor ? doctorTab : adminTab;
-    const setActiveTab = isDoctor ? setDoctorTab : setAdminTab;
-    const secondTabValue = isDoctor ? "mine" : "assigned";
-    const secondTabLabel = isDoctor ? "Mis citas" : "Citas asignadas";
+    const activeTab = isDoctor ? doctorTab : isNurse ? nurseTab : adminTab;
+    const setActiveTab = isDoctor ? setDoctorTab : isNurse ? setNurseTab : setAdminTab;
+    const secondTabValue = (isDoctor || isNurse) ? "mine" : "assigned";
+    const secondTabLabel = (isDoctor || isNurse) ? "Mis citas" : "Citas asignadas";
 
     useEffect(() => {
         if (!isDoctor) return;
@@ -124,6 +134,13 @@ export default function AppointmentsGrid() {
             status: doctorTab === "pending" ? "pending" : "scheduled,completed,cancelled,no_show,expired",
         });
     }, [isDoctor, doctorTab, updateFilters]);
+
+    useEffect(() => {
+        if (!isNurse) return;
+        updateFilters({
+            status: nurseTab === "pending" ? "pending" : "scheduled,completed,cancelled,no_show,expired",
+        });
+    }, [isNurse, nurseTab, updateFilters]);
 
     useEffect(() => {
         if (!isAdmin) return;
@@ -138,12 +155,36 @@ export default function AppointmentsGrid() {
     // semana correcta y con esta cita seleccionada (resaltada en azul, ver
     // isSelected en ApptDot/ApptCard más abajo), para que el doctor la vea
     // agendada de una vez en vez de tener que ir a buscarla él mismo.
-    const handleAceptar = async (appointment, nurseId) => {
+    const handleAceptar = async (appointment, nurseId, confirmNoNurse = false) => {
         try {
-            await acceptAppointment(appointment._id, nurseId);
+            await acceptAppointment(appointment._id, nurseId, confirmNoNurse);
             showSuccess("Cita aceptada correctamente");
             setAppointmentToAccept(null);
             setSelectedNurseId("");
+            navigate("/calendar/appointments", {
+                state: { initialView: "calendar", selectApptId: appointment._id, selectApptDate: appointment.date },
+            });
+        } catch (err) {
+            showError(err.message || "No se pudo aceptar la cita");
+        }
+    };
+
+    // Cuando el procedimiento requiere enfermera de apoyo pero no hay ninguna disponible
+    // para este horario (nurses.length === 0 tras cargar), permite continuar igual con
+    // confirmación explícita en vez de dejar el modal sin ninguna salida más que cancelar.
+    const handleAceptarSinEnfermera = async (appointment) => {
+        const confirmed = await confirmProceedWithoutNurse();
+        if (!confirmed) return;
+        handleAceptar(appointment, null, true);
+    };
+
+    // Mismo flujo de arriba, pero para cuando la enfermera acepta una cita de un
+    // procedimiento sin doctor (ella es la proveedora principal, no hay enfermera de
+    // apoyo que elegir aparte).
+    const handleAceptarComoEnfermera = async (appointment) => {
+        try {
+            await acceptAppointmentAsNurse(appointment._id);
+            showSuccess("Cita aceptada correctamente");
             navigate("/calendar/appointments", {
                 state: { initialView: "calendar", selectApptId: appointment._id, selectApptDate: appointment.date },
             });
@@ -165,6 +206,11 @@ export default function AppointmentsGrid() {
     });
 
     const requestAccept = async (appointment) => {
+        // Procedimiento sin doctor: la enfermera acepta directo, no hay enfermera de
+        // apoyo que elegir aparte (ella misma es la proveedora principal).
+        if (appointment.procedure_id?.requires_doctor === false) {
+            return handleAceptarComoEnfermera(appointment);
+        }
         if (!appointment.procedure_id?.requires_nurse) {
             return handleAceptar(appointment);
         }
@@ -187,9 +233,9 @@ export default function AppointmentsGrid() {
     // Asigna una cita pendiente a un doctor elegido por el admin. El
     // backend revalida el horario para ese doctor igual que en la
     // aceptación normal.
-    const handleAsignar = async (id, doctorId, nurseId) => {
+    const handleAsignar = async (id, doctorId, nurseId, confirmNoNurse = false) => {
         try {
-            await assignDoctor(id, doctorId, nurseId);
+            await assignDoctor(id, doctorId, nurseId, confirmNoNurse);
             showSuccess("Cita asignada correctamente");
             setAppointmentToAssign(null);
             setSelectedDoctorId("");
@@ -199,12 +245,52 @@ export default function AppointmentsGrid() {
         }
     };
 
+    // Mismo caso que handleAceptarSinEnfermera, pero para cuando el admin asigna
+    // directamente un doctor a una cita sin enfermera disponible.
+    const handleAsignarSinEnfermera = async (id, doctorId) => {
+        const confirmed = await confirmProceedWithoutNurse();
+        if (!confirmed) return;
+        handleAsignar(id, doctorId, null, true);
+    };
+
+    // Mismo flujo de arriba, pero para asignar directamente una enfermera como
+    // proveedora principal (procedimiento sin doctor).
+    const handleAsignarEnfermera = async (id, nurseId) => {
+        try {
+            await assignNurse(id, nurseId);
+            showSuccess("Cita asignada correctamente");
+            setAppointmentToAssign(null);
+            setSelectedNurseId("");
+        } catch (err) {
+            showError(err.message || "No se pudo asignar la cita");
+        }
+    };
+
     // Abre el modal de asignación: carga el catálogo de doctores y, si el
-    // procedimiento requiere enfermera, también el de enfermeras.
+    // procedimiento requiere enfermera, también el de enfermeras. Para un
+    // procedimiento sin doctor, carga directamente las enfermeras libres en ese
+    // horario en vez del catálogo de doctores.
     const requestAssign = async (appointment) => {
         setAppointmentToAssign(appointment);
         setSelectedDoctorId("");
         setSelectedNurseId("");
+
+        if (appointment.procedure_id?.requires_doctor === false) {
+            setLoadingNurses(true);
+            try {
+                const response = await apiClient("/appointments/nurses-for-acceptance", {
+                    params: nurseAvailabilityParams(appointment),
+                });
+                setNurses(Array.isArray(response) ? response : response.data || []);
+            } catch (error) {
+                showError(error.message || "No se pudieron cargar las enfermeras.");
+                setAppointmentToAssign(null);
+            } finally {
+                setLoadingNurses(false);
+            }
+            return;
+        }
+
         setLoadingDoctors(true);
         try {
             // Catálogo liviano, no requiere el permiso Ver Doctores
@@ -252,14 +338,19 @@ export default function AppointmentsGrid() {
 
     const emptyMessage = isDoctor
         ? (doctorTab === "pending" ? "No tienes citas pendientes por aceptar." : "No tienes citas programadas todavía.")
-        : isAdmin
-            ? (adminTab === "pending" ? "No hay citas pendientes por asignar." : "No hay citas asignadas todavía.")
-            : (hasActiveFilters ? "No se encontraron citas con los filtros aplicados." : "No hay citas registradas en este momento.");
+        : isNurse
+            ? (nurseTab === "pending" ? "No tienes citas pendientes por aceptar." : "No tienes citas programadas todavía.")
+            : isAdmin
+                ? (adminTab === "pending" ? "No hay citas pendientes por asignar." : "No hay citas asignadas todavía.")
+                : (hasActiveFilters ? "No se encontraron citas con los filtros aplicados." : "No hay citas registradas en este momento.");
 
     // Elimina la cita por completo. Pide confirmación por ser
     // irreversible.
     const handleEliminar = async (id) => {
-        const confirmed = await confirmDelete();
+        const confirmed = await confirmDelete({
+            title: "¿Eliminar esta cita?",
+            text: "Esta acción es irreversible y la información no se podrá recuperar.",
+        });
 
         if (!confirmed) return;
 
@@ -367,10 +458,10 @@ export default function AppointmentsGrid() {
                 )}
             </div>
 
-            {/* Sub pestañas del doctor y del admin: separan lo que aún hay
-                que aceptar o asignar de lo que ya está resuelto. El backend
-                filtra doctor_id al propio para el doctor, el admin ve todas. */}
-            {(isDoctor || isAdmin) && (
+            {/* Sub pestañas del doctor, la enfermera y del admin: separan lo que aún hay
+                que aceptar o asignar de lo que ya está resuelto. El backend filtra
+                doctor_id/nurse_id al propio para el doctor y la enfermera, el admin ve todas. */}
+            {(isDoctor || isNurse || isAdmin) && (
                 <div className="border-b border-slate-100 flex gap-6 text-sm font-medium mb-6">
                     <button
                         type="button"
@@ -428,8 +519,8 @@ export default function AppointmentsGrid() {
                     </span>
                 </div>
 
-                {/* Filtro por estado (lo controla la sub pestaña para doctor o admin). */}
-                {!isDoctor && !isAdmin && (
+                {/* Filtro por estado (lo controla la sub pestaña para doctor, enfermera o admin). */}
+                {!isDoctor && !isNurse && !isAdmin && (
                     <Select
                         value={filters.status || "all"}
                         onValueChange={(value) => updateFilters({ status: value === "all" ? undefined : value })}
@@ -450,9 +541,9 @@ export default function AppointmentsGrid() {
                 )}
 
                 {/* Filtro por doctor, solo lista doctores que ya tienen alguna cita.
-                    Un doctor viendo su propio listado no necesita filtrarse a sí
-                    mismo. */}
-                {!isDoctor && (
+                    Un doctor o enfermera viendo su propio listado no necesita
+                    filtrarse a sí mismo. */}
+                {!isDoctor && !isNurse && (
                     <Select
                         value={filters.doctor_id || "all"}
                         onValueChange={(value) => updateFilters({ doctor_id: value === "all" ? undefined : value })}
@@ -595,7 +686,7 @@ export default function AppointmentsGrid() {
                                         </span>{" "}
                                         {cita.total
                                             ? `$${cita.total}`
-                                            : "$15"}
+                                            : "—"}
                                         {/* Cita agendada desde el portal público pagando el anticipo en línea:
                                             se muestra cuánto ya se cobró aparte del total, para que el
                                             personal no vuelva a cobrarlo completo el día de la cita. */}
@@ -651,7 +742,11 @@ export default function AppointmentsGrid() {
                                         <span className="text-xs font-semibold text-slate-700">
                                             {cita.doctor_id
                                                 ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name || ""}`
-                                                : "Doctor no asignado"}
+                                                : cita.nurse_id && cita.procedure_id?.requires_doctor === false
+                                                    ? `${cita.nurse_id.name} ${cita.nurse_id.last_name || ""} (enfermera)`
+                                                    : cita.procedure_id?.requires_doctor === false
+                                                        ? "Enfermera no asignada"
+                                                        : "Doctor no asignado"}
                                         </span>
                                     </div>
 
@@ -659,7 +754,7 @@ export default function AppointmentsGrid() {
                                         mientras esté pendiente. Si no, se muestran eliminar, editar o
                                         cancelar según permisos. Ver siempre está disponible. */}
                                     <div className="flex items-center gap-1">
-                                        {isDoctor && cita.status === "pending" ? (
+                                        {(isDoctor || (isNurse && cita.procedure_id?.requires_doctor === false)) && cita.status === "pending" ? (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -700,7 +795,7 @@ export default function AppointmentsGrid() {
                                                     oculta: el botón de visualizar ya lleva a una pantalla que
                                                     incluye su propio botón de editar, así que este sería
                                                     redundante ahí. Reagendar solo aplica a una cita Programada. */}
-                                                {canUpdate && !(isDoctor && activeTab === "mine") && cita.status === "scheduled" && (
+                                                {canUpdate && !((isDoctor || isNurse) && activeTab === "mine") && cita.status === "scheduled" && (
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -712,7 +807,7 @@ export default function AppointmentsGrid() {
                                                                     state: {
                                                                         editMode: true,
                                                                         fromView: "citas",
-                                                                        fromTab: (isDoctor || isAdmin) ? activeTab : undefined,
+                                                                        fromTab: (isDoctor || isNurse || isAdmin) ? activeTab : undefined,
                                                                     }
                                                                 }
                                                             )
@@ -757,14 +852,14 @@ export default function AppointmentsGrid() {
                                             variant="ghost"
                                             className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center"
                                             onClick={() => {
-                                                if ((isDoctor || isAdmin) && cita.status === "pending") {
+                                                if ((isDoctor || isNurse || isAdmin) && cita.status === "pending") {
                                                     setPendingAppointmentDetails(cita);
                                                     return;
                                                 }
                                                 navigate(`/calendar/appointments/${cita._id}`, {
                                                     state: {
                                                         fromView: "citas",
-                                                        fromTab: (isDoctor || isAdmin) ? activeTab : undefined,
+                                                        fromTab: (isDoctor || isNurse || isAdmin) ? activeTab : undefined,
                                                     },
                                                 });
                                             }}
@@ -814,14 +909,55 @@ export default function AppointmentsGrid() {
                             <option value="">{loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}</option>
                             {nurses.map((nurse) => <option key={nurse._id} value={nurse._id}>{nurse.name} {nurse.last_name}</option>)}
                         </select>
+                        {/* Sin enfermeras disponibles para este horario: en vez de dejar el modal
+                            sin ninguna salida más que Cancelar, se puede reagendar (cerrando este
+                            modal y editando la cita a otro horario) o continuar igual con
+                            confirmación explícita (ver confirmProceedWithoutNurse en alerts.jsx). */}
+                        {!loadingNurses && nurses.length === 0 && (
+                            <p className="mt-2 text-xs text-amber-600">
+                                No hay enfermeras disponibles para este horario. Puedes reagendar la cita a un horario donde sí haya, o continuar sin asignar una.
+                            </p>
+                        )}
                         <div className="mt-6 flex justify-end gap-3">
                             <Button variant="outline" onClick={() => setAppointmentToAccept(null)}>Cancelar</Button>
-                            <Button disabled={!selectedNurseId || loadingNurses} onClick={() => handleAceptar(appointmentToAccept, selectedNurseId)} className="bg-emerald-600 hover:bg-emerald-700">Aceptar cita</Button>
+                            {!loadingNurses && nurses.length === 0 ? (
+                                <Button onClick={() => handleAceptarSinEnfermera(appointmentToAccept)} className="bg-amber-500 hover:bg-amber-600">Continuar sin enfermera</Button>
+                            ) : (
+                                <Button disabled={!selectedNurseId || loadingNurses} onClick={() => handleAceptar(appointmentToAccept, selectedNurseId)} className="bg-emerald-600 hover:bg-emerald-700">Aceptar cita</Button>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
-            {appointmentToAssign && (
+            {appointmentToAssign && appointmentToAssign.procedure_id?.requires_doctor === false ? (
+                // Procedimiento sin doctor: se asigna directo una enfermera como
+                // proveedora principal, no hay doctor que elegir.
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 overflow-y-auto">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
+                        <h2 className="text-lg font-bold text-slate-900">Asignar a una enfermera</h2>
+                        <p className="mt-1 text-sm text-slate-500">Este procedimiento no requiere doctor. Elige la enfermera que atenderá esta cita. Se le notificará junto con el paciente.</p>
+                        <select
+                            value={selectedNurseId}
+                            onChange={(event) => setSelectedNurseId(event.target.value)}
+                            disabled={loadingNurses}
+                            className="mt-5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                        >
+                            <option value="">{loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}</option>
+                            {nurses.map((nurse) => <option key={nurse._id} value={nurse._id}>{nurse.name} {nurse.last_name}</option>)}
+                        </select>
+                        <div className="mt-6 flex justify-end gap-3">
+                            <Button variant="outline" onClick={() => setAppointmentToAssign(null)}>Cancelar</Button>
+                            <Button
+                                disabled={!selectedNurseId || loadingNurses}
+                                onClick={() => handleAsignarEnfermera(appointmentToAssign._id, selectedNurseId)}
+                                className="bg-emerald-600 hover:bg-emerald-700"
+                            >
+                                Asignar cita
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            ) : appointmentToAssign && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 overflow-y-auto">
                     <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
                         <h2 className="text-lg font-bold text-slate-900">Asignar a un doctor</h2>
@@ -851,17 +987,35 @@ export default function AppointmentsGrid() {
                                     <option value="">{loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}</option>
                                     {nurses.map((nurse) => <option key={nurse._id} value={nurse._id}>{nurse.name} {nurse.last_name}</option>)}
                                 </select>
+                                {/* Igual que en el modal de aceptación: sin enfermeras disponibles,
+                                    se puede reagendar (Cancelar y editar la cita) o continuar
+                                    igual con confirmación explícita. */}
+                                {!loadingNurses && nurses.length === 0 && (
+                                    <p className="mt-2 text-xs text-amber-600">
+                                        No hay enfermeras disponibles para este horario. Puedes reagendar la cita a un horario donde sí haya, o continuar sin asignar una.
+                                    </p>
+                                )}
                             </>
                         )}
                         <div className="mt-6 flex justify-end gap-3">
                             <Button variant="outline" onClick={() => setAppointmentToAssign(null)}>Cancelar</Button>
-                            <Button
-                                disabled={!selectedDoctorId || loadingDoctors || (appointmentToAssign.procedure_id?.requires_nurse && !selectedNurseId)}
-                                onClick={() => handleAsignar(appointmentToAssign._id, selectedDoctorId, selectedNurseId || null)}
-                                className="bg-emerald-600 hover:bg-emerald-700"
-                            >
-                                Asignar cita
-                            </Button>
+                            {appointmentToAssign.procedure_id?.requires_nurse && !loadingNurses && nurses.length === 0 ? (
+                                <Button
+                                    disabled={!selectedDoctorId || loadingDoctors}
+                                    onClick={() => handleAsignarSinEnfermera(appointmentToAssign._id, selectedDoctorId)}
+                                    className="bg-amber-500 hover:bg-amber-600"
+                                >
+                                    Continuar sin enfermera
+                                </Button>
+                            ) : (
+                                <Button
+                                    disabled={!selectedDoctorId || loadingDoctors || (appointmentToAssign.procedure_id?.requires_nurse && !selectedNurseId)}
+                                    onClick={() => handleAsignar(appointmentToAssign._id, selectedDoctorId, selectedNurseId || null)}
+                                    className="bg-emerald-600 hover:bg-emerald-700"
+                                >
+                                    Asignar cita
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -886,7 +1040,7 @@ export default function AppointmentsGrid() {
                             <p><span className="font-semibold text-slate-500">Duración: </span>{pendingAppointmentDetails.duration_minutes || 30} min</p>
                             <p>
                                 <span className="font-semibold text-slate-500">Total: </span>
-                                {pendingAppointmentDetails.total ? `$${pendingAppointmentDetails.total}` : "$15"}
+                                {pendingAppointmentDetails.total ? `$${pendingAppointmentDetails.total}` : "—"}
                                 {pendingAppointmentDetails.deposit_paid && (
                                     <span className="text-emerald-600 font-semibold">
                                         {" "}— ${Number(pendingAppointmentDetails.deposit_amount).toFixed(2)} pagado por anticipo

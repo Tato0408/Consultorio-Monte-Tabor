@@ -87,7 +87,7 @@ const NurseProfileCard = ({ nurse, nextProcedure, loadingDetail, onEdit, onDelet
                 })}
               </p>
               <p className="text-[13px] text-blue-600 font-medium">
-                {nextProcedure.start_time} — {nextProcedure.description || "Sin descripción"}
+                {nextProcedure.start_time} - {nextProcedure.end_time} — {nextProcedure.description || "Sin descripción"}
               </p>
             </>
           ) : (

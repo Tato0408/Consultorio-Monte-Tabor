@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
-import { Plus, Trash2, Clock, Package, Activity, FileText, Info } from "lucide-react";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { Plus, Trash2, Clock, Package, Activity, FileText, Info, Tag } from "lucide-react";
 import useInsumos from "@/modules/inventory/hooks/useInsumos";
+import useAppointmentTypes from "@/modules/schedule/appointments/hooks/useAppointmentTypes";
+import { Combobox, ComboboxTrigger, ComboboxContent, ComboboxItem } from "@/components/ui/combobox";
 
 // Prefijo para distinguir, dentro del mismo <select>, un material "legacy" (guardado antes con
 // solo un nombre libre, o cuyo insumo ya no existe en el inventario) de un insumo real elegido
@@ -25,14 +27,28 @@ const normalizeMaterials = (materials) =>
     };
   });
 
+// Normaliza appointment_type_ids (edicion) al shape que usa el field array del
+// formulario: cada fila guarda solo el id (string), venga populado ({_id,name,...})
+// o ya como id plano. Siempre queda al menos una fila para que el usuario tenga
+// donde elegir, dado que el campo es obligatorio (mínimo un tipo de cita).
+const normalizeAppointmentTypeIds = (ids) =>
+  (ids && ids.length ? ids : [{}]).map((t) => ({
+    id: (t && typeof t === "object" ? t._id : t) || "",
+  }));
+
 const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, formId }) => {
   const { getInsumos } = useInsumos();
+  const { getAppointmentTypes } = useAppointmentTypes();
   const [insumos, setInsumos] = useState([]);
+  const [appointmentTypes, setAppointmentTypes] = useState([]);
 
   useEffect(() => {
     getInsumos({ limit: 500 })
       .then((data) => setInsumos(data.insumos || []))
       .catch(() => setInsumos([]));
+    getAppointmentTypes()
+      .then((data) => setAppointmentTypes(data || []))
+      .catch(() => setAppointmentTypes([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -42,19 +58,34 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
     estimated_duration: "",
     price: "",
     requires_nurse: false,
+    // Es raro que un doctor no participe, así que por defecto sí requiere. Solo importa
+    // cuando requires_nurse es true (ver el checkbox más abajo); el backend igual lo fuerza
+    // a true si requires_nurse termina en false, para que un procedimiento nunca quede sin
+    // nadie que lo atienda.
+    requires_doctor: true,
     is_active: true,
     pre_care_instructions: "",
     post_operative_instructions: "",
     materials: [{ insumo: "", quantity: 1, name: "" }],
+    appointment_type_ids: [{ id: "" }],
   };
 
   const { register, control, handleSubmit, watch, reset, formState: { errors } } = useForm({
     defaultValues: initialData
-      ? { ...initialData, materials: normalizeMaterials(initialData.materials) }
+      ? {
+          ...initialData,
+          materials: normalizeMaterials(initialData.materials),
+          appointment_type_ids: normalizeAppointmentTypeIds(initialData.appointment_type_ids),
+        }
       : emptyValues,
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "materials" });
+  const {
+    fields: appointmentTypeFields,
+    append: appendAppointmentType,
+    remove: removeAppointmentType,
+  } = useFieldArray({ control, name: "appointment_type_ids" });
   const watchedValues = watch();
 
   // Los materiales que llegan aqui (insumo y quantity, con "insumo" siendo un
@@ -72,7 +103,8 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
         const product = insumos.find((i) => i._id === raw);
         return { quantity: m.quantity, insumo: raw, name: product?.name || m.name || "" };
       });
-    onSubmit({ ...data, materials });
+    const appointment_type_ids = (data.appointment_type_ids || []).map((t) => t.id).filter(Boolean);
+    onSubmit({ ...data, materials, appointment_type_ids });
   };
 
   return (
@@ -220,25 +252,34 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
                 <div key={item.id} className="space-y-1">
                   <div className="grid grid-cols-12 gap-2 md:gap-3 items-center">
                     <div className="col-span-7">
-                      <select
-                        {...register(`materials.${index}.insumo`, { required: "Selecciona un material" })}
-                        className={`w-full px-2 md:px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
-                          insumoError
-                            ? "border border-red-500 bg-red-50/30 focus:border-red-500 text-red-900"
-                            : "bg-gray-50 border border-gray-200 focus:border-blue-500"
-                        }`}
-                      >
-                        <option value="">Selecciona un material del inventario...</option>
-                        {isLegacySentinel && (
-                          <option value={rawInsumo}>{legacyName} (no vinculado al inventario)</option>
+                      <Controller
+                        control={control}
+                        name={`materials.${index}.insumo`}
+                        rules={{ required: "Selecciona un material" }}
+                        render={({ field }) => (
+                          <Combobox value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
+                            <ComboboxTrigger
+                              placeholder="Buscar material del inventario..."
+                              className={`text-sm ${
+                                insumoError
+                                  ? "border-red-500 bg-red-50/30 focus-within:border-red-500"
+                                  : "bg-gray-50 border-gray-200 focus-within:border-blue-500"
+                              }`}
+                            />
+                            <ComboboxContent>
+                              {isLegacySentinel && (
+                                <ComboboxItem value={rawInsumo}>{legacyName} (no vinculado al inventario)</ComboboxItem>
+                              )}
+                              {isOrphanedRealInsumo && (
+                                <ComboboxItem value={rawInsumo}>{item.name || "Material eliminado del inventario"} (ya no está en el inventario)</ComboboxItem>
+                              )}
+                              {insumos.map((i) => (
+                                <ComboboxItem key={i._id} value={i._id}>{i.name}</ComboboxItem>
+                              ))}
+                            </ComboboxContent>
+                          </Combobox>
                         )}
-                        {isOrphanedRealInsumo && (
-                          <option value={rawInsumo}>{item.name || "Material eliminado del inventario"} (ya no está en el inventario)</option>
-                        )}
-                        {insumos.map((i) => (
-                          <option key={i._id} value={i._id}>{i.name}</option>
-                        ))}
-                      </select>
+                      />
                       {(isLegacySentinel || isOrphanedRealInsumo) && (
                         <p className="text-[11px] text-amber-600 mt-1">Este material no está vinculado a un insumo real del inventario — selecciona uno para vincularlo.</p>
                       )}
@@ -291,12 +332,100 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
 
         <div className="bg-white border border-gray-100 rounded-xl p-4 md:p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
+            <Tag className="w-5 h-5 text-blue-600 flex-shrink-0" />
+            <h3 className="font-bold text-gray-900 text-sm">Tipos de cita *</h3>
+          </div>
+          <p className="text-xs text-gray-500">
+            Elige a cuál (o cuáles) tipos de cita apunta este procedimiento. Determina las opciones
+            disponibles al agendarlo.
+          </p>
+
+          <div className="space-y-2">
+            {appointmentTypeFields.map((item, index) => {
+              const typeError = errors.appointment_type_ids?.[index]?.id;
+              const rawId = watchedValues.appointment_type_ids?.[index]?.id || "";
+              const selectedType = appointmentTypes.find((t) => t._id === rawId);
+              // Un mismo tipo de cita no puede repetirse en dos filas: se excluye de las
+              // opciones el que ya se eligió en cualquier otra fila (la propia sigue
+              // disponible, para no perder la selección actual al reabrir el combobox).
+              const idsElsewhere = new Set(
+                (watchedValues.appointment_type_ids || [])
+                  .filter((_, i) => i !== index)
+                  .map((a) => a.id)
+                  .filter(Boolean)
+              );
+              const availableTypes = appointmentTypes.filter((t) => !idsElsewhere.has(t._id));
+
+              return (
+                <div key={item.id} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <Controller
+                        control={control}
+                        name={`appointment_type_ids.${index}.id`}
+                        rules={{ required: "Selecciona un tipo de cita" }}
+                        render={({ field }) => (
+                          <Combobox value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
+                            <ComboboxTrigger
+                              placeholder="Buscar tipo de cita..."
+                              className={`text-sm ${
+                                typeError
+                                  ? "border-red-500 bg-red-50/30 focus-within:border-red-500"
+                                  : "bg-gray-50 border-gray-200 focus-within:border-blue-500"
+                              }`}
+                            />
+                            <ComboboxContent>
+                              {availableTypes.map((t) => (
+                                <ComboboxItem key={t._id} value={t._id}>{t.name}</ComboboxItem>
+                              ))}
+                            </ComboboxContent>
+                          </Combobox>
+                        )}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeAppointmentType(index)}
+                      disabled={appointmentTypeFields.length === 1}
+                      className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed flex-shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {typeError && <span className="text-[11px] text-red-500 font-medium">{typeError.message}</span>}
+                  {!typeError && selectedType && (
+                    <span className="text-[11px] text-gray-400 capitalize">{selectedType.category}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* No tiene sentido agregar más filas que tipos de cita existentes en el
+              catálogo: a partir de ahí, cualquier fila nueva forzosamente repetiría uno
+              ya elegido. */}
+          {appointmentTypes.length > 0 && appointmentTypeFields.length >= appointmentTypes.length ? (
+            <p className="text-[11px] text-gray-400 text-center">
+              Ya agregaste todos los tipos de cita disponibles ({appointmentTypes.length}).
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => appendAppointmentType({ id: "" })}
+              className="w-full mt-2 py-2.5 border border-dashed border-gray-200 hover:border-blue-500 rounded-lg text-sm text-blue-600 font-medium flex items-center justify-center gap-2 hover:bg-blue-50/20 transition-all"
+            >
+              <Plus className="w-4 h-4" /> Agregar tipo de cita
+            </button>
+          )}
+        </div>
+
+        <div className="bg-white border border-gray-100 rounded-xl p-4 md:p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
             <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
             <h3 className="font-bold text-gray-900 text-sm">Indicaciones previas</h3>
           </div>
           {/* Se le muestran al paciente al confirmar su cita desde el portal
-              (patientPortalController.bookAppointment, GENERAL_CONSULT.instructions
-              como respaldo si queda vacío). */}
+              (patientPortalController.bookAppointment). */}
           <p className="text-xs text-gray-500">Instrucciones que el paciente debe leer antes de la cita: ayuno, documentos que debe traer, medicamentos a suspender, etc.</p>
           <div>
             <textarea
@@ -352,6 +481,24 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
             </label>
           </div>
 
+          {/* Solo tiene sentido preguntar si aparece cuando ya se dijo que sí requiere
+              enfermera: sin enfermera, el doctor es obligatorio sin excepción (lo fuerza el
+              backend), así que no hay nada que elegir. */}
+          {watchedValues.requires_nurse && (
+            <div className="flex items-center justify-between gap-4 border-t border-gray-50 pt-4">
+              <div className="min-w-0">
+                <label className="block text-xs font-semibold text-gray-900">¿Requiere doctor?</label>
+                <span className="text-[11px] text-gray-400 block leading-tight mt-0.5">
+                  Desactívalo si lo atiende solo la enfermera, sin doctor.
+                </span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" {...register("requires_doctor")} className="sr-only peer" />
+                <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
+              </label>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-4 border-t border-gray-50 pt-4">
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-gray-900">Estado del procedimiento</label>
@@ -374,7 +521,9 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
               { label: "Duración estimada", value: watchedValues.estimated_duration ? `${watchedValues.estimated_duration} minutos` : "-- minutos" },
               { label: "Precio", value: watchedValues.price ? `$ ${Number(watchedValues.price).toFixed(2)}` : "$ --.--" },
               { label: "Materiales", value: `${(watchedValues.materials || []).filter(m => m.insumo).length} materiales` },
+              { label: "Tipos de cita", value: `${(watchedValues.appointment_type_ids || []).filter(t => t.id).length} seleccionados` },
               { label: "Requiere enfermera", value: watchedValues.requires_nurse ? "Sí" : "No especificado" },
+              { label: "Requiere doctor", value: (!watchedValues.requires_nurse || watchedValues.requires_doctor) ? "Sí" : "No, solo enfermera" },
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between border-b border-gray-50 pb-2">
                 <span className="text-gray-400">{label}</span>

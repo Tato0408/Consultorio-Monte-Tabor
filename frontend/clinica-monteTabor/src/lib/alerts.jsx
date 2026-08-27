@@ -199,6 +199,34 @@ export const confirmNoShow = async () => {
   return result.isConfirmed;
 };
 
+// Se muestra cuando un procedimiento requiere enfermera de apoyo pero no hay ninguna
+// disponible para el horario elegido (ver acceptAppointment/assignDoctor/insertAppointment/
+// updateAppointment en el backend, que exigen confirm_no_nurse en ese caso): permite
+// continuar sin enfermera solo si quien acepta/agenda lo confirma explícitamente, en vez de
+// dejar el flujo bloqueado sin ninguna salida más que cancelar y reagendar a mano.
+export const confirmProceedWithoutNurse = async () => {
+  const result = await Swal.fire({
+    title: "No hay enfermeras disponibles",
+    text: "Ninguna enfermera tiene ese horario libre. ¿Estás seguro de continuar con este procedimiento sin asignar una enfermera?",
+    icon: "warning",
+    iconColor: "#fbbf24",
+    showCancelButton: true,
+    confirmButtonText: "Sí, continuar sin enfermera",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#f59e0b",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return result.isConfirmed;
+};
+
 export const confirmCancelAppointment = async () => {
   const result = await Swal.fire({
     title: "¿Cancelar esta cita?",

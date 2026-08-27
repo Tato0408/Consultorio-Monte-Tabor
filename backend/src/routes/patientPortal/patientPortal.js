@@ -1,6 +1,7 @@
 import express from "express";
 import patientPortalController from "../../controllers/patientPortal/patientPortalController.js";
 import scheduleController from "../../controllers/schedule/scheduleController.js";
+import nurseScheduleController from "../../controllers/schedule/nurseScheduleController.js";
 
 const router = express.Router();
 
@@ -9,6 +10,9 @@ router.get("/doctors", patientPortalController.getDoctors);
 // Solo doctores con horario ya configurado, para el paso "elegir doctor" del
 // agendamiento (ver getSchedulableDoctors en el controller).
 router.get("/doctors-schedulable", patientPortalController.getSchedulableDoctors);
+// Igual que doctors-schedulable, pero para procedimientos sin doctor
+// (requires_doctor false): la enfermera pasa a ser la proveedora principal.
+router.get("/nurses-schedulable", patientPortalController.getSchedulableNurses);
 router.get("/procedures", patientPortalController.getProcedures);
 
 // Reutiliza el mismo cálculo de horarios libres que usa el
@@ -17,6 +21,11 @@ router.get("/schedule/:doctorId/slots", scheduleController.getAvailableSlots);
 // Días de la semana que el doctor atiende y sus excepciones de fecha, para
 // bloquear en el calendario los días que no trabaja al elegir doctor primero.
 router.get("/schedule/:doctorId/working-days", scheduleController.getDoctorWorkingDays);
+
+// Mismo par de endpoints de arriba, pero para el horario de una enfermera puntual
+// (procedimientos sin doctor).
+router.get("/nurse-schedule/:nurseId/slots", nurseScheduleController.getAvailableSlotsForNurse);
+router.get("/nurse-schedule/:nurseId/working-days", nurseScheduleController.getNurseWorkingDays);
 
 // Citas del propio paciente
 router.get("/appointments", patientPortalController.getMyAppointments);

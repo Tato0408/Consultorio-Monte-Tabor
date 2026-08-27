@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 import apiClient from "../../../../lib/apiClient";
 import { formatFecha } from "./useRecords";
 
-const getDoctorName = (doctor) => {
-  if (!doctor) return "Sin asignar";
-  return `${doctor.name || ""} ${doctor.last_name || ""}`.trim() || "Sin asignar";
+// nurse: procedimiento sin doctor (requires_doctor false), la enfermera asignada es quien
+// atendió en su lugar.
+const getDoctorName = (doctor, nurse) => {
+  if (doctor) return `${doctor.name || ""} ${doctor.last_name || ""}`.trim() || "Sin asignar";
+  if (nurse) return `${nurse.name || ""} ${nurse.last_name || ""}`.trim() || "Sin asignar";
+  return "Sin asignar";
 };
 
 const daysBetween = (start, end) => {
@@ -43,9 +46,11 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, patientName)
     // con el campo id.
     appointmentId: c.appointment_id?._id || c.appointment_id || null,
     _fecha: c.date,
-    hora: c.appointment_id?.start_time || "—",
+    hora: c.appointment_id?.start_time && c.appointment_id?.end_time
+      ? `${c.appointment_id.start_time} - ${c.appointment_id.end_time}`
+      : c.appointment_id?.start_time || "—",
     paciente: patientName || "—",
-    medico: getDoctorName(c.appointment_id?.doctor_id),
+    medico: getDoctorName(c.appointment_id?.doctor_id, c.appointment_id?.nurse_id),
     estado: "atendido",
   }));
 
@@ -53,9 +58,9 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, patientName)
     id: a._id || `a-${i}`,
     appointmentId: a._id || null,
     _fecha: a.date,
-    hora: a.start_time || "—",
+    hora: a.start_time && a.end_time ? `${a.start_time} - ${a.end_time}` : a.start_time || "—",
     paciente: patientName || "—",
-    medico: getDoctorName(a.doctor_id),
+    medico: getDoctorName(a.doctor_id, a.nurse_id),
     estado: "en_espera",
   }));
 
@@ -67,7 +72,7 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, patientName)
     (c.prescription?.medications || []).map((m) => ({
       nombre: m.name || "—",
       fecha: formatFecha(c.date) || "—",
-      doctor: getDoctorName(c.appointment_id?.doctor_id),
+      doctor: getDoctorName(c.appointment_id?.doctor_id, c.appointment_id?.nurse_id),
     }))
   );
 
@@ -110,11 +115,18 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, patientName)
       endDateRaw: s.end_date,
       restDays: days || 1,
       doctorId: s.doctor_id?._id ? String(s.doctor_id._id) : null,
+      // Procedimiento sin doctor (requires_doctor false): la enfermera asignada emitió la
+      // incapacidad, no hay doctor que restrinja quién puede regenerar el PDF.
+      nurseId: s.nurse_id?._id ? String(s.nurse_id._id) : null,
       // Sin prefijo "Dr.": PdfSignature (mismo componente que usa
       // ConsultationForm.jsx) ya imprime el nombre tal cual bajo la línea
       // de firma, sin anteponerlo, para que el PDF salga con el mismo
       // formato exacto sin importar desde dónde se generó.
-      doctorName: s.doctor_id ? `${s.doctor_id.name || ""} ${s.doctor_id.last_name || ""}`.trim() : "",
+      doctorName: s.doctor_id
+        ? `${s.doctor_id.name || ""} ${s.doctor_id.last_name || ""}`.trim()
+        : s.nurse_id
+          ? `${s.nurse_id.name || ""} ${s.nurse_id.last_name || ""}`.trim()
+          : "",
     };
   });
 
@@ -145,10 +157,12 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, patientName)
         "Sin diagnóstico registrado",
       tipo: "Diagnóstico principal",
     };
-    extra.doctorOverride = { nombre: getDoctorName(latestConsultation.appointment_id?.doctor_id) };
+    extra.doctorOverride = { nombre: getDoctorName(latestConsultation.appointment_id?.doctor_id, latestConsultation.appointment_id?.nurse_id) };
     extra.ultimaVisitaOverride = {
       fecha: formatFecha(latestConsultation.date) || "—",
-      hora: latestConsultation.appointment_id?.start_time || "—",
+      hora: latestConsultation.appointment_id?.start_time && latestConsultation.appointment_id?.end_time
+        ? `${latestConsultation.appointment_id.start_time} - ${latestConsultation.appointment_id.end_time}`
+        : latestConsultation.appointment_id?.start_time || "—",
       _fecha: latestConsultation.date,
     };
   }

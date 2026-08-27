@@ -8,6 +8,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { getMyAppointments, cancelAppointment } from "@/services/appointmentsService";
 import { showSuccess, showError, confirmAction, confirmActionWithReason } from "@/lib/alerts";
+import NotificationsMenu from "@/components/NotificationsMenu";
 
 const STATUS_LABELS = { pending: "Pendiente", scheduled: "Programada", completed: "Completada", cancelled: "Cancelada", no_show: "No se presentó" };
 const STATUS_COLORS = { pending: "bg-amber-100 text-amber-700", scheduled: "bg-emerald-100 text-emerald-700", completed: "bg-slate-100 text-slate-600", cancelled: "bg-red-100 text-red-600", no_show: "bg-gray-100 text-gray-500" };
@@ -69,15 +70,19 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, rea
 
       <div className="flex items-center gap-3 mt-3">
         <div className="w-12 h-12 rounded-full bg-[#3B6FCA]/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-          {cita.doctor_id?.img_url ? (
-            <img src={cita.doctor_id.img_url} alt="" className="w-full h-full object-cover" />
+          {cita.doctor_id?.img_url || cita.nurse_id?.img_url ? (
+            <img src={cita.doctor_id?.img_url || cita.nurse_id?.img_url} alt="" className="w-full h-full object-cover" />
           ) : (
             <User className="w-5 h-5 text-[#3B6FCA]" />
           )}
         </div>
         <div>
           <p className="font-semibold text-gray-800">
-            {cita.doctor_id ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}` : "Por asignar"}
+            {cita.doctor_id
+              ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}`
+              : cita.nurse_id
+                ? `${cita.nurse_id.name} ${cita.nurse_id.last_name}`
+                : "Por asignar"}
           </p>
           <p className="text-sm text-gray-400">{cita.type}</p>
         </div>
@@ -120,7 +125,7 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, rea
         </div>
       )}
 
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-50">
+      <div className="flex items-center justify-between gap-3 flex-wrap mt-4 pt-4 border-t border-gray-50">
         <div className="flex items-center gap-2 flex-wrap">
           {puedeReagendar(cita) && (
             <button
@@ -206,7 +211,10 @@ const MyAppointments = () => {
     navigate("/agendar-cita", {
       state: {
         prefill: {
-          tipo: cita.procedure_id?._id || "general",
+          // Una cita histórica de antes de que la Consulta Médica General fuera un
+          // procedimiento real puede no traer procedure_id: queda sin tipo preseleccionado,
+          // para que se vuelva a elegir explícitamente en el paso 1.
+          tipo: cita.procedure_id?._id || null,
           doctorId: cita.doctor_id?._id || null,
           motivo: cita.description || "",
         },
@@ -284,7 +292,8 @@ const MyAppointments = () => {
             <ChevronLeft className="w-4 h-4" /> Volver
           </Link>
           <span className="font-bold text-gray-800">Mis citas</span>
-          <div className="relative">
+          <div className="relative flex items-center gap-1">
+            <NotificationsMenu />
             <button onClick={() => setUserMenuOpen((v) => !v)} className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-50 transition-colors">
               <div className="w-8 h-8 rounded-full bg-[#3B6FCA]/10 flex items-center justify-center text-[#3B6FCA] font-semibold text-sm flex-shrink-0">
                 {patient?.name?.[0]}
@@ -327,12 +336,16 @@ const MyAppointments = () => {
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-1 border-b border-gray-100 mb-5">
+            {/* overflow-x-auto: en celulares las 3 pestañas con ícono + etiqueta + contador no
+                caben en el ancho de pantalla; en vez de romper el layout de toda la página, se
+                deslizan horizontalmente dentro de su propia franja (mismo criterio que el
+                selector de días de StepFechaHora.jsx). */}
+            <div className="flex items-center gap-1 border-b border-gray-100 mb-5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
               {TABS.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
                   onClick={() => setTab(key)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors flex-shrink-0 whitespace-nowrap ${
                     tab === key ? "border-[#3B6FCA] text-[#3B6FCA] bg-[#3B6FCA]/5 rounded-t-lg" : "border-transparent text-gray-400 hover:text-gray-600"
                   }`}
                 >

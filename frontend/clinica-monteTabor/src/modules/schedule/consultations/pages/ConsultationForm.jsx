@@ -94,13 +94,19 @@ const ConsultationForm = () => {
         }
     };
 
-    // Nombre completo del paciente y del doctor asignado, reutilizado
-    // por los dos documentos PDF de abajo (incapacidad y consulta
-    // completa).
+    // Nombre completo del paciente y de quien atiende la cita, reutilizado por los dos
+    // documentos PDF de abajo (incapacidad y consulta completa). Un procedimiento sin
+    // doctor (requires_doctor false) lo atiende la enfermera asignada como proveedora
+    // principal: firma los documentos con su propio nombre, igual que lo haría el doctor.
     const patient = appointment?.patient_id;
     const doctor = appointment?.doctor_id;
+    const nurse = appointment?.nurse_id;
     const patientFullName = `${patient?.name || ""} ${patient?.last_name || ""}`.trim();
-    const doctorFullName = doctor ? `${doctor.name || ""} ${doctor.last_name || ""}`.trim() : "";
+    const doctorFullName = doctor
+        ? `${doctor.name || ""} ${doctor.last_name || ""}`.trim()
+        : nurse
+            ? `${nurse.name || ""} ${nurse.last_name || ""}`.trim()
+            : "";
     const todayFormatted = new Date().toLocaleDateString("es-SV", {
         day: "2-digit",
         month: "2-digit",
@@ -212,6 +218,9 @@ const ConsultationForm = () => {
             body: {
                 patient_id: patient?._id,
                 doctor_id: doctor?._id,
+                // Solo se manda si no hay doctor (procedimiento sin doctor, la enfermera
+                // asignada es quien atendió y firma la incapacidad).
+                nurse_id: !doctor && nurse ? nurse._id : undefined,
                 diagnosis: diagnosisText || "Sin diagnóstico registrado",
                 start_date: startDate.toISOString(),
                 end_date: endDate.toISOString(),

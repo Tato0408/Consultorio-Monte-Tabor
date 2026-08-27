@@ -35,9 +35,32 @@ const procedureSchema = new Schema(
             type: Boolean,
             default: false
         },
+        // Solo relevante cuando requires_nurse es true: permite procedimientos que
+        // atiende solo la enfermera, sin doctor (ej. curaciones, controles). Por defecto
+        // true porque es raro que un doctor no participe; nunca puede ser false si
+        // requires_nurse también es false (ver resolveRequiresDoctor en el controller),
+        // para que un procedimiento no quede sin nadie que lo atienda.
+        requires_doctor: {
+            type: Boolean,
+            default: true
+        },
         is_active: {
             type: Boolean,
             default: true
+        },
+        // Tipos de cita (AppointmentType, el catálogo que colorea la agenda) que se pueden
+        // elegir al agendar una cita de este procedimiento. Se agregan uno o más, igual que
+        // los materiales/insumos de arriba: el admin los elige explícitamente al crear o
+        // editar el procedimiento, en vez de que el sistema los adivine comparando
+        // categorías. Obligatorio: todo procedimiento necesita al menos un tipo de cita
+        // seleccionable (ver la validación más abajo).
+        appointment_type_ids: {
+            type: [{ type: Schema.Types.ObjectId, ref: "AppointmentType" }],
+            required: true,
+            validate: {
+                validator: (arr) => Array.isArray(arr) && arr.length > 0,
+                message: "Debes elegir al menos un tipo de cita.",
+            },
         },
     },
     {

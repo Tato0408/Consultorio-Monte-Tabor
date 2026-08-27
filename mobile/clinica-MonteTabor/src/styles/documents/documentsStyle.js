@@ -33,8 +33,13 @@ export default StyleSheet.create({
 
   docCard: { backgroundColor: "#FFF", borderRadius: 16, borderWidth: 1, borderColor: "#E7EBF2", padding: 15, marginBottom: 12, ...shadow },
   docCardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+  docCardDateRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   docCardDate: { fontSize: 13, fontWeight: "800", color: "#111827" },
   docCardDoctor: { fontSize: 11.5, color: "#8A94A6", marginTop: 2 },
+  // Etiqueta Vigente/No vigente de una incapacidad, mismo criterio de color que el
+  // expediente clínico de la web privada (verde = vigente, gris = vencida).
+  vigenteBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  vigenteBadgeText: { fontSize: 10, fontWeight: "700" },
   docCardBody: { marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E7EBF2" },
   docCardLabel: { fontSize: 10.5, color: "#8A94A6" }, docCardValue: { fontSize: 12.5, color: "#111827", fontWeight: "600", marginTop: 2, lineHeight: 17 },
   downloadPill: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 9, backgroundColor: "#EEF3FF", flexShrink: 0 },

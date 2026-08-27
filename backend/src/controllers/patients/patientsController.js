@@ -5,6 +5,8 @@ import proceduresModel from "../../models/procedures/procedures.js";
 import inventoryController from "../inventory/inventoryController.js";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, getVitalSignsError } from "../../utils/validators.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
+import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js";
 
 //Array de funciones
 const patientsController = {};
@@ -77,6 +79,16 @@ patientsController.createPatient = async (req, res) => {
     if (!savedPatient) {
       return res.status(500).json({ message: "Error al agregar el paciente" });
     }
+
+    // Le manda al correo registrado el usuario y la contraseña que recepción/admin acaba de
+    // definir, mismo patrón que doctorsController/nursesController/receptionistController. No
+    // bloquea la respuesta si el envío falla (ej. Mailjet caído): la cuenta ya quedó creada de
+    // todos modos, y se le pueden reenviar las credenciales manualmente si hace falta.
+    sendEmail(
+      email,
+      "Tu cuenta de paciente fue creada",
+      HTMLStaffCredentials(`${name} ${last_name}`, "paciente", email, password)
+    ).catch((error) => console.log("Error enviando credenciales al paciente:", error));
 
     return res.status(200).json({ message: "Paciente agregado correctamente" });
   } catch (error) {

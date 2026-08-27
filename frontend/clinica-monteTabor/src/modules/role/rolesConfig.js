@@ -173,6 +173,10 @@ export const LOCKED_TRUE_PERMISSIONS = {
     // La enfermera no tiene registro rápido de pacientes (a diferencia de recepción), solo
     // necesita poder verlos para buscarlos al agendar una cita.
     "users.patients": ["view"],
+    // Sin esto el formulario de agendar cita no puede traer el catálogo de procedimientos
+    // (para elegir si requiere doctor, enfermera o ambos) ni crear uno nuevo desde el modal
+    // de creación rápida.
+    "procedures": ["view", "create"],
   },
   doctor: {
     // El doctor siempre debe poder ver, crear y actualizar sus propias
@@ -253,16 +257,25 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     // dentro de ese horario.
     "calendar.schedule": VIEW_UPDATE,
     "calendar.appointments": FULL_CRUD,
-    "calendar.consultations": NO_ACCESS,
+    // Con un procedimiento sin doctor (requires_doctor false) la enfermera es la
+    // proveedora principal de la cita: necesita poder registrar (y editar) la consulta
+    // igual que un doctor. Eliminar queda fuera a propósito, igual que con el doctor.
+    "calendar.consultations": { view: true, create: true, update: true, delete: false },
     "users.doctors": NO_ACCESS,
     // A diferencia de recepción, no registra pacientes nuevos, solo
     // los busca al agendar una cita.
     "users.patients": VIEW_ONLY,
     "users.receptionist": NO_ACCESS,
     "users.nurses": NO_ACCESS,
-    "procedures": NO_ACCESS,
+    // Ver y crear: necesita el catálogo completo de procedimientos para el registro rápido de
+    // citas y el formulario de agendar (elegir si requiere doctor, enfermera o ambos), y poder
+    // crear uno nuevo desde el modal de creación rápida sin salir del formulario. Editar y
+    // eliminar quedan fuera, no administra el catálogo en sí.
+    "procedures": { view: true, create: true, update: false, delete: false },
     "reports.appointments": NO_ACCESS,
-    "reports.records": NO_ACCESS,
+    // Solo ver: puede revisar el expediente de un paciente al que atendió, pero no editar
+    // antecedentes/incapacidades ni otra información clínica (sigue siendo del doctor/admin).
+    "reports.records": VIEW_ONLY,
     "reports.patients": NO_ACCESS,
     "reports.doctors": NO_ACCESS,
     "inventory.products": NO_ACCESS,

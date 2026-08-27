@@ -21,6 +21,7 @@ const ConsultasDelDia = ({
   onEliminar,
   canAttend = false,
   canEdit = false,
+  canDelete = false,
 }) => {
   const consultas = patient.consultas ?? [];
   const enEspera = consultas.filter((c) => c.estado === "en_espera").length;
@@ -165,21 +166,32 @@ const ConsultasDelDia = ({
                     <Badge tone={est.tone}>{est.label}</Badge>
                   </td>
                   <td className="py-4 text-center">
-                    {atendido ? (
-                      <button
-                        onClick={() => onVerRegistro?.(c)}
-                        className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-1.5 rounded-lg"
-                      >
-                        {canEdit ? "Editar" : "Ver registro"}
-                      </button>
-                    ) : canAttend ? (
-                      <button
-                        onClick={() => onContinuar?.(c)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-1.5 rounded-lg"
-                      >
-                        Continuar
-                      </button>
-                    ) : null}
+                    <div className="flex items-center justify-center gap-2">
+                      {atendido ? (
+                        <button
+                          onClick={() => onVerRegistro?.(c)}
+                          className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-1.5 rounded-lg"
+                        >
+                          {canEdit ? "Editar" : "Ver registro"}
+                        </button>
+                      ) : canAttend ? (
+                        <button
+                          onClick={() => onContinuar?.(c)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-1.5 rounded-lg"
+                        >
+                          Continuar
+                        </button>
+                      ) : null}
+                      {atendido && canDelete && (
+                        <button
+                          onClick={() => onEliminar?.(c)}
+                          title="Eliminar consulta"
+                          className="text-slate-400 hover:text-red-600 p-1.5"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

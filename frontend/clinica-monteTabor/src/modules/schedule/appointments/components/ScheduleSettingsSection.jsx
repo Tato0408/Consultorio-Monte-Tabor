@@ -8,9 +8,8 @@ const DEFAULT_BUFFER_OPTIONS  = [0, 5, 10, 15, 20, 30];
 // cada quien arma su propia lista de tiempos entre citas, y esa misma
 // lista es la que se refleja al agendar una cita con ese doctor
 // específico. La duración de cada cita ya no es una opción del
-// doctor: la define siempre el procedimiento elegido (o un valor fijo
-// para Consulta Médica General), calculada en el propio formulario de
-// agendar cita.
+// doctor: siempre la define el procedimiento elegido, calculada en el
+// propio formulario de agendar cita.
 const ScheduleSettingsSection = ({
     bufferTime,
     bufferOptions,

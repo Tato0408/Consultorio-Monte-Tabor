@@ -11,8 +11,11 @@ const fmtFecha = (date) =>
 
 // Ticket con el resumen de la cita: se usa tanto para revisar antes de confirmar
 // como para mostrar la cita ya confirmada. Cuando el pago es en línea solo se cobra un
-// anticipo (deposit) para apartar la hora; el resto se paga en recepción.
-const TicketCita = ({ doctor, tipoLabel, generalidades, date, startTime, endTime, total, instructions, pagoOnline, deposit, depositPagado }) => (
+// anticipo (deposit) para apartar la hora; el resto se paga en recepción. doctor y
+// nurse nunca llegan definidos a la vez (nurse es la proveedora principal solo cuando
+// el procedimiento no requiere doctor). requiresDoctor solo decide el texto por
+// defecto cuando todavía no hay proveedor elegido (modo agregado).
+const TicketCita = ({ doctor, nurse, requiresDoctor = true, tipoLabel, generalidades, date, startTime, endTime, total, instructions, pagoOnline, deposit, depositPagado }) => (
   <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden bg-white">
     <div className="bg-[#3B6FCA] px-6 py-4">
       <p className="text-white/70 text-xs font-medium uppercase tracking-wide">Resumen de tu cita</p>
@@ -22,10 +25,10 @@ const TicketCita = ({ doctor, tipoLabel, generalidades, date, startTime, endTime
     <div className="p-6 space-y-4">
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-full bg-[#3B6FCA]/10 flex items-center justify-center text-[#3B6FCA] font-bold flex-shrink-0 overflow-hidden">
-          {doctor?.img_url ? (
-            <img src={doctor.img_url} alt="" className="w-full h-full object-cover" />
-          ) : doctor?.name ? (
-            doctor.name[0]
+          {doctor?.img_url || nurse?.img_url ? (
+            <img src={doctor?.img_url || nurse?.img_url} alt="" className="w-full h-full object-cover" />
+          ) : doctor?.name || nurse?.name ? (
+            (doctor || nurse).name[0]
           ) : (
             <User className="w-5 h-5" />
           )}
@@ -33,7 +36,13 @@ const TicketCita = ({ doctor, tipoLabel, generalidades, date, startTime, endTime
         <div>
           <p className="text-sm text-gray-400">Atendido por</p>
           <p className="font-semibold text-gray-800">
-            {doctor ? `Dr. ${doctor.name} ${doctor.last_name}` : "Por asignar (cualquier doctor disponible)"}
+            {doctor
+              ? `Dr. ${doctor.name} ${doctor.last_name}`
+              : nurse
+                ? `${nurse.name} ${nurse.last_name}`
+                : requiresDoctor
+                  ? "Por asignar (cualquier doctor disponible)"
+                  : "Por asignar (cualquier enfermera disponible)"}
           </p>
         </div>
       </div>

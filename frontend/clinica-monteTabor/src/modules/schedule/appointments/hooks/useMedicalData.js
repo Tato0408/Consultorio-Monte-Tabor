@@ -19,11 +19,13 @@ const useMedicalData = () => {
 
     const [patientsRes, doctorsRes, nursesRes, proceduresRes] = await Promise.allSettled([
       apiClient("/patients"),
-      // Catálogo liviano, no requiere el permiso Ver Doctores. Cualquier
-      // rol autenticado necesita esta lista para agendar una cita (ver
-      // backend/src/routes/doctors/doctors.js).
+      // Catálogo liviano, no requiere el permiso Ver Doctores/Ver Enfermeras. Cualquier rol
+      // autenticado necesita esta lista para agendar una cita (ver
+      // backend/src/routes/doctors/doctors.js y backend/src/routes/nurse/nurses.js). Antes
+      // se pedía GET /nurses (exige users.nurses:view), que el rol enfermera no tiene: su
+      // propia lista de enfermeras para procedimientos sin doctor quedaba vacía.
       apiClient("/doctors/catalog"),
-      apiClient("/nurses"),
+      apiClient("/nurses/catalog"),
       apiClient("/procedures"),
     ]);
 

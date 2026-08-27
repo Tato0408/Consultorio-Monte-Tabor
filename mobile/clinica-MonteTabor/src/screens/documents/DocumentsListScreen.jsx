@@ -17,6 +17,16 @@ const TIPO_INFO = {
 
 const nombreDoctor = (doctor) => (doctor ? `Dr. ${doctor.name} ${doctor.last_name || ""}`.trim() : "Doctor no especificado");
 
+// Misma regla que usePatientRecordDetail.js (expediente clínico, web privada): vigente
+// mientras la fecha de finalización no haya pasado, o no exista (registros antiguos sin
+// end_date, que se asumen vigentes por no tener forma de saber lo contrario).
+const esIncapacidadVigente = (endDate) => {
+  if (!endDate) return true;
+  const fin = new Date(endDate);
+  fin.setHours(23, 59, 59, 999);
+  return fin >= new Date();
+};
+
 // El backend guarda estas fechas como medianoche UTC del día real (mismo criterio que
 // las citas, ver formatLongDate en utils/date.js): hay que leerlas con los getters UTC,
 // no los locales, o el día se corre uno atrás en cualquier huso horario detrás de UTC
@@ -108,7 +118,16 @@ export default function DocumentsListScreen({ navigation, route }) {
             <View key={doc._id} style={styles.docCard}>
               <View style={styles.docCardTop}>
                 <View>
-                  <Text style={styles.docCardDate}>{formatLongDate(doc[info.fechaCampo])}</Text>
+                  <View style={styles.docCardDateRow}>
+                    <Text style={styles.docCardDate}>{formatLongDate(doc[info.fechaCampo])}</Text>
+                    {tipo === "incapacidad" && (
+                      <View style={[styles.vigenteBadge, { backgroundColor: esIncapacidadVigente(doc.end_date) ? "#E6F7EE" : "#F1F5F9" }]}>
+                        <Text style={[styles.vigenteBadgeText, { color: esIncapacidadVigente(doc.end_date) ? "#16A34A" : "#64748B" }]}>
+                          {esIncapacidadVigente(doc.end_date) ? "Vigente" : "No vigente"}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.docCardDoctor}>{nombreDoctor(doc.doctor_id || doc.doctor)}</Text>
                 </View>
                 <TouchableOpacity
