@@ -206,32 +206,35 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
 
       {/* Tabla de historial */}
       <Card className="overflow-x-auto">
-        <table className="w-full text-sm">
+        {/* table-fixed reparte las 9 columnas en anchos iguales; encabezado con la misma
+            franja gris (bg-slate-50, mayúsculas) que las tablas de los reportes y todo
+            centrado. min-w mantiene la tabla legible y deja el scroll horizontal. */}
+        <table className="w-full min-w-[920px] text-sm table-fixed">
           <thead>
-            <tr className="text-left text-xs text-slate-400">
-              <th className="font-medium pb-3 pr-4">Fecha</th>
-              <th className="font-medium pb-3 pr-4">Presión (mmHg)</th>
-              <th className="font-medium pb-3 pr-4">Glucosa (mg/dL)</th>
-              <th className="font-medium pb-3 pr-4">Peso (kg)</th>
-              <th className="font-medium pb-3 pr-4">Altura (m)</th>
-              <th className="font-medium pb-3 pr-4">IMC</th>
-              <th className="font-medium pb-3 pr-4">Temperatura (c°)</th>
-              <th className="font-medium pb-3 pr-4">SPO2%</th>
-              <th className="font-medium pb-3 text-center">Acción</th>
+            <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <th className="py-2.5 px-2 font-semibold text-center">Fecha</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Presión (mmHg)</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Glucosa (mg/dL)</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Peso (kg)</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Altura (m)</th>
+              <th className="py-2.5 px-2 font-semibold text-center">IMC</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Temperatura (c°)</th>
+              <th className="py-2.5 px-2 font-semibold text-center">SPO2%</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Acción</th>
             </tr>
           </thead>
           <tbody>
             {historial.map((r) => (
               <tr key={r.id} className="border-t border-slate-100 text-slate-600">
-                <td className="py-3 pr-4 whitespace-nowrap">{r.fecha}</td>
-                <td className="py-3 pr-4">{r.presion}</td>
-                <td className="py-3 pr-4">{r.glucosa}</td>
-                <td className="py-3 pr-4">{r.peso}</td>
-                <td className="py-3 pr-4">{r.altura}</td>
-                <td className="py-3 pr-4">{r.imc}</td>
-                <td className="py-3 pr-4">{r.temp}</td>
-                <td className="py-3 pr-4">{r.spo2 !== "—" ? `${r.spo2}%` : "—"}</td>
-                <td className="py-3">
+                <td className="py-3 px-2 text-center whitespace-nowrap">{r.fecha}</td>
+                <td className="py-3 px-2 text-center">{r.presion}</td>
+                <td className="py-3 px-2 text-center">{r.glucosa}</td>
+                <td className="py-3 px-2 text-center">{r.peso}</td>
+                <td className="py-3 px-2 text-center">{r.altura}</td>
+                <td className="py-3 px-2 text-center">{r.imc}</td>
+                <td className="py-3 px-2 text-center">{r.temp}</td>
+                <td className="py-3 px-2 text-center">{r.spo2 !== "—" ? `${r.spo2}%` : "—"}</td>
+                <td className="py-3 px-2">
                   <div className="flex items-center justify-center gap-1">
                     <button
                       type="button"

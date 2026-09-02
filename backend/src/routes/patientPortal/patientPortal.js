@@ -31,6 +31,9 @@ router.get("/nurse-schedule/:nurseId/working-days", nurseScheduleController.getN
 router.get("/appointments", patientPortalController.getMyAppointments);
 router.post("/appointments", patientPortalController.bookAppointment);
 router.patch("/appointments/:id/cancel", patientPortalController.cancelMyAppointment);
+// Reagenda una cita propia que quedó "por reagendar" (o una "pending" que se quiere mover):
+// reusa el mismo registro y conserva el anticipo ya pagado.
+router.patch("/appointments/:id/reschedule", patientPortalController.rescheduleMyAppointment);
 
 // Confirma, del lado del servidor y contra la propia API de Wompi,
 // el pago en línea de una cita en estado "pending".

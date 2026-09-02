@@ -1,6 +1,11 @@
 const API_URL = "https://clinica-monte-tabor.onrender.com/api";
 //const API_URL = "http://localhost:4000/api";
 
+// URL del WebSocket de tiempo real: mismo host que la API, con esquema
+// ws/wss y sin el sufijo "/api". Se deriva de API_URL para que al cambiar
+// de local a producción (arriba) el WebSocket siga al mismo servidor.
+export const WS_URL = API_URL.replace(/^http/, "ws").replace(/\/api\/?$/, "") + "/ws/roles";
+
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     // Arma la URL de la petición combinando la URL base y el endpoint recibido.
     let url = `${API_URL}${path}`;

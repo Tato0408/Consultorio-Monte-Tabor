@@ -123,6 +123,11 @@
     }
   body {
     @apply bg-background text-foreground;
+    /* Ninguna página del portal debe poder desbordarse horizontalmente en celulares
+       (un solo elemento más ancho que el viewport corría toda la página de lado y
+       recortaba el contenido). Como <html> queda en visible, este overflow se propaga
+       al viewport sin romper los headers sticky. */
+    overflow-x: hidden;
     }
   html {
     @apply font-sans;

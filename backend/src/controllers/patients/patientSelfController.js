@@ -6,6 +6,7 @@ import consultationsModel from "../../models/consultations/consultation.js";
 import prescriptionsModel from "../../models/consultations/prescription.js";
 import sickLeavesModel from "../../models/sickLeaves/sickLeave.js";
 import proceduresModel from "../../models/procedures/procedures.js";
+import { runAppointmentAutoTransitions } from "../appointments/appointmentsController.js";
 import { config } from "../../../config.js";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError } from "../../utils/validators.js";
 
@@ -458,10 +459,16 @@ patientSelfController.getMyConsultations = async (req, res) => {
 
         const patientId = req.user.id;
 
+        // Mismas transiciones perezosas que corren al leer las citas (no se presentó,
+        // por reagendar): así el dashboard de la app móvil las refleja aunque el paciente
+        // abra la app directo en esa pantalla.
+        await runAppointmentAutoTransitions();
+
         const [appointments, consultations, sickLeaves] = await Promise.all([
             appointmentsModel
                 .find({ patient_id: patientId })
                 .populate("doctor_id", "name last_name specialty img_url")
+                .populate("procedure_id", "name requires_doctor estimated_duration price")
                 .sort({ date: -1, start_time: -1 }),
             consultationsModel.find({ patient_id: patientId }).select("appointment_id clinical_data referral"),
             sickLeavesModel.find({ patient_id: patientId }).select("consultation_id"),
@@ -494,6 +501,17 @@ patientSelfController.getMyConsultations = async (req, res) => {
                 end_time: appointment.end_time,
                 type: appointment.type,
                 status: appointment.status,
+                reschedule_reason: appointment.reschedule_reason || null,
+                procedure: appointment.procedure_id
+                    ? {
+                        _id: appointment.procedure_id._id,
+                        name: appointment.procedure_id.name,
+                        requires_doctor: appointment.procedure_id.requires_doctor,
+                        estimated_duration: appointment.procedure_id.estimated_duration,
+                        price: appointment.procedure_id.price,
+                    }
+                    : null,
+                doctor_id_raw: appointment.doctor_id?._id || null,
                 doctor: appointment.doctor_id
                     ? {
                         name: appointment.doctor_id.name,

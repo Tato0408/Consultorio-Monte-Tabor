@@ -130,15 +130,18 @@ const ROLE_PERMISSIONS = {
         "calendar.consultations": [true, false, false, false],
         // Catálogos necesarios exclusivamente para completar una cita.
         "users.doctors": [true, false, false, false],
-        "users.patients": [true, false, false, false],
+        // Recepción registra (formulario rápido del dashboard), edita y
+        // elimina pacientes. El CRUD real de pacientes siempre fue
+        // users.patients (rutas /patients/*), no reports.patients.
+        "users.patients": [true, true, true, true],
         "users.receptionist": [false, false, false, false],
         "users.nurses": [true, false, false, false],
         "procedures": [true, false, false, false],
         "reports.appointments": [false, false, false, false],
         "reports.records": [false, false, false, false],
-        // La recepción sí registra pacientes nuevos (es parte central
-        // de su trabajo).
-        "reports.patients": [true, true, true, true],
+        // Solo lectura: reports.patients es el reporte analítico de
+        // pacientes (una única ruta GET), no el registro de pacientes.
+        "reports.patients": [true, false, false, false],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],
         "inventory.treatments": [false, false, false, false],

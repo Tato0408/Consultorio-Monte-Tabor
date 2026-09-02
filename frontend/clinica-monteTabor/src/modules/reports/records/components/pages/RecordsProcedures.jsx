@@ -69,7 +69,9 @@ export default function ProcedimientosTab({ patient = {}, onSaved }) {
           lugar. */}
       <div className="overflow-x-auto">
         <div className="min-w-[600px]">
-          <div className="grid grid-cols-5 gap-4 px-2 pb-4 text-center text-sm text-slate-400">
+          {/* Misma franja gris de encabezado que las tablas de los reportes. Las 5
+              columnas (grid-cols-5) quedan con el mismo ancho y todo va centrado. */}
+          <div className="grid grid-cols-5 gap-4 rounded-lg bg-slate-50 px-2 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             <span>Procedimiento</span>
             <span>Fecha</span>
             <span>Doctor encargado</span>
@@ -78,7 +80,7 @@ export default function ProcedimientosTab({ patient = {}, onSaved }) {
           </div>
 
           {/* Filas */}
-          <div>
+          <div className="mt-1">
             {rows.map((p, i) => (
               <div
                 key={i}

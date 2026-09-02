@@ -156,8 +156,10 @@ export const validateUserFieldFormats = ({ name, last_name, phone, email, dui, b
     }
     if (dui !== undefined) {
         const value = String(dui).trim();
-        if (!value) return "El campo DUI no puede estar vacío";
-        if (!DUI_REGEX.test(value)) return "Formato de DUI inválido, debe ser XXXXXXXX-X";
+        // El DUI no es obligatorio (hay pacientes menores de edad sin DUI): solo se valida
+        // el formato cuando llega un valor no vacío. La obligatoriedad, donde aplica (staff),
+        // la impone cada controller de creación con getMissingRequiredField.
+        if (value && !DUI_REGEX.test(value)) return "Formato de DUI inválido, debe ser XXXXXXXX-X";
     }
     if (birth_date !== undefined) {
         const value = String(birth_date).trim();

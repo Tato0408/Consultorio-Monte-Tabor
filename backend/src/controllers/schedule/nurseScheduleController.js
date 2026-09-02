@@ -2,6 +2,7 @@ import nurseScheduleModel from "../../models/schedule/nurseSchedule.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import { toMins, minsToStr, tileFreeSlots, resolveDurationMinutes } from "./scheduleController.js";
+import { OCCUPYING_STATUSES } from "../../utils/appointmentStatus.js";
 
 const nurseScheduleController = {};
 
@@ -90,7 +91,7 @@ export const isNurseAvailable = async (nurseId, date, start_time, end_time, appo
     const sameDayAppointments = await appointmentsModel.find({
         nurse_id: nurseId,
         date: { $gte: dayStart, $lte: dayEnd },
-        status: { $nin: ["cancelled"] },
+        status: { $in: OCCUPYING_STATUSES },
         ...(excludeAppointmentId ? { _id: { $ne: excludeAppointmentId } } : {}),
     }).select({ start_time: 1, end_time: 1 });
 
@@ -162,7 +163,7 @@ export const isSlotFreeForNurse = async (nurseId, date, start_time, end_time, ap
     const existingAppointments = await appointmentsModel.find({
         nurse_id: nurseId,
         date: { $gte: dayStart, $lte: dayEnd },
-        status: { $nin: ["cancelled"] },
+        status: { $in: OCCUPYING_STATUSES },
         ...(excludeAppointmentId ? { _id: { $ne: excludeAppointmentId } } : {}),
     }).select({ start_time: 1, end_time: 1 });
 
@@ -229,7 +230,7 @@ nurseScheduleController.getAvailableSlotsForNurse = async (req, res) => {
         const existingAppointments = await appointmentsModel.find({
             nurse_id: nurseId,
             date: { $gte: dayStart, $lte: dayEnd },
-            status: { $nin: ["cancelled"] },
+            status: { $in: OCCUPYING_STATUSES },
         }).select({ start_time: 1, end_time: 1 });
 
         const bookedRanges = existingAppointments
@@ -327,7 +328,7 @@ export const getAggregateNurseSlots = async (date, minutes) => {
     const allAppointments = await appointmentsModel.find({
         nurse_id: { $in: relevantSchedules.map((s) => s.nurse_id) },
         date: { $gte: dayStart, $lte: dayEnd },
-        status: { $nin: ["cancelled"] },
+        status: { $in: OCCUPYING_STATUSES },
     }).select({ nurse_id: 1, start_time: 1, end_time: 1 }).lean();
 
     const appointmentsByNurse = new Map();

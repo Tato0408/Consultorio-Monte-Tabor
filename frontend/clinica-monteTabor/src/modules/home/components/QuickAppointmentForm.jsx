@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmProceedWithoutNurse } from "@/lib/alerts";
 import { Combobox, ComboboxTrigger, ComboboxContent, ComboboxItem } from "@/components/ui/combobox";
+import DataCombobox from "@/components/ui/DataCombobox";
+import { patientLabel, doctorLabel, nurseLabel } from "@/modules/schedule/appointments/lib/personLabels";
 
 const todayStr = () => {
     const d = new Date();
@@ -45,8 +47,6 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
     // e isNurseRequired más abajo). Sin sentido en los otros dos casos,
     // donde solo hay un selector.
     const [activeTab, setActiveTab] = useState("doctor");
-    const [patientSearch, setPatientSearch] = useState("");
-    const [showPatientList, setShowPatientList] = useState(false);
     const [rawSlots, setRawSlots] = useState([]);
     const [availableSlots, setAvailableSlots] = useState([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
@@ -64,7 +64,6 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
     // podía mostrar la hora elegida porque no existía ninguna opción con
     // ese valor exacto.
     const [pinnedSlot, setPinnedSlot] = useState(null);
-    const wrapRef = useRef(null);
 
     // Precarga doctor, fecha y hora cuando el recepcionista o la
     // enfermera hacen clic en un espacio libre de la agenda. El clic
@@ -81,14 +80,6 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
         setForm((prev) => ({ ...prev, doctorId: prefill.doctorId || "", nurseId: prefill.nurseId || "", date: prefill.date, selectedTime: prefill.start_time }));
         setPinnedSlot({ date: prefill.date, start_time: prefill.start_time, end_time: prefill.end_time });
     }, [prefill]);
-
-    useEffect(() => {
-        const handler = (e) => {
-            if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowPatientList(false);
-        };
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, []);
 
     const selectedProcedure = procedures.find((p) => p._id?.toString() === form.procedure);
     const procedureChosen = form.procedure !== "";
@@ -226,11 +217,6 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
         return () => { cancelled = true; };
     }, [procedureChosen, requiresDoctorForProcedure, isNurseRequired, form.date, form.selectedTime, form.procedure, availableSlots]);
 
-    const selectedPatient = patients.find((p) => p._id === form.patientId);
-    const filteredPatients = patientSearch.trim()
-        ? patients.filter((p) => `${p.name} ${p.last_name}`.toLowerCase().includes(patientSearch.trim().toLowerCase()))
-        : patients.slice(0, 8);
-
     const missingRoleLabel = requiresDoctorForProcedure ? "doctores" : "enfermeras";
     const noAvailabilityMsg = `No hay ${missingRoleLabel} disponibles para esta fecha y/o horario, por favor escoge otra fecha y/o horario.`;
 
@@ -287,7 +273,6 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
             });
             showSuccess("Cita guardada correctamente.");
             setForm(EMPTY_FORM);
-            setPatientSearch("");
             setPinnedSlot(null);
             setActiveTab("doctor");
             onCreated?.();
@@ -315,22 +300,17 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                 cambia nada frente al apilado normal. */}
             <form onSubmit={handleSubmit} className={`flex flex-col gap-3 flex-1 ${procedureChosen ? "justify-between" : ""}`}>
                 <fieldset disabled={submitting} className="contents">
-                    <div ref={wrapRef} className="relative">
+                    <div>
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Paciente</label>
-                        <div className="relative">
-                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <input
-                                type="text"
+                        <div className="flex gap-2 items-start">
+                            <DataCombobox
+                                value={form.patientId}
+                                onChange={(v) => setForm((f) => ({ ...f, patientId: v }))}
+                                options={patients.map((p) => ({ value: p._id, label: patientLabel(p) }))}
                                 placeholder="Buscar paciente..."
-                                maxLength={100}
-                                value={selectedPatient ? `${selectedPatient.name} ${selectedPatient.last_name}` : patientSearch}
-                                onChange={(e) => {
-                                    setPatientSearch(e.target.value);
-                                    setForm((f) => ({ ...f, patientId: "" }));
-                                    setShowPatientList(true);
-                                }}
-                                onFocus={() => setShowPatientList(true)}
-                                className={`w-full pl-8 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 ${onRequestNewPatient ? "pr-16" : "pr-3"}`}
+                                size="sm"
+                                className="flex-1 min-w-0"
+                                labelClassName="hidden"
                             />
                             {/* El botón de nuevo paciente solo aparece si el dashboard que
                                 usa este formulario tiene registro rápido de pacientes, como
@@ -339,31 +319,12 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                 <button
                                     type="button"
                                     onClick={onRequestNewPatient}
-                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-blue-600 border border-blue-200 rounded-md px-1.5 py-0.5 hover:bg-blue-50"
+                                    className="h-[34px] flex-shrink-0 text-[11px] font-semibold text-blue-600 border border-blue-200 rounded-lg px-2 hover:bg-blue-50"
                                 >
                                     Nuevo
                                 </button>
                             )}
                         </div>
-                        <span className="block text-right text-[11px] text-slate-400 mt-0.5">
-                            {(selectedPatient ? `${selectedPatient.name} ${selectedPatient.last_name}` : patientSearch).length}/100
-                        </span>
-                        {showPatientList && !selectedPatient && (
-                            <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-44 overflow-y-auto">
-                                {filteredPatients.length === 0 ? (
-                                    <p className="px-3 py-2 text-xs text-slate-400">Sin resultados</p>
-                                ) : filteredPatients.map((p) => (
-                                    <button
-                                        key={p._id}
-                                        type="button"
-                                        onClick={() => { setForm((f) => ({ ...f, patientId: p._id })); setPatientSearch(""); setShowPatientList(false); }}
-                                        className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50"
-                                    >
-                                        {p.name} {p.last_name}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
                     </div>
 
                     <div>
@@ -460,7 +421,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                                 />
                                                 <ComboboxContent>
                                                     {slotDoctors.map((d) => (
-                                                        <ComboboxItem key={d._id} value={d._id}>Dr. {d.name} {d.last_name}</ComboboxItem>
+                                                        <ComboboxItem key={d._id} value={d._id}>{doctorLabel(d)}</ComboboxItem>
                                                     ))}
                                                 </ComboboxContent>
                                             </Combobox>
@@ -483,7 +444,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                                 />
                                                 <ComboboxContent>
                                                     {slotNurses.map((n) => (
-                                                        <ComboboxItem key={n._id} value={n._id}>{n.name} {n.last_name}</ComboboxItem>
+                                                        <ComboboxItem key={n._id} value={n._id}>{nurseLabel(n)}</ComboboxItem>
                                                     ))}
                                                 </ComboboxContent>
                                             </Combobox>
@@ -508,7 +469,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                         />
                                         <ComboboxContent>
                                             {slotDoctors.map((d) => (
-                                                <ComboboxItem key={d._id} value={d._id}>Dr. {d.name} {d.last_name}</ComboboxItem>
+                                                <ComboboxItem key={d._id} value={d._id}>{doctorLabel(d)}</ComboboxItem>
                                             ))}
                                         </ComboboxContent>
                                     </Combobox>
@@ -532,7 +493,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                         />
                                         <ComboboxContent>
                                             {slotNurses.map((n) => (
-                                                <ComboboxItem key={n._id} value={n._id}>{n.name} {n.last_name}</ComboboxItem>
+                                                <ComboboxItem key={n._id} value={n._id}>{nurseLabel(n)}</ComboboxItem>
                                             ))}
                                         </ComboboxContent>
                                     </Combobox>

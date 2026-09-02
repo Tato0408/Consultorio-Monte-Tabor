@@ -17,6 +17,8 @@ const STATUS_BADGE = {
     completed: { label: "Atendido", className: "bg-emerald-100 text-emerald-700" },
     cancelled: { label: "Cancelado", className: "bg-red-100 text-red-700" },
     no_show: { label: "No se presentó", className: "bg-slate-100 text-slate-500" },
+    needs_reschedule: { label: "Por reagendar", className: "bg-orange-100 text-orange-600" },
+    expired: { label: "Vencida", className: "bg-orange-100 text-orange-600" },
 };
 
 const formatPersonName = (person) =>

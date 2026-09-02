@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ChevronLeft, ChevronDown, Loader2, Pill, CheckCircle2, Circle,
-  CalendarDays, ClipboardList, FileText, Eye, ShieldCheck,
+  CalendarDays, ClipboardList, FileText, Eye, ShieldCheck, User,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getTodayMedications, markMedicationTaken, getPrescriptions } from "@/services/patientPortalService";
@@ -111,7 +111,7 @@ const Medications = () => {
   const visibles = mostrarTodo ? filtradas : filtradas.slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <header className="bg-white border-b border-gray-100 px-6 py-4 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Link to="/dashboard" className="text-gray-400 hover:text-gray-600 text-sm flex items-center gap-1">
@@ -131,6 +131,10 @@ const Medications = () => {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                 <div className="absolute right-0 top-11 w-44 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-50">
+                  <Link to="/profile" className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <User className="w-4 h-4 text-gray-400" /> Mi perfil
+                  </Link>
+                  <hr className="my-1 border-gray-100" />
                   <button onClick={handleLogout} className="w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors text-left">
                     Cerrar sesión
                   </button>

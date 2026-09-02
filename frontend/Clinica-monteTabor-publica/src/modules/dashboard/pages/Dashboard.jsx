@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   LogOut, ChevronDown, ChevronRight, CalendarPlus, CalendarDays, Clock, User,
-  Stethoscope, FileText, FileStack, Pill, AlertCircle, RefreshCw,
+  Stethoscope, FileText, FileStack, Pill, AlertCircle, AlertTriangle, RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getDashboardSummary } from "@/services/patientPortalService";
@@ -85,6 +85,9 @@ const Dashboard = () => {
   }, []);
 
   const nextAppointment = data?.nextAppointment || null;
+  // Citas que quedaron "por reagendar": ningún doctor las aceptó a tiempo o el cupo se le
+  // asignó a otro paciente. El paciente debe elegirles una nueva fecha/hora desde Mis citas.
+  const needsReschedule = data?.needsReschedule || [];
   const stats = data?.stats || { consultas: 0, documentos: 0, recordatorios: 0 };
   const todayMedications = data?.todayMedications || [];
   const recentDocuments = data?.recentDocuments || [];
@@ -205,6 +208,13 @@ const Dashboard = () => {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                   <div className="absolute right-0 top-12 w-44 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-50">
+                    <Link
+                      to="/profile"
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <User className="w-4 h-4 text-gray-400" /> Mi perfil
+                    </Link>
+                    <hr className="my-1 border-gray-100" />
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors text-left"
@@ -313,6 +323,27 @@ const Dashboard = () => {
           <div className="lg:col-span-2 flex flex-col gap-8 min-w-0">
             <div className="min-w-0">
               <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">Tu próxima cita</h2>
+
+              {needsReschedule.length > 0 && (
+                <Link
+                  to="/mis-citas"
+                  className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 mb-3 hover:bg-orange-100/70 transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="w-4 h-4 text-orange-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-orange-800">
+                      {needsReschedule.length === 1
+                        ? "Tienes 1 cita por reagendar"
+                        : `Tienes ${needsReschedule.length} citas por reagendar`}
+                    </p>
+                    <p className="text-xs text-orange-600">Elige una nueva fecha y hora desde Mis citas.</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                </Link>
+              )}
+
               {!nextAppointment ? (
                 <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center">
                   <p className="text-sm text-gray-400">No tienes citas próximas.</p>

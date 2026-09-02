@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { Filter, User } from "lucide-react";
+import { User } from "lucide-react";
 import GenericTable from "@/components/ui/GenericTable";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import DataCombobox from "@/components/ui/DataCombobox";
 import StatusBadge from "../../reports/components/StatusBadge";
 import { STATUS_STYLE } from "../data/treatmentsData";
 
@@ -85,18 +85,18 @@ const TreatmentsPatientsTable = ({ patients, loading, onSelectPatient, selectedP
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <h2 className="text-base font-bold text-slate-800">Pacientes en seguimiento</h2>
-        <Select value={doctorFilter} onValueChange={setDoctorFilter}>
-          <SelectTrigger className="w-full sm:w-56 border-slate-200 rounded-lg h-9 text-xs font-semibold text-slate-600">
-            <Filter className="w-3.5 h-3.5" />
-            <SelectValue>{doctorFilter === "all" ? "Todos los médicos" : doctorFilter}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los médicos</SelectItem>
-            {doctorOptions.map((d) => (
-              <SelectItem key={d} value={d}>{d}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <DataCombobox
+          value={doctorFilter}
+          onChange={(v) => setDoctorFilter(v || "all")}
+          options={[
+            { value: "all", label: "Todos los médicos" },
+            ...doctorOptions.map((d) => ({ value: d, label: d })),
+          ]}
+          placeholder="Todos los médicos"
+          labelClassName="hidden"
+          className="w-full sm:w-56"
+          triggerClassName="h-9"
+        />
       </div>
 
       <div className="flex items-center gap-1 mb-4 border-b border-slate-100 overflow-x-auto">

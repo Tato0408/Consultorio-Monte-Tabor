@@ -42,7 +42,12 @@ export const sideBarMenu = [
         icon: 'Activity',
         subItems: [
             { title: 'Procedimientos', icon: 'Stethoscope', path: '/procedures', moduleKey: 'procedures' },
-            { title: 'Tratamientos', icon: 'FileBox', path: '/inventory/treatments', moduleKey: 'inventory.treatments' }
+            { title: 'Tratamientos', icon: 'FileBox', path: '/inventory/treatments', moduleKey: 'inventory.treatments' },
+            // Expediente clínico vive con Procedimientos (y ya no con Reportes) porque es
+            // el único de esos módulos con acciones reales de creación/edición/eliminación
+            // (incapacidades, antecedentes, procedimientos del paciente), a diferencia de
+            // los reportes, que son solo de consulta.
+            { title: 'Expediente', icon: 'FileClock', path: '/reports/records', moduleKey: 'reports.records' }
         ]
     },
     {
@@ -50,9 +55,11 @@ export const sideBarMenu = [
         icon: 'FileText',
         subItems: [
             { title: 'Citas', icon: 'CalendarCheck2', path: '/reports/appointments', moduleKey: 'reports.appointments' },
-            { title: 'Expediente', icon: 'FileClock', path: '/reports/records', moduleKey: 'reports.records' },
             { title: 'Pacientes', icon: 'UserRound', path: '/reports/patients', moduleKey: 'reports.patients' },
-            { title: 'Doctores', icon: 'User', path: '/reports/doctors', moduleKey: 'reports.doctors' }
+            { title: 'Doctores', icon: 'User', path: '/reports/doctors', moduleKey: 'reports.doctors' },
+            // Reportes de inventario se agrupa aquí, junto al resto de reportes solo de
+            // lectura, en vez de dentro de Inventario.
+            { title: 'Reportes de inventario', icon: 'ClipboardCheck', path: '/inventory/reports', moduleKey: 'inventory.reports' }
         ]
     },
     {
@@ -60,8 +67,7 @@ export const sideBarMenu = [
         icon: 'Package',
         subItems: [
             { title: 'Productos', icon: 'Briefcase', path: '/inventory/products', moduleKey: 'inventory.products' },
-            { title: 'Movimientos', icon: 'FileSignature', path: '/inventory/movements', moduleKey: 'inventory.movements' },
-            { title: 'Reportes de inventario', icon: 'ClipboardCheck', path: '/inventory/reports', moduleKey: 'inventory.reports' }
+            { title: 'Movimientos', icon: 'FileSignature', path: '/inventory/movements', moduleKey: 'inventory.movements' }
         ]
     },
     {

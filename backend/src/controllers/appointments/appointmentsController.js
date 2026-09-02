@@ -8,6 +8,7 @@ import { notifyAppointmentRecipients } from "../../services/notificationService.
 import proceduresModel from "../../models/procedures/procedures.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import { getNonNegativeError } from "../../utils/validators.js";
+import { RESCHEDULE_REASONS } from "../../utils/appointmentStatus.js";
 
 const appointmentsController = {};
 
@@ -86,55 +87,123 @@ function getDayRange(dateInput) {
     return { start, end };
 }
 
-// Tiempo máximo que una cita puede esperar sin que ningún doctor la acepte
-// antes de vencer sola (independiente de si su fecha ya llegó o no).
+// Tiempo máximo que una solicitud puede esperar sin que ningún proveedor la acepte
+// antes de pasar a "por reagendar", aunque su fecha todavía no haya llegado.
 const PENDING_EXPIRATION_MS = 48 * 60 * 60 * 1000;
 
-// Marca como "no_show" las "pending" cuya fecha ya pasó, y como "expired"
-// las que llevan demasiado tiempo sin que ningún doctor las acepte.
-async function expirePendingAppointments() {
+// Transiciones automáticas por el paso del tiempo. No hay cron: esto se corre de forma
+// perezosa al listar citas (getAppointments), igual que el resto del proyecto.
+//   1) scheduled cuya hora de fin ya pasó y no se realizó la consulta  -> no_show.
+//   2) pending cuya hora de fin ya pasó, o que lleva +48 h sin aceptar  -> needs_reschedule
+//      (el paciente puede reagendarla; ver appointmentStatus.js), con notificación.
+// Margen tras la hora de fin antes de dar una cita aceptada por "No se presentó": el
+// doctor puede estar atendiendo con retraso. Al pasar este margen sin que se registre la
+// consulta, se asume que el paciente no llegó.
+const NO_SHOW_GRACE_MS = 60 * 60 * 1000;
+
+// Se exporta para que otros endpoints self-service del paciente (ej.
+// patientSelfController.getMyConsultations, que alimenta el dashboard de la app móvil)
+// apliquen las mismas transiciones perezosas al leer, sin depender de que el paciente
+// pase antes por la pantalla de citas.
+export async function runAppointmentAutoTransitions() {
     const now = new Date();
     const { start: startOfToday, end: endOfToday } = getDayRange(now);
-    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const fmtTime = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const currentTime = fmtTime(now);
+    const staleCutoff = new Date(now.getTime() - PENDING_EXPIRATION_MS);
 
+    // "Hora de fin ya pasó (sin margen)": para las solicitudes sin aceptar.
+    const pastEndTime = [
+        { date: { $lt: startOfToday } },
+        { date: { $gte: startOfToday, $lte: endOfToday }, end_time: { $lte: currentTime } },
+    ];
+
+    // "Hora de fin pasó + margen": para las citas ya aceptadas.
+    const graceMoment = new Date(now.getTime() - NO_SHOW_GRACE_MS);
+    const graceSameDay = graceMoment.getDate() === now.getDate() && graceMoment.getMonth() === now.getMonth();
+    const pastEndPlusGrace = [
+        { date: { $lt: startOfToday } },
+        ...(graceSameDay
+            ? [{ date: { $gte: startOfToday, $lte: endOfToday }, end_time: { $lte: fmtTime(graceMoment) } }]
+            : []),
+    ];
+
+    // 1) Citas ya aceptadas que no se realizaron -> No se presentó. (Si la consulta se
+    //    hubiera hecho, la propia consulta la habría puesto en "completed".)
     await appointmentsModel.updateMany(
-        {
-            status: "pending",
-            $or: [
-                { date: { $lt: startOfToday } },
-                { date: { $gte: startOfToday, $lte: endOfToday }, start_time: { $lt: currentTime } },
-            ],
-        },
+        { status: "scheduled", $or: pastEndPlusGrace },
         { $set: { status: "no_show" } }
     );
 
-    const staleCutoff = new Date(now.getTime() - PENDING_EXPIRATION_MS);
-    const staleAppointments = await appointmentsModel
-        .find({ status: "pending", createdAt: { $lt: staleCutoff } })
+    // 2) Solicitudes que ningún proveedor aceptó a tiempo -> por reagendar.
+    const notAccepted = await appointmentsModel
+        .find({ status: "pending", $or: [...pastEndTime, { createdAt: { $lt: staleCutoff } }] })
         .select("_id patient_id");
 
-    if (staleAppointments.length > 0) {
+    if (notAccepted.length > 0) {
         await appointmentsModel.updateMany(
-            { _id: { $in: staleAppointments.map(a => a._id) } },
-            { $set: { status: "expired" } }
+            { _id: { $in: notAccepted.map((a) => a._id) } },
+            { $set: { status: "needs_reschedule", reschedule_reason: RESCHEDULE_REASONS.NOT_ACCEPTED } }
         );
-
-        await notificationModel.insertMany(staleAppointments.map(a => ({
+        await notificationModel.insertMany(notAccepted.map((a) => ({
             recipient_role: "patient",
             recipient_id: a.patient_id,
-            title: "Solicitud de cita vencida",
-            type: "appointment_expired",
-            message: "Tu solicitud de cita venció porque ningún doctor la aceptó a tiempo. Puedes agendar de nuevo o contactar a la clínica.",
+            title: "Cita sin aceptar",
+            type: "appointment_reschedule_needed",
+            message: "Ningún doctor aceptó tu cita a tiempo. Puedes reagendarla para otra fecha y horario.",
             appointment_id: a._id,
             action_url: `/appointments/${a._id}/edit`,
         })));
     }
 }
 
+// Al aceptar/asignar una cita, el cupo de ESE proveedor a ESA hora queda tomado. Las
+// demás solicitudes (pending) del MISMO proveedor que se solapan con ese horario ya no
+// pueden concretarse: pasan a needs_reschedule para que esos pacientes reagenden. Las
+// solicitudes "sin proveedor elegido" (doctor_id / nurse_id null) no se tocan: otro
+// proveedor todavía puede aceptarlas. Nunca debe tumbar la aceptación si algo falla.
+async function bumpCompetingRequests(accepted) {
+    const providerFilter = accepted.doctor_id
+        ? { doctor_id: accepted.doctor_id }
+        : accepted.nurse_id
+        ? { nurse_id: accepted.nurse_id }
+        : null;
+    if (!providerFilter) return;
+
+    const { start, end } = getDayRange(accepted.date);
+    const competitors = await appointmentsModel
+        .find({
+            _id: { $ne: accepted._id },
+            status: "pending",
+            ...providerFilter,
+            date: { $gte: start, $lte: end },
+        })
+        .select("_id patient_id start_time end_time");
+
+    const aStart = toMinutes(accepted.start_time);
+    const aEnd = toMinutes(accepted.end_time);
+    const overlapping = competitors.filter((c) => toMinutes(c.start_time) < aEnd && toMinutes(c.end_time) > aStart);
+    if (overlapping.length === 0) return;
+
+    await appointmentsModel.updateMany(
+        { _id: { $in: overlapping.map((c) => c._id) } },
+        { $set: { status: "needs_reschedule", reschedule_reason: RESCHEDULE_REASONS.SLOT_TAKEN } }
+    );
+    await notificationModel.insertMany(overlapping.map((c) => ({
+        recipient_role: "patient",
+        recipient_id: c.patient_id,
+        title: "Tu cupo ya fue asignado",
+        type: "appointment_reschedule_needed",
+        message: "El horario que solicitaste ya fue asignado a otro paciente. Reagenda tu cita para otra fecha y horario.",
+        appointment_id: c._id,
+        action_url: `/appointments/${c._id}/edit`,
+    })));
+}
+
 // Lista citas con paginación, filtros y búsqueda.
 appointmentsController.getAppointments = async (req, res) => {
     try {
-        await expirePendingAppointments();
+        await runAppointmentAutoTransitions();
 
         const {
             date,
@@ -267,7 +336,9 @@ appointmentsController.getAppointments = async (req, res) => {
                 .populate("nurse_id", "name last_name img_url")
                 .populate({ path: "patient_id", model: "Patients", select: "name last_name" })
                 .populate({ path: "procedure_id", model: "procedure", select: "name requires_nurse requires_doctor" })
-                .sort({ date: dateDirection, start_time: dateDirection })
+                // createdAt asc como desempate: si dos solicitudes son para la misma
+                // fecha y hora, en "Por aceptar" aparece primero la que se solicitó antes.
+                .sort({ date: dateDirection, start_time: dateDirection, createdAt: 1 })
                 .skip(skip)
                 .limit(limitNumber),
             appointmentsModel.countDocuments(filters),
@@ -383,7 +454,7 @@ appointmentsController.getAppointmentById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        await expirePendingAppointments();
+        await runAppointmentAutoTransitions();
 
         const appointment = await appointmentsModel.findById(id)
             .populate({ path: "patient_id", model: "Patients", select: "name last_name phone gender birth_date dui clinical_history.blood_type email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social" })
@@ -576,6 +647,13 @@ appointmentsController.insertAppointment = async (req, res) => {
         });
 
         await newAppointment.save();
+
+        // Si el personal la creó ya agendada, el cupo de ese proveedor a esa hora quedó
+        // tomado: las solicitudes de pacientes que competían por ese mismo horario pasan a
+        // "por reagendar".
+        if (newAppointment.status === "scheduled") {
+            await bumpCompetingRequests(newAppointment).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
+        }
 
         // Informa al profesional y al paciente sin incluir diagnósticos ni
         // otros datos clínicos en la campana.
@@ -895,11 +973,16 @@ appointmentsController.deleteAppointment = async (req, res) => {
 // "reabrir" una cita completada o cancelada de vuelta a scheduled con solo mandar ese
 // status, sin ninguna validación).
 const VALID_STATUS_TRANSITIONS = {
-    pending: ["cancelled"],
+    pending: ["cancelled", "needs_reschedule"],
     scheduled: ["completed", "cancelled", "no_show"],
+    // El paciente reagenda por su propio endpoint (rescheduleMyAppointment); el personal
+    // también puede cancelarla desde aquí.
+    needs_reschedule: ["cancelled"],
     completed: [],
     cancelled: [],
-    no_show: [],
+    // Si la consulta sí se realizó (con retraso, después del margen de no_show), al
+    // guardarla se vuelve a "completed": la consulta real manda sobre el auto-no_show.
+    no_show: ["completed"],
     expired: [],
 };
 
@@ -923,6 +1006,18 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
             return res.status(404).json({ message: "Cita no encontrada" });
         }
 
+        // Llamada idempotente: si el estado no cambia, no hay transición que validar.
+        // El editor de consultas reenvía "completed" cada vez que se guarda un
+        // registro ya existente, y sin esto esa edición fallaba con
+        // "No se puede cambiar una cita de completed a completed".
+        if (status === appointment.status) {
+            if (status === "cancelled" && cancellation_reason) {
+                appointment.cancellation_reason = cancellation_reason.trim();
+                await appointment.save();
+            }
+            return res.status(200).json({ message: "Estado actualizado correctamente", data: appointment });
+        }
+
         const permitido = VALID_STATUS_TRANSITIONS[appointment.status] || [];
         if (!permitido.includes(status)) {
             return res.status(400).json({
@@ -944,6 +1039,7 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
             cancelled: "Cancelada",
             no_show: "No se presentó",
             expired: "Vencida",
+            needs_reschedule: "Por reagendar",
         };
         const translatedStatus = statusLabels[status] || status;
         await notifyAppointmentRecipients(appointmentUpdated, {
@@ -1042,6 +1138,10 @@ appointmentsController.acceptAppointment = async (req, res) => {
             return res.status(409).json({ message: "Esta cita ya fue tomada por otro doctor." });
         }
 
+        // El cupo de este doctor a esta hora quedó tomado: las demás solicitudes del
+        // mismo doctor que se solapan pasan a "por reagendar".
+        await bumpCompetingRequests(accepted).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
+
         const acceptingDoctor = await doctorsModel.findById(req.user.id).select("name last_name").lean();
         const doctorName = acceptingDoctor
             ? `Dr. ${acceptingDoctor.name} ${acceptingDoctor.last_name || ""}`.trim()
@@ -1138,6 +1238,8 @@ appointmentsController.assignDoctor = async (req, res) => {
             return res.status(409).json({ message: "Esta cita ya fue tomada por un doctor." });
         }
 
+        await bumpCompetingRequests(assigned).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
+
         await notifyAppointmentRecipients(assigned, {
             doctorMessage: "Se te asignó una nueva cita.",
             patientMessage: "Tu cita fue asignada a un doctor.",
@@ -1208,6 +1310,8 @@ appointmentsController.acceptAppointmentAsNurse = async (req, res) => {
         if (!accepted) {
             return res.status(409).json({ message: "Esta cita ya fue tomada por otra enfermera." });
         }
+
+        await bumpCompetingRequests(accepted).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
 
         const acceptingNurse = await nursesModel.findById(req.user.id).select("name last_name").lean();
         const nurseName = acceptingNurse
@@ -1280,6 +1384,8 @@ appointmentsController.assignNurse = async (req, res) => {
         if (!assigned) {
             return res.status(409).json({ message: "Esta cita ya fue tomada por otra enfermera." });
         }
+
+        await bumpCompetingRequests(assigned).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
 
         await notifyAppointmentRecipients(assigned, {
             nurseMessage: "Se te asignó una nueva cita.",

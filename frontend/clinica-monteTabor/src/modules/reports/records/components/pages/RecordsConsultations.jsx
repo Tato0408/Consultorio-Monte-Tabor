@@ -136,14 +136,17 @@ const ConsultasDelDia = ({
 
       {/* Tabla */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        {/* table-fixed reparte las 5 columnas en anchos iguales; el encabezado usa la
+            misma franja gris (bg-slate-50 + texto en mayúsculas) que las tablas de los
+            reportes, y tanto títulos como datos van centrados. */}
+        <table className="w-full min-w-[560px] text-sm table-fixed">
           <thead>
-            <tr className="text-left text-xs text-slate-400">
-              <th className="font-medium pb-3 pr-4">Hora</th>
-              <th className="font-medium pb-3 pr-4">Paciente</th>
-              <th className="font-medium pb-3 pr-4">Médico atendiendo</th>
-              <th className="font-medium pb-3 pr-4 text-center">Estado</th>
-              <th className="font-medium pb-3 text-center">Acciones</th>
+            <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <th className="py-2.5 px-2 font-semibold text-center">Hora</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Paciente</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Médico atendiendo</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Estado</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -159,13 +162,13 @@ const ConsultasDelDia = ({
               const atendido = c.estado === "atendido";
               return (
                 <tr key={c.id} className="border-t border-slate-100">
-                  <td className="py-4 pr-4 text-slate-700 whitespace-nowrap">{c.hora}</td>
-                  <td className="py-4 pr-4 text-slate-700">{c.paciente}</td>
-                  <td className="py-4 pr-4 text-slate-700">{c.medico}</td>
-                  <td className="py-4 pr-4 text-center">
+                  <td className="py-4 px-2 text-center text-slate-700 whitespace-nowrap">{c.hora}</td>
+                  <td className="py-4 px-2 text-center text-slate-700">{c.paciente}</td>
+                  <td className="py-4 px-2 text-center text-slate-700">{c.medico}</td>
+                  <td className="py-4 px-2 text-center">
                     <Badge tone={est.tone}>{est.label}</Badge>
                   </td>
-                  <td className="py-4 text-center">
+                  <td className="py-4 px-2 text-center">
                     <div className="flex items-center justify-center gap-2">
                       {atendido ? (
                         <button

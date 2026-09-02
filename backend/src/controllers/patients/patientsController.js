@@ -27,9 +27,10 @@ patientsController.createPatient = async (req, res) => {
   try {
     let { name, last_name, dui, birth_date, gender, phone, email, password, referred_by } = req.body;
 
+    // El DUI no es obligatorio: hay pacientes menores de edad que todavía no lo tienen.
     const requiredError = getMissingRequiredField(
-      { name, last_name, dui, birth_date, gender, phone, email, password },
-      ["name", "last_name", "dui", "birth_date", "gender", "phone", "email", "password"]
+      { name, last_name, birth_date, gender, phone, email, password },
+      ["name", "last_name", "birth_date", "gender", "phone", "email", "password"]
     );
     if (requiredError) {
       return res.status(400).json({ message: requiredError });
@@ -37,7 +38,7 @@ patientsController.createPatient = async (req, res) => {
 
     name = name.trim();
     last_name = last_name.trim();
-    dui = dui.trim();
+    dui = dui?.trim() || undefined;
     phone = phone.trim();
     email = email.trim();
     password = password.trim();
@@ -52,7 +53,11 @@ patientsController.createPatient = async (req, res) => {
       return res.status(400).json({ message: passwordError });
     }
 
-    const existsPatient = await patientsModel.findOne({ $or: [{ email }, { dui }] });
+    // Solo se incluye el DUI en el chequeo de duplicados si el paciente trae uno: con
+    // { dui: undefined } dentro del $or, Mongo lo trataría como "cualquier paciente sin DUI".
+    const duplicateOr = [{ email }];
+    if (dui) duplicateOr.push({ dui });
+    const existsPatient = await patientsModel.findOne({ $or: duplicateOr });
     if (existsPatient) {
       return res.status(400).json({ message: "El paciente ya existe" });
     }
@@ -181,8 +186,19 @@ patientsController.updatePatient = async (req, res) => {
       }
     }
 
+    // El DUI es opcional (menores sin DUI), pero si se manda uno no vacío y ya lo usa OTRO
+    // paciente, se avisa con un mensaje claro.
+    if (dui !== undefined && String(dui).trim() !== "") {
+      const duiInUse = await patientsModel.findOne({ dui: String(dui).trim(), _id: { $ne: req.params.id } });
+      if (duiInUse) {
+        return res.status(400).json({ message: "Ya existe un paciente registrado con ese DUI" });
+      }
+    }
+
     //Campos singulares a actualizar
     const fieldsToSet = {};
+    //Campos singulares a limpiar (ej. borrar el DUI de un paciente)
+    const fieldsToUnset = {};
 
     //Arrays a actualizar
     const fieldsToPush = {};
@@ -202,9 +218,11 @@ patientsController.updatePatient = async (req, res) => {
       fieldsToSet.last_name = last_name.trim();
     }
 
-    //si mando el dui le quita los espacios vacios, si no lo manda lo ignora por completo
+    //si mando el dui le quita los espacios vacios; un dui vacío borra el que tuviera
     if (dui !== undefined) {
-      fieldsToSet.dui = dui.trim();
+      const duiClean = String(dui).trim();
+      if (duiClean) fieldsToSet.dui = duiClean;
+      else fieldsToUnset.dui = "";
     }
 
     //si mando la fecha de nacimiento le quita los espacios vacios, si no lo manda lo ignora por completo
@@ -333,6 +351,11 @@ patientsController.updatePatient = async (req, res) => {
     // Si hay datos que sobrescribir en campos singulares
     if (Object.keys(fieldsToSet).length > 0) {
       patientData.$set = fieldsToSet;
+    }
+
+    // Si hay campos singulares que limpiar (ej. quitar el DUI)
+    if (Object.keys(fieldsToUnset).length > 0) {
+      patientData.$unset = fieldsToUnset;
     }
 
     // Si hay datos que acumular en las listas del historial

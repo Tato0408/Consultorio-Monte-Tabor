@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, ChevronDown, Clock, Stethoscope, CalendarDays, Timer, Wallet, CreditCard, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getProcedures, getSchedulableDoctors, bookAppointment } from "@/services/appointmentsService";
+import { getProcedures, getSchedulableDoctors, bookAppointment, rescheduleAppointment } from "@/services/appointmentsService";
 import { showError, showSuccess } from "@/lib/alerts";
 import NotificationsMenu from "@/components/NotificationsMenu";
 import StepIndicator from "../components/StepIndicator";
@@ -164,6 +164,11 @@ const NewAppointment = () => {
   const [submitting, setSubmitting] = useState(false);
   const [confirmada, setConfirmada] = useState(null);
   const [metodoPago, setMetodoPago] = useState("reception");
+  // Cuando llega desde "Reagendar" en Mis citas (cita "por reagendar" o "pending"): guarda
+  // el _id de la cita a reusar. En este modo el tipo de atención no se puede cambiar (paso 1
+  // bloqueado), no se vuelve a cobrar (el anticipo ya pagado viaja con el mismo registro) y
+  // al confirmar se llama a rescheduleAppointment en vez de bookAppointment.
+  const [rescheduleId, setRescheduleId] = useState(null);
   // Motivo de consulta: opcional, el backend lo acepta y lo guarda (ver
   // patientPortalController.bookAppointment) pero este asistente nunca lo pedía —
   // a diferencia de la app móvil, un doctor nunca veía por qué el paciente agendó.
@@ -181,8 +186,13 @@ const NewAppointment = () => {
   // atención, doctor y motivo de la cita cancelada, y salta directo al paso de fecha y
   // hora para que el paciente no tenga que volver a llenar todo desde cero.
   useEffect(() => {
-    const prefill = location.state?.prefill;
+    // "reschedule" (reagendar una cita existente reusando su registro) y "prefill"
+    // (cancelar + agendar de nuevo) comparten los mismos campos para precargar el
+    // asistente; solo cambia que "reschedule" además fija rescheduleId.
+    const reschedule = location.state?.reschedule;
+    const prefill = reschedule || location.state?.prefill;
     if (!prefill) return;
+    if (reschedule?.appointmentId) setRescheduleId(reschedule.appointmentId);
     setMotivo(prefill.motivo || "");
     // Una cita histórica sin procedure_id (de antes de que la Consulta Médica General
     // fuera un procedimiento real) no trae con qué precargar el paso 1: se deja en el
@@ -271,7 +281,9 @@ const NewAppointment = () => {
 
   const elegirSlot = (valor) => setSlot(valor);
 
-  const goBack = () => setStep((s) => Math.max(1, s - 1));
+  // En modo reagendar el paso 1 (tipo de atención) queda bloqueado: el tipo lo define la
+  // cita original y el backend lo ignora si se manda otro.
+  const goBack = () => setStep((s) => Math.max(rescheduleId ? 2 : 1, s - 1));
 
   const puedeContinuar =
     (step === 1 && !!tipo) ||
@@ -299,6 +311,21 @@ const NewAppointment = () => {
     setSubmitting(true);
     try {
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+      // Modo reagendar: se reusa el mismo registro (conserva anticipo y total), nunca se
+      // vuelve a cobrar y no pasa por la página de pago.
+      if (rescheduleId) {
+        const { appointment } = await rescheduleAppointment(rescheduleId, {
+          doctor_id: requiresDoctorForProcedure ? doctor?._id : undefined,
+          nurse_id: requiresDoctorForProcedure ? undefined : nurse?._id,
+          date: dateStr,
+          start_time: slot.start_time,
+        });
+        setConfirmada(appointment);
+        showSuccess("¡Cita reagendada! Queda pendiente de que un profesional la acepte.");
+        return;
+      }
+
       const res = await bookAppointment({
         // undefined en modo rápido (o cuando no se eligió proveedor puntual): el
         // backend crea la cita sin asignar y notifica a todos los doctores activos (o
@@ -343,7 +370,7 @@ const NewAppointment = () => {
             <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-7 h-7 text-emerald-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Solicitud enviada</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{rescheduleId ? "Cita reagendada" : "Solicitud enviada"}</h1>
             <p className="text-gray-500 text-sm mt-1">
               {confirmada.doctor_id
                 ? "Tu cita queda pendiente de que el doctor la acepte. Te avisaremos cuando lo haga."
@@ -389,13 +416,13 @@ const NewAppointment = () => {
 
   // ── Wizard ──
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <header className="bg-white border-b border-gray-100 px-6 py-4 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <button onClick={() => navigate("/dashboard")} className="text-gray-400 hover:text-gray-600 text-sm flex items-center gap-1">
             <ChevronLeft className="w-4 h-4" /> Cancelar
           </button>
-          <span className="font-bold text-gray-800">Agendar cita</span>
+          <span className="font-bold text-gray-800">{rescheduleId ? "Reagendar cita" : "Agendar cita"}</span>
 
           {/* "relative" en este contenedor conjunto (no en cada botón por separado) es lo
               que evita que el dropdown de notificaciones se desborde por la izquierda en
@@ -413,6 +440,10 @@ const NewAppointment = () => {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                 <div className="absolute right-0 top-11 w-44 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-50">
+                  <Link to="/profile" className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <User className="w-4 h-4 text-gray-400" /> Mi perfil
+                  </Link>
+                  <hr className="my-1 border-gray-100" />
                   <button onClick={handleLogout} className="w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors text-left">
                     Cerrar sesión
                   </button>
@@ -435,7 +466,7 @@ const NewAppointment = () => {
             {/* Mismo ancho/alineación horizontal que tenía abajo (max-w-xl centrado en el
                 último paso, ancho completo del contenedor en el resto), solo que ahora arriba
                 del recuadro blanco en vez de debajo, junto al botón Continuar/Confirmar. */}
-            {step > 1 && (
+            {step > (rescheduleId ? 2 : 1) && (
               <div className={`mb-4 ${step === totalSteps ? "max-w-xl mx-auto" : ""}`}>
                 <button onClick={goBack} disabled={submitting} className="px-5 py-2.5 rounded-xl text-gray-500 hover:bg-gray-50 text-sm font-medium">
                   ← Atrás
@@ -446,28 +477,34 @@ const NewAppointment = () => {
             {step === totalSteps ? (
               <div className="max-w-xl mx-auto">
                 <div className="text-center mb-6">
-                  <h2 className="text-lg font-bold text-gray-900">¡Todo listo!</h2>
-                  <p className="text-sm text-gray-500">Revisa los detalles y confirma tu cita.</p>
+                  <h2 className="text-lg font-bold text-gray-900">{rescheduleId ? "Confirma el nuevo horario" : "¡Todo listo!"}</h2>
+                  <p className="text-sm text-gray-500">
+                    {rescheduleId
+                      ? "Revisa la nueva fecha y hora. Un profesional debe aceptar la cita para confirmarla."
+                      : "Revisa los detalles y confirma tu cita."}
+                  </p>
                 </div>
 
-                <div className="grid sm:grid-cols-2 gap-3 mb-6">
-                  {METODOS_PAGO.map(({ key, icon: Icon, title, description }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setMetodoPago(key)}
-                      className={`text-left p-4 rounded-2xl border-2 transition-all ${
-                        metodoPago === key ? "border-[#3B6FCA] bg-[#3B6FCA]/5" : "border-gray-100 hover:border-[#3B6FCA]/40"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Icon className="w-4 h-4 text-[#3B6FCA]" />
-                        <span className="font-semibold text-sm text-gray-800">{title}</span>
-                      </div>
-                      <p className="text-xs text-gray-500">{description}</p>
-                    </button>
-                  ))}
-                </div>
+                {!rescheduleId && (
+                  <div className="grid sm:grid-cols-2 gap-3 mb-6">
+                    {METODOS_PAGO.map(({ key, icon: Icon, title, description }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setMetodoPago(key)}
+                        className={`text-left p-4 rounded-2xl border-2 transition-all ${
+                          metodoPago === key ? "border-[#3B6FCA] bg-[#3B6FCA]/5" : "border-gray-100 hover:border-[#3B6FCA]/40"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Icon className="w-4 h-4 text-[#3B6FCA]" />
+                          <span className="font-semibold text-sm text-gray-800">{title}</span>
+                        </div>
+                        <p className="text-xs text-gray-500">{description}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <TicketCita
                   doctor={doctor}
@@ -480,34 +517,41 @@ const NewAppointment = () => {
                   endTime={slot.end_time}
                   total={total}
                   instructions={indicaciones}
-                  pagoOnline={metodoPago === "online"}
+                  pagoOnline={!rescheduleId && metodoPago === "online"}
                   deposit={deposito}
                 />
 
-                <div className="mt-4">
-                  <label htmlFor="motivo" className="text-sm font-semibold text-gray-800">
-                    Motivo de la consulta <span className="text-gray-400 font-normal">(opcional)</span>
-                  </label>
-                  <textarea
-                    id="motivo"
-                    value={motivo}
-                    onChange={(e) => { setMotivo(e.target.value); if (motivoError) setMotivoError(""); }}
-                    maxLength={500}
-                    rows={3}
-                    placeholder="Cuéntanos brevemente el motivo de tu consulta, para que el doctor llegue mejor preparado."
-                    className={`w-full mt-2 px-3 py-2.5 text-sm rounded-xl border resize-none focus:outline-none transition-colors ${
-                      motivoError
-                        ? "border-red-400 bg-red-50/30 focus:border-red-500"
-                        : "border-gray-200 bg-gray-50 focus:border-[#3B6FCA] focus:bg-white"
-                    }`}
-                  />
-                  <div className="flex justify-between items-start mt-1">
-                    {motivoError ? (
-                      <span className="text-xs text-red-500 font-medium">{motivoError}</span>
-                    ) : <span />}
-                    <span className="text-[11px] text-gray-400 ml-auto">{motivo.length}/500</span>
+                {rescheduleId ? (
+                  <p className="text-xs text-gray-500 bg-gray-50 rounded-xl p-3 mt-4">
+                    Si ya pagaste un anticipo para esta cita, se mantiene: al reagendar no se
+                    genera un nuevo cobro.
+                  </p>
+                ) : (
+                  <div className="mt-4">
+                    <label htmlFor="motivo" className="text-sm font-semibold text-gray-800">
+                      Motivo de la consulta <span className="text-gray-400 font-normal">(opcional)</span>
+                    </label>
+                    <textarea
+                      id="motivo"
+                      value={motivo}
+                      onChange={(e) => { setMotivo(e.target.value); if (motivoError) setMotivoError(""); }}
+                      maxLength={500}
+                      rows={3}
+                      placeholder="Cuéntanos brevemente el motivo de tu consulta, para que el doctor llegue mejor preparado."
+                      className={`w-full mt-2 px-3 py-2.5 text-sm rounded-xl border resize-none focus:outline-none transition-colors ${
+                        motivoError
+                          ? "border-red-400 bg-red-50/30 focus:border-red-500"
+                          : "border-gray-200 bg-gray-50 focus:border-[#3B6FCA] focus:bg-white"
+                      }`}
+                    />
+                    <div className="flex justify-between items-start mt-1">
+                      {motivoError ? (
+                        <span className="text-xs text-red-500 font-medium">{motivoError}</span>
+                      ) : <span />}
+                      <span className="text-[11px] text-gray-400 ml-auto">{motivo.length}/500</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
@@ -582,7 +626,11 @@ const NewAppointment = () => {
                   className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold disabled:opacity-60 transition-colors"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {metodoPago === "online" ? `Pagar anticipo de $${deposito.toFixed(2)}` : "Confirmar cita"}
+                  {rescheduleId
+                    ? "Reagendar cita"
+                    : metodoPago === "online"
+                      ? `Pagar anticipo de $${deposito.toFixed(2)}`
+                      : "Confirmar cita"}
                 </button>
               )}
             </div>

@@ -165,10 +165,16 @@ const ModeToggle = ({ modo, onChange, requiresDoctor = true }) => (
   </View>
 );
 
-export default function NewAppointmentScreen({ navigation }) {
+export default function NewAppointmentScreen({ navigation, route }) {
+  // Modo reagendar: llega desde "Reagendar cita" (detalle de una cita "pendiente" o "por
+  // reagendar"). Reusa el mismo registro (conserva el anticipo), no se puede cambiar el
+  // servicio y al confirmar llama a PATCH /patient-portal/appointments/:id/reschedule.
+  const reschedule = route?.params?.reschedule || null;
+  const [rescheduleId] = useState(reschedule?.appointmentId || null);
+
   const [step, setStep] = useState(1);
   const [services, setServices] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(reschedule?.procedureId || null);
   // "rapido" (por defecto, sin doctor) o "doctor" (elige doctor antes que fecha/hora)
   const [modo, setModo] = useState("rapido");
   const [date, setDate] = useState(toDateKey(new Date()));
@@ -219,7 +225,13 @@ export default function NewAppointmentScreen({ navigation }) {
 
   useEffect(() => {
     apiClient("/appointments/patient/procedures")
-      .then((response) => setServices(response.data || []))
+      .then((response) => {
+        setServices(response.data || []);
+        // Reagendar: el servicio ya viene fijado por la cita original, se salta directo
+        // al paso de fecha y hora (en modo "rápido": lo acepta cualquier profesional
+        // disponible, mismo criterio que agendar sin elegir doctor).
+        if (reschedule?.procedureId) setStep(2);
+      })
       .catch((error) => showError(error.message || "No se pudieron cargar los servicios."))
       .finally(() => setLoading(false));
   }, []);
@@ -369,7 +381,9 @@ export default function NewAppointmentScreen({ navigation }) {
   };
 
   const goBack = () => {
-    if (step === 1) navigation.goBack();
+    // En modo reagendar el paso 1 (servicio) queda bloqueado: lo define la cita original.
+    const minStep = rescheduleId ? 2 : 1;
+    if (step === minStep) navigation.goBack();
     else setStep((current) => current - 1);
   };
 
@@ -377,6 +391,16 @@ export default function NewAppointmentScreen({ navigation }) {
     if (description.trim() && description.trim().length < 3) return showError("El motivo debe tener al menos 3 caracteres.");
     setSaving(true);
     try {
+      if (rescheduleId) {
+        const response = await apiClient(`/patient-portal/appointments/${rescheduleId}/reschedule`, {
+          method: "PATCH",
+          body: { date, start_time: selectedSlot.start_time },
+        });
+        void response;
+        setSuccess(true);
+        return;
+      }
+
       const response = await apiClient("/patient-portal/appointments", {
         method: "POST",
         body: {
@@ -413,9 +437,11 @@ export default function NewAppointmentScreen({ navigation }) {
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.successContent}>
           <View style={styles.successCircle}><Ionicons name="checkmark" size={45} color="#FFF" /></View>
-          <Text style={styles.successTitle}>¡Cita solicitada con éxito!</Text>
+          <Text style={styles.successTitle}>{rescheduleId ? "¡Cita reagendada!" : "¡Cita solicitada con éxito!"}</Text>
           <Text style={styles.successText}>
-            {selectedDoctor
+            {rescheduleId
+              ? "Tu cita quedó de nuevo pendiente. Un profesional debe aceptarla y verás cualquier cambio en Consultas."
+              : selectedDoctor
               ? "Tu solicitud quedó pendiente de que el doctor la acepte. Verás cualquier cambio en Consultas."
               : selectedNurse
                 ? "Tu solicitud quedó pendiente de que la enfermera la acepte. Verás cualquier cambio en Consultas."
@@ -424,7 +450,7 @@ export default function NewAppointmentScreen({ navigation }) {
                   : "Tu solicitud quedó pendiente. Cualquier enfermera disponible podrá aceptarla y verás cualquier cambio en Consultas."}
           </Text>
           <View style={styles.summaryCard}>
-            <SummaryRow icon="medkit-outline" label="Servicio" value={selectedService.name} />
+            <SummaryRow icon="medkit-outline" label="Servicio" value={selectedService?.name || "Consulta"} />
             {selectedDoctor && <SummaryRow icon="person-outline" label="Doctor" value={`Dr. ${selectedDoctor.name} ${selectedDoctor.last_name}`} />}
             {selectedNurse && <SummaryRow icon="person-outline" label="Enfermera" value={`${selectedNurse.name} ${selectedNurse.last_name}`} />}
             <SummaryRow icon="calendar-outline" label="Fecha" value={longDate(date)} />
@@ -462,7 +488,7 @@ export default function NewAppointmentScreen({ navigation }) {
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.headerButton}><Ionicons name="arrow-back" size={22} color="#111827" /></TouchableOpacity>
-        <Text style={styles.headerTitle}>Agendar cita</Text>
+        <Text style={styles.headerTitle}>{rescheduleId ? "Reagendar cita" : "Agendar cita"}</Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}><Ionicons name="close" size={23} color="#111827" /></TouchableOpacity>
       </View>
       <Stepper step={step} modo={modo} requiresDoctor={requiresDoctorForService} />
@@ -579,20 +605,29 @@ export default function NewAppointmentScreen({ navigation }) {
 
         {step === totalSteps ? (
           <>
-            <Text style={styles.title}>Confirma los detalles de tu cita</Text>
-            <Text style={styles.subtitle}>Revisa que la información sea correcta</Text>
+            <Text style={styles.title}>{rescheduleId ? "Confirma el nuevo horario" : "Confirma los detalles de tu cita"}</Text>
+            <Text style={styles.subtitle}>
+              {rescheduleId ? "Un profesional debe aceptar la cita para confirmarla" : "Revisa que la información sea correcta"}
+            </Text>
             <View style={styles.summaryCard}>
-              <SummaryRow icon="medkit-outline" label="Servicio" value={selectedService.name} />
+              <SummaryRow icon="medkit-outline" label="Servicio" value={selectedService?.name || "Consulta"} />
               {selectedDoctor && <SummaryRow icon="person-outline" label="Doctor" value={`Dr. ${selectedDoctor.name} ${selectedDoctor.last_name}`} />}
               {selectedNurse && <SummaryRow icon="person-outline" label="Enfermera" value={`${selectedNurse.name} ${selectedNurse.last_name}`} />}
               <SummaryRow icon="calendar-outline" label="Fecha" value={longDate(date)} />
               <SummaryRow icon="time-outline" label="Hora" value={`${selectedSlot.start_time} – ${selectedSlot.end_time}`} />
-              <SummaryRow icon="cash-outline" label="Costo" value={money(selectedService.price)} />
+              <SummaryRow icon="cash-outline" label="Costo" value={money(selectedService?.price)} />
               <SummaryRow icon="hourglass-outline" label="Estado inicial" value="Pendiente de asignación" />
             </View>
 
-            <Text style={[styles.panelTitle, styles.timeTitle]}>Método de pago</Text>
-            {PAYMENT_METHODS.map((method) => (
+            {rescheduleId ? (
+              <Text style={styles.rescheduleNote}>
+                Si ya pagaste un anticipo para esta cita, se mantiene: al reagendar no se
+                genera un nuevo cobro.
+              </Text>
+            ) : null}
+
+            {!rescheduleId ? <Text style={[styles.panelTitle, styles.timeTitle]}>Método de pago</Text> : null}
+            {!rescheduleId && PAYMENT_METHODS.map((method) => (
               <TouchableOpacity key={method.key} style={[styles.paymentCard, metodoPago === method.key && styles.paymentCardSelected]} onPress={() => setMetodoPago(method.key)}>
                 <View style={styles.paymentIcon}><Ionicons name={method.icon} size={18} color="#5368D9" /></View>
                 <View style={{ flex: 1 }}>
@@ -603,25 +638,29 @@ export default function NewAppointmentScreen({ navigation }) {
               </TouchableOpacity>
             ))}
 
-            <Text style={styles.inputLabel}>Motivo de la consulta <Text style={styles.optional}>(opcional)</Text></Text>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Cuéntanos brevemente el motivo de tu consulta"
-              placeholderTextColor="#94A3B8"
-              multiline
-              maxLength={500}
-              style={styles.textarea}
-              textAlignVertical="top"
-            />
-            <Text style={styles.characterCount}>{description.length}/500</Text>
+            {!rescheduleId ? (
+              <>
+                <Text style={styles.inputLabel}>Motivo de la consulta <Text style={styles.optional}>(opcional)</Text></Text>
+                <TextInput
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="Cuéntanos brevemente el motivo de tu consulta"
+                  placeholderTextColor="#94A3B8"
+                  multiline
+                  maxLength={500}
+                  style={styles.textarea}
+                  textAlignVertical="top"
+                />
+                <Text style={styles.characterCount}>{description.length}/500</Text>
+              </>
+            ) : null}
           </>
         ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity disabled={saving} style={[styles.primaryButton, (!puedeContinuar || saving) && styles.buttonDisabled]} onPress={step === totalSteps ? save : next}>
-          {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryButtonText}>{step === totalSteps ? (metodoPago === "online" ? "Pagar anticipo" : "Confirmar cita") : "Continuar"}</Text>}
+          {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryButtonText}>{step === totalSteps ? (rescheduleId ? "Reagendar cita" : metodoPago === "online" ? "Pagar anticipo" : "Confirmar cita") : "Continuar"}</Text>}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

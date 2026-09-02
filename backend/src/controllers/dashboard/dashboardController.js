@@ -20,46 +20,51 @@ dashboardController.getStats = async (req, res) => {
         const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
         lastDayLastMonth.setHours(23, 59, 59, 999);
 
-        // El ingreso real corresponde a los anticipos efectivamente
-        // cobrados y confirmados vía Wompi desde el portal público del
-        // paciente (deposit_paid solo queda en true tras una
-        // confirmación aprobada, ver confirmAppointmentPayment). No
-        // incluye pagos hechos en recepción (no dejan rastro digital de
-        // cobro) ni intentos de pago que quedaron sin confirmarse.
-        const paidOnlineMatch = { deposit_paid: true };
+        // El ingreso de la clínica tiene dos fuentes:
+        //  1) Anticipos cobrados y confirmados vía Wompi desde el portal del paciente
+        //     (deposit_paid solo queda en true tras una confirmación aprobada). Solo se
+        //     cuentan los de citas que AÚN NO se finalizaron, para no doblar con (2).
+        //  2) El costo total de cada consulta ya finalizada (cita en estado "completed"):
+        //     el servicio se prestó y se cobró (en recepción o donde sea), y appointment.total
+        //     ya incluye el anticipo si lo hubo.
+        const depositMatch = { deposit_paid: true, status: { $ne: "completed" } };
+        const completedMatch = { status: "completed" };
+
+        // Suma las dos fuentes para un rango de fecha opcional. Devuelve la promesa de un número.
+        const revenueForRange = async (range) => {
+            const withRange = (m) => (range ? { ...m, date: range } : m);
+            const [deposits, completed] = await Promise.all([
+                appointmentsModel.aggregate([
+                    { $match: withRange(depositMatch) },
+                    { $group: { _id: null, total: { $sum: "$deposit_amount" } } },
+                ]),
+                appointmentsModel.aggregate([
+                    { $match: withRange(completedMatch) },
+                    { $group: { _id: null, total: { $sum: "$total" } } },
+                ]),
+            ]);
+            return (deposits[0]?.total || 0) + (completed[0]?.total || 0);
+        };
 
         const [
-            revenueAgg,
-            lastMonthRevenueAgg,
-            thisMonthRevenueAgg,
+            totalRevenue,
+            lastMonthRevenue,
+            thisMonthRevenue,
             activeDoctors,
             appointmentsToday,
             appointmentsYesterday,
             totalPatients,
             lastMonthPatients,
         ] = await Promise.all([
-            appointmentsModel.aggregate([
-                { $match: paidOnlineMatch },
-                { $group: { _id: null, total: { $sum: "$deposit_amount" } } },
-            ]),
-            appointmentsModel.aggregate([
-                { $match: { ...paidOnlineMatch, date: { $gte: firstDayLastMonth, $lte: lastDayLastMonth } } },
-                { $group: { _id: null, total: { $sum: "$deposit_amount" } } },
-            ]),
-            appointmentsModel.aggregate([
-                { $match: { ...paidOnlineMatch, date: { $gte: firstDayThisMonth } } },
-                { $group: { _id: null, total: { $sum: "$deposit_amount" } } },
-            ]),
+            revenueForRange(null),
+            revenueForRange({ $gte: firstDayLastMonth, $lte: lastDayLastMonth }),
+            revenueForRange({ $gte: firstDayThisMonth }),
             doctorsModel.countDocuments({ is_active: true }),
             appointmentsModel.countDocuments({ date: { $gte: today, $lt: tomorrow } }),
             appointmentsModel.countDocuments({ date: { $gte: yesterday, $lt: today } }),
             patientsModel.countDocuments(),
             patientsModel.countDocuments({ createdAt: { $lt: firstDayThisMonth } }),
         ]);
-
-        const totalRevenue = revenueAgg[0]?.total || 0;
-        const lastMonthRevenue = lastMonthRevenueAgg[0]?.total || 0;
-        const thisMonthRevenue = thisMonthRevenueAgg[0]?.total || 0;
         const revenueGrowth = lastMonthRevenue > 0
             ? (((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100).toFixed(1)
             : 0;

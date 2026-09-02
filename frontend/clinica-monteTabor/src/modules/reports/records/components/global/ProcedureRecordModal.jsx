@@ -4,6 +4,8 @@ import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
 import useProcedures from "@/modules/procedures/hooks/useProcedures";
 import { useDoctors } from "@/modules/doctors/hooks/useDoctors";
+import DataCombobox from "@/components/ui/DataCombobox";
+import { doctorLabel } from "@/modules/schedule/appointments/lib/personLabels";
 
 const EMPTY = { procedure_id: "", doctor_id: "", date: "", diagnosis: "", result: "", follow_up_date: "" };
 
@@ -110,24 +112,22 @@ const ProcedureRecordModal = ({ isOpen, onClose, patientId, onSaved }) => {
         <fieldset disabled={loading} className="contents">
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-500">Procedimiento *</label>
-                <select value={form.procedure_id} onChange={(e) => set("procedure_id", e.target.value)} className={inputClass(false)}>
-                  <option value="">{loadingProcedures ? "Cargando..." : "Selecciona"}</option>
-                  {procedures.map((p) => (
-                    <option key={p._id} value={p._id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-500">Doctor</label>
-                <select value={form.doctor_id} onChange={(e) => set("doctor_id", e.target.value)} className={inputClass(false)}>
-                  <option value="">{loadingDoctors ? "Cargando..." : "Selecciona"}</option>
-                  {doctors.map((d) => (
-                    <option key={d._id} value={d._id}>{d.name} {d.last_name}</option>
-                  ))}
-                </select>
-              </div>
+              <DataCombobox
+                label="Procedimiento *"
+                value={form.procedure_id}
+                onChange={(v) => set("procedure_id", v)}
+                options={procedures.map((p) => ({ value: p._id, label: p.name }))}
+                placeholder={loadingProcedures ? "Cargando..." : "Selecciona"}
+                labelClassName="text-xs font-semibold text-slate-500"
+              />
+              <DataCombobox
+                label="Doctor"
+                value={form.doctor_id}
+                onChange={(v) => set("doctor_id", v)}
+                options={doctors.map((d) => ({ value: d._id, label: doctorLabel(d) }))}
+                placeholder={loadingDoctors ? "Cargando..." : "Selecciona"}
+                labelClassName="text-xs font-semibold text-slate-500"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">

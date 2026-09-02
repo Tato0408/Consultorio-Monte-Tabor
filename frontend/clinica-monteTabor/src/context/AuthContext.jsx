@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "react-hot-toast";
-import apiClient from "../lib/apiClient";
+import apiClient, { WS_URL } from "../lib/apiClient";
 
 // Declaración del contexto de autenticación.
 const AuthContext = createContext();
@@ -90,6 +90,60 @@ export const AuthProvider = ({ children }) => {
 
         initSystem();
     }, [checkSession, checkAdminExistence]);
+
+    // Guarda el userType actual para el manejador del WebSocket sin obligar
+    // a reabrir la conexión cada vez que cambia.
+    const userTypeRef = useRef(userType);
+    useEffect(() => {
+        userTypeRef.current = userType;
+    }, [userType]);
+
+    // WebSocket de tiempo real: cuando un admin cambia los permisos de un
+    // rol, el backend avisa por acá a quien tenga ese rol con sesión
+    // abierta. Antes ese cambio solo se veía tras recargar a mano o al
+    // toparse con un 403, porque el frontend guarda la matriz de permisos
+    // en memoria y no la volvía a pedir.
+    useEffect(() => {
+        if (!isLoggedIn) return;
+
+        let socket = null;
+        let reconnectTimer = null;
+        let cerradoPorNosotros = false;
+
+        const conectar = () => {
+            socket = new WebSocket(WS_URL);
+
+            socket.onmessage = (event) => {
+                let data;
+                try {
+                    data = JSON.parse(event.data);
+                } catch {
+                    return;
+                }
+                if (data.type === "role-updated" && data.roleKey === userTypeRef.current) {
+                    window.location.reload();
+                }
+            };
+
+            socket.onclose = () => {
+                if (cerradoPorNosotros) return;
+                // Render corta conexiones ociosas: se reintenta con espera.
+                reconnectTimer = setTimeout(conectar, 3000);
+            };
+
+            socket.onerror = () => {
+                socket.close();
+            };
+        };
+
+        conectar();
+
+        return () => {
+            cerradoPorNosotros = true;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            if (socket) socket.close();
+        };
+    }, [isLoggedIn]);
 
     // Envía las credenciales al backend para iniciar sesión, guarda el
     // estado si es exitoso y muestra una notificación.

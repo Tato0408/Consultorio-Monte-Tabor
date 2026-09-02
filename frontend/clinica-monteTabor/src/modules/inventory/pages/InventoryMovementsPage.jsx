@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
+import { useAuth } from "@/context/AuthContext";
 import useInsumos from "../hooks/useInsumos";
 
 import MovementsStats from "../components/MovementsStats";
@@ -11,6 +12,11 @@ import ModalManualUsage from "../components/ModalManualUsage";
 import ModalAdjustStock from "../components/ModalAdjustStock";
 
 const InventoryMovementsPage = () => {
+  const { hasPermission } = useAuth();
+  // Entrada de stock y uso manual son "crear"; el ajuste es "editar"
+  // (permiso inventory.movements, ver inventory.js).
+  const canCreateMovement = hasPermission("inventory.movements", "create");
+  const canUpdateMovement = hasPermission("inventory.movements", "update");
   const { getMovements, getStats } = useInsumos();
   const [movements, setMovements] = useState([]);
   const [stats, setStats]         = useState(null);
@@ -168,6 +174,8 @@ const InventoryMovementsPage = () => {
             onStockEntry={() => setModal("stock")}
             onManualUsage={() => setModal("usage")}
             onAdjust={() => setModal("adjust")}
+            canCreateMovement={canCreateMovement}
+            canUpdateMovement={canUpdateMovement}
             defaultOpen={false}
           />
         </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 import useTreatmentsFollowUp from "../hooks/useTreatmentsFollowUp";
 
 import TreatmentsStats from "../components/TreatmentsStats";
@@ -8,6 +9,16 @@ import UpcomingControls from "../components/UpcomingControls";
 import PatientTreatmentPanel from "../components/PatientTreatmentPanel";
 
 const TreatmentsPage = () => {
+  const { hasPermission } = useAuth();
+  // Permiso inventory.treatments. En el panel del paciente:
+  //   crear  -> agregar nota, subir documento
+  //   editar -> actualizar evolución, editar nota, programar control,
+  //             cambiar estado, dar de alta
+  //   eliminar -> borrar evolución, nota o documento
+  const canCreate = hasPermission("inventory.treatments", "create");
+  const canUpdate = hasPermission("inventory.treatments", "update");
+  const canDelete = hasPermission("inventory.treatments", "delete");
+
   const {
     loading,
     error,
@@ -89,6 +100,9 @@ const TreatmentsPage = () => {
           <div className="lg:sticky lg:top-6">
             <PatientTreatmentPanel
               patient={selectedPatient}
+              canCreate={canCreate}
+              canUpdate={canUpdate}
+              canDelete={canDelete}
               onClose={() => setSelectedPatientId(null)}
               onUpdateEvolution={(result) => updateEvolution(selectedPatient.id, result)}
               onDeleteEvolution={() => deleteEvolution(selectedPatient.id)}

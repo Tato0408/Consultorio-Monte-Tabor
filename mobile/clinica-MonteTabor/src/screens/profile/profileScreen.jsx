@@ -141,18 +141,6 @@ const ProfileScreen = ({ navigation }) => {
       onPress: () => navigation.navigate("ChangePassword"),
     },
     {
-      icon: "notifications-outline",
-      label: "Configuración de notificaciones",
-      chevron: true,
-      onPress: () => navigation.navigate("NotificationSettings"),
-    },
-    {
-      icon: "shield-checkmark-outline",
-      label: "Privacidad y datos",
-      chevron: true,
-      onPress: () => navigation.navigate("PrivacySettings"),
-    },
-    {
       icon: "log-out-outline",
       label: "Cerrar sesión",
       chevron: true,

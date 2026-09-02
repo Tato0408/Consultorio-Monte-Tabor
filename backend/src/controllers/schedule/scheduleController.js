@@ -2,6 +2,7 @@ import scheduleModel from "../../models/schedule/schedule.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import doctorModel from "../../models/doctors/doctors.js";
 import proceduresModel from "../../models/procedures/procedures.js";
+import { OCCUPYING_STATUSES } from "../../utils/appointmentStatus.js";
 // Import circular con nurseScheduleController.js (que a su vez importa toMins/minsToStr/
 // tileFreeSlots de este archivo): seguro porque ambos lados solo usan el import dentro del
 // cuerpo de una función async, nunca en tiempo de evaluación del módulo.
@@ -146,7 +147,7 @@ export const isSlotFreeForDoctor = async (doctorId, date, start_time, end_time, 
     const existingAppointments = await appointmentsModel.find({
         doctor_id: doctorId,
         date: { $gte: dayStart, $lte: dayEnd },
-        status: { $nin: ["cancelled"] },
+        status: { $in: OCCUPYING_STATUSES },
         ...(excludeAppointmentId ? { _id: { $ne: excludeAppointmentId } } : {}),
     }).select({ start_time: 1, end_time: 1 });
 
@@ -308,7 +309,7 @@ scheduleController.getPatientAvailableSlots = async (req, res) => {
         const allAppointments = await appointmentsModel.find({
             doctor_id: { $in: relevantSchedules.map((s) => s.doctor_id) },
             date: { $gte: dayStart, $lte: dayEnd },
-            status: { $nin: ["cancelled"] },
+            status: { $in: OCCUPYING_STATUSES },
         }).select({ doctor_id: 1, start_time: 1, end_time: 1 }).lean();
 
         const appointmentsByDoctor = new Map();
@@ -394,7 +395,7 @@ scheduleController.getPatientDoctorsForSlot = async (req, res) => {
 
         const doctors = await doctorModel
             .find({ _id: { $in: matchingDoctorIds }, is_active: true })
-            .select("name last_name img_url");
+            .select("name last_name img_url license_number");
 
         return res.status(200).json({ doctors });
     } catch (error) {
@@ -463,7 +464,7 @@ scheduleController.getAvailableSlots = async (req, res) => {
         const existingAppointments = await appointmentsModel.find({
             doctor_id: doctorId,
             date: { $gte: dayStart, $lte: dayEnd },
-            status: { $nin: ["cancelled"] },
+            status: { $in: OCCUPYING_STATUSES },
         }).select({ start_time: 1, end_time: 1 });
 
         const bookedRanges = existingAppointments

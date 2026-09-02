@@ -60,6 +60,16 @@ export const cancelAppointment = (id, reason) =>
     body: reason ? { cancellation_reason: reason } : undefined,
   });
 
+// Reagenda una cita propia que quedó "por reagendar" (needs_reschedule/expired) o una
+// "pending" que el paciente quiere mover: reusa el mismo registro (conserva el anticipo
+// ya pagado) y la deja de nuevo "pending" a la espera de que un doctor la acepte.
+// doctor_id / nurse_id son opcionales: sin ellos la cita queda sin asignar.
+export const rescheduleAppointment = (id, { date, start_time, doctor_id, nurse_id }) =>
+  apiClient(`/patient-portal/appointments/${id}/reschedule`, {
+    method: "PATCH",
+    body: { date, start_time, doctor_id, nurse_id },
+  });
+
 // Confirma (contra la propia API de Wompi, del lado del servidor) que la transacción ya cobrada
 // realmente fue aprobada, y recién ahí pasa la cita de "pending" a "scheduled"
 export const confirmPayment = (appointmentId, transactionId) =>

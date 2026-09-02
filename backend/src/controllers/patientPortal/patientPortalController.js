@@ -12,7 +12,9 @@ import notificationModel from "../../models/notifications/notification.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import { isNurseAvailable, isSlotFreeForNurse } from "../../controllers/schedule/nurseScheduleController.js";
 import { isSlotFreeForDoctor } from "../../controllers/schedule/scheduleController.js";
+import { runAppointmentAutoTransitions } from "../../controllers/appointments/appointmentsController.js";
 import { getTransactionStatus } from "../../utils/wompi.js";
+import { RESCHEDULABLE_STATUSES } from "../../utils/appointmentStatus.js";
 
 const patientPortalController = {};
 
@@ -211,6 +213,72 @@ patientPortalController.getProcedures = async (req, res) => {
     }
 };
 
+// Notifica "cita por aceptar" al proveedor elegido, o a todos los que podrían aceptarla si
+// el paciente no eligió uno. Compartido por bookAppointment y rescheduleMyAppointment, para
+// que una cita reagendada llegue a "Por aceptar" igual que una nueva. Nunca lanza.
+async function notifyPendingRequestToProviders({
+    appointmentId, patientId, procedureName, dateStr, dayStart,
+    start_time, end_time, requiresDoctor, sinProveedorElegido, doctor_id, nurse_id,
+}) {
+    try {
+        const patient = await patientsModel.findById(patientId).select("name last_name");
+        const patientName = patient ? `${patient.name} ${patient.last_name || ""}`.trim() : "un paciente";
+        const tipoLabel = procedureName;
+        const fechaFormateada = new Intl.DateTimeFormat("es-SV", {
+            day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
+        }).format(dayStart);
+        const action_url = `/calendar/appointments?view=citas&tab=pending&highlight=${appointmentId}`;
+
+        if (requiresDoctor) {
+            const mensaje = sinProveedorElegido
+                ? `El paciente ${patientName} solicitó una cita de ${tipoLabel} sin doctor asignado para el ${fechaFormateada} en el horario de ${start_time}. Cualquier doctor puede aceptarla.`
+                : `El paciente ${patientName} ha agendado una cita de ${tipoLabel} para el ${fechaFormateada} en el horario de ${start_time}.`;
+            if (sinProveedorElegido) {
+                const doctoresActivos = await doctorsModel.find({ is_active: true }).select("_id");
+                if (doctoresActivos.length > 0) {
+                    await notificationModel.insertMany(doctoresActivos.map((d) => ({
+                        recipient_role: "doctor", recipient_id: d._id,
+                        title: "Nueva solicitud de cita sin asignar", type: "appointment_created",
+                        message: mensaje, appointment_id: appointmentId, action_url,
+                    })));
+                }
+            } else {
+                await notificationModel.create({
+                    recipient_role: "doctor", recipient_id: doctor_id,
+                    title: "Nueva cita por aceptar", type: "appointment_created",
+                    message: mensaje, appointment_id: appointmentId, action_url,
+                });
+            }
+        } else {
+            const mensaje = sinProveedorElegido
+                ? `El paciente ${patientName} solicitó una cita de ${tipoLabel} sin enfermera asignada para el ${fechaFormateada} en el horario de ${start_time}. Cualquier enfermera disponible puede aceptarla.`
+                : `El paciente ${patientName} ha agendado una cita de ${tipoLabel} para el ${fechaFormateada} en el horario de ${start_time}.`;
+            if (sinProveedorElegido) {
+                const activeNurses = await nursesModel.find({ is_active: true }).select("_id");
+                const disponibilidad = await Promise.all(
+                    activeNurses.map((n) => isNurseAvailable(n._id, dateStr, start_time, end_time, appointmentsModel))
+                );
+                const enfermerasDisponibles = activeNurses.filter((_, i) => disponibilidad[i]);
+                if (enfermerasDisponibles.length > 0) {
+                    await notificationModel.insertMany(enfermerasDisponibles.map((n) => ({
+                        recipient_role: "nurse", recipient_id: n._id,
+                        title: "Nueva solicitud de cita sin asignar", type: "appointment_created",
+                        message: mensaje, appointment_id: appointmentId, action_url,
+                    })));
+                }
+            } else {
+                await notificationModel.create({
+                    recipient_role: "nurse", recipient_id: nurse_id,
+                    title: "Nueva cita por aceptar", type: "appointment_created",
+                    message: mensaje, appointment_id: appointmentId, action_url,
+                });
+            }
+        }
+    } catch (notificationError) {
+        console.log("Error notificando cita por aceptar:", notificationError);
+    }
+}
+
 // POST /api/patient-portal/appointments — el paciente logueado agenda su propia cita.
 // El tipo, duración y precio se calculan aquí en el servidor y NUNCA se toman del
 // frontend, para que un paciente no pueda manipular el monto a pagar.
@@ -369,99 +437,19 @@ patientPortalController.bookAppointment = async (req, res) => {
             .populate("nurse_id", "name last_name img_url")
             .populate({ path: "procedure_id", model: "procedure", select: "name" });
 
-        // Notifica al proveedor elegido (o, sin proveedor elegido, a todos los que podrían
-        // aceptarla) que hay una cita nueva por aceptar. Nunca debe tumbar la creación de la
-        // cita si la notificación falla.
-        try {
-            const patient = await patientsModel.findById(req.user.id).select("name last_name");
-            const patientName = patient ? `${patient.name} ${patient.last_name || ""}`.trim() : "un paciente";
-            const tipoLabel = populated.procedure_id?.name || type;
-            const fechaFormateada = new Intl.DateTimeFormat("es-SV", {
-                day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
-            }).format(dayStart);
-
-            if (requiresDoctor) {
-                const mensaje = sinProveedorElegido
-                    ? `El paciente ${patientName} solicitó una cita de ${tipoLabel} sin doctor asignado para el ${fechaFormateada} en el horario de ${start_time}. Cualquier doctor puede aceptarla.`
-                    : `El paciente ${patientName} ha agendado una cita de ${tipoLabel} para el ${fechaFormateada} en el horario de ${start_time}.`;
-
-                if (sinProveedorElegido) {
-                    const doctoresActivos = await doctorsModel.find({ is_active: true }).select("_id");
-                    if (doctoresActivos.length > 0) {
-                        await notificationModel.insertMany(doctoresActivos.map((d) => ({
-                            recipient_role: "doctor",
-                            recipient_id: d._id,
-                            title: "Nueva solicitud de cita sin asignar",
-                            type: "appointment_created",
-                            message: mensaje,
-                            appointment_id: newAppointment._id,
-                            // Sin doctor asignado, ningún doctor en particular "tiene" esta cita
-                            // todavía: manda al listado de Citas, no al formulario de edición de
-                            // esta cita puntual. ?view=citas fuerza la pestaña superior "Citas" de
-                            // esta página (por defecto abre en "Calendario"); adentro,
-                            // AppointmentsGrid ya abre en "Por aceptar" por defecto. tab=pending y
-                            // highlight (aporte del compañero) llevan directo a esa sub pestaña con
-                            // esta tarjeta resaltada.
-                            action_url: `/calendar/appointments?view=citas&tab=pending&highlight=${newAppointment._id}`,
-                        })));
-                    }
-                } else {
-                    await notificationModel.create({
-                        recipient_role: "doctor",
-                        recipient_id: doctor_id,
-                        title: "Nueva cita por aceptar",
-                        type: "appointment_created",
-                        message: mensaje,
-                        appointment_id: newAppointment._id,
-                        // Manda al listado de Citas (pestaña "Por aceptar" por defecto para un
-                        // doctor), no al detalle/edición de esta cita puntual: ahí es donde
-                        // realmente se acepta, con el flujo de aceptación completo (asignar
-                        // enfermera si aplica, etc.), no en la pantalla de editar. ?view=citas
-                        // fuerza la pestaña superior "Citas" (por defecto abre en "Calendario").
-                        action_url: `/calendar/appointments?view=citas&tab=pending&highlight=${newAppointment._id}`,
-                    });
-                }
-            } else {
-                const mensaje = sinProveedorElegido
-                    ? `El paciente ${patientName} solicitó una cita de ${tipoLabel} sin enfermera asignada para el ${fechaFormateada} en el horario de ${start_time}. Cualquier enfermera disponible puede aceptarla.`
-                    : `El paciente ${patientName} ha agendado una cita de ${tipoLabel} para el ${fechaFormateada} en el horario de ${start_time}.`;
-
-                if (sinProveedorElegido) {
-                    // A diferencia de "sin doctor elegido" (que notifica a TODOS los doctores
-                    // activos, estén libres o no a esa hora), aquí solo se notifica a las
-                    // enfermeras que de verdad tienen ese horario habilitado: son las únicas
-                    // que realmente podrían aceptarla.
-                    const activeNurses = await nursesModel.find({ is_active: true }).select("_id");
-                    const disponibilidad = await Promise.all(
-                        activeNurses.map((n) => isNurseAvailable(n._id, date, start_time, end_time, appointmentsModel))
-                    );
-                    const enfermerasDisponibles = activeNurses.filter((_, i) => disponibilidad[i]);
-                    if (enfermerasDisponibles.length > 0) {
-                        await notificationModel.insertMany(enfermerasDisponibles.map((n) => ({
-                            recipient_role: "nurse",
-                            recipient_id: n._id,
-                            title: "Nueva solicitud de cita sin asignar",
-                            type: "appointment_created",
-                            message: mensaje,
-                            appointment_id: newAppointment._id,
-                            action_url: `/calendar/appointments?view=citas&tab=pending&highlight=${newAppointment._id}`,
-                        })));
-                    }
-                } else {
-                    await notificationModel.create({
-                        recipient_role: "nurse",
-                        recipient_id: nurse_id,
-                        title: "Nueva cita por aceptar",
-                        type: "appointment_created",
-                        message: mensaje,
-                        appointment_id: newAppointment._id,
-                        action_url: `/calendar/appointments?view=citas&tab=pending&highlight=${newAppointment._id}`,
-                    });
-                }
-            }
-        } catch (notificationError) {
-            console.log("Error notificando nueva cita:", notificationError);
-        }
+        await notifyPendingRequestToProviders({
+            appointmentId: newAppointment._id,
+            patientId: req.user.id,
+            procedureName: populated.procedure_id?.name || type,
+            dateStr: date,
+            dayStart,
+            start_time,
+            end_time,
+            requiresDoctor,
+            sinProveedorElegido,
+            doctor_id,
+            nurse_id,
+        });
 
         return res.status(201).json({
             message: "Cita agendada correctamente",
@@ -478,6 +466,10 @@ patientPortalController.bookAppointment = async (req, res) => {
 // GET /api/patient-portal/appointments — citas del paciente logueado (solo las propias)
 patientPortalController.getMyAppointments = async (req, res) => {
     try {
+        // Transiciones perezosas al leer: citas pasadas sin realizar -> no_show, y
+        // solicitudes que nadie aceptó a tiempo -> needs_reschedule (con su notificación).
+        await runAppointmentAutoTransitions();
+
         const appointments = await appointmentsModel
             .find({ patient_id: req.user.id })
             .populate("doctor_id", "name last_name img_url")
@@ -521,6 +513,117 @@ patientPortalController.cancelMyAppointment = async (req, res) => {
         await appointment.save();
 
         return res.status(200).json({ message: "Cita cancelada correctamente" });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// PATCH /api/patient-portal/appointments/:id/reschedule — el paciente reagenda una cita
+// propia que quedó "por reagendar" (nadie la aceptó a tiempo o le dieron el cupo a otro),
+// o que sigue "pending" y quiere moverla. Reusa el MISMO registro: conserva id, historial
+// y el anticipo ya pagado, y vuelve a "pending" para que un proveedor la acepte otra vez.
+patientPortalController.rescheduleMyAppointment = async (req, res) => {
+    try {
+        const { date, start_time, doctor_id, nurse_id } = req.body;
+        if (!date || !start_time) {
+            return res.status(400).json({ message: "Debes elegir una nueva fecha y hora." });
+        }
+
+        const appointment = await appointmentsModel.findOne({ _id: req.params.id, patient_id: req.user.id });
+        if (!appointment) {
+            return res.status(404).json({ message: "Cita no encontrada." });
+        }
+        if (![...RESCHEDULABLE_STATUSES, "pending"].includes(appointment.status)) {
+            return res.status(400).json({ message: "Esta cita no se puede reagendar." });
+        }
+
+        const procedure = await procedureModel.findById(appointment.procedure_id)
+            .select("name requires_doctor requires_nurse");
+        if (!procedure) {
+            return res.status(400).json({ message: "El procedimiento de esta cita ya no está disponible." });
+        }
+        const requiresDoctor = procedure.requires_doctor !== false;
+        const requiresNurse = !!procedure.requires_nurse;
+
+        const end_time = addMinutes(start_time, appointment.duration_minutes);
+        const { start: dayStart } = getDayRange(date);
+
+        const [h, m] = start_time.split(":").map(Number);
+        const cuando = new Date(dayStart);
+        cuando.setHours(h, m, 0, 0);
+        if (cuando < new Date()) {
+            return res.status(400).json({ message: "No puedes reagendar la cita para una fecha u hora que ya pasó." });
+        }
+
+        const sinProveedorElegido = requiresDoctor ? !doctor_id : !nurse_id;
+
+        // Un pending (scheduled) de otro no bloquea nada mientras sea solicitud; solo
+        // bloquean scheduled/completed (ver isSlotFreeForDoctor / OCCUPYING_STATUSES).
+        if (requiresDoctor && doctor_id) {
+            const { free, reason } = await isSlotFreeForDoctor(doctor_id, date, start_time, end_time, appointment._id);
+            if (!free) {
+                return res.status(409).json({ message: reason || "Ese horario ya no está disponible. Elige otro." });
+            }
+        } else if (!requiresDoctor && nurse_id) {
+            const { free, reason } = await isSlotFreeForNurse(nurse_id, date, start_time, end_time, appointmentsModel, appointment._id);
+            if (!free) {
+                return res.status(409).json({ message: reason || "Ese horario ya no está disponible. Elige otro." });
+            }
+        }
+        // Si hace falta enfermera (procedimiento sin doctor, o con doctor + apoyo sin elegir
+        // proveedor), tiene que haber al menos una libre en ese horario.
+        if ((!requiresDoctor && !nurse_id) || (requiresDoctor && requiresNurse && !doctor_id)) {
+            const activeNurses = await nursesModel.find({ is_active: true }).select("_id").lean();
+            const disponibles = await Promise.all(
+                activeNurses.map((n) => isNurseAvailable(n._id, date, start_time, end_time, appointmentsModel, appointment._id))
+            );
+            if (!disponibles.some(Boolean)) {
+                return res.status(409).json({ message: "No hay enfermeras disponibles para esa fecha y horario. Elige otra." });
+            }
+        }
+
+        appointment.date = dayStart;
+        appointment.start_time = start_time;
+        appointment.end_time = end_time;
+        appointment.doctor_id = requiresDoctor && doctor_id ? doctor_id : null;
+        appointment.nurse_id = !requiresDoctor && nurse_id ? nurse_id : null;
+        appointment.status = "pending";
+        appointment.reschedule_reason = undefined;
+        appointment.cancellation_reason = undefined;
+        // deposit_amount / deposit_paid / wompi_transaction_id / total NO se tocan: el
+        // anticipo ya pagado sigue en la misma cita reagendada.
+        await appointment.save();
+
+        await notifyPendingRequestToProviders({
+            appointmentId: appointment._id,
+            patientId: req.user.id,
+            procedureName: procedure.name || appointment.type,
+            dateStr: date,
+            dayStart,
+            start_time,
+            end_time,
+            requiresDoctor,
+            sinProveedorElegido,
+            doctor_id,
+            nurse_id,
+        });
+
+        try {
+            await notificationModel.create({
+                recipient_role: "patient",
+                recipient_id: req.user.id,
+                title: "Cita reagendada",
+                type: "appointment_updated",
+                message: "Reagendaste tu cita. Un doctor debe aceptarla para que quede confirmada.",
+                appointment_id: appointment._id,
+                action_url: "/mis-citas",
+            });
+        } catch (e) {
+            console.log("Error notificando reagendamiento al paciente:", e);
+        }
+
+        return res.status(200).json({ message: "Cita reagendada correctamente", appointment });
     } catch (error) {
         console.log("error " + error);
         return res.status(500).json({ message: "Internal server error" });
@@ -617,6 +720,10 @@ patientPortalController.getDashboardSummary = async (req, res) => {
         const hoy = new Date();
         const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
 
+        // Mismas transiciones perezosas que corren al listar las citas: así el aviso de
+        // "citas por reagendar" del dashboard aparece aunque el paciente entre directo aquí.
+        await runAppointmentAutoTransitions();
+
         const [appointments, consultations, sickLeaves] = await Promise.all([
             appointmentsModel
                 .find({ patient_id: patientId })
@@ -632,6 +739,12 @@ patientPortalController.getDashboardSummary = async (req, res) => {
         const nextAppointment = appointments
             .filter((a) => ["pending", "scheduled"].includes(a.status) && new Date(a.date) >= inicioHoy)
             .sort((a, b) => new Date(a.date) - new Date(b.date) || a.start_time.localeCompare(b.start_time))[0] || null;
+
+        // Citas por reagendar: nadie las aceptó a tiempo o le dieron el cupo a otro paciente.
+        // El dashboard muestra un aviso para que el paciente las reagende.
+        const needsReschedule = appointments
+            .filter((a) => a.status === "needs_reschedule" || a.status === "expired")
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
 
         // Línea de tiempo: consultas, recetas e incapacidades reales, ordenadas de más reciente a más antigua
         const eventos = [
@@ -658,6 +771,7 @@ patientPortalController.getDashboardSummary = async (req, res) => {
 
         return res.status(200).json({
             nextAppointment,
+            needsReschedule,
             stats: {
                 consultas: consultations.length,
                 documentos: prescriptions.length + sickLeaves.length + referrals.length,

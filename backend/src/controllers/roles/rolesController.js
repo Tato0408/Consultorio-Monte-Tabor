@@ -2,6 +2,7 @@ import crypto from "crypto";
 import Role from "../../models/role/role.js";
 import RoleChangeLog from "../../models/roleChangeLog/roleChangeLog.js";
 import { refreshRoleCache } from "../../services/roleCache.js";
+import { broadcastRoleUpdate } from "../../services/roleSocket.js";
 
 const VALID_ACTIONS = ["view", "create", "update", "delete"];
 
@@ -170,6 +171,13 @@ export const updateRolePermissions = async (req, res) => {
         }
 
         await refreshRoleCache();
+
+        // Avisa por WebSocket a quien tenga ese rol con sesión abierta para
+        // que recargue y tome los permisos nuevos al instante, sin depender
+        // de que se tope con un 403 y recargue a mano.
+        if (logs.length > 0) {
+            broadcastRoleUpdate(roleKey);
+        }
 
         res.json(role);
     } catch (error) {

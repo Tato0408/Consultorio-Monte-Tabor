@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import DataCombobox from "@/components/ui/DataCombobox";
+import { doctorLabel, nurseLabel } from "../lib/personLabels";
 import { useNavigate, useLocation } from "react-router-dom";
 import useAppointments from "../hooks/useAppointment.js";
 import useAppointmentTypes from "../hooks/useAppointmentTypes";
@@ -131,21 +133,21 @@ export default function AppointmentsGrid() {
     useEffect(() => {
         if (!isDoctor) return;
         updateFilters({
-            status: doctorTab === "pending" ? "pending" : "scheduled,completed,cancelled,no_show,expired",
+            status: doctorTab === "pending" ? "pending" : "scheduled,completed,cancelled,no_show,expired,needs_reschedule",
         });
     }, [isDoctor, doctorTab, updateFilters]);
 
     useEffect(() => {
         if (!isNurse) return;
         updateFilters({
-            status: nurseTab === "pending" ? "pending" : "scheduled,completed,cancelled,no_show,expired",
+            status: nurseTab === "pending" ? "pending" : "scheduled,completed,cancelled,no_show,expired,needs_reschedule",
         });
     }, [isNurse, nurseTab, updateFilters]);
 
     useEffect(() => {
         if (!isAdmin) return;
         updateFilters({
-            status: adminTab === "pending" ? "pending" : "scheduled,completed,cancelled,no_show,expired",
+            status: adminTab === "pending" ? "pending" : "scheduled,completed,cancelled,no_show,expired,needs_reschedule",
         });
     }, [isAdmin, adminTab, updateFilters]);
 
@@ -324,9 +326,10 @@ export default function AppointmentsGrid() {
     // sin datos.
     const hasActiveFilters = Boolean(filters.search || filters.status || filters.appointment_type || filters.doctor_id);
 
-    // Traducción de los status a texto legible. no_show y expired los
-    // asigna el backend solo a una cita pending vencida o no aceptada
-    // a tiempo.
+    // Traducción de los status a texto legible. no_show, expired y
+    // needs_reschedule los asigna el backend solo a una cita pending
+    // vencida o no aceptada a tiempo (needs_reschedule: el paciente aún
+    // puede reagendarla; expired es el estado legado equivalente).
     const statusTranslations = {
         pending: "Pendiente",
         scheduled: "Programada",
@@ -334,6 +337,7 @@ export default function AppointmentsGrid() {
         cancelled: "Cancelada",
         no_show: "No se presentó",
         expired: "Vencida",
+        needs_reschedule: "Por reagendar",
     }
 
     const emptyMessage = isDoctor
@@ -536,6 +540,7 @@ export default function AppointmentsGrid() {
                             <SelectItem value="cancelled">Cancelada</SelectItem>
                             <SelectItem value="no_show">No se presentó</SelectItem>
                             <SelectItem value="expired">Vencida</SelectItem>
+                            <SelectItem value="needs_reschedule">Por reagendar</SelectItem>
                         </SelectContent>
                     </Select>
                 )}
@@ -544,45 +549,36 @@ export default function AppointmentsGrid() {
                     Un doctor o enfermera viendo su propio listado no necesita
                     filtrarse a sí mismo. */}
                 {!isDoctor && !isNurse && (
-                    <Select
+                    <DataCombobox
                         value={filters.doctor_id || "all"}
-                        onValueChange={(value) => updateFilters({ doctor_id: value === "all" ? undefined : value })}
-                    >
-                        <SelectTrigger className="w-full md:w-48 border-slate-200 rounded-xl h-10">
-                            <SelectValue>
-                                {(() => {
-                                    const selected = doctorFilterOptions.find((d) => d._id === filters.doctor_id);
-                                    return selected ? `Dr. ${selected.name} ${selected.last_name}` : "Todos los doctores";
-                                })()}
-                            </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos los doctores</SelectItem>
-                            {doctorFilterOptions.map((d) => (
-                                <SelectItem key={d._id} value={d._id}>Dr. {d.name} {d.last_name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        onChange={(value) => updateFilters({ doctor_id: !value || value === "all" ? undefined : value })}
+                        options={[
+                            { value: "all", label: "Todos los doctores" },
+                            ...doctorFilterOptions.map((d) => ({ value: d._id, label: doctorLabel(d) })),
+                        ]}
+                        placeholder="Todos los doctores"
+                        labelClassName="hidden"
+                        className="w-full md:w-48"
+                        triggerClassName="h-10"
+                    />
                 )}
 
                 {/* Filtro por tipo de cita, el mismo catálogo global que define el
                     admin y que aparece en la leyenda del calendario. Filtra por
                     appointment_type (el campo de catálogo), no por type (que solo
                     distingue Consulta Médica General de Procedimiento). */}
-                <Select
+                <DataCombobox
                     value={filters.appointment_type || "all"}
-                    onValueChange={(value) => updateFilters({ appointment_type: value === "all" ? undefined : value })}
-                >
-                    <SelectTrigger className="w-full md:w-56 border-slate-200 rounded-xl h-10">
-                        <SelectValue>{filters.appointment_type || "Todos los tipos"}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Todos los tipos</SelectItem>
-                        {appointmentTypeOptions.map((t) => (
-                            <SelectItem key={t._id} value={t.name}>{t.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                    onChange={(value) => updateFilters({ appointment_type: !value || value === "all" ? undefined : value })}
+                    options={[
+                        { value: "all", label: "Todos los tipos" },
+                        ...appointmentTypeOptions.map((t) => ({ value: t.name, label: t.name })),
+                    ]}
+                    placeholder="Todos los tipos"
+                    labelClassName="hidden"
+                    className="w-full md:w-56"
+                    triggerClassName="h-10"
+                />
 
                 {/* Alterna el orden por fecha entre ascendente y descendente. */}
                 <Button
@@ -625,7 +621,7 @@ export default function AppointmentsGrid() {
                                                 ? "bg-rose-50 text-rose-600"
                                                 : cita.status === "no_show"
                                                     ? "bg-slate-100 text-slate-500"
-                                                    : cita.status === "expired"
+                                                    : cita.status === "expired" || cita.status === "needs_reschedule"
                                                         ? "bg-orange-50 text-orange-600"
                                                         : cita.status === "scheduled"
                                                             ? "bg-blue-50 text-blue-600"
@@ -900,15 +896,15 @@ export default function AppointmentsGrid() {
                     <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
                         <h2 className="text-lg font-bold text-slate-900">Asignar enfermera</h2>
                         <p className="mt-1 text-sm text-slate-500">Este procedimiento requiere enfermera. Elige quién apoyará la cita antes de aceptarla.</p>
-                        <select
+                        <DataCombobox
                             value={selectedNurseId}
-                            onChange={(event) => setSelectedNurseId(event.target.value)}
+                            onChange={setSelectedNurseId}
+                            options={nurses.map((nurse) => ({ value: nurse._id, label: nurseLabel(nurse) }))}
+                            placeholder={loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}
                             disabled={loadingNurses}
-                            className="mt-5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-                        >
-                            <option value="">{loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}</option>
-                            {nurses.map((nurse) => <option key={nurse._id} value={nurse._id}>{nurse.name} {nurse.last_name}</option>)}
-                        </select>
+                            labelClassName="hidden"
+                            className="mt-5"
+                        />
                         {/* Sin enfermeras disponibles para este horario: en vez de dejar el modal
                             sin ninguna salida más que Cancelar, se puede reagendar (cerrando este
                             modal y editando la cita a otro horario) o continuar igual con
@@ -936,15 +932,15 @@ export default function AppointmentsGrid() {
                     <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
                         <h2 className="text-lg font-bold text-slate-900">Asignar a una enfermera</h2>
                         <p className="mt-1 text-sm text-slate-500">Este procedimiento no requiere doctor. Elige la enfermera que atenderá esta cita. Se le notificará junto con el paciente.</p>
-                        <select
+                        <DataCombobox
                             value={selectedNurseId}
-                            onChange={(event) => setSelectedNurseId(event.target.value)}
+                            onChange={setSelectedNurseId}
+                            options={nurses.map((nurse) => ({ value: nurse._id, label: nurseLabel(nurse) }))}
+                            placeholder={loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}
                             disabled={loadingNurses}
-                            className="mt-5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-                        >
-                            <option value="">{loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}</option>
-                            {nurses.map((nurse) => <option key={nurse._id} value={nurse._id}>{nurse.name} {nurse.last_name}</option>)}
-                        </select>
+                            labelClassName="hidden"
+                            className="mt-5"
+                        />
                         <div className="mt-6 flex justify-end gap-3">
                             <Button variant="outline" onClick={() => setAppointmentToAssign(null)}>Cancelar</Button>
                             <Button
@@ -962,31 +958,30 @@ export default function AppointmentsGrid() {
                     <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
                         <h2 className="text-lg font-bold text-slate-900">Asignar a un doctor</h2>
                         <p className="mt-1 text-sm text-slate-500">Elige el doctor que atenderá esta cita. Se le notificará junto con el paciente.</p>
-                        <select
+                        <DataCombobox
                             value={selectedDoctorId}
-                            onChange={(event) => setSelectedDoctorId(event.target.value)}
+                            onChange={setSelectedDoctorId}
+                            options={doctors.map((doctor) => ({
+                                value: doctor._id,
+                                label: `${doctorLabel(doctor)}${doctor.specialty ? ` — ${doctor.specialty}` : ""}`,
+                            }))}
+                            placeholder={loadingDoctors ? "Cargando doctores…" : "Selecciona un doctor"}
                             disabled={loadingDoctors}
-                            className="mt-5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-                        >
-                            <option value="">{loadingDoctors ? "Cargando doctores…" : "Selecciona un doctor"}</option>
-                            {doctors.map((doctor) => (
-                                <option key={doctor._id} value={doctor._id}>
-                                    Dr. {doctor.name} {doctor.last_name}{doctor.specialty ? ` — ${doctor.specialty}` : ""}
-                                </option>
-                            ))}
-                        </select>
+                            labelClassName="hidden"
+                            className="mt-5"
+                        />
                         {appointmentToAssign.procedure_id?.requires_nurse && (
                             <>
                                 <p className="mt-4 text-sm text-slate-500">Este procedimiento requiere enfermera.</p>
-                                <select
+                                <DataCombobox
                                     value={selectedNurseId}
-                                    onChange={(event) => setSelectedNurseId(event.target.value)}
+                                    onChange={setSelectedNurseId}
+                                    options={nurses.map((nurse) => ({ value: nurse._id, label: nurseLabel(nurse) }))}
+                                    placeholder={loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}
                                     disabled={loadingNurses}
-                                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-                                >
-                                    <option value="">{loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}</option>
-                                    {nurses.map((nurse) => <option key={nurse._id} value={nurse._id}>{nurse.name} {nurse.last_name}</option>)}
-                                </select>
+                                    labelClassName="hidden"
+                                    className="mt-2"
+                                />
                                 {/* Igual que en el modal de aceptación: sin enfermeras disponibles,
                                     se puede reagendar (Cancelar y editar la cita) o continuar
                                     igual con confirmación explícita. */}

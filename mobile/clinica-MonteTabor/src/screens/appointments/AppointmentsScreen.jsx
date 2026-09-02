@@ -16,13 +16,19 @@ import styles from "../../styles/appointments/appointmentsStyle";
 const STATUS = {
   pending: { label: "Pendiente", tone: "amber" }, scheduled: { label: "Programada", tone: "blue" },
   completed: { label: "Completada", tone: "green" }, cancelled: { label: "Cancelada", tone: "red" },
-  no_show: { label: "No asistió", tone: "gray" }, expired: { label: "Vencida", tone: "gray" },
+  no_show: { label: "No asistió", tone: "gray" },
+  needs_reschedule: { label: "Por reagendar", tone: "orange" }, expired: { label: "Por reagendar", tone: "orange" },
 };
+
+// Estados que se listan en la pestaña de citas (las demás viven en el historial de consultas).
+const OPEN_STATUSES = ["pending", "scheduled", "needs_reschedule", "expired"];
+const REAGENDABLES = ["needs_reschedule", "expired"];
 
 const APPOINTMENT_FILTERS = [
   { key: "all", label: "Todas" },
   { key: "pending", label: "Pendientes" },
   { key: "scheduled", label: "Programadas" },
+  { key: "needs_reschedule", label: "Por reagendar" },
 ];
 
 const dateLabel = (value) => new Date(value).toLocaleDateString("es-GT", {
@@ -47,13 +53,25 @@ const AppointmentCard = ({ appointment, onPress }) => {
           <Text style={[styles.requestBadgeText, styles[`requestBadgeText_${status.tone}`]]}>{status.label}</Text>
         </View>
       </View>
-      {appointment.description ? (
+      {REAGENDABLES.includes(appointment.status) ? (
+        <View style={styles.requestReasonRow}>
+          <Text style={[styles.requestReasonLabel, { color: "#C2410C" }]}>Acción requerida</Text>
+          <Text style={styles.requestReason} numberOfLines={2}>
+            {appointment.reschedule_reason === "cupo_asignado"
+              ? "El horario se asignó a otro paciente. Reagenda tu cita."
+              : "Ningún profesional la aceptó a tiempo. Reagenda tu cita."}
+          </Text>
+        </View>
+      ) : appointment.description ? (
         <View style={styles.requestReasonRow}>
           <Text style={styles.requestReasonLabel}>Motivo</Text>
           <Text style={styles.requestReason} numberOfLines={2}>{appointment.description}</Text>
         </View>
       ) : null}
-      <View style={styles.detailHint}><Text style={styles.detailHintText}>Ver detalles</Text><Ionicons name="chevron-forward" size={16} color="#2F6BFF" /></View>
+      <View style={styles.detailHint}>
+        <Text style={styles.detailHintText}>{REAGENDABLES.includes(appointment.status) ? "Reagendar" : "Ver detalles"}</Text>
+        <Ionicons name="chevron-forward" size={16} color="#2F6BFF" />
+      </View>
     </TouchableOpacity>
   );
 };
@@ -92,8 +110,9 @@ export default function AppointmentsScreen({ navigation, route }) {
   const visibleAppointments = useMemo(() => {
     const term = search.trim().toLowerCase();
     return appointments.filter((item) => {
-      if (!["pending", "scheduled"].includes(item.status)) return false;
-      if (appointmentFilter !== "all" && item.status !== appointmentFilter) return false;
+      if (!OPEN_STATUSES.includes(item.status)) return false;
+      if (appointmentFilter === "needs_reschedule" ? !REAGENDABLES.includes(item.status)
+        : appointmentFilter !== "all" && item.status !== appointmentFilter) return false;
       if (!term) return true;
       const doctor = item.doctor_id ? `${item.doctor_id.name} ${item.doctor_id.last_name}` : "";
       return `${item.procedure_id?.name || item.type} ${doctor} ${item.description || ""}`.toLowerCase().includes(term);

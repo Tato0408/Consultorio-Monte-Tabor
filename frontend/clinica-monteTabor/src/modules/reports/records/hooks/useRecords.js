@@ -50,6 +50,8 @@ const getLatestByDate = (items = [], dateField) =>
 // Forma reducida que consume la tabla del listado (RecordsTable)
 const toTableRow = (patient) => {
   const lastProcedure = getLatestByDate(patient?.clinical_history?.procedures, "date");
+  const { sexo, sexoCorto } = getGenderLabels(patient.gender);
+  const edad = getAge(patient.birth_date);
   return {
     id: patient._id,
     nombre: patient.name,
@@ -57,6 +59,14 @@ const toTableRow = (patient) => {
     dui: patient.dui,
     telefono: patient.phone,
     ultimaVisita: lastProcedure?.date ? new Date(lastProcedure.date) : null,
+    // Campos extra que consume el nuevo diseño del listado: avatar por sexo,
+    // edad y estado del paciente. El expediente ya los tiene, solo no se
+    // mostraban en esta tabla.
+    genero: patient.gender || null,
+    sexo,
+    sexoCorto,
+    edad,
+    activo: patient.is_active !== false,
   };
 };
 

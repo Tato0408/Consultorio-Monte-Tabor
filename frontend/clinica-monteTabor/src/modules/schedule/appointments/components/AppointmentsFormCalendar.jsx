@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from "react"
 import { CheckCircle2, X, Edit2, Save, AlertCircle, Clock, Loader2, User, Stethoscope, CalendarDays, DollarSign, Plus } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
+import DataCombobox from "@/components/ui/DataCombobox"
+import { Combobox, ComboboxContent, ComboboxItem, ComboboxTrigger } from "@/components/ui/combobox"
+import { patientLabel, doctorLabel, nurseLabel } from "../lib/personLabels"
 import { es } from "date-fns/locale"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import useAppointments from "../hooks/useAppointments"
@@ -39,23 +42,6 @@ const SectionCard = ({ title, icon: Icon, children }) => (
       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{title}</span>
     </div>
     <div className="p-5">{children}</div>
-  </div>
-);
-
-const SelectField = ({ label, value, onChange, options, placeholder, disabled }) => (
-  <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</label>
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      disabled={disabled}
-      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 bg-white disabled:bg-slate-50 disabled:text-slate-400 transition-all"
-    >
-      <option value="">{placeholder}</option>
-      {options.map(o => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
   </div>
 );
 
@@ -593,11 +579,11 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
 
           <SectionCard title="Participantes" icon={User}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SelectField
+              <DataCombobox
                 label="Paciente"
                 value={formData.patient_id}
                 onChange={v => setFormData(p => ({ ...p, patient_id: v }))}
-                options={patients.map(p => ({ value: p._id, label: `${p.name} ${p.last_name}` }))}
+                options={patients.map(p => ({ value: p._id, label: patientLabel(p) }))}
                 placeholder="Seleccione un paciente"
                 disabled={!isEditing}
               />
@@ -609,17 +595,22 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tipo de procedimiento</label>
                 <div className="flex gap-2">
-                  <select
-                    value={procedure}
-                    onChange={e => setProcedure(e.target.value)}
+                  <Combobox
+                    value={procedure ?? ""}
+                    onValueChange={v => setProcedure(v ?? "")}
                     disabled={!isEditing}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 bg-white disabled:bg-slate-50 disabled:text-slate-400 transition-all"
                   >
-                    <option value="">Seleccione un procedimiento</option>
-                    {procedures.map(proc => (
-                      <option key={proc._id} value={proc._id}>{proc.name}</option>
-                    ))}
-                  </select>
+                    <ComboboxTrigger
+                      size="lg"
+                      placeholder="Seleccione un procedimiento"
+                      className="h-[42px] flex-1 min-w-0 rounded-xl bg-white px-3 border-slate-200 focus-within:border-blue-400 focus-within:ring-blue-100"
+                    />
+                    <ComboboxContent className="max-h-72">
+                      {procedures.map(proc => (
+                        <ComboboxItem key={proc._id} value={proc._id}>{proc.name}</ComboboxItem>
+                      ))}
+                    </ComboboxContent>
+                  </Combobox>
                   <button
                     type="button"
                     disabled={!isEditing}
@@ -637,7 +628,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 )}
               </div>
 
-              <SelectField
+              <DataCombobox
                 label="Tipo de cita"
                 value={appointmentType}
                 onChange={setAppointmentType}
@@ -651,11 +642,11 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 }
                 disabled={!isEditing}
               />
-              <SelectField
+              <DataCombobox
                 label="Doctor asignado"
                 value={formData.doctor_id}
                 onChange={v => setFormData(p => ({ ...p, doctor_id: v }))}
-                options={doctors.map(d => ({ value: d._id, label: `Dr. ${d.name} ${d.last_name}` }))}
+                options={doctors.map(d => ({ value: d._id, label: doctorLabel(d) }))}
                 placeholder={requiresDoctorForProcedure ? "Seleccione un doctor" : "No requerido para este servicio"}
                 disabled={isDoctor || !isEditing || !requiresDoctorForProcedure}
               />
@@ -663,14 +654,14 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                   proveedor principal de la cita (se elige primero, como el doctor en el
                   resto de los casos): sus opciones salen del catálogo completo de
                   enfermeras, no del filtro por horario ya elegido que usa el modo de apoyo. */}
-              <SelectField
+              <DataCombobox
                 label="Enfermera asignada"
                 value={formData.nurse_id}
                 onChange={v => setFormData(p => ({ ...p, nurse_id: v }))}
                 options={
                   requiresDoctorForProcedure
-                    ? availableNurses.map(n => ({ value: n._id, label: `${n.name} ${n.last_name}` }))
-                    : schedulableNurses.map(n => ({ value: n._id, label: `${n.name} ${n.last_name}` }))
+                    ? availableNurses.map(n => ({ value: n._id, label: nurseLabel(n) }))
+                    : schedulableNurses.map(n => ({ value: n._id, label: nurseLabel(n) }))
                 }
                 placeholder={
                   !requiresDoctorForProcedure
@@ -728,6 +719,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                       {selectedPatient.name?.[0]}
                     </div>
                     <span className="text-xs font-medium text-slate-700">{selectedPatient.name} {selectedPatient.last_name}</span>
+                    {selectedPatient.dui && <span className="text-xs text-slate-400">· {selectedPatient.dui}</span>}
                   </div>
                 )}
               </div>

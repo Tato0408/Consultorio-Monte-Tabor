@@ -24,6 +24,11 @@ const appointmentsSchema = new Schema({
     status: { type: String, required: true },
     total: { type: Number, required: true },
     cancellation_reason: { type: String },
+    // Cuando status === "needs_reschedule": por qué quedó así.
+    //   "no_aceptada"    -> ningún proveedor la aceptó antes de su hora de fin.
+    //   "cupo_asignado"  -> el proveedor aceptó a otro paciente para ese horario.
+    // Ver src/utils/appointmentStatus.js.
+    reschedule_reason: { type: String },
     // Id de la transacción de Wompi cuando la cita se paga en línea. El
     // estado queda en pending hasta que se confirma el pago.
     wompi_transaction_id: { type: String },

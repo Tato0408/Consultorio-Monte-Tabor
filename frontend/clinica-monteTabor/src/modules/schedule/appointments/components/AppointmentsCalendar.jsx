@@ -7,6 +7,8 @@ import useSchedule from "../hooks/useSchedule";
 import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import { confirmDelete, confirmNoShow, showError, showSuccess } from "@/lib/alerts";
 import apiClient from "@/lib/apiClient";
+import DataCombobox from "@/components/ui/DataCombobox";
+import { doctorLabel, nurseLabel } from "../lib/personLabels";
 
 
 const HOUR_HEIGHT = 64;
@@ -32,6 +34,7 @@ const STATUS_BADGES = {
     pending:   "bg-amber-100 text-amber-700",
     no_show:   "bg-slate-100 text-slate-500",
     expired:   "bg-orange-100 text-orange-600",
+    needs_reschedule: "bg-orange-100 text-orange-600",
 };
 const STATUS_LABELS = {
     scheduled: "Programada",
@@ -41,6 +44,7 @@ const STATUS_LABELS = {
     pending:   "Pendiente",
     no_show:   "No se presentó",
     expired:   "Vencida",
+    needs_reschedule: "Por reagendar",
 };
 
 
@@ -624,31 +628,30 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
                     {isPendingAction && needsNurseChoice ? (
                         <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 space-y-2.5">
                             {isAdmin && procedureRequiresDoctor && (
-                                <select
+                                <DataCombobox
                                     value={chosenDoctorId}
-                                    onChange={(e) => setChosenDoctorId(e.target.value)}
-                                    className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs outline-none focus:border-emerald-500"
-                                >
-                                    <option value="">Selecciona un doctor</option>
-                                    {doctorOptions.map((d) => (
-                                        <option key={d._id} value={d._id}>Dr. {d.name} {d.last_name}</option>
-                                    ))}
-                                </select>
+                                    onChange={setChosenDoctorId}
+                                    options={doctorOptions.map((d) => ({ value: d._id, label: doctorLabel(d) }))}
+                                    placeholder="Selecciona un doctor"
+                                    labelClassName="hidden"
+                                    size="sm"
+                                    triggerClassName="rounded-lg"
+                                />
                             )}
                             {/* Enfermera de apoyo (procedimiento con doctor que requiere enfermera) o
                                 enfermera como proveedora principal (procedimiento sin doctor, siempre
                                 el admin en este punto, ver handleAssignClick). */}
                             {(procedureRequiresDoctor ? nurseRequired : true) && (
-                                <select
+                                <DataCombobox
                                     value={chosenNurseId}
-                                    onChange={(e) => setChosenNurseId(e.target.value)}
-                                    className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs outline-none focus:border-emerald-500"
-                                >
-                                    <option value="">{nurseOptions.length ? "Selecciona una enfermera" : "Sin enfermeras disponibles en ese horario"}</option>
-                                    {nurseOptions.map((n) => (
-                                        <option key={n._id} value={n._id}>{n.name} {n.last_name}</option>
-                                    ))}
-                                </select>
+                                    onChange={setChosenNurseId}
+                                    options={nurseOptions.map((n) => ({ value: n._id, label: nurseLabel(n) }))}
+                                    placeholder={nurseOptions.length ? "Selecciona una enfermera" : "Sin enfermeras disponibles en ese horario"}
+                                    disabled={!nurseOptions.length}
+                                    labelClassName="hidden"
+                                    size="sm"
+                                    triggerClassName="rounded-lg"
+                                />
                             )}
                             <div className="flex gap-2">
                                 <button
@@ -986,15 +989,18 @@ const AppointmentsCalendar = () => {
                     {!isDoctor && (
                         <div className="mb-3">
                             <label className="text-xs font-medium text-slate-600 block mb-1">Doctor</label>
-                            <select value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)}
-                                className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white">
-                                <option value="">Todos los doctores</option>
-                                {doctors.map(d => (
-                                    <option key={d._id} value={d._id}>
-                                        Dr. {d.name} {d.last_name}
-                                    </option>
-                                ))}
-                            </select>
+                            <DataCombobox
+                                value={filterDoctor || "all"}
+                                onChange={(v) => setFilterDoctor(!v || v === "all" ? "" : v)}
+                                options={[
+                                    { value: "all", label: "Todos los doctores" },
+                                    ...doctors.map(d => ({ value: d._id, label: doctorLabel(d) })),
+                                ]}
+                                placeholder="Todos los doctores"
+                                labelClassName="hidden"
+                                size="sm"
+                                triggerClassName="rounded-lg"
+                            />
                         </div>
                     )}
 
@@ -1013,13 +1019,18 @@ const AppointmentsCalendar = () => {
 
                     <div className="mb-3">
                         <label className="text-xs font-medium text-slate-600 block mb-1">Tipo de cita</label>
-                        <select value={filterType} onChange={e => setFilterType(e.target.value)}
-                            className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white">
-                            <option value="">Todos</option>
-                            {appointmentTypes.map(t => (
-                                <option key={t._id} value={t.name}>{t.name}</option>
-                            ))}
-                        </select>
+                        <DataCombobox
+                            value={filterType || "all"}
+                            onChange={(v) => setFilterType(!v || v === "all" ? "" : v)}
+                            options={[
+                                { value: "all", label: "Todos" },
+                                ...appointmentTypes.map(t => ({ value: t.name, label: t.name })),
+                            ]}
+                            placeholder="Todos"
+                            labelClassName="hidden"
+                            size="sm"
+                            triggerClassName="rounded-lg"
+                        />
                     </div>
 
                     <button onClick={() => { setFilterStatus(""); setFilterType(""); setFilterDoctor(""); }}

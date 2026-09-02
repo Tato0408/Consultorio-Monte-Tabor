@@ -22,16 +22,19 @@ const PermissionCheckbox = ({ checked, disabled, locked, blocked, onClick, accen
         ${checked
           ? `${accentClass} border-transparent`
           : blocked
-          ? "border-gray-200 bg-gray-100"
+          ? "bg-gray-400 border-gray-400"
           : "border-gray-300 bg-white group-hover/check:border-gray-400"
         }
         ${disabled && checked ? "opacity-70" : ""}
       `}
     >
+      {/* Obligatorio en true (locked): se ve igual que una casilla del admin
+          —fondo del color del rol y check blanco— pero no se puede tocar.
+          Obligatorio en false (blocked): candado blanco sobre fondo gris. */}
       {locked
-        ? <Lock className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+        ? <Check className="w-3 h-3 text-white" strokeWidth={3} />
         : blocked
-        ? <Lock className="w-2.5 h-2.5 text-gray-400" strokeWidth={3} />
+        ? <Lock className="w-2.5 h-2.5 text-white" strokeWidth={3} />
         : checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
     </span>
     <span className={`text-xs transition-colors ${checked ? "text-gray-700 font-medium" : "text-gray-400"}`}>
@@ -119,7 +122,9 @@ const ModulePermissionCard = ({
               locked={isLocked}
               blocked={isBlocked}
               onClick={() => handleToggle(perm.key)}
-              accentClass={isLocked ? "bg-gray-400" : accentSolidClass}
+              // Obligatorio en true: se pinta con el color del rol y check
+              // blanco, idéntico a una casilla del admin (antes iba en gris).
+              accentClass={accentSolidClass}
             />
           );
         })}

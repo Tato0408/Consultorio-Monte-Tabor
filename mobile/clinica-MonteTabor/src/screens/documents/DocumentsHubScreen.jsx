@@ -1,51 +1,44 @@
 import React, { useCallback, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import apiClient from "../../lib/apiClient";
 import styles from "../../styles/documents/documentsStyle";
 
-// Colores pastel ya usados en el resto de la app para estos mismos dos tipos de documento
-// (ver badgeTones en styles/appointments/appointmentsStyle.js: receta = azul, incapacidad ya
-// era azul aquí y se mantiene) — solo se suaviza el tono a pastel, no se inventa paleta nueva.
+// Colores ya usados en el resto de la app para estos dos tipos de documento
+// (incapacidad = azul, receta = verde). El fondo de la insignia queda en pastel.
 const TYPES = [
   {
     key: "incapacidad",
     title: "Incapacidades",
-    subtitle: "Todas tus constancias de incapacidad médica",
     icon: "id-card-outline",
-    statIcon: "document-outline",
-    linkLabel: "Ver mis incapacidades",
-    cardBg: "#EEF3FF",
-    cardBorder: "#DCE6FF",
-    iconBg: "#DCE8FF",
+    iconBg: "#EEF3FF",
     accent: "#2F6BFF",
     endpoint: "/patient-portal/sick-leaves",
   },
   {
     key: "receta",
     title: "Recetas",
-    subtitle: "Todas tus recetas médicas emitidas",
     icon: "document-text-outline",
-    statIcon: "medkit-outline",
-    linkLabel: "Ver mis recetas",
-    cardBg: "#EAF8F0",
-    cardBorder: "#CDEDDC",
-    iconBg: "#D2F0DF",
+    iconBg: "#EAF8F0",
     accent: "#16A34A",
     endpoint: "/patient-portal/prescriptions",
   },
 ];
 
-// Portada de "Mis documentos" (Perfil > Mis documentos): dos cards, una por tipo de
-// documento, cada una con su conteo real (mismos endpoints que DocumentsListScreen) y un
-// link a la lista completa de ese tipo, de todas las consultas.
+// Portada de "Mis documentos" (Perfil > Mis documentos): un encabezado inmersivo con el
+// total y dos filas, una por tipo de documento, cada una con su conteo real (mismos
+// endpoints que DocumentsListScreen) que llevan a la lista completa de ese tipo.
 export default function DocumentsHubScreen({ navigation }) {
   // null = todavía no se sabe (cargando o falló la consulta); nunca se muestra "0" a menos
   // que el conteo real haya llegado, para no dar a entender que no hay documentos cuando en
   // realidad fue un error de red.
   const [counts, setCounts] = useState({ incapacidad: null, receta: null });
+  // Tamaño real del encabezado, para pintar el degradado con react-native-svg (ya es
+  // dependencia, ver HexLogo) sin traer una librería de gradientes nueva.
+  const [bannerSize, setBannerSize] = useState({ width: 0, height: 0 });
 
   const cargarConteos = useCallback(() => {
     TYPES.forEach((type) => {
@@ -56,6 +49,18 @@ export default function DocumentsHubScreen({ navigation }) {
   }, []);
 
   useFocusEffect(useCallback(() => { cargarConteos(); }, [cargarConteos]));
+
+  // Solo se muestra un total cuando ambos conteos llegaron: si uno falló, se cae al texto
+  // genérico en vez de dar un número incompleto.
+  const total =
+    counts.incapacidad != null && counts.receta != null
+      ? counts.incapacidad + counts.receta
+      : null;
+
+  const bannerSubtitle =
+    total != null
+      ? `${total} ${total === 1 ? "documento generado" : "documentos generados"} en tus consultas. Elige una categoría para verlos.`
+      : "Recetas e incapacidades de todas tus consultas. Elige una categoría para verlos.";
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -68,35 +73,56 @@ export default function DocumentsHubScreen({ navigation }) {
       </View>
 
       <View style={styles.hubContent}>
+        {/* Encabezado inmersivo */}
+        <View style={styles.banner} onLayout={(e) => setBannerSize(e.nativeEvent.layout)}>
+          {bannerSize.width > 0 ? (
+            <Svg width={bannerSize.width} height={bannerSize.height} style={StyleSheet.absoluteFill}>
+              <Defs>
+                <LinearGradient
+                  id="docHubGrad"
+                  x1="0"
+                  y1="0"
+                  x2={bannerSize.width}
+                  y2={bannerSize.height}
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <Stop offset="0" stopColor="#2F6BFF" />
+                  <Stop offset="0.55" stopColor="#2D8AE0" />
+                  <Stop offset="1" stopColor="#17A2B8" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width={bannerSize.width} height={bannerSize.height} fill="url(#docHubGrad)" />
+            </Svg>
+          ) : null}
+
+          <View style={styles.bannerBlob} />
+
+          <View>
+            <Text style={styles.bannerEyebrow}>PERFIL · DOCUMENTOS</Text>
+            <Text style={styles.bannerTitle}>Tus documentos médicos</Text>
+            <Text style={styles.bannerSubtitle}>{bannerSubtitle}</Text>
+          </View>
+        </View>
+
+        {/* Una fila por tipo de documento */}
         {TYPES.map((type) => {
           const count = counts[type.key];
+          const countText = count == null ? "—" : `${count} ${count === 1 ? "documento" : "documentos"}`;
           return (
             <TouchableOpacity
               key={type.key}
               activeOpacity={0.85}
-              style={[styles.docTypeCard, { backgroundColor: type.cardBg, borderColor: type.cardBorder }]}
+              style={styles.docRow}
               onPress={() => navigation.navigate("DocumentsList", { tipo: type.key })}
             >
-              <View style={[styles.docTypeIconWrap, { backgroundColor: type.iconBg }]}>
-                <Ionicons name={type.icon} size={22} color={type.accent} />
+              <View style={[styles.docRowIcon, { backgroundColor: type.iconBg }]}>
+                <Ionicons name={type.icon} size={21} color={type.accent} />
               </View>
-              <Text style={styles.docTypeTitle}>{type.title}</Text>
-              <Text style={styles.docTypeSubtitle}>{type.subtitle}</Text>
-
-              <View style={styles.docTypeStatsRow}>
-                <View>
-                  <Text style={styles.docTypeStatsLabel}>Documentos</Text>
-                  <Text style={styles.docTypeStatsValue}>{count === null ? "—" : count}</Text>
-                </View>
-                <View style={styles.docTypeStatsIconWrap}>
-                  <Ionicons name={type.statIcon} size={17} color={type.accent} />
-                </View>
+              <View style={styles.docRowTexts}>
+                <Text style={styles.docRowTitle}>{type.title}</Text>
+                <Text style={styles.docRowCount}>{countText}</Text>
               </View>
-
-              <View style={styles.docTypeLinkRow}>
-                <Text style={[styles.docTypeLinkText, { color: type.accent }]}>{type.linkLabel}</Text>
-                <Ionicons name="chevron-forward" size={15} color={type.accent} />
-              </View>
+              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
             </TouchableOpacity>
           );
         })}

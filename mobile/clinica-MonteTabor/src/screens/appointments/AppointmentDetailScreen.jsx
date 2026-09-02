@@ -23,6 +23,15 @@ import styles from "../../styles/appointments/appointmentDetailStyle";
 const STATUS = {
   pending: { label: "Pendiente de asignación", color: "#A16207", bg: "#FFF7D6" },
   scheduled: { label: "Programada", color: "#245CE0", bg: "#E8EFFF" },
+  needs_reschedule: { label: "Por reagendar", color: "#C2410C", bg: "#FFEDD5" },
+  expired: { label: "Por reagendar", color: "#C2410C", bg: "#FFEDD5" },
+};
+
+// Estados desde los que el paciente puede reagendar reusando el mismo registro.
+const RESCHEDULABLE = ["pending", "needs_reschedule", "expired"];
+const RESCHEDULE_REASON_TEXT = {
+  no_aceptada: "Ningún profesional aceptó tu cita a tiempo. Elige una nueva fecha y hora.",
+  cupo_asignado: "El horario que solicitaste se le asignó a otro paciente. Elige una nueva fecha y hora.",
 };
 
 const longDate = (value) => new Date(value).toLocaleDateString("es-GT", {
@@ -93,7 +102,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
     return <SafeAreaView style={styles.safe}><ActivityIndicator size="large" color="#2F6BFF" style={styles.loader} /></SafeAreaView>;
   }
 
-  if (!["pending", "scheduled"].includes(appointment.status)) {
+  if (!["pending", "scheduled", "needs_reschedule", "expired"].includes(appointment.status)) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
@@ -145,17 +154,50 @@ export default function AppointmentDetailScreen({ navigation, route }) {
         </View>
 
         <View style={styles.notice}>
-          <Ionicons name={appointment.status === "pending" ? "hourglass-outline" : "checkmark-circle-outline"} size={21} color={status.color} />
-          <Text style={[styles.noticeText, { color: status.color }]}>{appointment.status === "pending" ? "La solicitud aún debe ser aceptada por un doctor." : "Tu cita fue aceptada y está programada."}</Text>
+          <Ionicons
+            name={
+              ["needs_reschedule", "expired"].includes(appointment.status)
+                ? "alert-circle-outline"
+                : appointment.status === "pending"
+                  ? "hourglass-outline"
+                  : "checkmark-circle-outline"
+            }
+            size={21}
+            color={status.color}
+          />
+          <Text style={[styles.noticeText, { color: status.color }]}>
+            {["needs_reschedule", "expired"].includes(appointment.status)
+              ? RESCHEDULE_REASON_TEXT[appointment.reschedule_reason] || "Esta cita quedó sin confirmar. Elige una nueva fecha y hora."
+              : appointment.status === "pending"
+                ? "La solicitud aún debe ser aceptada por un doctor."
+                : "Tu cita fue aceptada y está programada."}
+          </Text>
         </View>
+
+        {RESCHEDULABLE.includes(appointment.status) ? (
+          <TouchableOpacity
+            style={styles.rescheduleButton}
+            onPress={() => navigation.navigate("NewAppointment", {
+              reschedule: {
+                appointmentId: appointment._id,
+                procedureId: appointment.procedure_id?._id || null,
+              },
+            })}
+          >
+            <Ionicons name="calendar-outline" size={20} color="#FFF" />
+            <Text style={styles.rescheduleButtonText}>Reagendar cita</Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Se puede cancelar en cualquier momento mientras la cita siga pending/scheduled
             (ver el filtro justo arriba de este return), incluso si ya comenz\u00f3 o su fecha
             ya pas\u00f3 \u2014 misma regla que la web y que ya aplica el backend. */}
-        <TouchableOpacity style={styles.cancelButton} onPress={() => setCancelVisible(true)}>
-          <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
-          <Text style={styles.cancelButtonText}>Cancelar cita</Text>
-        </TouchableOpacity>
+        {["pending", "scheduled"].includes(appointment.status) ? (
+          <TouchableOpacity style={styles.cancelButton} onPress={() => setCancelVisible(true)}>
+            <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
+            <Text style={styles.cancelButtonText}>Cancelar cita</Text>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
 
       <Modal
