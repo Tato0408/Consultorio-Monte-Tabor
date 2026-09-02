@@ -7,15 +7,17 @@ import {
   ChevronRight,
   Download,
   FileText,
+  FlaskConical,
   IdCard,
   Loader2,
   X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getPrescriptions, getSickLeaves, getReferrals } from "@/services/patientPortalService";
+import { getPrescriptions, getSickLeaves, getReferrals, getLabOrders } from "@/services/patientPortalService";
 import { showError } from "@/lib/alerts";
 import { downloadTextFile } from "@/lib/downloadFile";
-import { descargarIncapacidadPdf, descargarRecetaPdf } from "@/lib/pdf/patientDocuments";
+import { descargarIncapacidadPdf, descargarRecetaPdf, descargarOrdenLaboratorioPdf } from "@/lib/pdf/patientDocuments";
+import { countSelectedTests } from "@/lib/labOrderCatalog";
 
 const fmtFecha = (iso) =>
   iso ? new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric" }) : "—";
@@ -41,6 +43,15 @@ const TIPOS = {
     dateField: "issued_at",
     bodyLabel: "Medicamentos",
   },
+  laboratorio: {
+    label: "Órdenes de laboratorio",
+    subtitle: "Exámenes de laboratorio solicitados",
+    icon: FlaskConical,
+    accent: "#0D9488",
+    iconBg: "bg-[#E6F5F3]",
+    dateField: "date",
+    bodyLabel: "Exámenes solicitados",
+  },
   referencia: {
     label: "Referencias",
     subtitle: "Referencias a otros especialistas",
@@ -51,7 +62,7 @@ const TIPOS = {
     bodyLabel: "Motivo",
   },
 };
-const ORDEN = ["incapacidad", "receta", "referencia"];
+const ORDEN = ["incapacidad", "receta", "laboratorio", "referencia"];
 
 // Misma regla que usePatientRecordDetail.js (expediente clínico, web privada): vigente
 // mientras la fecha de finalización no haya pasado, o no exista.
@@ -95,6 +106,11 @@ const bodyValue = (tipo, doc) => {
         .filter(Boolean)
         .join(", ") || "Sin medicamentos registrados"
     );
+  if (tipo === "laboratorio") {
+    const n = countSelectedTests(doc.tests);
+    const base = n === 1 ? "1 examen solicitado" : `${n} exámenes solicitados`;
+    return doc.other_tests ? `${base}. Otros: ${doc.other_tests}` : base;
+  }
   return doc.reason || "Sin motivo registrado";
 };
 
@@ -166,7 +182,7 @@ const EmptyState = ({ tipo, sinNinguno }) => {
 // funcionamiento y mismos datos en ambos.
 const Documents = () => {
   const { patient } = useAuth();
-  const [data, setData] = useState({ incapacidad: [], receta: [], referencia: [] });
+  const [data, setData] = useState({ incapacidad: [], receta: [], laboratorio: [], referencia: [] });
   const [loading, setLoading] = useState(true);
   // null = portada (solo relevante en móvil); un tipo = categoría elegida.
   const [tipo, setTipo] = useState(null);
@@ -175,13 +191,14 @@ const Documents = () => {
 
   useEffect(() => {
     // allSettled: si una categoría falla, las otras se muestran igual.
-    Promise.allSettled([getPrescriptions(), getSickLeaves(), getReferrals()]).then(([p, s, r]) => {
+    Promise.allSettled([getPrescriptions(), getSickLeaves(), getReferrals(), getLabOrders()]).then(([p, s, r, l]) => {
       setData({
         receta: p.status === "fulfilled" ? p.value : [],
         incapacidad: s.status === "fulfilled" ? s.value : [],
         referencia: r.status === "fulfilled" ? r.value : [],
+        laboratorio: l.status === "fulfilled" ? l.value : [],
       });
-      if (p.status === "rejected" || s.status === "rejected" || r.status === "rejected") {
+      if ([p, s, r, l].some((res) => res.status === "rejected")) {
         showError("Algunos documentos no se pudieron cargar.");
       }
       setLoading(false);
@@ -191,9 +208,10 @@ const Documents = () => {
   const counts = {
     incapacidad: data.incapacidad.length,
     receta: data.receta.length,
+    laboratorio: data.laboratorio.length,
     referencia: data.referencia.length,
   };
-  const total = counts.incapacidad + counts.receta + counts.referencia;
+  const total = counts.incapacidad + counts.receta + counts.laboratorio + counts.referencia;
 
   // En escritorio siempre se muestra un listado, así que si aún no se eligió nada se cae
   // a la primera categoría.
@@ -220,6 +238,7 @@ const Documents = () => {
     try {
       if (t === "receta") await descargarRecetaPdf(patient, doc);
       else if (t === "incapacidad") await descargarIncapacidadPdf(patient, doc);
+      else if (t === "laboratorio") await descargarOrdenLaboratorioPdf(patient, doc);
       else downloadTextFile(`referencia-${fmtFecha(doc.date)}.txt`, buildTextoReferencia(doc));
     } catch (err) {
       showError(err.message || "No se pudo generar el documento.");
@@ -284,7 +303,7 @@ const Documents = () => {
               </p>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-3 sm:gap-4">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 sm:gap-4">
               {ORDEN.map((t) => {
                 const c = TIPOS[t];
                 const Icon = c.icon;

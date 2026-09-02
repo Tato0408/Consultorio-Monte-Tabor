@@ -1,5 +1,6 @@
 import IncapacidadDocument from "./IncapacidadDocument";
 import RecetaDocument from "./RecetaDocument";
+import LabOrderDocument from "./LabOrderDocument";
 import { openPdfInNewTab } from "./openPdfInNewTab";
 
 const fmtFechaLarga = (iso) =>
@@ -65,8 +66,31 @@ export const descargarRecetaPdf = (patient, prescription) => {
       doctorName={nombreDoctor(doctor)}
       date={fmtFechaLarga(prescription.issued_at)}
       medications={prescription.medications || []}
-      labOrders={prescription.lab_orders || []}
       instructions={prescription.post_operative_instructions}
+    />
+  );
+};
+
+// Genera y abre en una pestaña nueva el PDF de una orden de laboratorio, con el
+// mismo formato de casillas y el membrete de Clínica Monte Tabor que ve el
+// personal (ver LabOrderDocument.jsx).
+export const descargarOrdenLaboratorioPdf = (patient, labOrder) => {
+  const doctor = labOrder.doctor || labOrder.doctor_id;
+  return openPdfInNewTab(
+    <LabOrderDocument
+      title={`Orden de laboratorio - ${nombreCompleto(patient)}`}
+      patientName={nombreCompleto(patient)}
+      dui={patient?.dui}
+      age={calcularEdad(patient?.birth_date)}
+      gender={patient?.gender}
+      doctorName={doctor ? `Dr. ${doctor.name} ${doctor.last_name || ""}`.trim() : "Médico no especificado"}
+      date={fmtFechaLarga(labOrder.date || labOrder.issued_at)}
+      weight={labOrder.weight}
+      height={labOrder.height}
+      pregnancy={labOrder.pregnancy}
+      antibioticTreatment={labOrder.antibiotic_treatment}
+      tests={labOrder.tests || []}
+      otherTests={labOrder.other_tests}
     />
   );
 };

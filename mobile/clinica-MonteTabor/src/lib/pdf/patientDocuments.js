@@ -1,6 +1,6 @@
 import apiClient from "../apiClient";
 import { getLogoDataUri } from "./logo";
-import { buildIncapacidadHtml, buildRecetaHtml } from "./htmlTemplates";
+import { buildIncapacidadHtml, buildRecetaHtml, buildLabOrderHtml } from "./htmlTemplates";
 import { generarYCompartirPdf } from "./generatePdf";
 
 const fmtFechaLarga = (iso) =>
@@ -63,9 +63,28 @@ export async function descargarRecetaPdf(prescription) {
     doctorName: nombreDoctor(prescription.doctor),
     date: fmtFechaLarga(prescription.issued_at),
     medications: prescription.medications || [],
-    labOrders: prescription.lab_orders || [],
     instructions: prescription.post_operative_instructions,
   });
   // Media carta: 612x396pt (la mitad de una hoja LETTER de 612x792pt).
   await generarYCompartirPdf(html, "Receta médica", { width: 612, height: 396 });
+}
+
+export async function descargarOrdenLaboratorioPdf(labOrder) {
+  const [patient, logoDataUri] = await Promise.all([obtenerPacienteCompleto(), getLogoDataUri()]);
+  const html = buildLabOrderHtml({
+    logoDataUri,
+    patientName: nombreCompleto(patient),
+    dui: patient?.dui,
+    age: calcularEdad(patient?.birth_date),
+    gender: patient?.gender,
+    doctorName: nombreDoctor(labOrder.doctor || labOrder.doctor_id),
+    date: fmtFechaLarga(labOrder.date || labOrder.issued_at),
+    weight: labOrder.weight,
+    height: labOrder.height,
+    pregnancy: labOrder.pregnancy,
+    antibioticTreatment: labOrder.antibiotic_treatment,
+    tests: labOrder.tests || [],
+    otherTests: labOrder.other_tests,
+  });
+  await generarYCompartirPdf(html, "Orden de laboratorio");
 }

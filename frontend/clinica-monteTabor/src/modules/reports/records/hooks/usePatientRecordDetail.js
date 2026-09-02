@@ -38,7 +38,7 @@ const getLatestByDate = (items = [], dateField) =>
 // incapacidades reales de un paciente, el mismo conjunto de campos que
 // usa el expediente: consultas, recetas, laboratorios, referencias,
 // incapacidades, notasEvolucion e impresionDiagnostica.
-const buildExtra = (consultations, pendingAppointments, sickLeaves, patientName) => {
+const buildExtra = (consultations, pendingAppointments, sickLeaves, labOrders, patientName) => {
   const atendidas = consultations.map((c, i) => ({
     id: c._id || `c-${i}`,
     // El id de la consulta no sirve para navegar al formulario, que siempre
@@ -76,14 +76,19 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, patientName)
     }))
   );
 
-  const laboratorios = consultations.flatMap((c) =>
-    (c.prescription?.lab_orders || []).map((l) => ({
-      nombre: l.test_name || "—",
-      fecha: formatFecha(c.date) || "—",
-      // El modelo de prescripción no registra si la orden ya se completó.
-      estado: "Ordenado",
-    }))
-  );
+  // Órdenes de laboratorio: son los documentos que el doctor genera en la
+  // pantalla de "Orden de laboratorio" y que quedan enlazados a la consulta al
+  // finalizarla. Se llevan crudas para poder regenerar el PDF desde ResumeTab.
+  const laboratorios = (labOrders || []).map((o) => {
+    const count = Array.isArray(o.tests) ? o.tests.length : 0;
+    return {
+      id: o._id,
+      nombre: count === 1 ? "1 examen solicitado" : `${count} exámenes solicitados`,
+      fecha: formatFecha(o.issued_at || o.createdAt) || "—",
+      estado: "Generada",
+      labOrder: o,
+    };
+  });
 
   const referencias = consultations
     .filter((c) => c.referral?.reason)
@@ -188,12 +193,13 @@ const usePatientRecordDetail = (patientId, patientName) => {
       setLoading(true);
       setError(null);
 
-      const [consultations, appointmentsRes, sickLeaves] = await Promise.all([
+      const [consultations, appointmentsRes, sickLeaves, labOrders] = await Promise.all([
         apiClient("/consultations", { params: { patient_id: patientId } }),
         apiClient("/appointments", {
           params: { patient_id: patientId, status: "pending,scheduled,confirmed", limit: 50 },
         }),
         apiClient("/sick-leaves", { params: { patient_id: patientId } }),
+        apiClient("/lab-orders", { params: { patient_id: patientId } }).catch(() => []),
       ]);
 
       setExtra(
@@ -201,6 +207,7 @@ const usePatientRecordDetail = (patientId, patientName) => {
           Array.isArray(consultations) ? consultations : [],
           Array.isArray(appointmentsRes?.data) ? appointmentsRes.data : [],
           Array.isArray(sickLeaves) ? sickLeaves : [],
+          Array.isArray(labOrders) ? labOrders : [],
           patientName
         )
       );

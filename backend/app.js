@@ -9,6 +9,7 @@ import appointmentsRoutes from "./src/routes/appointments/appointments.js"
 import receptionistRoutes from "./src/routes/receptionist/receptionist.js"
 import registerReceptionistRoutes from "./src/routes/receptionist/registerReceptionist.js"
 import consultationsRoutes from "./src/routes/consultations/consultation.js"
+import labOrdersRoutes from "./src/routes/consultations/labOrder.js"
 import patientsRoute from "./src/routes/patients/patients.js"
 import nurseRoutes from './src/routes/nurse/nurses.js'
 import loginCommonRoleRoute from './src/routes/login/loginCommonRole.js'
@@ -107,6 +108,7 @@ app.use("/api/patientAccount", patientSelfRoutes);
 app.use("/api/nurses", authenticate(), nurseRoutes);
 
 app.use("/api/consultations", authenticate(), consultationsRoutes);
+app.use("/api/lab-orders", authenticate(), labOrdersRoutes);
 app.use("/api/appointments" , authenticate() , appointmentsRoutes);
 app.use("/api/appointment-types", appointmentTypesRoutes);
 app.use("/api/inventory", authenticate(), inventoryRoutes);

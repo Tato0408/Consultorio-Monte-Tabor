@@ -6,13 +6,15 @@ import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
 import { formatLongDate } from "../../utils/date";
-import { descargarIncapacidadPdf, descargarRecetaPdf } from "../../lib/pdf/patientDocuments";
+import { descargarIncapacidadPdf, descargarRecetaPdf, descargarOrdenLaboratorioPdf } from "../../lib/pdf/patientDocuments";
+import { countSelectedTests } from "../../lib/labOrderCatalog";
 import FormDateInput from "../../components/profile/FormDateInput";
 import styles from "../../styles/documents/documentsStyle";
 
 const TIPO_INFO = {
   incapacidad: { titulo: "Incapacidades", endpoint: "/patient-portal/sick-leaves", fechaCampo: "start_date", icon: "id-card-outline" },
   receta: { titulo: "Recetas", endpoint: "/patient-portal/prescriptions", fechaCampo: "issued_at", icon: "document-text-outline" },
+  laboratorio: { titulo: "Órdenes de laboratorio", endpoint: "/patient-portal/lab-orders", fechaCampo: "date", icon: "flask-outline" },
 };
 
 const nombreDoctor = (doctor) => (doctor ? `Dr. ${doctor.name} ${doctor.last_name || ""}`.trim() : "Doctor no especificado");
@@ -69,6 +71,7 @@ export default function DocumentsListScreen({ navigation, route }) {
     setDescargandoId(doc._id);
     try {
       if (tipo === "receta") await descargarRecetaPdf(doc);
+      else if (tipo === "laboratorio") await descargarOrdenLaboratorioPdf(doc);
       else await descargarIncapacidadPdf(doc);
     } catch (error) {
       showError(error.message || "No se pudo generar el documento.");
@@ -151,6 +154,16 @@ export default function DocumentsListScreen({ navigation, route }) {
                   <>
                     <Text style={styles.docCardLabel}>Diagnóstico</Text>
                     <Text style={styles.docCardValue}>{doc.diagnosis || "Sin diagnóstico registrado"}</Text>
+                  </>
+                ) : tipo === "laboratorio" ? (
+                  <>
+                    <Text style={styles.docCardLabel}>Exámenes solicitados</Text>
+                    <Text style={styles.docCardValue}>
+                      {(() => {
+                        const n = countSelectedTests(doc.tests);
+                        return n === 1 ? "1 examen solicitado" : `${n} exámenes solicitados`;
+                      })()}
+                    </Text>
                   </>
                 ) : (
                   <>

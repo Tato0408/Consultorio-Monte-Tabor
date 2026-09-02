@@ -47,6 +47,7 @@ router.get("/dashboard", patientPortalController.getDashboardSummary);
 // (El expediente clínico completo NO se expone aquí: solo lo ve el personal
 // administrativo y los doctores desde el dashboard interno.)
 router.get("/prescriptions", patientPortalController.getPrescriptions);
+router.get("/lab-orders", patientPortalController.getMyLabOrders);
 router.get("/sick-leaves", patientPortalController.getSickLeaves);
 router.get("/referrals", patientPortalController.getReferrals);
 

@@ -5,6 +5,7 @@ import nurseScheduleModel from "../../models/schedule/nurseSchedule.js";
 import procedureModel from "../../models/procedures/procedures.js";
 import consultationsModel from "../../models/consultations/consultation.js";
 import prescriptionsModel from "../../models/consultations/prescription.js";
+import labOrdersModel from "../../models/consultations/labOrder.js";
 import sickLeavesModel from "../../models/sickLeaves/sickLeave.js";
 import medicationLogModel from "../../models/medicationLog/medicationLog.js";
 import patientsModel from "../../models/patients/patients.js";
@@ -101,11 +102,36 @@ const fetchPrescriptions = async (patientId, consultations) => {
     return prescriptions.map((p) => ({
         _id: p._id,
         medications: p.medications,
-        lab_orders: p.lab_orders,
         post_operative_instructions: p.post_operative_instructions,
         issued_at: p.issued_at,
         doctor: consultationById.get(String(p.consultation_id))?.appointment_id?.doctor_id || null,
     }));
+};
+
+// Órdenes de laboratorio del paciente, solo las ya enlazadas a una consulta
+// (consultation_id != null), que es lo que las vuelve oficiales. El doctor y la
+// fecha salen de la consulta asociada, igual que fetchPrescriptions.
+const fetchLabOrders = async (patientId, consultations) => {
+    const consultationById = new Map(consultations.map((c) => [String(c._id), c]));
+    const labOrders = await labOrdersModel
+        .find({ patient_id: patientId, consultation_id: { $ne: null } })
+        .sort({ issued_at: -1, createdAt: -1 });
+
+    return labOrders.map((o) => {
+        const consultation = consultationById.get(String(o.consultation_id));
+        return {
+            _id: o._id,
+            tests: o.tests || [],
+            pregnancy: o.pregnancy || "",
+            antibiotic_treatment: o.antibiotic_treatment || "",
+            other_tests: o.other_tests || "",
+            weight: o.weight,
+            height: o.height,
+            issued_at: o.issued_at,
+            date: consultation?.date || o.issued_at,
+            doctor: consultation?.appointment_id?.doctor_id || null,
+        };
+    });
 };
 
 // Medicamentos que siguen activos hoy según sus recetas, con si ya se
@@ -636,6 +662,19 @@ patientPortalController.getPrescriptions = async (req, res) => {
         const consultations = await fetchConsultations(req.user.id);
         const prescriptions = await fetchPrescriptions(req.user.id, consultations);
         return res.status(200).json(prescriptions);
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// GET /api/patient-portal/lab-orders — órdenes de laboratorio del paciente
+// (las que el doctor generó y quedaron enlazadas al finalizar una consulta)
+patientPortalController.getMyLabOrders = async (req, res) => {
+    try {
+        const consultations = await fetchConsultations(req.user.id);
+        const labOrders = await fetchLabOrders(req.user.id, consultations);
+        return res.status(200).json(labOrders);
     } catch (error) {
         console.log("error " + error);
         return res.status(500).json({ message: "Internal server error" });

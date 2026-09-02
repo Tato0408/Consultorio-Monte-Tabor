@@ -32,16 +32,6 @@ const prescriptionSchema = new Schema({
             }
         }
     ],
-    lab_orders: [
-        {
-            test_name: {
-                type: String
-            },
-            notes: {
-                type: String
-            }
-        }
-    ],
     post_operative_instructions: {
         type: String
     },

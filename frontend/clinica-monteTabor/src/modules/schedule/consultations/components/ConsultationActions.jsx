@@ -1,7 +1,7 @@
 // Barra de acciones de la derecha. En modo de solo lectura (readOnly)
 // solo se muestra el botón de vista previa e impresión.
 
-const ConsultationActions = ({ readOnly, isSaving, onFinish, onPreview, onGenerateIncapacidad }) => {
+const ConsultationActions = ({ readOnly, isSaving, onFinish, onPreview, onGenerateIncapacidad, onGenerateLabOrder }) => {
     return (
         <div className="bg-white border border-slate-100 rounded-xl p-4 space-y-2">
             {!readOnly && (
@@ -13,6 +13,16 @@ const ConsultationActions = ({ readOnly, isSaving, onFinish, onPreview, onGenera
                     Generar incapacidad
                 </button>
             )}
+
+            {/* La orden de laboratorio es opcional y se llena en una pantalla
+                aparte. Disponible también en solo lectura para revisarla/descargarla. */}
+            <button
+                type="button"
+                onClick={onGenerateLabOrder}
+                className="w-full border border-slate-200 rounded-lg py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+                Generar orden de laboratorio
+            </button>
 
             <button
                 type="button"

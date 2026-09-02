@@ -117,9 +117,8 @@ export default function ConsultationDetailScreen({ navigation, route }) {
 
   const prescription = consultation.prescription;
   const hasMedications = Boolean(prescription?.medications?.length);
-  const hasLabOrders = Boolean(prescription?.lab_orders?.length);
   const hasPostOpInstructions = Boolean(prescription?.post_operative_instructions?.trim());
-  const hasPrescription = hasMedications || hasLabOrders || hasPostOpInstructions;
+  const hasPrescription = hasMedications || hasPostOpInstructions;
 
   const referral = consultation.referral;
   const hasReferral = Boolean(referral?.reason?.trim());
@@ -214,7 +213,7 @@ export default function ConsultationDetailScreen({ navigation, route }) {
         {hasPrescription ? (
           <Section icon="document-text-outline" title="Receta médica">
             {hasMedications && prescription.medications.map((med, index) => (
-              <View key={index} style={index === prescription.medications.length - 1 && !hasLabOrders && !hasPostOpInstructions ? styles.medicationRowLast : styles.medicationRow}>
+              <View key={index} style={index === prescription.medications.length - 1 && !hasPostOpInstructions ? styles.medicationRowLast : styles.medicationRow}>
                 <Text style={styles.medicationName}>{med.name}</Text>
                 <View style={styles.medicationMetaRow}>
                   {med.dose ? <Text style={styles.medicationMeta}>Dosis: {med.dose}</Text> : null}
@@ -223,13 +222,6 @@ export default function ConsultationDetailScreen({ navigation, route }) {
                 </View>
                 {med.route_of_administration ? <Text style={styles.medicationInstructions}>Vía: {med.route_of_administration}</Text> : null}
                 {med.instructions ? <Text style={styles.medicationInstructions}>{med.instructions}</Text> : null}
-              </View>
-            ))}
-
-            {hasLabOrders && prescription.lab_orders.map((lab, index) => (
-              <View key={`lab-${index}`} style={index === prescription.lab_orders.length - 1 && !hasPostOpInstructions ? styles.medicationRowLast : styles.medicationRow}>
-                <Text style={styles.medicationName}>{lab.test_name}</Text>
-                {lab.notes ? <Text style={styles.medicationInstructions}>{lab.notes}</Text> : null}
               </View>
             ))}
 

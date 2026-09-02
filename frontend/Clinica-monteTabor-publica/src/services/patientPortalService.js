@@ -6,6 +6,8 @@ export const getDashboardSummary = () => apiClient("/patient-portal/dashboard");
 
 export const getPrescriptions = () => apiClient("/patient-portal/prescriptions");
 
+export const getLabOrders = () => apiClient("/patient-portal/lab-orders");
+
 export const getSickLeaves = () => apiClient("/patient-portal/sick-leaves");
 
 export const getReferrals = () => apiClient("/patient-portal/referrals");

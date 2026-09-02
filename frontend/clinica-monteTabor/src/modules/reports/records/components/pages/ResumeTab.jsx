@@ -2,11 +2,49 @@
 
 import { Fragment, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Clock, Eye, Info, FlaskConical, Plus } from "lucide-react";
+import { Clock, Download, Info, FlaskConical, Plus } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { showWarning } from "@/lib/alerts";
+import { showWarning, showError } from "@/lib/alerts";
 import { Badge, SectionCard, VerTodos, initials } from "../global/ui";
 import IncapacidadFormModal from "../global/IncapacidadFormModal";
+import LabOrderDocument from "@/modules/schedule/consultations/pdf/LabOrderDocument";
+import { downloadPdf } from "@/modules/schedule/consultations/pdf/downloadPdf";
+import { calculateAge } from "@/lib/validators";
+
+// Arma y descarga el PDF de una orden de laboratorio guardada (misma plantilla
+// que usa la pantalla de consulta). Los datos del paciente y del médico vienen
+// poblados desde GET /lab-orders.
+const descargarOrdenLaboratorio = async (labOrder) => {
+  const p = labOrder.patient_id || {};
+  const appt = labOrder.consultation_id?.appointment_id || {};
+  const provider = appt.doctor_id || appt.nurse_id || null;
+  const patientName = `${p.name || ""} ${p.last_name || ""}`.trim() || "Paciente";
+  const doctorName = provider ? `${provider.name || ""} ${provider.last_name || ""}`.trim() : "";
+  const dateSource = labOrder.consultation_id?.date || labOrder.issued_at || labOrder.createdAt;
+  const dateFormatted = dateSource
+    ? new Date(dateSource).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "";
+  const fileSafe = dateFormatted.replace(/\//g, "-");
+
+  await downloadPdf(
+    <LabOrderDocument
+      title={`Orden de laboratorio de ${patientName} ${fileSafe}`}
+      patientName={patientName}
+      age={calculateAge(p.birth_date)}
+      gender={p.gender}
+      dui={p.dui}
+      doctorName={doctorName}
+      date={dateFormatted}
+      weight={labOrder.weight}
+      height={labOrder.height}
+      pregnancy={labOrder.pregnancy}
+      antibioticTreatment={labOrder.antibiotic_treatment}
+      tests={labOrder.tests || []}
+      otherTests={labOrder.other_tests}
+    />,
+    `Orden de laboratorio - ${patientName} ${fileSafe}`
+  );
+};
 
 // Botón azul de agregar, mismo estilo que el resto del expediente.
 function AddButton({ children = "Agregar", ...props }) {
@@ -198,31 +236,37 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
         }
       >
         <div className="space-y-3">
-          {(patient.laboratorios ?? []).map((l, i) => {
-            const completado = (l.estado || "").toLowerCase() === "completado";
-            return (
-              <div key={i} className="flex items-center gap-4 rounded-xl bg-slate-50 px-4 py-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-400 shadow-sm">
-                  <FlaskConical className="h-4 w-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-800">{l.nombre}</p>
-                  <p className="text-[11px] text-slate-400">{l.fecha}</p>
-                </div>
-                <Badge tone={completado ? "green" : "blue"}>{l.estado}</Badge>
-                {completado && (
-                  <button
-                    type="button"
-                    onClick={() => onNavigateTab?.("Consultas")}
-                    title="Ver detalle en la consulta"
-                    className="text-blue-500 hover:text-blue-700"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </button>
-                )}
+          {(patient.laboratorios ?? []).length === 0 && (
+            <p className="text-sm text-slate-400">Sin órdenes de laboratorio registradas.</p>
+          )}
+          {(patient.laboratorios ?? []).map((l, i) => (
+            <div key={l.id || i} className="flex items-center gap-4 rounded-xl bg-slate-50 px-4 py-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-400 shadow-sm">
+                <FlaskConical className="h-4 w-4" />
               </div>
-            );
-          })}
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-800">{l.nombre}</p>
+                <p className="text-[11px] text-slate-400">{l.fecha}</p>
+              </div>
+              <Badge tone="blue">{l.estado}</Badge>
+              {l.labOrder && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await descargarOrdenLaboratorio(l.labOrder);
+                    } catch (err) {
+                      showError(err?.message || "No se pudo generar la orden de laboratorio.");
+                    }
+                  }}
+                  title="Descargar orden de laboratorio"
+                  className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+                >
+                  <Download className="h-4 w-4" /> Descargar
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       </SectionCard>
 

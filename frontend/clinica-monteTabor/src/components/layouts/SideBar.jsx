@@ -118,8 +118,8 @@ const SideBar = ({ onClose = () => {} }) => {
                             <AccordionItem key={index} value={`item-${index}`} className="border-b-0">
                                 <AccordionTrigger
                                     className={cn(
-                                        "flex items-center justify-between px-4 py-2.5 rounded-xl text-[13px] font-semibold uppercase tracking-wide transition-all",
-                                        "after:hidden", 
+                                        "flex items-center justify-between px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all",
+                                        "after:hidden",
                                         isSectionActive
                                             ? "bg-[#0b66d6] text-white shadow-md shadow-blue-100 hover:bg-[#0b66d6] **:data-[slot=accordion-trigger-icon]:text-white"
                                             : "text-[#0b66d6]/90 hover:bg-slate-50"

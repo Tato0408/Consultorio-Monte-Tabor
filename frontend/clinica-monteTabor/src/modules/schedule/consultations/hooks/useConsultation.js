@@ -30,7 +30,6 @@ const emptyConsultation = {
   procedure: [],
   prescription: {
     medications: [],
-    lab_orders: [],
     indications: "",
     next_appointment_suggested: "",
   },

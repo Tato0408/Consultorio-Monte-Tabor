@@ -68,11 +68,10 @@ const ConsultationDocument = ({
     diagnosisDescription,
     tratamiento,
     medications = [],
-    labOrders = [],
     referral,
     antecedents,
 }) => {
-    const hasReceta = medications.length > 0 || labOrders.length > 0;
+    const hasReceta = medications.length > 0;
     const hasReferral = !!(referral?.referred_to || referral?.reason);
     const hasAntecedents =
         (antecedents?.hereditary?.length || 0) > 0 ||
@@ -151,20 +150,6 @@ const ConsultationDocument = ({
                                         <Text style={styles.tableCell}>{m.dose || "—"}</Text>
                                         <Text style={styles.tableCell}>{m.frequency || "—"}</Text>
                                         <Text style={styles.tableCell}>{m.duration || "—"}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-                        {labOrders.length > 0 && (
-                            <View>
-                                <View style={styles.tableHeader}>
-                                    <Text style={styles.tableCellHeader}>Examen / estudio</Text>
-                                    <Text style={styles.tableCellHeader}>Notas</Text>
-                                </View>
-                                {labOrders.map((o, i) => (
-                                    <View key={i} style={styles.tableRow}>
-                                        <Text style={styles.tableCell}>{o.test_name || "—"}</Text>
-                                        <Text style={styles.tableCell}>{o.notes || "—"}</Text>
                                     </View>
                                 ))}
                             </View>

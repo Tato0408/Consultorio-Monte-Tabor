@@ -23,6 +23,30 @@ import { showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
 import apiClient from "@/lib/apiClient";
 
+// Borrador de la consulta en curso, guardado en sessionStorage al salir a
+// "Generar orden de laboratorio" para no perder lo que el doctor llevaba
+// escrito sin guardar. Caduca a las 2 horas.
+const DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
+const draftKey = (appointmentId) => `consultation-draft:${appointmentId}`;
+const readConsultationDraft = (appointmentId) => {
+    try {
+        const raw = sessionStorage.getItem(draftKey(appointmentId));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.values || Date.now() - (parsed.ts || 0) > DRAFT_TTL_MS) return null;
+        return parsed.values;
+    } catch {
+        return null;
+    }
+};
+const clearConsultationDraft = (appointmentId) => {
+    try {
+        sessionStorage.removeItem(draftKey(appointmentId));
+    } catch {
+        /* sessionStorage no disponible: nada que limpiar */
+    }
+};
+
 const ConsultationForm = () => {
     const { appointmentId } = useParams();
     const [searchParams] = useSearchParams();
@@ -61,15 +85,17 @@ const ConsultationForm = () => {
                 navigate("/calendar/consultations");
             });
         } else {
-            // Si no hay error, carga los valores en el formulario normalmente
-            methods.reset(defaultValues);
+            // Si el doctor venía de "Generar orden de laboratorio", se restaura lo
+            // que llevaba escrito sin guardar; si no, carga normalmente.
+            const draft = readConsultationDraft(appointmentId);
+            methods.reset(draft || defaultValues);
         }
 
-        
+
 
         // Solo se re-ejecuta cuando isLoading cambia (no en cada render),
         // para no pisar lo que el doctor ya escribió.
-    }, [isLoading]); 
+    }, [isLoading]);
 
 
     // Se ejecuta solo si handleSubmit valida que el form está bien formado.
@@ -81,6 +107,9 @@ const ConsultationForm = () => {
                 ? "Los cambios en la consulta han sido actualizados."
                 : "La consulta médica ha sido registrada con éxito.";
             await showSuccess("¡Guardado!", successMsg);
+
+            // La consulta ya se guardó: el borrador temporal deja de tener sentido.
+            clearConsultationDraft(appointmentId);
 
             // Vuelve al listado de consultas (no se queda en la misma pantalla): quedarse
             // en la misma consulta en modo lectura se veía casi idéntico a como estaba
@@ -173,7 +202,6 @@ const ConsultationForm = () => {
                     diagnosisDescription={values?.clinical_data?.diagnosis_description}
                     tratamiento={values?.prescription?.indications}
                     medications={values?.prescription?.medications}
-                    labOrders={values?.prescription?.lab_orders}
                     referral={values?.referral}
                     antecedents={values?.antecedents}
                 />
@@ -196,6 +224,38 @@ const ConsultationForm = () => {
             return;
         }
         setIsIncapacidadOpen(true);
+    };
+
+    // Botón "Generar orden de laboratorio": la orden es opcional y se llena en
+    // una pantalla aparte. Peso y talla (Paso 2) van en la orden y salen de esta
+    // consulta, así que se exigen antes de salir; si faltan, se marcan en rojo
+    // igual que al intentar guardar. Se guarda un borrador del formulario para no
+    // perder lo escrito al volver.
+    const handleGenerateLabOrder = () => {
+        if (!readOnly) {
+            const values = methods.getValues();
+            const missing = [];
+            if (!String(values?.clinical_data?.triage?.weight ?? "").trim()) {
+                methods.setError("clinical_data.triage.weight", {
+                    type: "manual",
+                    message: "El peso es necesario para la orden de laboratorio",
+                });
+                missing.push("el peso");
+            }
+            if (!String(values?.clinical_data?.triage?.height ?? "").trim()) {
+                methods.setError("clinical_data.triage.height", {
+                    type: "manual",
+                    message: "La talla es necesaria para la orden de laboratorio",
+                });
+                missing.push("la talla");
+            }
+            if (missing.length > 0) {
+                showError(`Completa ${missing.join(" y ")} en el triage (Paso 2) antes de generar la orden de laboratorio.`);
+                return;
+            }
+            sessionStorage.setItem(draftKey(appointmentId), JSON.stringify({ values, ts: Date.now() }));
+        }
+        navigate(`/calendar/consultations/${appointmentId}/lab-order${readOnly ? "?mode=view" : ""}`);
     };
 
     // Arma el PDF con el diagnóstico ya cargado en el formulario y los
@@ -253,7 +313,7 @@ const ConsultationForm = () => {
                 <button
                     type="button"
                     disabled={isSaving}
-                    onClick={() => navigate("/calendar/consultations")}
+                    onClick={() => { clearConsultationDraft(appointmentId); navigate("/calendar/consultations"); }}
                     className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#0b66d6] mb-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <ArrowLeft className="w-4 h-4" />
@@ -335,6 +395,7 @@ const ConsultationForm = () => {
                             onFinish={methods.handleSubmit(onSubmit)}
                             onPreview={handlePreview}
                             onGenerateIncapacidad={handleOpenIncapacidad}
+                            onGenerateLabOrder={handleGenerateLabOrder}
                         />
                     </div>
                 </div>

@@ -26,6 +26,14 @@ const TYPES = [
     accent: "#16A34A",
     endpoint: "/patient-portal/prescriptions",
   },
+  {
+    key: "laboratorio",
+    title: "Órdenes de laboratorio",
+    icon: "flask-outline",
+    iconBg: "#E6F5F3",
+    accent: "#0D9488",
+    endpoint: "/patient-portal/lab-orders",
+  },
 ];
 
 // Portada de "Mis documentos" (Perfil > Mis documentos): un encabezado inmersivo con el
@@ -35,7 +43,7 @@ export default function DocumentsHubScreen({ navigation }) {
   // null = todavía no se sabe (cargando o falló la consulta); nunca se muestra "0" a menos
   // que el conteo real haya llegado, para no dar a entender que no hay documentos cuando en
   // realidad fue un error de red.
-  const [counts, setCounts] = useState({ incapacidad: null, receta: null });
+  const [counts, setCounts] = useState({ incapacidad: null, receta: null, laboratorio: null });
   // Tamaño real del encabezado, para pintar el degradado con react-native-svg (ya es
   // dependencia, ver HexLogo) sin traer una librería de gradientes nueva.
   const [bannerSize, setBannerSize] = useState({ width: 0, height: 0 });
@@ -52,15 +60,14 @@ export default function DocumentsHubScreen({ navigation }) {
 
   // Solo se muestra un total cuando ambos conteos llegaron: si uno falló, se cae al texto
   // genérico en vez de dar un número incompleto.
-  const total =
-    counts.incapacidad != null && counts.receta != null
-      ? counts.incapacidad + counts.receta
-      : null;
+  const total = TYPES.every((type) => counts[type.key] != null)
+    ? TYPES.reduce((sum, type) => sum + counts[type.key], 0)
+    : null;
 
   const bannerSubtitle =
     total != null
       ? `${total} ${total === 1 ? "documento generado" : "documentos generados"} en tus consultas. Elige una categoría para verlos.`
-      : "Recetas e incapacidades de todas tus consultas. Elige una categoría para verlos.";
+      : "Recetas, incapacidades y órdenes de laboratorio de tus consultas. Elige una categoría para verlos.";
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
