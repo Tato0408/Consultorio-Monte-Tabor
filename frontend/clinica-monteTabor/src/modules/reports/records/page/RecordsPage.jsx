@@ -28,6 +28,11 @@ const RecordsPage = () => {
   const location = useLocation();
   const { records, loading, error, getRecordById, refetch } = useRecords();
   const [selectedId, setSelectedId] = useState(null);
+  // Pestaña con la que se debe abrir el expediente cuando selectedId viene de
+  // location.state (ver más abajo), no de un clic manual en la tabla. Se
+  // limpia explícitamente en onRowClick para que un clic manual posterior
+  // nunca reutilice, por accidente, la pestaña de una navegación anterior.
+  const [initialTab, setInitialTab] = useState(null);
 
   // Números de los chips del banner. Se derivan de los mismos registros que
   // llenan la tabla, sin una petición aparte.
@@ -45,13 +50,17 @@ const RecordsPage = () => {
     };
   }, [records]);
 
-  // selectPatientId (puesto por RecordsAccessCard.jsx del dashboard del doctor al hacer clic en
-  // "Abrir") abre directamente el expediente de ese paciente, igual que si se hubiera hecho
-  // clic en su fila dentro de esta misma pantalla.
+  // selectPatientId abre directamente el expediente de ese paciente, igual que si se
+  // hubiera hecho clic en su fila dentro de esta misma pantalla. Lo ponen
+  // RecordsAccessCard.jsx (dashboard del doctor, botón "Abrir") y
+  // ConsultationForm.jsx (botón de volver, cuando la consulta se abrió desde
+  // el expediente) — este último también manda selectTab para reabrir en la
+  // pestaña de la que se salió (ver RecordDetailPage.jsx) en vez de Resumen.
   useEffect(() => {
     const wanted = location.state?.selectPatientId;
     if (wanted && !loading && records.some((r) => r.id === wanted)) {
       setSelectedId(wanted);
+      setInitialTab(location.state?.selectTab || null);
     }
   }, [location.state, loading, records]);
 
@@ -62,6 +71,7 @@ const RecordsPage = () => {
     return (
       <RecordDetailPage
         record={getRecordById(selectedId)}
+        initialTab={initialTab}
         onBack={() => setSelectedId(null)}
         // getRecordById deriva del arreglo patients que trae useRecords, así que
         // refrescarlo aquí (y no solo usePatientRecordDetail, que trae aparte
@@ -123,7 +133,7 @@ const RecordsPage = () => {
         <RecordsTable
           records={records}
           loading={loading}
-          onRowClick={(row) => setSelectedId(row.id)}
+          onRowClick={(row) => { setSelectedId(row.id); setInitialTab(null); }}
         />
       </div>
     </div>

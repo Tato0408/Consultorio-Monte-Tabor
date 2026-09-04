@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Download, Eraser, Save } from "lucide-react";
 
 import useLabOrder from "../hooks/useLabOrder";
@@ -22,10 +22,15 @@ const LabOrderForm = () => {
     const { appointmentId } = useParams();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const readOnly = searchParams.get("mode") === "view";
+    // Reenvía el mismo location.state con el que se llegó acá (ver
+    // ConsultationForm.jsx), así la consulta a la que se vuelve conserva de
+    // dónde se abrió originalmente (lista de consultas o expediente del
+    // paciente) y su propio botón de volver también acierta.
     const backToConsultation = () =>
-        navigate(`/calendar/consultations/${appointmentId}${readOnly ? "?mode=view" : ""}`);
+        navigate(`/calendar/consultations/${appointmentId}${readOnly ? "?mode=view" : ""}`, { state: location.state });
 
     const { appointment, labOrder, triageWeight, triageHeight, save, isLoading, isSaving, error } =
         useLabOrder(appointmentId);
@@ -125,6 +130,14 @@ const LabOrderForm = () => {
 
     const handleGuardar = async () => {
         if (isSaving) return;
+        // Misma regla que handleDescargar: una orden sin ningún examen marcado
+        // ni nada en "Otros" no le sirve de nada al laboratorio. El backend
+        // también la rechaza (ver labOrderController.js), esto solo evita el
+        // viaje de ida y vuelta.
+        if (selectedCount === 0 && !otherTests.trim()) {
+            showError("Marca al menos un examen (o escribe algo en «Otros») antes de guardar la orden.");
+            return;
+        }
         try {
             await save({
                 tests: [...selected],

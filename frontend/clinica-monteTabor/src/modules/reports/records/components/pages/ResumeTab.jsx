@@ -1,15 +1,34 @@
 "use client";
 
-import { Fragment, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Clock, Download, Info, FlaskConical, Plus } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
-import { showWarning, showError } from "@/lib/alerts";
+import { Fragment } from "react";
+import { Clock, Download, Info, FlaskConical } from "lucide-react";
+import { showError } from "@/lib/alerts";
 import { Badge, SectionCard, VerTodos, initials } from "../global/ui";
-import IncapacidadFormModal from "../global/IncapacidadFormModal";
 import LabOrderDocument from "@/modules/schedule/consultations/pdf/LabOrderDocument";
+import RecetaDocument from "@/modules/schedule/consultations/pdf/RecetaDocument";
 import { downloadPdf } from "@/modules/schedule/consultations/pdf/downloadPdf";
+import { openPdfInNewTab } from "@/modules/schedule/consultations/pdf/openPdfInNewTab";
 import { calculateAge } from "@/lib/validators";
+
+// Arma y abre en una pestaña nueva el PDF de una receta (mismo documento que
+// se descarga desde la pestaña de Documentos, ver RecordsDocuments.jsx).
+const descargarReceta = async (patient, receta) => {
+  const dateSource = receta.issuedAtRaw ? new Date(receta.issuedAtRaw) : new Date();
+  const dateFormatted = dateSource.toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const patientFullName = `${patient.nombre || ""} ${patient.apellido || ""}`.trim();
+  await openPdfInNewTab(
+    <RecetaDocument
+      title={`Receta médica de ${patientFullName} ${dateFormatted.replace(/\//g, "-")}`}
+      patientName={patientFullName}
+      dui={patient.dui}
+      age={calculateAge(patient.birthDate)}
+      doctorName={receta.doctorName}
+      date={dateFormatted}
+      medications={receta.medicationsRaw}
+      instructions={receta.instructionsRaw}
+    />
+  );
+};
 
 // Arma y descarga el PDF de una orden de laboratorio guardada (misma plantilla
 // que usa la pantalla de consulta). Los datos del paciente y del médico vienen
@@ -46,20 +65,6 @@ const descargarOrdenLaboratorio = async (labOrder) => {
   );
 };
 
-// Botón azul de agregar, mismo estilo que el resto del expediente.
-function AddButton({ children = "Agregar", ...props }) {
-  return (
-    <button
-      type="button"
-      className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-      {...props}
-    >
-      <Plus className="h-3.5 w-3.5" />
-      {children}
-    </button>
-  );
-}
-
 // Tarjeta de un signo vital individual.
 function VitalCard({ label, value, unit, badge }) {
   return (
@@ -76,25 +81,8 @@ function VitalCard({ label, value, unit, badge }) {
   );
 }
 
-export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
+export default function ResumenTab({ patient = {}, onNavigateTab }) {
   const v = patient.signosVitales ?? {};
-  const navigate = useNavigate();
-  const { hasPermission, user } = useAuth();
-  const canAttend = hasPermission("calendar.consultations", "create");
-  const canCreateSickLeave = hasPermission("reports.records", "create");
-  const [incapacidadModalOpen, setIncapacidadModalOpen] = useState(false);
-
-  // Recetas, referencias y laboratorios solo existen ligados a una
-  // consulta. El botón Agregar lleva al formulario real de consulta de la
-  // próxima cita del paciente, en vez de duplicar ese concepto como un
-  // recurso suelto.
-  const handleAgregarClinico = () => {
-    if (!patient.nextPendingAppointmentId) {
-      showWarning("Agenda una cita para este paciente para registrar recetas, laboratorios o referencias.");
-      return;
-    }
-    navigate(`/calendar/consultations/${patient.nextPendingAppointmentId}`);
-  };
 
   return (
     <div className="space-y-6">
@@ -159,23 +147,32 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <SectionCard
           title="Recetas"
-          action={
-            <div className="flex items-center gap-2">
-              {canAttend && <AddButton onClick={handleAgregarClinico} />}
-              <VerTodos onClick={() => onNavigateTab?.("Consultas")}>Ver todas</VerTodos>
-            </div>
-          }
+          action={<VerTodos onClick={() => onNavigateTab?.("Documentos", "receta")}>Ver todas</VerTodos>}
         >
           <div className="space-y-3">
-            {(patient.recetas ?? []).map((r, i) => (
-              <div key={i} className="flex items-start justify-between gap-3 rounded-xl bg-slate-50 p-4">
-                <div>
+            {(patient.recetas ?? []).length === 0 && (
+              <p className="text-sm text-slate-400">Sin recetas registradas.</p>
+            )}
+            {(patient.recetas ?? []).map((r) => (
+              <div key={r.id} className="flex items-center gap-3 rounded-xl bg-slate-50 p-4">
+                <div className="flex-1">
                   <p className="text-sm font-semibold text-slate-800">{r.nombre}</p>
-                  <p className="text-[11px] text-slate-400">{r.fecha}</p>
+                  <p className="text-[11px] text-slate-400">{r.fecha} · {r.doctor}</p>
                 </div>
-                <span className="max-w-[90px] text-right text-[9px] font-semibold uppercase leading-tight tracking-wide text-slate-400">
-                  {r.doctor}
-                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await descargarReceta(patient, r);
+                    } catch (err) {
+                      showError(err?.message || "No se pudo generar la receta.");
+                    }
+                  }}
+                  title="Descargar receta"
+                  className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
               </div>
             ))}
           </div>
@@ -183,12 +180,7 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
 
         <SectionCard
           title="Incapacidades"
-          action={
-            <div className="flex items-center gap-2">
-              {canCreateSickLeave && <AddButton onClick={() => setIncapacidadModalOpen(true)} />}
-              <VerTodos onClick={() => onNavigateTab?.("Incapacidades")}>Ver todas</VerTodos>
-            </div>
-          }
+          action={<VerTodos onClick={() => onNavigateTab?.("Documentos", "incapacidad")}>Ver todas</VerTodos>}
         >
           <div className="space-y-3">
             {(patient.incapacidades ?? []).map((it, i) => (
@@ -205,12 +197,7 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
 
         <SectionCard
           title="Referencias"
-          action={
-            <div className="flex items-center gap-2">
-              {canAttend && <AddButton onClick={handleAgregarClinico} />}
-              <VerTodos onClick={() => onNavigateTab?.("Consultas")}>Ver todas</VerTodos>
-            </div>
-          }
+          action={<VerTodos onClick={() => onNavigateTab?.("Documentos", "referencia")}>Ver todas</VerTodos>}
         >
           <div className="space-y-3">
             {(patient.referencias ?? []).map((rf, i) => (
@@ -228,12 +215,7 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
 
       <SectionCard
         title="Resultados de laboratorio y exámenes"
-        action={
-          <div className="flex items-center gap-2">
-            {canAttend && <AddButton onClick={handleAgregarClinico} />}
-            <VerTodos onClick={() => onNavigateTab?.("Consultas")} />
-          </div>
-        }
+        action={<VerTodos onClick={() => onNavigateTab?.("Documentos", "laboratorio")} />}
       >
         <div className="space-y-3">
           {(patient.laboratorios ?? []).length === 0 && (
@@ -300,14 +282,6 @@ export default function ResumenTab({ patient = {}, onSaved, onNavigateTab }) {
           </div>
         </SectionCard>
       </div>
-
-      <IncapacidadFormModal
-        isOpen={incapacidadModalOpen}
-        onClose={() => setIncapacidadModalOpen(false)}
-        patientId={patient.id}
-        doctorId={user?.id}
-        onSaved={onSaved}
-      />
     </div>
   );
 }

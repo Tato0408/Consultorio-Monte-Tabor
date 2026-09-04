@@ -16,4 +16,11 @@ router.route("/:id")
     .delete(authorize("calendar.consultations", "delete"), consultationController.deleteConsultation)
     .get(authorize("calendar.consultations", "view"), consultationController.getConsultationById);
 
+// Edición/eliminación puntual de la referencia de una consulta, desde la
+// pestaña de Documentos del expediente (reports.records), no desde el flujo
+// de atención de la consulta (calendar.consultations).
+router.route("/:id/referral")
+    .put(authorize("reports.records", "update"), consultationController.updateReferral)
+    .delete(authorize("reports.records", "delete"), consultationController.deleteReferral);
+
 export default router;

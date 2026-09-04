@@ -68,13 +68,30 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, labOrders, p
     (a, b) => new Date(b._fecha || 0) - new Date(a._fecha || 0)
   );
 
-  const recetas = consultations.flatMap((c) =>
-    (c.prescription?.medications || []).map((m) => ({
-      nombre: m.name || "—",
-      fecha: formatFecha(c.date) || "—",
-      doctor: getDoctorName(c.appointment_id?.doctor_id, c.appointment_id?.nurse_id),
-    }))
-  );
+  // Recetas: un documento por consulta (el mismo PDF que se genera al
+  // finalizarla, ver RecetaDocument.jsx), no uno por medicamento. Solo se
+  // listan las consultas que sí tienen receta emitida.
+  const recetas = consultations
+    .filter((c) => c.prescription?._id)
+    .map((c) => {
+      const meds = c.prescription.medications || [];
+      const nombre =
+        meds.map((m) => m.name).filter(Boolean).join(", ") || "Sin medicamentos registrados";
+      return {
+        id: c.prescription._id,
+        nombre,
+        fecha: formatFecha(c.prescription.issued_at || c.date) || "—",
+        doctor: getDoctorName(c.appointment_id?.doctor_id, c.appointment_id?.nurse_id),
+        // Campos crudos para el modal de editar y para regenerar el PDF.
+        medicationsRaw: meds,
+        instructionsRaw: c.prescription.post_operative_instructions || "",
+        issuedAtRaw: c.prescription.issued_at || c.date,
+        doctorId: c.appointment_id?.doctor_id?._id ? String(c.appointment_id.doctor_id._id) : null,
+        nurseId: c.appointment_id?.nurse_id?._id ? String(c.appointment_id.nurse_id._id) : null,
+        doctorName: getDoctorName(c.appointment_id?.doctor_id, c.appointment_id?.nurse_id),
+      };
+    })
+    .sort((a, b) => new Date(b.issuedAtRaw || 0) - new Date(a.issuedAtRaw || 0));
 
   // Órdenes de laboratorio: son los documentos que el doctor genera en la
   // pantalla de "Orden de laboratorio" y que quedan enlazados a la consulta al
@@ -86,6 +103,10 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, labOrders, p
       nombre: count === 1 ? "1 examen solicitado" : `${count} exámenes solicitados`,
       fecha: formatFecha(o.issued_at || o.createdAt) || "—",
       estado: "Generada",
+      doctorName: getDoctorName(
+        o.consultation_id?.appointment_id?.doctor_id,
+        o.consultation_id?.appointment_id?.nurse_id
+      ),
       labOrder: o,
     };
   });
@@ -93,9 +114,22 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, labOrders, p
   const referencias = consultations
     .filter((c) => c.referral?.reason)
     .map((c) => ({
+      id: String(c._id),
+      // La referencia vive embebida en la consulta (no tiene colección
+      // propia): editarla/eliminarla es un PUT/DELETE contra
+      // /consultations/:id/referral usando este mismo id.
+      consultationId: String(c._id),
       nombre: c.referral.reason,
       fecha: formatFecha(c.referral.referred_date || c.date) || "—",
       estado: c.referral.status || "Pendiente",
+      // Campos crudos para el modal de editar.
+      reasonRaw: c.referral.reason || "",
+      referredToRaw: c.referral.referred_to || "",
+      referredDateRaw: c.referral.referred_date || c.date,
+      statusRaw: c.referral.status || "Pendiente",
+      doctorId: c.appointment_id?.doctor_id?._id ? String(c.appointment_id.doctor_id._id) : null,
+      nurseId: c.appointment_id?.nurse_id?._id ? String(c.appointment_id.nurse_id._id) : null,
+      doctorName: getDoctorName(c.appointment_id?.doctor_id, c.appointment_id?.nurse_id),
     }));
 
   const incapacidades = sickLeaves.map((s) => {

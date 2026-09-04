@@ -275,15 +275,21 @@ consultationController.insertConsultation = async (req, res) => {
     //Guardamos de manera temporal la consulta en el session
     const savedConsultation = await newConsultation.save({ session });
 
+    // El formulario de consulta (PrescriptionCard.jsx) manda este campo como
+    // prescription.indications ("Indicaciones de seguimiento"), no
+    // post_operative_instructions: se acepta cualquiera de los dos nombres
+    // para no perder lo que el doctor escribió (post_operative_instructions
+    // sigue soportado por si algún día llega por ahí, ej. una integración
+    // futura).
+    const postOperativeInstructions =
+      prescription?.post_operative_instructions || prescription?.indications;
+
     //Si viene datos de medicamentos o instrucciones de operacion
-    if (
-      prescription?.medications?.length ||
-      prescription?.post_operative_instructions
-    ) {
+    if (prescription?.medications?.length || postOperativeInstructions) {
       const newPrescription = new prescriptionsModel({
         consultation_id: savedConsultation._id, // Enlazamos con el id que acabamos de crear
         medications: prescription.medications || [],
-        post_operative_instructions: prescription.post_operative_instructions,
+        post_operative_instructions: postOperativeInstructions,
         // Momento en que se emite la receta, usado por el portal del paciente para
         // calcular qué medicamentos siguen activos hoy (ver fetchTodayMedications).
         issued_at: new Date(),
@@ -470,13 +476,17 @@ consultationController.updateConsultation = async (req, res) => {
       return res.status(404).json({ message: "Consulta no encontrada" });
     }
     if (prescription) {
+      // Mismo criterio que insertConsultation: el formulario manda
+      // prescription.indications, no post_operative_instructions.
+      const postOperativeInstructions =
+        prescription.post_operative_instructions || prescription.indications;
       await prescriptionsModel.findOneAndUpdate(
         { consultation_id: req.params.id },
         {
           $set: {
             consultation_id: req.params.id,
             medications: prescription.medications || [],
-            post_operative_instructions: prescription.post_operative_instructions,
+            post_operative_instructions: postOperativeInstructions,
           },
           // Solo se fija la primera vez que se crea la receta (al completar una
           // consulta que todavía no tenía una), para no correr la fecha de emisión
@@ -617,5 +627,57 @@ consultationController.getConsultationByAppointmentId = async (req, res) => {
   }
 };
 
+
+// PUT /consultations/:id/referral — edita la referencia de una consulta ya
+// guardada desde la pestaña de Documentos del expediente. La referencia no
+// es una colección propia (vive embebida en la consulta, ver referral en
+// consultation.js), así que se edita como un campo puntual en vez de exigir
+// el cuerpo completo de la consulta.
+consultationController.updateReferral = async (req, res) => {
+  try {
+    const { reason, referred_to, referred_date, status } = req.body;
+
+    const consultation = await consultationsModel.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          "referral.reason": reason,
+          "referral.referred_to": referred_to,
+          "referral.referred_date": referred_date,
+          "referral.status": status,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!consultation) {
+      return res.status(404).json({ message: "Consulta no encontrada" });
+    }
+    return res.status(200).json({ message: "Referencia actualizada", data: consultation.referral });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE /consultations/:id/referral — quita la referencia de la consulta
+// (la consulta en sí no se borra, solo deja de tener una referencia asociada).
+consultationController.deleteReferral = async (req, res) => {
+  try {
+    const consultation = await consultationsModel.findByIdAndUpdate(
+      req.params.id,
+      { $unset: { referral: "" } },
+      { new: true }
+    );
+
+    if (!consultation) {
+      return res.status(404).json({ message: "Consulta no encontrada" });
+    }
+    return res.status(200).json({ message: "Referencia eliminada" });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
 
 export default consultationController;

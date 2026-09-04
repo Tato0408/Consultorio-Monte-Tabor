@@ -20,6 +20,13 @@ const buildLabOrderData = (body) => {
     };
 };
 
+// Una orden vacía (sin ningún examen marcado y sin nada escrito en "Otros")
+// no tiene sentido: no hay nada que el laboratorio pueda procesar. Se valida
+// acá (no solo en el frontend) para que ninguna orden vacía pueda guardarse
+// sin importar desde dónde se mande la petición.
+const hasAtLeastOneTest = (data) =>
+    (Array.isArray(data.tests) && data.tests.length > 0) || Boolean(data.other_tests?.trim());
+
 // GET /lab-orders/by-appointment/:appointmentId — orden de esa cita, o null.
 labOrderController.getByAppointment = async (req, res) => {
     try {
@@ -84,6 +91,10 @@ labOrderController.upsert = async (req, res) => {
 
         const data = buildLabOrderData(req.body);
 
+        if (!hasAtLeastOneTest(data)) {
+            return res.status(400).json({ message: "Marca al menos un examen (o escribe algo en \"Otros\") antes de guardar la orden de laboratorio." });
+        }
+
         const labOrder = await labOrdersModel.findOneAndUpdate(
             { appointment_id },
             {
@@ -98,6 +109,48 @@ labOrderController.upsert = async (req, res) => {
         );
 
         return res.status(200).json(labOrder);
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// PUT /lab-orders/:id — edita una orden ya finalizada desde la pestaña de
+// Documentos del expediente (a diferencia de upsert, que trabaja por
+// appointment_id mientras la consulta sigue en curso).
+labOrderController.updateById = async (req, res) => {
+    try {
+        const labOrder = await labOrdersModel.findById(req.params.id);
+        if (!labOrder) {
+            return res.status(404).json({ message: "Orden de laboratorio no encontrada" });
+        }
+
+        const data = buildLabOrderData(req.body);
+        // patient_id no viene del formulario de edición (buildLabOrderData lo
+        // deja undefined si no llega): no se debe pisar el dueño real de la orden.
+        delete data.patient_id;
+
+        if (!hasAtLeastOneTest(data)) {
+            return res.status(400).json({ message: "Marca al menos un examen (o escribe algo en \"Otros\") antes de guardar la orden de laboratorio." });
+        }
+
+        Object.assign(labOrder, data);
+        await labOrder.save();
+        return res.status(200).json(labOrder);
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// DELETE /lab-orders/:id — elimina una orden puntual desde el expediente.
+labOrderController.removeById = async (req, res) => {
+    try {
+        const labOrderDeleted = await labOrdersModel.findByIdAndDelete(req.params.id);
+        if (!labOrderDeleted) {
+            return res.status(404).json({ message: "Orden de laboratorio no encontrada" });
+        }
+        return res.status(200).json({ message: "Orden de laboratorio eliminada" });
     } catch (error) {
         console.log("error " + error);
         return res.status(500).json({ message: "Error interno del servidor" });

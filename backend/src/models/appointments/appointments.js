@@ -6,7 +6,11 @@ const appointmentsSchema = new Schema({
     doctor_id: { type: mongoose.Schema.Types.ObjectId, ref: "Doctors", default: null },
     patient_id: { type: mongoose.Schema.Types.ObjectId, ref: "Patients", required: true },
     nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "nurses" },
-    procedure_id: { type: mongoose.Schema.Types.ObjectId, ref: "Procedure" },
+    // El modelo real se registra en minúscula y singular (ver
+    // models/procedures/procedures.js: model("procedure", ...)); el ref
+    // debe calzar exacto o cualquier .populate("procedure_id") revienta con
+    // MissingSchemaError (pasaba en patientSelfController.getMyConsultations).
+    procedure_id: { type: mongoose.Schema.Types.ObjectId, ref: "procedure" },
     type: { type: String, required: true },
     // Nombre (denormalizado, no una referencia) de un AppointmentType del
     // catálogo global, usado solo para categorizar y colorear la cita en

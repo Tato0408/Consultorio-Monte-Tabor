@@ -71,9 +71,12 @@ const consultationSchema = new Schema({
 
   procedure: [
     {
+      // El modelo real se registra como "procedure" (minúscula, singular,
+      // ver models/procedures/procedures.js). Nadie popula este campo hoy,
+      // pero con el ref mal escrito cualquier .populate() futuro tronaría.
       procedure_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Procedures",
+        ref: "procedure",
       },
       doctor_id: {
         type: mongoose.Schema.Types.ObjectId,

@@ -83,21 +83,26 @@ const patientSchema = new Schema({
                 type: Date
             }
         }],
+        // Los tres ref de abajo tenían el nombre del modelo real mal escrito
+        // (minúscula/plural en vez de como se registra de verdad, ver
+        // models/procedures/procedures.js, consultation.js y doctors.js):
+        // nadie los popula hoy, pero cualquier .populate() futuro sobre
+        // clinical_history.procedures habría reventado con MissingSchemaError.
         procedures: [{
             procedure_id: {
                 type: mongoose.Types.ObjectId,
-                ref: "procedures"
+                ref: "procedure"
             },
             procedure_name: {
                 type: String
             },
             consultation_id: {
                 type: mongoose.Types.ObjectId,
-                ref: "consultations"
+                ref: "Consultations"
             },
             doctor_id: {
                 type: mongoose.Types.ObjectId,
-                ref: "doctors"
+                ref: "Doctors"
             },
             doctor_name: {
                 type: String

@@ -12,10 +12,10 @@ import HistoriaClinicaTab from "./pages/RecordsHistoricalClinical";
 import ProcedimientosTab from "./pages/RecordsProcedures";
 import SignosVitalesTab from "./pages/RecordsVitalSigns";
 import ConsultasTab from "./pages/RecordsConsultations";
-import IncapacidadesTab from "./pages/RecordsIncapacidades";
+import DocumentosTab from "./pages/RecordsDocuments";
 import usePatientRecordDetail from "../hooks/usePatientRecordDetail";
 
-const TAB_LABELS = ["Resumen", "Historia clínica", "Procedimientos", "Signos vitales", "Consultas", "Incapacidades"];
+const TAB_LABELS = ["Resumen", "Historia clínica", "Procedimientos", "Signos vitales", "Consultas", "Documentos"];
 
 // Se renderiza dentro de RecordsPage al hacer clic en un paciente de la
 // tabla. No navega a una ruta nueva, solo intercambia qué se muestra
@@ -30,7 +30,10 @@ const TAB_LABELS = ["Resumen", "Historia clínica", "Procedimientos", "Signos vi
 // procedimientos). Llamar solo a usePatientRecordDetail.refetch no
 // alcanza, porque ese hook solo trae consultas, citas e incapacidades, no
 // el documento del paciente en sí.
-const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
+// initialTab (opcional) abre el expediente ya posicionado en esa pestaña, en
+// vez de siempre en Resumen — lo usa RecordsPage.jsx cuando se vuelve acá
+// desde el botón de volver de una consulta (ver ConsultationForm.jsx).
+const RecordDetailPage = ({ record, onBack, onPatientUpdated, initialTab }) => {
   const fullName = `${record?.nombre || ""} ${record?.apellido || ""}`.trim();
   const { extra, loading, error, refetch } = usePatientRecordDetail(record?.id, fullName);
   const navigate = useNavigate();
@@ -38,7 +41,15 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
   const canAttend = hasPermission("calendar.consultations", "create");
   const canEdit = hasPermission("calendar.consultations", "update");
   const canDeleteConsulta = hasPermission("reports.records", "delete");
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(() => {
+    const idx = TAB_LABELS.indexOf(initialTab);
+    return idx >= 0 ? idx : 0;
+  });
+  // Categoría seleccionada dentro de la pestaña Documentos (incapacidad,
+  // receta, laboratorio o referencia). Vive acá, no dentro de
+  // DocumentosTab, para que "Ver más" desde el Resumen pueda abrir la
+  // pestaña ya posicionada en la categoría correcta (ver goToTab).
+  const [docsTipo, setDocsTipo] = useState("incapacidad");
 
   // Elimina una consulta médica ya atendida (el documento Consultation
   // real, no la cita). Existe sobre todo para poder limpiar consultas
@@ -70,7 +81,13 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
     refetch();
   };
 
-  const goToTab = (label) => setActiveTab(TAB_LABELS.indexOf(label));
+  // tipo es opcional: solo lo usan los "Ver más" que apuntan a Documentos,
+  // para dejar preseleccionada la categoría correspondiente (incapacidad,
+  // receta, laboratorio o referencia).
+  const goToTab = (label, tipo) => {
+    setActiveTab(TAB_LABELS.indexOf(label));
+    if (tipo) setDocsTipo(tipo);
+  };
 
   if (!record) {
     return (
@@ -109,7 +126,7 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
       content: <ResumenTab patient={patient} onSaved={refreshAll} onNavigateTab={goToTab} />,
     },
     { label: "Historia clínica", content: <HistoriaClinicaTab patient={patient} onSaved={refreshAll} /> },
-    { label: "Procedimientos", content: <ProcedimientosTab patient={patient} onSaved={refreshAll} /> },
+    { label: "Procedimientos", content: <ProcedimientosTab patient={patient} /> },
     { label: "Signos vitales", content: <SignosVitalesTab patient={patient} onSaved={refreshAll} /> },
     {
       label: "Consultas",
@@ -119,16 +136,36 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated }) => {
           canAttend={canAttend}
           canEdit={canEdit}
           canDelete={canDeleteConsulta}
-          onContinuar={(c) => c.appointmentId && navigate(`/calendar/consultations/${c.appointmentId}`)}
+          onContinuar={(c) =>
+            c.appointmentId &&
+            navigate(`/calendar/consultations/${c.appointmentId}`, {
+              // fromRecords + patientId dejan que el botón de volver de
+              // ConsultationForm.jsx regrese exactamente a este expediente (y a su
+              // pestaña Consultas), en vez de mandar siempre al listado global.
+              state: { fromRecords: true, patientId: patient.id },
+            })
+          }
           onVerRegistro={(c) =>
             c.appointmentId &&
-            navigate(`/calendar/consultations/${c.appointmentId}${canEdit ? "" : "?mode=view"}`)
+            navigate(`/calendar/consultations/${c.appointmentId}${canEdit ? "" : "?mode=view"}`, {
+              state: { fromRecords: true, patientId: patient.id },
+            })
           }
           onEliminar={handleEliminarConsulta}
         />
       ),
     },
-    { label: "Incapacidades", content: <IncapacidadesTab patient={patient} onSaved={refreshAll} /> },
+    {
+      label: "Documentos",
+      content: (
+        <DocumentosTab
+          patient={patient}
+          onSaved={refreshAll}
+          tipo={docsTipo}
+          onTipoChange={setDocsTipo}
+        />
+      ),
+    },
   ];
 
   return (

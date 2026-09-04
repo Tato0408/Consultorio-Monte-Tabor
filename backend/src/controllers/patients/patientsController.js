@@ -14,7 +14,36 @@ const patientsController = {};
 //Get de todos los pacientes
 patientsController.getAllPatients = async (req, res) => {
   try {
-    const patients = await patientsModel.find();
+    const patients = await patientsModel.find().lean();
+
+    // La duración de un procedimiento no se guarda en clinical_history.procedures
+    // (a diferencia de procedure_name/doctor_name, que sí se congelan al momento
+    // de la consulta, ver syncProcedureHistory en consultation.js): solo existe en
+    // el catálogo real (Procedures.estimated_duration). Se une aquí, contra el
+    // catálogo actual, para que el expediente (pestaña Procedimientos) la
+    // muestre también en procedimientos ya registrados antes de este cambio.
+    const procedureIds = [
+      ...new Set(
+        patients
+          .flatMap((p) => p.clinical_history?.procedures || [])
+          .map((pr) => pr.procedure_id)
+          .filter(Boolean)
+          .map(String)
+      ),
+    ];
+    if (procedureIds.length) {
+      const catalog = await proceduresModel
+        .find({ _id: { $in: procedureIds } })
+        .select("estimated_duration")
+        .lean();
+      const durationById = new Map(catalog.map((c) => [String(c._id), c.estimated_duration]));
+      patients.forEach((p) => {
+        (p.clinical_history?.procedures || []).forEach((pr) => {
+          if (pr.procedure_id) pr.duration = durationById.get(String(pr.procedure_id)) ?? null;
+        });
+      });
+    }
+
     return res.status(200).json(patients);
   } catch (error) {
     console.log("error" + error);

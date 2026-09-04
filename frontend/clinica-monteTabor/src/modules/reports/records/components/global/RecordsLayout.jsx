@@ -39,16 +39,18 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
         <span className="font-semibold text-slate-800">{fullName || "Paciente"}</span>
       </nav>
 
-      {/* Tabs (navegación por tabIndex). overflow-x-auto y whitespace-nowrap
-          evitan que las seis pestañas se salgan del ancho de la pantalla en
-          móvil: en vez de desbordar, la fila se desplaza horizontalmente. */}
-      <div className="mb-6 flex gap-5 sm:gap-8 border-b border-slate-100 overflow-x-auto">
+      {/* Tabs (navegación por tabIndex). flex-wrap evita que las seis pestañas
+          se salgan del ancho de la pantalla en móvil: en vez de desbordar,
+          pasan a una segunda línea. Antes tenía overflow-x-auto, pero la
+          barra de scroll resultante tapaba o dejaba a medias la línea azul
+          del tab activo (-bottom-px, pegada al borde inferior). */}
+      <div className="mb-6 flex flex-wrap gap-x-5 gap-y-2 sm:gap-x-8 border-b border-slate-100">
         {tabs.map((t, i) => (
           <button
             key={t.label}
             type="button"
             onClick={() => setTab(i)}
-            className={`relative -mb-px flex-shrink-0 whitespace-nowrap pb-3 text-sm transition-colors ${
+            className={`relative -mb-px whitespace-nowrap pb-3 text-sm transition-colors ${
               current === i ? "font-medium text-blue-600" : "text-slate-500 hover:text-slate-700"
             }`}
           >

@@ -14,4 +14,11 @@ router.route("/")
     .get(authorize("calendar.consultations", "view"), labOrderController.list)
     .post(authorize("calendar.consultations", "create"), labOrderController.upsert);
 
+// Edición/eliminación puntual de una orden ya finalizada desde la pestaña de
+// Documentos del expediente: reusa el módulo de permisos del expediente
+// clínico (reports.records), no el de la consulta en curso.
+router.route("/:id")
+    .put(authorize("reports.records", "update"), labOrderController.updateById)
+    .delete(authorize("reports.records", "delete"), labOrderController.removeById);
+
 export default router;
