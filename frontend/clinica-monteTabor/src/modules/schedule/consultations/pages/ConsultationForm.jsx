@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
 import { ArrowLeft } from "lucide-react";
 
@@ -17,20 +17,62 @@ import AntecedentsCard from "../components/AntecedentsCard";
 import ConsultationActions from "../components/ConsultationActions";
 import IncapacidadModal from "../components/IncapacidadModal";
 import IncapacidadDocument from "../pdf/IncapacidadDocument";
+import RecetaDocument from "../pdf/RecetaDocument";
 import ConsultationDocument from "../pdf/ConsultationDocument";
 import { openPdfInNewTab } from "../pdf/openPdfInNewTab";
 import { showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
 import apiClient from "@/lib/apiClient";
 
+// Borrador de la consulta en curso, guardado en sessionStorage al salir a
+// "Generar orden de laboratorio" para no perder lo que el doctor llevaba
+// escrito sin guardar. Caduca a las 2 horas.
+const DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
+const draftKey = (appointmentId) => `consultation-draft:${appointmentId}`;
+const readConsultationDraft = (appointmentId) => {
+    try {
+        const raw = sessionStorage.getItem(draftKey(appointmentId));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.values || Date.now() - (parsed.ts || 0) > DRAFT_TTL_MS) return null;
+        return parsed.values;
+    } catch {
+        return null;
+    }
+};
+const clearConsultationDraft = (appointmentId) => {
+    try {
+        sessionStorage.removeItem(draftKey(appointmentId));
+    } catch {
+        /* sessionStorage no disponible: nada que limpiar */
+    }
+};
+
 const ConsultationForm = () => {
     const { appointmentId } = useParams();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const location = useLocation();
 
     // Si viene el parámetro mode=view, el formulario queda en modo de
     // solo lectura, para solo consultar la información.
     const readOnly = searchParams.get("mode") === "view";
+
+    // Esta pantalla se abre desde dos lugares distintos: el listado de
+    // Consultas (por defecto) o la pestaña Consultas del expediente de un
+    // paciente (RecordDetailPage.jsx, que manda fromRecords + patientId en
+    // el location.state al navegar acá). goBack() vuelve a donde
+    // realmente se abrió en vez de mandar siempre al listado global.
+    const goBack = () => {
+        clearConsultationDraft(appointmentId);
+        if (location.state?.fromRecords) {
+            navigate("/reports/records", {
+                state: { selectPatientId: location.state.patientId, selectTab: "Consultas" },
+            });
+        } else {
+            navigate("/calendar/consultations");
+        }
+    };
 
     const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord } =
         useConsultation(appointmentId);
@@ -58,18 +100,20 @@ const ConsultationForm = () => {
             ).then(() => {
                 // Cuando el doctor confirma el aviso, lo redirige fuera
                 // de esta pantalla.
-                navigate("/calendar/consultations");
+                goBack();
             });
         } else {
-            // Si no hay error, carga los valores en el formulario normalmente
-            methods.reset(defaultValues);
+            // Si el doctor venía de "Generar orden de laboratorio", se restaura lo
+            // que llevaba escrito sin guardar; si no, carga normalmente.
+            const draft = readConsultationDraft(appointmentId);
+            methods.reset(draft || defaultValues);
         }
 
-        
+
 
         // Solo se re-ejecuta cuando isLoading cambia (no en cada render),
         // para no pisar lo que el doctor ya escribió.
-    }, [isLoading]); 
+    }, [isLoading]);
 
 
     // Se ejecuta solo si handleSubmit valida que el form está bien formado.
@@ -82,10 +126,11 @@ const ConsultationForm = () => {
                 : "La consulta médica ha sido registrada con éxito.";
             await showSuccess("¡Guardado!", successMsg);
 
-            // Vuelve al listado de consultas (no se queda en la misma pantalla): quedarse
-            // en la misma consulta en modo lectura se veía casi idéntico a como estaba
-            // antes de guardar, y eso hacía dudar si el guardado realmente se envió.
-            navigate("/calendar/consultations");
+            // No se queda en la misma pantalla: quedarse en la misma consulta en modo
+            // lectura se veía casi idéntico a como estaba antes de guardar, y eso hacía
+            // dudar si el guardado realmente se envió. goBack() ya limpia el borrador y
+            // vuelve a donde se abrió esta consulta (listado o expediente del paciente).
+            goBack();
         } catch (err) {
             showError(
                 "Error al guardar",
@@ -94,13 +139,19 @@ const ConsultationForm = () => {
         }
     };
 
-    // Nombre completo del paciente y del doctor asignado, reutilizado
-    // por los dos documentos PDF de abajo (incapacidad y consulta
-    // completa).
+    // Nombre completo del paciente y de quien atiende la cita, reutilizado por los dos
+    // documentos PDF de abajo (incapacidad y consulta completa). Un procedimiento sin
+    // doctor (requires_doctor false) lo atiende la enfermera asignada como proveedora
+    // principal: firma los documentos con su propio nombre, igual que lo haría el doctor.
     const patient = appointment?.patient_id;
     const doctor = appointment?.doctor_id;
+    const nurse = appointment?.nurse_id;
     const patientFullName = `${patient?.name || ""} ${patient?.last_name || ""}`.trim();
-    const doctorFullName = doctor ? `${doctor.name || ""} ${doctor.last_name || ""}`.trim() : "";
+    const doctorFullName = doctor
+        ? `${doctor.name || ""} ${doctor.last_name || ""}`.trim()
+        : nurse
+            ? `${nurse.name || ""} ${nurse.last_name || ""}`.trim()
+            : "";
     const todayFormatted = new Date().toLocaleDateString("es-SV", {
         day: "2-digit",
         month: "2-digit",
@@ -167,7 +218,6 @@ const ConsultationForm = () => {
                     diagnosisDescription={values?.clinical_data?.diagnosis_description}
                     tratamiento={values?.prescription?.indications}
                     medications={values?.prescription?.medications}
-                    labOrders={values?.prescription?.lab_orders}
                     referral={values?.referral}
                     antecedents={values?.antecedents}
                 />
@@ -192,6 +242,77 @@ const ConsultationForm = () => {
         setIsIncapacidadOpen(true);
     };
 
+    // Botón "Generar receta": solo lee lo que el doctor ya cargó en la
+    // tarjeta Receta y seguimiento (no guarda nada, a diferencia de
+    // "Generar incapacidad"), así que también funciona en modo de solo
+    // lectura para reimprimir la receta de una consulta ya atendida. Mismo
+    // documento (RecetaDocument.jsx) que se descarga después desde el
+    // expediente del paciente, para que sea el mismo PDF sin importar desde
+    // dónde se genere.
+    const handleGenerateReceta = async () => {
+        const values = methods.getValues();
+        const medications = (values?.prescription?.medications || []).filter((m) => m?.name?.trim());
+        if (medications.length === 0) {
+            showError(
+                "Falta la receta",
+                "Agrega al menos un medicamento en la sección Receta y seguimiento antes de generar el recetario."
+            );
+            return;
+        }
+        try {
+            await openPdfInNewTab(
+                <RecetaDocument
+                    title={`Receta médica de ${patientFullName} ${todayFileSafe}`}
+                    patientName={patientFullName}
+                    dui={patient?.dui}
+                    age={calculateAge(patient?.birth_date)}
+                    doctorName={doctorFullName}
+                    date={todayFormatted}
+                    medications={medications}
+                    instructions={values?.prescription?.indications}
+                />
+            );
+        } catch (err) {
+            showError("Error al generar el PDF", err?.message || "No se pudo generar el recetario.");
+        }
+    };
+
+    // Botón "Generar orden de laboratorio": la orden es opcional y se llena en
+    // una pantalla aparte. Peso y talla (Paso 2) van en la orden y salen de esta
+    // consulta, así que se exigen antes de salir; si faltan, se marcan en rojo
+    // igual que al intentar guardar. Se guarda un borrador del formulario para no
+    // perder lo escrito al volver.
+    const handleGenerateLabOrder = () => {
+        if (!readOnly) {
+            const values = methods.getValues();
+            const missing = [];
+            if (!String(values?.clinical_data?.triage?.weight ?? "").trim()) {
+                methods.setError("clinical_data.triage.weight", {
+                    type: "manual",
+                    message: "El peso es necesario para la orden de laboratorio",
+                });
+                missing.push("el peso");
+            }
+            if (!String(values?.clinical_data?.triage?.height ?? "").trim()) {
+                methods.setError("clinical_data.triage.height", {
+                    type: "manual",
+                    message: "La talla es necesaria para la orden de laboratorio",
+                });
+                missing.push("la talla");
+            }
+            if (missing.length > 0) {
+                showError(`Completa ${missing.join(" y ")} en el triage (Paso 2) antes de generar la orden de laboratorio.`);
+                return;
+            }
+            sessionStorage.setItem(draftKey(appointmentId), JSON.stringify({ values, ts: Date.now() }));
+        }
+        // Reenvía el mismo location.state con el que se llegó a esta consulta, para que
+        // el botón de volver de LabOrderForm.jsx also sepa a dónde regresar.
+        navigate(`/calendar/consultations/${appointmentId}/lab-order${readOnly ? "?mode=view" : ""}`, {
+            state: location.state,
+        });
+    };
+
     // Arma el PDF con el diagnóstico ya cargado en el formulario y los
     // días de reposo capturados en el modal, y además registra la
     // incapacidad como SickLeave real (antes solo se generaba el PDF,
@@ -212,6 +333,9 @@ const ConsultationForm = () => {
             body: {
                 patient_id: patient?._id,
                 doctor_id: doctor?._id,
+                // Solo se manda si no hay doctor (procedimiento sin doctor, la enfermera
+                // asignada es quien atendió y firma la incapacidad).
+                nurse_id: !doctor && nurse ? nurse._id : undefined,
                 diagnosis: diagnosisText || "Sin diagnóstico registrado",
                 start_date: startDate.toISOString(),
                 end_date: endDate.toISOString(),
@@ -244,11 +368,11 @@ const ConsultationForm = () => {
                 <button
                     type="button"
                     disabled={isSaving}
-                    onClick={() => navigate("/calendar/consultations")}
+                    onClick={goBack}
                     className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#0b66d6] mb-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <ArrowLeft className="w-4 h-4" />
-                    Volver a consultas
+                    {location.state?.fromRecords ? "Volver al expediente" : "Volver a consultas"}
                 </button>
 
                 <PatientHeader appointment={appointment} bloodTypeOverride={bloodTypeOverride} />
@@ -326,6 +450,8 @@ const ConsultationForm = () => {
                             onFinish={methods.handleSubmit(onSubmit)}
                             onPreview={handlePreview}
                             onGenerateIncapacidad={handleOpenIncapacidad}
+                            onGenerateReceta={handleGenerateReceta}
+                            onGenerateLabOrder={handleGenerateLabOrder}
                         />
                     </div>
                 </div>

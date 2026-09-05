@@ -26,17 +26,22 @@ const todayStr = () => {
 const NurseDashboard = () => {
     const { user, userType } = useAuth();
     const navigate = useNavigate();
-    const { getStats, getDoctorsAgenda, getUpcomingAppointments, getPendingConfirmations } = useNurseDashboard();
+    const { getStats, getDoctorsAgenda, getNursesAgenda, getUpcomingAppointments, getPendingConfirmations } = useNurseDashboard();
     const medicalData = useMedicalData();
 
     const [stats, setStats] = useState(null);
-    const [agenda, setAgenda] = useState({ doctors: [] });
+    const [agenda, setAgenda] = useState({ doctors: [], nurses: [] });
     const [agendaDate, setAgendaDate] = useState(todayStr());
     const [agendaLoading, setAgendaLoading] = useState(true);
     const [upcoming, setUpcoming] = useState([]);
     const [pending, setPending] = useState({ pending: [], confirmed: [], counts: { pending: 0, confirmed: 0 } });
     const [loading, setLoading] = useState(true);
     const [prefill, setPrefill] = useState(null);
+    // Qué debe mostrar la agenda (DoctorsAgendaSection.jsx), según el procedimiento elegido
+    // en el registro rápido de citas (QuickAppointmentForm.jsx). Vacía por defecto: la
+    // agenda arranca sin nada hasta que se elige un procedimiento.
+    const [procedureInfo, setProcedureInfo] = useState({ procedureChosen: false, requiresDoctorForProcedure: true, isNurseRequired: false, duration: 30 });
+    const handleProcedureInfoChange = useCallback((info) => setProcedureInfo(info), []);
 
     const loadStatsAndLists = useCallback(() => {
         return Promise.allSettled([
@@ -50,27 +55,32 @@ const NurseDashboard = () => {
         });
     }, [getStats, getUpcomingAppointments, getPendingConfirmations]);
 
-    const loadAgenda = useCallback((date) => {
+    const loadAgenda = useCallback((date, duration) => {
         setAgendaLoading(true);
-        return getDoctorsAgenda(date)
-            .then((data) => setAgenda(data))
-            .catch(() => setAgenda({ doctors: [] }))
+        return Promise.allSettled([getDoctorsAgenda(date, duration), getNursesAgenda(date, duration)])
+            .then(([d, n]) => setAgenda({
+                doctors: d.status === "fulfilled" ? d.value.doctors : [],
+                nurses: n.status === "fulfilled" ? n.value.nurses : [],
+            }))
             .finally(() => setAgendaLoading(false));
-    }, [getDoctorsAgenda]);
+    }, [getDoctorsAgenda, getNursesAgenda]);
 
     useEffect(() => {
         loadStatsAndLists().finally(() => setLoading(false));
     }, [loadStatsAndLists]);
 
+    // Vuelve a pedir la agenda también cuando cambia la duración del procedimiento elegido
+    // (procedureInfo.duration): los horarios "disponible" deben tilearse con esa duración
+    // real, no con un valor fijo, ver agendaService.js.
     useEffect(() => {
-        loadAgenda(agendaDate);
-    }, [agendaDate, loadAgenda]);
+        loadAgenda(agendaDate, procedureInfo.duration);
+    }, [agendaDate, procedureInfo.duration, loadAgenda]);
 
     // Refresca todo lo que puede haber cambiado después de crear,
     // confirmar o cancelar una cita.
     const refreshAll = () => {
         loadStatsAndLists();
-        loadAgenda(agendaDate);
+        loadAgenda(agendaDate, procedureInfo.duration);
     };
 
     const displayName = user ? `${user.name || ""} ${user.last_name || ""}`.trim() : "Enfermera";
@@ -139,15 +149,18 @@ const NurseDashboard = () => {
                     iconBg="bg-amber-100"
                     label="Citas próximas (1h)"
                     value={s.upcomingAppointments?.count ?? 0}
-                    growth={s.upcomingAppointments?.next ? `Próxima a las ${s.upcomingAppointments.next.start_time}` : "Sin citas próximas"}
+                    growth={s.upcomingAppointments?.next ? `Próxima a las ${s.upcomingAppointments.next.start_time} - ${s.upcomingAppointments.next.end_time}` : "Sin citas próximas"}
                     growthLabel={s.upcomingAppointments?.next?.doctorName ?? ""}
                     sparkline={[]}
                     sparklineColor="#d97706"
                 />
             </div>
 
-            {/* Agenda y registro rápido de citas */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            {/* Agenda y registro rápido de citas. items-start deja que el formulario mantenga
+                su tamaño por default (vacío) sin estirarse; items-stretch, una vez que ya
+                tiene un procedimiento elegido (más grande, con Fecha/horario y Encargados
+                visibles), lo iguala a la altura de la agenda de la izquierda. */}
+            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 ${procedureInfo.procedureChosen ? "items-stretch" : "items-start"}`}>
                 <div className="lg:col-span-2 flex flex-col gap-4">
                     <DoctorsAgendaSection
                         agenda={agenda}
@@ -155,6 +168,8 @@ const NurseDashboard = () => {
                         onDateChange={setAgendaDate}
                         onSlotClick={setPrefill}
                         loading={agendaLoading}
+                        procedureChosen={procedureInfo.procedureChosen}
+                        requiresDoctorForProcedure={procedureInfo.requiresDoctorForProcedure}
                     />
                 </div>
 
@@ -163,17 +178,22 @@ const NurseDashboard = () => {
                         medicalData={medicalData}
                         prefill={prefill}
                         onCreated={refreshAll}
-                    />
-                    <UpcomingAppointmentsList
-                        appointments={upcoming}
-                        onViewAll={() => navigate("/calendar/appointments")}
-                    />
-                    <PendingConfirmationsPanel
-                        data={pending}
-                        onChanged={refreshAll}
-                        onViewAll={() => navigate("/calendar/appointments")}
+                        onProcedureInfoChange={handleProcedureInfoChange}
                     />
                 </div>
+            </div>
+
+            {/* Próximas citas y confirmación/cancelación, en fila debajo de la agenda */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                <UpcomingAppointmentsList
+                    appointments={upcoming}
+                    onViewAll={() => navigate("/calendar/appointments")}
+                />
+                <PendingConfirmationsPanel
+                    data={pending}
+                    onChanged={refreshAll}
+                    onViewAll={() => navigate("/calendar/appointments")}
+                />
             </div>
 
             </div>

@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Bell, LogOut, ChevronDown, ChevronRight, CalendarPlus, CalendarDays, Clock, User,
-  Stethoscope, FileText, FileStack, Pill, AlertCircle, RefreshCw,
+  LogOut, ChevronDown, ChevronRight, CalendarPlus, CalendarDays, Clock, User,
+  Stethoscope, FileText, FileStack, Pill, AlertCircle, AlertTriangle, RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getDashboardSummary } from "@/services/patientPortalService";
 import { cancelAppointment } from "@/services/appointmentsService";
 import { showSuccess, showError, confirmAction } from "@/lib/alerts";
+import NotificationsMenu from "@/components/NotificationsMenu";
 
 const Logo = () => (
   <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: 31, height: 36 }}>
@@ -66,7 +67,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [bellOpen, setBellOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
   const cargar = () => {
@@ -85,6 +85,9 @@ const Dashboard = () => {
   }, []);
 
   const nextAppointment = data?.nextAppointment || null;
+  // Citas que quedaron "por reagendar": ningún doctor las aceptó a tiempo o el cupo se le
+  // asignó a otro paciente. El paciente debe elegirles una nueva fecha/hora desde Mis citas.
+  const needsReschedule = data?.needsReschedule || [];
   const stats = data?.stats || { consultas: 0, documentos: 0, recordatorios: 0 };
   const todayMedications = data?.todayMedications || [];
   const recentDocuments = data?.recentDocuments || [];
@@ -177,47 +180,18 @@ const Dashboard = () => {
             <span className="hidden sm:block font-semibold text-gray-700">Portal del paciente</span>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="relative">
-              <button
-                onClick={() => setBellOpen((v) => !v)}
-                className="relative p-2 rounded-lg hover:bg-gray-50 transition-colors text-gray-400"
-              >
-                <Bell className="w-5 h-5" />
-                {reminders.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                    {reminders.length}
-                  </span>
-                )}
-              </button>
-              {bellOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setBellOpen(false)} />
-                  <div className="absolute right-0 top-12 w-72 max-w-[calc(100vw-2rem)] bg-white border border-gray-100 rounded-xl shadow-lg py-2 z-50">
-                    <p className="px-4 py-1 text-xs font-bold text-gray-400 uppercase tracking-wide">Recordatorios</p>
-                    {reminders.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-gray-400">No tienes recordatorios pendientes.</p>
-                    ) : (
-                      reminders.map((r, i) => (
-                        <div key={i} className="px-4 py-2 hover:bg-gray-50 flex items-center gap-3">
-                          {r.type === "cita" ? (
-                            <CalendarDays className="w-4 h-4 text-[#3B6FCA] flex-shrink-0" />
-                          ) : (
-                            <Pill className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-700 truncate">{r.label}</p>
-                            <p className="text-xs text-gray-400">{r.date}</p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+          {/* "relative" vive en este contenedor del grupo completo, no en cada botón por
+              separado: la campana no es el elemento más a la derecha del header (la cuenta
+              lo es), así que si su dropdown se ancla ("right-0") a su propio envoltorio
+              angosto, en pantallas de celular se desborda por la izquierda del viewport en
+              vez de quedar dentro de la franja visible (mismo criterio ya aplicado en
+              NotificationsMenu.jsx / PatientPortalHeader.jsx). Ambos dropdowns, anclados a
+              este contenedor común, siempre terminan alineados con el borde derecho real
+              del header. */}
+          <div className="relative flex items-center gap-2 flex-shrink-0">
+            <NotificationsMenu reminders={reminders} />
 
-            <div className="relative">
+            <div>
               <button
                 onClick={() => setUserMenuOpen((v) => !v)}
                 className="flex items-center gap-2 p-1.5 pr-2 rounded-lg hover:bg-gray-50 transition-colors"
@@ -234,6 +208,13 @@ const Dashboard = () => {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                   <div className="absolute right-0 top-12 w-44 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-50">
+                    <Link
+                      to="/profile"
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <User className="w-4 h-4 text-gray-400" /> Mi perfil
+                    </Link>
+                    <hr className="my-1 border-gray-100" />
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors text-left"
@@ -342,6 +323,27 @@ const Dashboard = () => {
           <div className="lg:col-span-2 flex flex-col gap-8 min-w-0">
             <div className="min-w-0">
               <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">Tu próxima cita</h2>
+
+              {needsReschedule.length > 0 && (
+                <Link
+                  to="/mis-citas"
+                  className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 mb-3 hover:bg-orange-100/70 transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="w-4 h-4 text-orange-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-orange-800">
+                      {needsReschedule.length === 1
+                        ? "Tienes 1 cita por reagendar"
+                        : `Tienes ${needsReschedule.length} citas por reagendar`}
+                    </p>
+                    <p className="text-xs text-orange-600">Elige una nueva fecha y hora desde Mis citas.</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                </Link>
+              )}
+
               {!nextAppointment ? (
                 <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center">
                   <p className="text-sm text-gray-400">No tienes citas próximas.</p>

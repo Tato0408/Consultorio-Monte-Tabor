@@ -20,6 +20,10 @@ const InventoryDashboard = () => {
   const canCreate = hasPermission("inventory.products", "create");
   const canUpdate = hasPermission("inventory.products", "update");
   const canDelete = hasPermission("inventory.products", "delete");
+  // Movimientos de inventario: entrada de stock y uso manual son "crear",
+  // el ajuste de stock es "editar" (ver inventory.js).
+  const canCreateMovement = hasPermission("inventory.movements", "create");
+  const canUpdateMovement = hasPermission("inventory.movements", "update");
 
   const { getStats } = useInsumos();
   const [stats, setStats]           = useState(null);
@@ -93,6 +97,8 @@ const InventoryDashboard = () => {
               onStockEntry={() => setModal("stock")}
               onManualUsage={() => setModal("usage")}
               onAdjust={() => setModal("adjust")}
+              canCreateMovement={canCreateMovement}
+              canUpdateMovement={canUpdateMovement}
             />
           </div>
         </div>

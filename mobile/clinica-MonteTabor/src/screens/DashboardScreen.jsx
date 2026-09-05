@@ -9,7 +9,6 @@ import NotificationBell from "../components/NotificationBell";
 import { ErrorState } from "../components/common/ScreenState";
 import apiClient from "../lib/apiClient";
 import { useAuth } from "../context/AuthContext";
-import { showWarning } from "../lib/toast";
 import { statusTones } from "../styles/appointments/appointmentsStyle";
 import { formatLongDate, formatTime12h } from "../utils/date";
 import styles, { colors } from "../styles/dashboardStyle";
@@ -121,7 +120,7 @@ const BenefitsCard = () => (
   </View>
 );
 
-const NextAppointmentCard = ({ appointment, onBook, onDetail }) => {
+const NextAppointmentCard = ({ appointment, onBook, onDetail, onReschedule }) => {
   if (!appointment) {
     return (
       <View style={styles.appointmentCard}>
@@ -188,12 +187,13 @@ const NextAppointmentCard = ({ appointment, onBook, onDetail }) => {
           <Ionicons name="information-circle-outline" size={16} color={colors.text} />
           <Text style={styles.outlineButtonText}>Ver detalles</Text>
         </TouchableOpacity>
-        {/* Reagendar cita queda fuera del alcance funcional pedido: mismo aviso de
-            "Próximamente disponible" que ya usa BottomNav para rutas sin implementar. */}
+        {/* Reagendar reusa el registro de la cita (conserva el anticipo) y la deja de
+            nuevo pendiente de aceptación. El endpoint solo admite citas pendientes o por
+            reagendar; una cita ya aceptada (scheduled) se gestiona desde su detalle. */}
         <TouchableOpacity
           style={styles.primaryButtonSmall}
           activeOpacity={0.85}
-          onPress={() => showWarning("Próximamente disponible.")}
+          onPress={appointment.status === "scheduled" ? onDetail : onReschedule}
         >
           <Ionicons name="calendar-outline" size={16} color="#FFF" />
           <Text style={styles.primaryButtonSmallText}>Reagendar cita</Text>
@@ -305,6 +305,13 @@ const DashboardScreen = ({ navigation }) => {
     [consultations]
   );
 
+  // Citas que quedaron "por reagendar": ningún profesional las aceptó a tiempo o el cupo
+  // se le asignó a otro paciente. El paciente debe elegirles una nueva fecha/hora.
+  const needsReschedule = useMemo(
+    () => consultations.filter((item) => ["needs_reschedule", "expired"].includes(item.status)),
+    [consultations]
+  );
+
   const openNewAppointment = () => navigation.navigate("NewAppointment");
   // tabSwitch: true: navegar entre pestañas del BottomNav no debe animar (ver App.js/BottomNav.jsx).
   const openConsultationsTab = () => navigation.navigate("Appointments", { tabSwitch: true });
@@ -359,10 +366,37 @@ const DashboardScreen = ({ navigation }) => {
               </>
             ) : null}
 
+            {needsReschedule.length > 0 ? (
+              <TouchableOpacity
+                style={styles.rescheduleBanner}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate("Appointments", { tabSwitch: true })}
+              >
+                <View style={styles.rescheduleBannerIcon}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#C2410C" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rescheduleBannerTitle}>
+                    {needsReschedule.length === 1
+                      ? "Tienes 1 cita por reagendar"
+                      : `Tienes ${needsReschedule.length} citas por reagendar`}
+                  </Text>
+                  <Text style={styles.rescheduleBannerText}>Elige una nueva fecha y hora para no perder tu atención.</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#C2410C" />
+              </TouchableOpacity>
+            ) : null}
+
             <NextAppointmentCard
               appointment={nextAppointment}
               onBook={openNewAppointment}
               onDetail={() => navigation.navigate("AppointmentDetail", { appointmentId: nextAppointment.appointment_id })}
+              onReschedule={() => navigation.navigate("NewAppointment", {
+                reschedule: {
+                  appointmentId: nextAppointment.appointment_id,
+                  procedureId: nextAppointment.procedure?._id || null,
+                },
+              })}
             />
 
             {lastConsultation ? (

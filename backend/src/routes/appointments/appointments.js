@@ -45,4 +45,12 @@ router.route("/:id/accept")
 router.route("/:id/assign")
     .patch(authorize("calendar.appointments", "update"), appointmentsController.assignDoctor);
 
+// Mismo par de rutas de arriba, pero para citas de un procedimiento sin doctor
+// (requires_doctor false), donde la enfermera es la proveedora principal.
+router.route("/:id/accept-nurse")
+    .patch(authorize("calendar.appointments", "update"), appointmentsController.acceptAppointmentAsNurse);
+
+router.route("/:id/assign-nurse")
+    .patch(authorize("calendar.appointments", "update"), appointmentsController.assignNurse);
+
 export default router;

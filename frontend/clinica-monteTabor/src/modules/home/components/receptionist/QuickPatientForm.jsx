@@ -43,8 +43,8 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
         const e = {};
         if (!form.name.trim()) e.name = "Requerido";
         if (!form.last_name.trim()) e.last_name = "Requerido";
-        if (!form.dui.trim()) e.dui = "Requerido";
-        else if (!/^\d{8}-\d$/.test(form.dui)) e.dui = "Formato: 00000000-0";
+        // El DUI es opcional (menores de edad sin DUI): solo se valida el formato si se escribe.
+        if (form.dui.trim() && !/^\d{8}-\d$/.test(form.dui)) e.dui = "Formato: 00000000-0";
         if (!form.birth_date) e.birth_date = "Requerido";
         else if (!isValidCalendarDate(form.birth_date) || form.birth_date > TODAY_STR) e.birth_date = "Fecha inválida";
         if (!form.phone.trim()) e.phone = "Requerido";
@@ -122,7 +122,7 @@ const QuickPatientForm = forwardRef(({ createPatient, onCreated }, ref) => {
                         </div>
                     </div>
                     <div>
-                        <label className="text-xs font-semibold text-slate-500 block mb-1">DUI</label>
+                        <label className="text-xs font-semibold text-slate-500 block mb-1">DUI <span className="font-normal text-slate-300">(opcional)</span></label>
                         <input value={form.dui} inputMode="numeric" maxLength={10} onChange={setMasked("dui", maskDui)} placeholder="12345678-9" className={inputClass(errors.dui)} />
                         <div className="flex items-start justify-between gap-2">
                             {errors.dui && <span className="text-[10px] text-red-500">{errors.dui}</span>}

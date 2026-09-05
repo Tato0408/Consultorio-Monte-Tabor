@@ -14,6 +14,7 @@ sickLeaveController.getSickLeaves = async (req, res) => {
     const sickLeaves = await sickLeavesModel
       .find(filters)
       .populate("doctor_id", "name last_name")
+      .populate("nurse_id", "name last_name")
       .sort({ start_date: -1 });
 
     return res.status(200).json(sickLeaves);
@@ -29,6 +30,7 @@ sickLeaveController.createSickLeave = async (req, res) => {
     const {
       patient_id,
       doctor_id,
+      nurse_id,
       consultation_id,
       diagnosis,
       start_date,
@@ -39,6 +41,7 @@ sickLeaveController.createSickLeave = async (req, res) => {
     const newSickLeave = new sickLeavesModel({
       patient_id,
       doctor_id,
+      nurse_id,
       consultation_id,
       diagnosis,
       start_date,
@@ -64,6 +67,7 @@ sickLeaveController.updateSickLeave = async (req, res) => {
     const {
       patient_id,
       doctor_id,
+      nurse_id,
       consultation_id,
       diagnosis,
       start_date,
@@ -78,6 +82,7 @@ sickLeaveController.updateSickLeave = async (req, res) => {
 
     if (patient_id !== undefined) sickLeave.patient_id = patient_id;
     if (doctor_id !== undefined) sickLeave.doctor_id = doctor_id;
+    if (nurse_id !== undefined) sickLeave.nurse_id = nurse_id;
     if (consultation_id !== undefined) sickLeave.consultation_id = consultation_id;
     if (diagnosis !== undefined) sickLeave.diagnosis = diagnosis;
     if (start_date !== undefined) sickLeave.start_date = start_date;

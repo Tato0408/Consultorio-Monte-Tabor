@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import consultationsModel from "../../models/consultations/consultation.js";
 import prescriptionsModel from "../../models/consultations/prescription.js"
+import labOrdersModel from "../../models/consultations/labOrder.js";
 import patientsModel from "../../models/patients/patients.js";
 import doctorsModel from "../../models/doctors/doctors.js";
 import proceduresModel from "../../models/procedures/procedures.js";
@@ -33,6 +34,22 @@ const buildVitalSignsEntry = (triage, consultationDate) => {
     spo2: oxygen_saturation !== undefined && oxygen_saturation !== null && oxygen_saturation !== "" ? Number(oxygen_saturation) : undefined,
     last_date_taken: consultationDate || new Date(),
   };
+};
+
+// $set para enlazar una orden de laboratorio con su consulta al finalizarla:
+// consultation_id (lo que la vuelve oficial), patient_id, fecha, y peso/talla
+// del triage (solo si tienen valor, para no meter un cast inválido de "").
+const buildLabOrderLink = (consultation, patientId, clinicalData) => {
+  const set = {
+    consultation_id: consultation._id,
+    patient_id: patientId,
+    issued_at: consultation.date || new Date(),
+  };
+  const weight = clinicalData?.triage?.weight;
+  const height = clinicalData?.triage?.height;
+  if (weight !== undefined && weight !== null && weight !== "") set.weight = Number(weight);
+  if (height !== undefined && height !== null && height !== "") set.height = Number(height);
+  return set;
 };
 
 // Descarta filas de antecedentes completamente vacías (el doctor dejó la fila sin llenar).
@@ -172,7 +189,10 @@ consultationController.getConsultations = async (req, res) => {
       .populate("patient_id")
       .populate({
         path: "appointment_id",
-        populate: { path: "doctor_id", select: "name last_name" },
+        populate: [
+          { path: "doctor_id", select: "name last_name" },
+          { path: "nurse_id", select: "name last_name" },
+        ],
       });
 
     // Adjuntamos la prescripción de cada consulta (misma relación que ya usa
@@ -255,17 +275,21 @@ consultationController.insertConsultation = async (req, res) => {
     //Guardamos de manera temporal la consulta en el session
     const savedConsultation = await newConsultation.save({ session });
 
-    //Si viene datos de medicamentos, ordenes de laboratorio o instrucciones de operacion
-    if (
-      prescription?.medications?.length ||
-      prescription?.lab_orders?.length ||
-      prescription?.post_operative_instructions
-    ) {
+    // El formulario de consulta (PrescriptionCard.jsx) manda este campo como
+    // prescription.indications ("Indicaciones de seguimiento"), no
+    // post_operative_instructions: se acepta cualquiera de los dos nombres
+    // para no perder lo que el doctor escribió (post_operative_instructions
+    // sigue soportado por si algún día llega por ahí, ej. una integración
+    // futura).
+    const postOperativeInstructions =
+      prescription?.post_operative_instructions || prescription?.indications;
+
+    //Si viene datos de medicamentos o instrucciones de operacion
+    if (prescription?.medications?.length || postOperativeInstructions) {
       const newPrescription = new prescriptionsModel({
         consultation_id: savedConsultation._id, // Enlazamos con el id que acabamos de crear
         medications: prescription.medications || [],
-        lab_orders: prescription.lab_orders || [],
-        post_operative_instructions: prescription.post_operative_instructions,
+        post_operative_instructions: postOperativeInstructions,
         // Momento en que se emite la receta, usado por el portal del paciente para
         // calcular qué medicamentos siguen activos hoy (ver fetchTodayMedications).
         issued_at: new Date(),
@@ -273,6 +297,17 @@ consultationController.insertConsultation = async (req, res) => {
       //Guardamos de manera temporal la presciption en la session
       await newPrescription.save({ session });
     }
+
+    // La orden de laboratorio (opcional) se arma en una pantalla aparte y se
+    // guarda por su cuenta con appointment_id. Acá, al finalizar la consulta,
+    // se le enlaza el consultation_id: eso es lo que la vuelve oficial y
+    // visible para el paciente (ver labOrderController.list / getMyLabOrders).
+    // De paso se refresca peso/talla del triage por si cambiaron.
+    await labOrdersModel.updateOne(
+      { appointment_id },
+      { $set: buildLabOrderLink(savedConsultation, patient_id, clinical_data) },
+      { session }
+    );
 
     // Sincroniza el expediente del paciente (signos vitales, antecedentes, procedimientos) con
     // lo que el doctor acaba de registrar en esta consulta así el Expediente Clínico deja de
@@ -355,6 +390,15 @@ consultationController.deleteConsultation = async (req, res) => {
       );
     }
 
+    // La orden de laboratorio pertenece a esta consulta: si la consulta se
+    // borra, la orden también (si no, queda una orden huérfana visible en el
+    // expediente y el portal).
+    const labOrderOr = [{ consultation_id: consultationDeleted._id }];
+    if (consultationDeleted.appointment_id) {
+      labOrderOr.push({ appointment_id: consultationDeleted.appointment_id });
+    }
+    await labOrdersModel.deleteOne({ $or: labOrderOr });
+
     return res.status(200).json({ message: "Consulta eliminada" });
   } catch (error) {
     console.log("error" + error);
@@ -432,14 +476,17 @@ consultationController.updateConsultation = async (req, res) => {
       return res.status(404).json({ message: "Consulta no encontrada" });
     }
     if (prescription) {
+      // Mismo criterio que insertConsultation: el formulario manda
+      // prescription.indications, no post_operative_instructions.
+      const postOperativeInstructions =
+        prescription.post_operative_instructions || prescription.indications;
       await prescriptionsModel.findOneAndUpdate(
         { consultation_id: req.params.id },
         {
           $set: {
             consultation_id: req.params.id,
             medications: prescription.medications || [],
-            lab_orders: prescription.lab_orders || [],
-            post_operative_instructions: prescription.post_operative_instructions,
+            post_operative_instructions: postOperativeInstructions,
           },
           // Solo se fija la primera vez que se crea la receta (al completar una
           // consulta que todavía no tenía una), para no correr la fecha de emisión
@@ -449,6 +496,14 @@ consultationController.updateConsultation = async (req, res) => {
         { session, upsert: true, new: true, runValidators: true }
       );
     }
+
+    // Enlaza la orden de laboratorio (si existe) con esta consulta, igual que
+    // en insertConsultation.
+    await labOrdersModel.updateOne(
+      { appointment_id },
+      { $set: buildLabOrderLink(consultationUpdated, patient_id, clinical_data) },
+      { session }
+    );
     // Misma sincronización que insertConsultation al editar una consulta ya existente
     // (ej. completar el registro de una cita en curso) el expediente del paciente también
     // debe quedar al día.
@@ -572,5 +627,57 @@ consultationController.getConsultationByAppointmentId = async (req, res) => {
   }
 };
 
+
+// PUT /consultations/:id/referral — edita la referencia de una consulta ya
+// guardada desde la pestaña de Documentos del expediente. La referencia no
+// es una colección propia (vive embebida en la consulta, ver referral en
+// consultation.js), así que se edita como un campo puntual en vez de exigir
+// el cuerpo completo de la consulta.
+consultationController.updateReferral = async (req, res) => {
+  try {
+    const { reason, referred_to, referred_date, status } = req.body;
+
+    const consultation = await consultationsModel.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          "referral.reason": reason,
+          "referral.referred_to": referred_to,
+          "referral.referred_date": referred_date,
+          "referral.status": status,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!consultation) {
+      return res.status(404).json({ message: "Consulta no encontrada" });
+    }
+    return res.status(200).json({ message: "Referencia actualizada", data: consultation.referral });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE /consultations/:id/referral — quita la referencia de la consulta
+// (la consulta en sí no se borra, solo deja de tener una referencia asociada).
+consultationController.deleteReferral = async (req, res) => {
+  try {
+    const consultation = await consultationsModel.findByIdAndUpdate(
+      req.params.id,
+      { $unset: { referral: "" } },
+      { new: true }
+    );
+
+    if (!consultation) {
+      return res.status(404).json({ message: "Consulta no encontrada" });
+    }
+    return res.status(200).json({ message: "Referencia eliminada" });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
 
 export default consultationController;

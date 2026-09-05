@@ -169,7 +169,7 @@ const EditPatientModal = ({ isOpen, onClose, patient, onSaved }) => {
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500">DUI</label>
+              <label className="text-xs font-semibold text-slate-500">DUI <span className="font-normal text-slate-300">(opcional)</span></label>
               <input type="text" inputMode="numeric" placeholder="00000000-0" maxLength={10} value={form.dui} onChange={(e) => set("dui", maskDui(e.target.value))} className={inputClass(errors.dui)} />
               <div className="flex items-start justify-between gap-2">
                 {errors.dui && <p className="text-[11px] text-red-500">{errors.dui}</p>}

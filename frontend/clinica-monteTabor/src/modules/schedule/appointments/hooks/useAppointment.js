@@ -179,10 +179,14 @@ function useAppointments(initialFilters = {}) {
     // El doctor acepta una cita pending propia. Si el horario ya no está
     // libre, el backend responde 409 y apiClient lanza un error con ese
     // mensaje, que el llamador puede mostrar directamente.
-    const acceptAppointment = useCallback(async (appointmentId, nurseId = null) => {
+    // confirmNoNurse se manda cuando el procedimiento requiere enfermera de apoyo pero no
+    // hay ninguna disponible para este horario y quien acepta confirmó continuar igual (ver
+    // confirmProceedWithoutNurse en alerts.jsx). El backend revalida que de verdad no haya
+    // ninguna libre antes de aceptar el bypass.
+    const acceptAppointment = useCallback(async (appointmentId, nurseId = null, confirmNoNurse = false) => {
         const response = await apiClient(`/appointments/${appointmentId}/accept`, {
             method: "PATCH",
-            body: nurseId ? { nurse_id: nurseId } : {},
+            body: { ...(nurseId ? { nurse_id: nurseId } : {}), ...(confirmNoNurse ? { confirm_no_nurse: true } : {}) },
         });
         await fetchAppointments();
         return response;
@@ -190,10 +194,29 @@ function useAppointments(initialFilters = {}) {
 
     // El admin asigna directamente un doctor a una cita pending sin
     // asignar. El backend la deja en estado scheduled en el mismo paso.
-    const assignDoctor = useCallback(async (appointmentId, doctorId, nurseId = null) => {
+    const assignDoctor = useCallback(async (appointmentId, doctorId, nurseId = null, confirmNoNurse = false) => {
         const response = await apiClient(`/appointments/${appointmentId}/assign`, {
             method: "PATCH",
-            body: { doctor_id: doctorId, ...(nurseId ? { nurse_id: nurseId } : {}) },
+            body: { doctor_id: doctorId, ...(nurseId ? { nurse_id: nurseId } : {}), ...(confirmNoNurse ? { confirm_no_nurse: true } : {}) },
+        });
+        await fetchAppointments();
+        return response;
+    }, [fetchAppointments]);
+
+    // Mismo par de funciones de arriba, pero para una cita de un procedimiento sin doctor
+    // (requires_doctor false): la enfermera acepta/es asignada como proveedora principal.
+    const acceptAppointmentAsNurse = useCallback(async (appointmentId) => {
+        const response = await apiClient(`/appointments/${appointmentId}/accept-nurse`, {
+            method: "PATCH",
+        });
+        await fetchAppointments();
+        return response;
+    }, [fetchAppointments]);
+
+    const assignNurse = useCallback(async (appointmentId, nurseId) => {
+        const response = await apiClient(`/appointments/${appointmentId}/assign-nurse`, {
+            method: "PATCH",
+            body: { nurse_id: nurseId },
         });
         await fetchAppointments();
         return response;
@@ -219,6 +242,8 @@ function useAppointments(initialFilters = {}) {
         updateStatus,
         acceptAppointment,
         assignDoctor,
+        acceptAppointmentAsNurse,
+        assignNurse,
 
         updateFilters,
         goToPage,

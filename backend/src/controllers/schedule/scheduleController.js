@@ -2,6 +2,11 @@ import scheduleModel from "../../models/schedule/schedule.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import doctorModel from "../../models/doctors/doctors.js";
 import proceduresModel from "../../models/procedures/procedures.js";
+import { OCCUPYING_STATUSES } from "../../utils/appointmentStatus.js";
+// Import circular con nurseScheduleController.js (que a su vez importa toMins/minsToStr/
+// tileFreeSlots de este archivo): seguro porque ambos lados solo usan el import dentro del
+// cuerpo de una función async, nunca en tiempo de evaluación del módulo.
+import { getAggregateNurseSlots } from "./nurseScheduleController.js";
 
 const scheduleController = {};
 
@@ -81,8 +86,12 @@ scheduleController.saveSchedule = async (req, res) => {
     }
 };
 
-// Convierte una hora en formato HH:mm a minutos desde medianoche.
-const toMins = (t) => { const [h, m] = (t || "0:0").split(":").map(Number); return h * 60 + m; };
+// Convierte una hora en formato HH:mm a minutos desde medianoche. Exportada (junto con
+// minsToStr y tileFreeSlots más abajo) para que nurseScheduleController.js pueda armar el
+// mismo cálculo de horarios libres para enfermeras sin duplicar el algoritmo de tileo: el
+// horario de enfermera usa exactamente la misma forma (weekly_availability, breaks,
+// exceptions, buffer_time) que el de doctor, ver models/schedule/nurseSchedule.js.
+export const toMins = (t) => { const [h, m] = (t || "0:0").split(":").map(Number); return h * 60 + m; };
 
 // Revalida si un horario puntual (fecha, start_time y end_time) sigue
 // libre para un doctor: mismo criterio que getAvailableSlots
@@ -138,7 +147,7 @@ export const isSlotFreeForDoctor = async (doctorId, date, start_time, end_time, 
     const existingAppointments = await appointmentsModel.find({
         doctor_id: doctorId,
         date: { $gte: dayStart, $lte: dayEnd },
-        status: { $nin: ["cancelled"] },
+        status: { $in: OCCUPYING_STATUSES },
         ...(excludeAppointmentId ? { _id: { $ne: excludeAppointmentId } } : {}),
     }).select({ start_time: 1, end_time: 1 });
 
@@ -171,8 +180,8 @@ export const isSlotFreeForDoctor = async (doctorId, date, start_time, end_time, 
 // procedimiento de 60 minutos solo produce bloques de 60 min. Se usa tanto
 // para armar los horarios agregados como para resolver qué doctores cubren
 // un horario puntual ya elegido.
-const resolveDurationMinutes = async (procedure_id) => {
-    if (!procedure_id || procedure_id === "general") return 30;
+export const resolveDurationMinutes = async (procedure_id) => {
+    if (!procedure_id) return null;
     const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: true })
         .select("estimated_duration");
     if (!procedure) return null;
@@ -188,7 +197,7 @@ const addMinutesToTime = (time, minutes) => {
 };
 
 // Convierte minutos desde medianoche de vuelta a "HH:mm".
-const minsToStr = (mins) => `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+export const minsToStr = (mins) => `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
 
 // Arma los horarios libres de duración durationMin dentro de una lista de
 // bloques de trabajo, saltando por encima de cualquier obstáculo (descansos
@@ -205,7 +214,7 @@ const minsToStr = (mins) => `${String(Math.floor(mins / 60)).padStart(2, "0")}:$
 // obstacles: [{ start, end, gapAfter }] en minutos desde medianoche.
 // gapAfter es el tiempo que debe dejarse libre después de ESE obstáculo en
 // particular (buffer_time para citas reales, 0 para descansos).
-const tileFreeSlots = (timeBlocks, obstacles, durationMin, bufferMin) => {
+export const tileFreeSlots = (timeBlocks, obstacles, durationMin, bufferMin) => {
     const results = [];
     for (const block of timeBlocks || []) {
         const blockStart = toMins(block.start_time);
@@ -253,6 +262,16 @@ scheduleController.getPatientAvailableSlots = async (req, res) => {
             return res.status(400).json({ message: "El procedimiento seleccionado no está disponible." });
         }
 
+        // Un procedimiento sin doctor (requires_doctor false) se agenda con una enfermera
+        // como proveedora principal: los horarios agregados salen de sus horarios, no de
+        // los de los doctores. Cualquier otro procedimiento sigue el camino normal
+        // (doctor) más abajo.
+        const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: true }).select("requires_doctor");
+        if (procedure && procedure.requires_doctor === false) {
+            const slots = await getAggregateNurseSlots(date, minutes);
+            return res.json({ slots });
+        }
+
         // Solo doctores activos: un horario cuyo único doctor cubridor está
         // dado de baja no debe ofrecerse como "disponible" (antes se incluía
         // igual, y el paciente se topaba con un callejón sin salida al elegir
@@ -290,7 +309,7 @@ scheduleController.getPatientAvailableSlots = async (req, res) => {
         const allAppointments = await appointmentsModel.find({
             doctor_id: { $in: relevantSchedules.map((s) => s.doctor_id) },
             date: { $gte: dayStart, $lte: dayEnd },
-            status: { $nin: ["cancelled"] },
+            status: { $in: OCCUPYING_STATUSES },
         }).select({ doctor_id: 1, start_time: 1, end_time: 1 }).lean();
 
         const appointmentsByDoctor = new Map();
@@ -376,7 +395,7 @@ scheduleController.getPatientDoctorsForSlot = async (req, res) => {
 
         const doctors = await doctorModel
             .find({ _id: { $in: matchingDoctorIds }, is_active: true })
-            .select("name last_name img_url");
+            .select("name last_name img_url license_number");
 
         return res.status(200).json({ doctors });
     } catch (error) {
@@ -445,7 +464,7 @@ scheduleController.getAvailableSlots = async (req, res) => {
         const existingAppointments = await appointmentsModel.find({
             doctor_id: doctorId,
             date: { $gte: dayStart, $lte: dayEnd },
-            status: { $nin: ["cancelled"] },
+            status: { $in: OCCUPYING_STATUSES },
         }).select({ start_time: 1, end_time: 1 });
 
         const bookedRanges = existingAppointments

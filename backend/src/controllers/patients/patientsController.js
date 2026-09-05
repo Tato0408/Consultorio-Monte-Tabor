@@ -5,6 +5,8 @@ import proceduresModel from "../../models/procedures/procedures.js";
 import inventoryController from "../inventory/inventoryController.js";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, getVitalSignsError } from "../../utils/validators.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
+import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js";
 
 //Array de funciones
 const patientsController = {};
@@ -12,7 +14,36 @@ const patientsController = {};
 //Get de todos los pacientes
 patientsController.getAllPatients = async (req, res) => {
   try {
-    const patients = await patientsModel.find();
+    const patients = await patientsModel.find().lean();
+
+    // La duración de un procedimiento no se guarda en clinical_history.procedures
+    // (a diferencia de procedure_name/doctor_name, que sí se congelan al momento
+    // de la consulta, ver syncProcedureHistory en consultation.js): solo existe en
+    // el catálogo real (Procedures.estimated_duration). Se une aquí, contra el
+    // catálogo actual, para que el expediente (pestaña Procedimientos) la
+    // muestre también en procedimientos ya registrados antes de este cambio.
+    const procedureIds = [
+      ...new Set(
+        patients
+          .flatMap((p) => p.clinical_history?.procedures || [])
+          .map((pr) => pr.procedure_id)
+          .filter(Boolean)
+          .map(String)
+      ),
+    ];
+    if (procedureIds.length) {
+      const catalog = await proceduresModel
+        .find({ _id: { $in: procedureIds } })
+        .select("estimated_duration")
+        .lean();
+      const durationById = new Map(catalog.map((c) => [String(c._id), c.estimated_duration]));
+      patients.forEach((p) => {
+        (p.clinical_history?.procedures || []).forEach((pr) => {
+          if (pr.procedure_id) pr.duration = durationById.get(String(pr.procedure_id)) ?? null;
+        });
+      });
+    }
+
     return res.status(200).json(patients);
   } catch (error) {
     console.log("error" + error);
@@ -25,9 +56,10 @@ patientsController.createPatient = async (req, res) => {
   try {
     let { name, last_name, dui, birth_date, gender, phone, email, password, referred_by } = req.body;
 
+    // El DUI no es obligatorio: hay pacientes menores de edad que todavía no lo tienen.
     const requiredError = getMissingRequiredField(
-      { name, last_name, dui, birth_date, gender, phone, email, password },
-      ["name", "last_name", "dui", "birth_date", "gender", "phone", "email", "password"]
+      { name, last_name, birth_date, gender, phone, email, password },
+      ["name", "last_name", "birth_date", "gender", "phone", "email", "password"]
     );
     if (requiredError) {
       return res.status(400).json({ message: requiredError });
@@ -35,7 +67,7 @@ patientsController.createPatient = async (req, res) => {
 
     name = name.trim();
     last_name = last_name.trim();
-    dui = dui.trim();
+    dui = dui?.trim() || undefined;
     phone = phone.trim();
     email = email.trim();
     password = password.trim();
@@ -50,7 +82,11 @@ patientsController.createPatient = async (req, res) => {
       return res.status(400).json({ message: passwordError });
     }
 
-    const existsPatient = await patientsModel.findOne({ $or: [{ email }, { dui }] });
+    // Solo se incluye el DUI en el chequeo de duplicados si el paciente trae uno: con
+    // { dui: undefined } dentro del $or, Mongo lo trataría como "cualquier paciente sin DUI".
+    const duplicateOr = [{ email }];
+    if (dui) duplicateOr.push({ dui });
+    const existsPatient = await patientsModel.findOne({ $or: duplicateOr });
     if (existsPatient) {
       return res.status(400).json({ message: "El paciente ya existe" });
     }
@@ -77,6 +113,16 @@ patientsController.createPatient = async (req, res) => {
     if (!savedPatient) {
       return res.status(500).json({ message: "Error al agregar el paciente" });
     }
+
+    // Le manda al correo registrado el usuario y la contraseña que recepción/admin acaba de
+    // definir, mismo patrón que doctorsController/nursesController/receptionistController. No
+    // bloquea la respuesta si el envío falla (ej. Mailjet caído): la cuenta ya quedó creada de
+    // todos modos, y se le pueden reenviar las credenciales manualmente si hace falta.
+    sendEmail(
+      email,
+      "Tu cuenta de paciente fue creada",
+      HTMLStaffCredentials(`${name} ${last_name}`, "paciente", email, password)
+    ).catch((error) => console.log("Error enviando credenciales al paciente:", error));
 
     return res.status(200).json({ message: "Paciente agregado correctamente" });
   } catch (error) {
@@ -169,8 +215,19 @@ patientsController.updatePatient = async (req, res) => {
       }
     }
 
+    // El DUI es opcional (menores sin DUI), pero si se manda uno no vacío y ya lo usa OTRO
+    // paciente, se avisa con un mensaje claro.
+    if (dui !== undefined && String(dui).trim() !== "") {
+      const duiInUse = await patientsModel.findOne({ dui: String(dui).trim(), _id: { $ne: req.params.id } });
+      if (duiInUse) {
+        return res.status(400).json({ message: "Ya existe un paciente registrado con ese DUI" });
+      }
+    }
+
     //Campos singulares a actualizar
     const fieldsToSet = {};
+    //Campos singulares a limpiar (ej. borrar el DUI de un paciente)
+    const fieldsToUnset = {};
 
     //Arrays a actualizar
     const fieldsToPush = {};
@@ -190,9 +247,11 @@ patientsController.updatePatient = async (req, res) => {
       fieldsToSet.last_name = last_name.trim();
     }
 
-    //si mando el dui le quita los espacios vacios, si no lo manda lo ignora por completo
+    //si mando el dui le quita los espacios vacios; un dui vacío borra el que tuviera
     if (dui !== undefined) {
-      fieldsToSet.dui = dui.trim();
+      const duiClean = String(dui).trim();
+      if (duiClean) fieldsToSet.dui = duiClean;
+      else fieldsToUnset.dui = "";
     }
 
     //si mando la fecha de nacimiento le quita los espacios vacios, si no lo manda lo ignora por completo
@@ -321,6 +380,11 @@ patientsController.updatePatient = async (req, res) => {
     // Si hay datos que sobrescribir en campos singulares
     if (Object.keys(fieldsToSet).length > 0) {
       patientData.$set = fieldsToSet;
+    }
+
+    // Si hay campos singulares que limpiar (ej. quitar el DUI)
+    if (Object.keys(fieldsToUnset).length > 0) {
+      patientData.$unset = fieldsToUnset;
     }
 
     // Si hay datos que acumular en las listas del historial

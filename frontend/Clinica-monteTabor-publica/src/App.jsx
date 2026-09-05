@@ -13,6 +13,7 @@ import PayAppointment from './modules/appointments/pages/PayAppointment';
 import Prescriptions from './modules/records/pages/Prescriptions';
 import Documents from './modules/records/pages/Documents';
 import Medications from './modules/records/pages/Medications';
+import MyProfile from './modules/profile/pages/MyProfile';
 import NotFound from './modules/notFound/pages/NotFound';
 
 function App() {
@@ -85,6 +86,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <Medications />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <MyProfile />
               </ProtectedRoute>
             }
           />

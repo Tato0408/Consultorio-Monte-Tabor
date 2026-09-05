@@ -16,7 +16,6 @@ import {
   FlaskConical,
   ArrowLeftRight,
   TrendingUp,
-  ShieldCheck,
 } from "lucide-react";
 
 // Los cuatro permisos atómicos que existen para cada módulo del
@@ -63,6 +62,13 @@ export const SIDEBAR_MODULES = [
     modules: [
       { key: "procedures", label: "Procedimientos", icon: ClipboardList },
       { key: "inventory.treatments", label: "Tratamientos", icon: FlaskConical },
+      // El Expediente (reports.records) se gestiona junto a Procedimientos porque, a
+      // diferencia de los reportes solo de lectura, sí tiene acciones reales de
+      // creación/edición/eliminación (incapacidades, antecedentes, procedimientos del
+      // paciente), por eso conserva sus cuatro checkboxes. Mismo agrupamiento que en
+      // menuConfig.js. El moduleKey no cambia, así que authorize() en el backend sigue
+      // igual.
+      { key: "reports.records", label: "Expediente", icon: FolderClock },
     ],
   },
   {
@@ -70,9 +76,11 @@ export const SIDEBAR_MODULES = [
     icon: FileBarChart,
     modules: [
       { key: "reports.appointments", label: "Citas", icon: CalendarCheck },
-      { key: "reports.records", label: "Expediente", icon: FolderClock },
       { key: "reports.patients", label: "Pacientes", icon: Contact },
       { key: "reports.doctors", label: "Doctores", icon: UserRound },
+      // Reportes de inventario (inventory.reports) se agrupa con el resto de reportes
+      // solo de lectura en vez de con Inventario. Sigue en VIEW_ONLY_MODULE_KEYS.
+      { key: "inventory.reports", label: "Reportes de inventario", icon: TrendingUp },
     ],
   },
   {
@@ -81,7 +89,6 @@ export const SIDEBAR_MODULES = [
     modules: [
       { key: "inventory.products", label: "Productos", icon: Boxes },
       { key: "inventory.movements", label: "Movimientos", icon: ArrowLeftRight },
-      { key: "inventory.reports", label: "Reportes de inventario", icon: TrendingUp },
     ],
   },
   // Sistema (Mi perfil) no aparece aquí a propósito: editar el propio
@@ -173,6 +180,10 @@ export const LOCKED_TRUE_PERMISSIONS = {
     // La enfermera no tiene registro rápido de pacientes (a diferencia de recepción), solo
     // necesita poder verlos para buscarlos al agendar una cita.
     "users.patients": ["view"],
+    // Sin esto el formulario de agendar cita no puede traer el catálogo de procedimientos
+    // (para elegir si requiere doctor, enfermera o ambos) ni crear uno nuevo desde el modal
+    // de creación rápida.
+    "procedures": ["view", "create"],
   },
   doctor: {
     // El doctor siempre debe poder ver, crear y actualizar sus propias
@@ -220,11 +231,17 @@ const VIEW_UPDATE = { view: true, create: false, update: true, delete: false };
 // que en el resto de la pantalla.
 export const DEFAULT_ROLE_PERMISSIONS = {
   doctor: {
-    "calendar.schedule": FULL_CRUD,
+    // El horario propio del doctor se crea por upsert (PUT), no hay ruta de
+    // crear ni eliminar (ver HIDDEN_PERMISSION_ACTIONS y schedule.js).
+    // Debe coincidir con seedRoles.js: [true, false, true, false].
+    "calendar.schedule": VIEW_UPDATE,
     "calendar.appointments": FULL_CRUD,
     "calendar.consultations": FULL_CRUD,
     "users.doctors": NO_ACCESS,
-    "users.patients": FULL_CRUD,
+    // seedRoles.js: [true, false, true, true]. El doctor edita y elimina
+    // datos del expediente del paciente, pero no registra pacientes nuevos
+    // (eso es de recepción y admin).
+    "users.patients": { view: true, create: false, update: true, delete: true },
     "users.receptionist": NO_ACCESS,
     // El doctor necesita ver el listado de enfermeras para poder asignar
     // una al agendar una cita.
@@ -253,16 +270,25 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     // dentro de ese horario.
     "calendar.schedule": VIEW_UPDATE,
     "calendar.appointments": FULL_CRUD,
-    "calendar.consultations": NO_ACCESS,
+    // Con un procedimiento sin doctor (requires_doctor false) la enfermera es la
+    // proveedora principal de la cita: necesita poder registrar (y editar) la consulta
+    // igual que un doctor. Eliminar queda fuera a propósito, igual que con el doctor.
+    "calendar.consultations": { view: true, create: true, update: true, delete: false },
     "users.doctors": NO_ACCESS,
     // A diferencia de recepción, no registra pacientes nuevos, solo
     // los busca al agendar una cita.
     "users.patients": VIEW_ONLY,
     "users.receptionist": NO_ACCESS,
     "users.nurses": NO_ACCESS,
-    "procedures": NO_ACCESS,
+    // Ver y crear: necesita el catálogo completo de procedimientos para el registro rápido de
+    // citas y el formulario de agendar (elegir si requiere doctor, enfermera o ambos), y poder
+    // crear uno nuevo desde el modal de creación rápida sin salir del formulario. Editar y
+    // eliminar quedan fuera, no administra el catálogo en sí.
+    "procedures": { view: true, create: true, update: false, delete: false },
     "reports.appointments": NO_ACCESS,
-    "reports.records": NO_ACCESS,
+    // Solo ver: puede revisar el expediente de un paciente al que atendió, pero no editar
+    // antecedentes/incapacidades ni otra información clínica (sigue siendo del doctor/admin).
+    "reports.records": VIEW_ONLY,
     "reports.patients": NO_ACCESS,
     "reports.doctors": NO_ACCESS,
     "inventory.products": NO_ACCESS,
@@ -283,22 +309,20 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     // cita.
     "calendar.consultations": VIEW_ONLY,
     "users.doctors": VIEW_ONLY,
-    // seedRoles.js solo le da permiso de Ver (el registro real de
-    // pacientes nuevos ocurre a través de reports.patients, no de
-    // este moduleKey). El botón de restablecer valores predeterminados
-    // no debe conceder editar ni eliminar aquí, ya que eso le daría a
-    // recepción permiso para editar o borrar el expediente de
-    // cualquier paciente.
-    "users.patients": VIEW_ONLY,
+    // CRUD completo: recepción registra (formulario rápido del dashboard),
+    // edita y elimina pacientes. El CRUD real de pacientes siempre fue
+    // users.patients (rutas /patients/*); reports.patients es solo el
+    // reporte analítico. "view" y "create" además quedan bloqueados en
+    // true por LOCKED_TRUE_PERMISSIONS (los necesita el dashboard).
+    "users.patients": FULL_CRUD,
     "users.receptionist": NO_ACCESS,
     "users.nurses": VIEW_ONLY,
     "procedures": VIEW_ONLY,
     "reports.appointments": NO_ACCESS,
     "reports.records": NO_ACCESS,
-    // seedRoles.js le da CRUD completo, ya que es donde recepción
-    // efectivamente registra, edita y elimina pacientes nuevos, como
-    // parte central de su trabajo.
-    "reports.patients": FULL_CRUD,
+    // Solo lectura: reports.patients es el reporte de pacientes, una única
+    // ruta GET. El registro de pacientes va por users.patients (arriba).
+    "reports.patients": VIEW_ONLY,
     "reports.doctors": NO_ACCESS,
     "inventory.products": NO_ACCESS,
     "inventory.treatments": NO_ACCESS,

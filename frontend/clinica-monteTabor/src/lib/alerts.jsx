@@ -49,14 +49,20 @@ const WarnIcon = () => (
 // Funciones exportadas
 
 export const showSuccess = (message) =>
-  new Promise(resolve =>
+  new Promise(resolve => {
     toast.custom(
       t => <ToastCard t={t} message={message}
         borderColor="border-emerald-100" iconBg="bg-emerald-500" shadowColor="shadow-emerald-50/60"
         icon={<CheckIcon />} />,
-      { duration: 2500, onAutoClose: resolve, onDismiss: resolve }
-    )
-  );
+      { duration: 2500 }
+    );
+    // react-hot-toast (2.x) no expone callback de cierre del toast. Antes se le
+    // pasaban onAutoClose/onDismiss (que la librería ignora) y la promesa
+    // quedaba colgada para siempre: quien hiciera `await showSuccess()` para
+    // navegar tras guardar nunca navegaba. Se resuelve enseguida — el toast lo
+    // renderiza el <Toaster> de la raíz y sigue visible aunque se cambie de vista.
+    resolve();
+  });
 
 export const showError = (message) =>
   toast.custom(
@@ -185,6 +191,34 @@ export const confirmNoShow = async () => {
     showCancelButton: true,
     confirmButtonText: "Sí, no se presentó",
     cancelButtonText: "Volver",
+    confirmButtonColor: "#f59e0b",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return result.isConfirmed;
+};
+
+// Se muestra cuando un procedimiento requiere enfermera de apoyo pero no hay ninguna
+// disponible para el horario elegido (ver acceptAppointment/assignDoctor/insertAppointment/
+// updateAppointment en el backend, que exigen confirm_no_nurse en ese caso): permite
+// continuar sin enfermera solo si quien acepta/agenda lo confirma explícitamente, en vez de
+// dejar el flujo bloqueado sin ninguna salida más que cancelar y reagendar a mano.
+export const confirmProceedWithoutNurse = async () => {
+  const result = await Swal.fire({
+    title: "No hay enfermeras disponibles",
+    text: "Ninguna enfermera tiene ese horario libre. ¿Estás seguro de continuar con este procedimiento sin asignar una enfermera?",
+    icon: "warning",
+    iconColor: "#fbbf24",
+    showCancelButton: true,
+    confirmButtonText: "Sí, continuar sin enfermera",
+    cancelButtonText: "Cancelar",
     confirmButtonColor: "#f59e0b",
     cancelButtonColor: "#94a3b8",
     customClass: {

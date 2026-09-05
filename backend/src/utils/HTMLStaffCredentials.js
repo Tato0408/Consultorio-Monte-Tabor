@@ -1,8 +1,11 @@
-// Genera el HTML del correo con las credenciales de acceso que se envía a un
-// miembro del staff (doctor, recepcionista o enfermera) recién creado por un
-// administrador. Recibe su nombre completo, la etiqueta del rol (ej.
-// "doctor", "recepcionista", "enfermera"), el correo y la contraseña en texto
-// plano que el admin definió, y devuelve el string HTML completo del correo.
+// Genera el HTML del correo con las credenciales de acceso que se envía a
+// cualquier usuario recién creado por un administrador desde el sitio web
+// privado (doctor, recepcionista, enfermera o paciente). Recibe su nombre
+// completo, la etiqueta del rol (ej. "doctor", "recepcionista", "enfermera",
+// "paciente"), el correo y la contraseña en texto plano que el admin definió,
+// y devuelve el string HTML completo del correo. Además de las credenciales,
+// recomienda de forma explícita que el usuario cambie su contraseña desde el
+// apartado de su perfil la primera vez que entre al sistema.
 const HTMLStaffCredentials = (fullName, roleLabel, email, password) => {
   return `
     <div style="margin:0;padding:0;background-color:#f0f4ff;font-family:'Segoe UI',Arial,sans-serif;">
@@ -45,10 +48,19 @@ const HTMLStaffCredentials = (fullName, roleLabel, email, password) => {
               </tr>
 
               <tr>
-                <td style="padding:20px 40px 6px;">
-                  <p style="margin:0;font-size:12px;color:#b0b8d4;line-height:1.6;">
-                    &#9679;&nbsp; Por seguridad, cambia tu contraseña la primera vez que inicies sesión &nbsp;·&nbsp; No compartas este correo con nadie
-                  </p>
+                <td style="padding:18px 40px 6px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff7ed;border:1px solid #fed7aa;border-radius:12px;">
+                    <tr>
+                      <td style="padding:16px 20px;">
+                        <p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:#c2410c;">
+                          Recomendación de seguridad
+                        </p>
+                        <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.6;">
+                          Apenas inicies sesión, entra al apartado <strong>&laquo;Mi perfil&raquo;</strong> del sistema y actualiza tu propia contraseña por una que solo tú conozcas. No compartas este correo con nadie.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
                 </td>
               </tr>
 

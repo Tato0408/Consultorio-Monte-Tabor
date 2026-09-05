@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Loader2, Clock, ChevronLeft, ChevronRight, CalendarDays, Sun, Sunset, Moon, Info } from "lucide-react";
-import { getPatientAvailableSlots, getAvailableSlots, getDoctorWorkingDays } from "@/services/appointmentsService";
+import {
+  getPatientAvailableSlots, getAvailableSlots, getDoctorWorkingDays,
+  getNurseAvailableSlots, getNurseWorkingDays,
+} from "@/services/appointmentsService";
 
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -41,16 +44,22 @@ const agruparPorFranja = (slots) => {
   return grupos;
 };
 
-// Paso de fecha y hora. Funciona en dos modos:
-// - Modo agregado (doctor no definido): hora libre entre todos los doctores según el
-//   tipo de atención elegido (define la duración). El doctor se elige después, en base
-//   al horario que se elija aquí (modo "rápido" del asistente).
+// Paso de fecha y hora. Funciona en tres modos:
+// - Modo agregado (ni doctor ni nurse definidos): hora libre entre todos los doctores
+//   (o todas las enfermeras, si el procedimiento no requiere doctor: ver
+//   requiresDoctorForProcedure en NewAppointment.jsx) según el tipo de atención elegido
+//   (define la duración). El proveedor se elige después, en base al horario que se
+//   elija aquí (modo "rápido" del asistente). Este modo no cambia con este ticket: el
+//   endpoint agregado ya resuelve solo si aplica a doctores o enfermeras.
 // - Modo doctor puntual (doctor definido): horarios de ESE doctor para el día elegido.
-//   Los días que el doctor no atiende (o dejó sin marcar en su horario) aparecen
+// - Modo enfermera puntual (nurse definido, solo posible cuando el procedimiento no
+//   requiere doctor): mismo tratamiento que el modo doctor puntual, pero contra los
+//   endpoints de horario de enfermera. doctor y nurse nunca llegan definidos a la vez.
+//   Los días que el proveedor no atiende (o dejó sin marcar en su horario) aparecen
 //   bloqueados en el selector de fecha, igual que se ve en Horarios del panel privado.
-//   duration (minutos) es obligatorio en este modo, porque el endpoint de slots por
-//   doctor no resuelve la duración a partir de un procedimiento.
-const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate, onSelectSlot }) => {
+//   duration (minutos) es obligatorio en modo doctor/enfermera puntual, porque esos
+//   endpoints de slots no resuelven la duración a partir de un procedimiento.
+const StepFechaHora = ({ procedureId, duration, doctor, nurse, date, slot, onSelectDate, onSelectSlot }) => {
   const dias = useMemo(() => buildDays(), []);
   const scrollRef = useRef(null);
   const [slots, setSlots] = useState([]);
@@ -59,14 +68,26 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
   // null mientras no se sabe todavía (o en modo agregado, donde no aplica ningún bloqueo)
   const [workingDays, setWorkingDays] = useState(null);
   const [exceptions, setExceptions] = useState([]);
+  // true mientras no se sabe todavía (no bloquea de más antes de tener la respuesta): si
+  // hoy ya no le queda ningún horario disponible (todos ya pasaron, o el día está
+  // completo), el botón de hoy debe verse deshabilitado en el selector de fecha, igual
+  // que un día no laborable. Se resuelve aparte de "slots" (que solo trae el día ya
+  // seleccionado) porque hace falta saberlo ANTES de que el paciente elija un día: al
+  // montar este paso, date todavía es null.
+  const [todayHasSlots, setTodayHasSlots] = useState(true);
+
+  // Proveedor puntual de este paso (doctor o enfermera, nunca ambos), o undefined en
+  // modo agregado.
+  const provider = doctor || nurse;
 
   useEffect(() => {
-    if (!doctor) {
+    if (!provider) {
       setWorkingDays(null);
       setExceptions([]);
       return;
     }
-    getDoctorWorkingDays(doctor._id)
+    const fetchWorkingDays = doctor ? getDoctorWorkingDays : getNurseWorkingDays;
+    fetchWorkingDays(provider._id)
       .then((res) => {
         setWorkingDays(res.workingDays || []);
         setExceptions(res.exceptions || []);
@@ -75,7 +96,33 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
         setWorkingDays([]);
         setExceptions([]);
       });
-  }, [doctor]);
+  }, [provider, doctor]);
+
+  // Consulta los horarios de HOY (sin importar cuál día esté seleccionado) solo para saber
+  // si ya no le queda ninguno disponible, y así poder deshabilitar su botón en el selector
+  // de fecha. Se dispara al montar y cada vez que cambia el proveedor/procedimiento/
+  // duración, igual que el efecto de arriba, pero de forma independiente al día elegido.
+  useEffect(() => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    setTodayHasSlots(true);
+    const solicitud = doctor
+      ? getAvailableSlots(doctor._id, toDateStr(hoy), duration)
+      : nurse
+        ? getNurseAvailableSlots(nurse._id, toDateStr(hoy), duration)
+        : getPatientAvailableSlots(toDateStr(hoy), procedureId);
+    solicitud
+      .then((res) => {
+        const ahoraCheck = new Date();
+        const minutosActualesCheck = ahoraCheck.getHours() * 60 + ahoraCheck.getMinutes();
+        const quedanHorarios = (res.slots || []).some((s) => {
+          const [h, m] = s.start_time.split(":").map(Number);
+          return h * 60 + m > minutosActualesCheck;
+        });
+        setTodayHasSlots(quedanHorarios);
+      })
+      .catch(() => setTodayHasSlots(true));
+  }, [procedureId, doctor, nurse, duration]);
 
   useEffect(() => {
     if (!date) return;
@@ -83,7 +130,9 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
     setMensaje("");
     const solicitud = doctor
       ? getAvailableSlots(doctor._id, toDateStr(date), duration)
-      : getPatientAvailableSlots(toDateStr(date), procedureId);
+      : nurse
+        ? getNurseAvailableSlots(nurse._id, toDateStr(date), duration)
+        : getPatientAvailableSlots(toDateStr(date), procedureId);
     solicitud
       .then((res) => {
         setSlots(res.slots || []);
@@ -94,7 +143,7 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
         setMensaje("No se pudieron cargar los horarios.");
       })
       .finally(() => setLoading(false));
-  }, [procedureId, date, doctor, duration]);
+  }, [procedureId, date, doctor, nurse, duration]);
 
   // Una excepción de tipo vacaciones o día no laborable bloquea ese rango de fechas
   // completo. "special_hours" no bloquea el día, solo cambia el horario dentro de él
@@ -109,11 +158,14 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
     });
   };
 
-  // En modo agregado ningún día se deshabilita. En modo doctor, se deshabilita si su
-  // día de la semana no está marcado como laborable o si cae en una excepción. Mientras
-  // workingDays todavía no llega (null), no se bloquea nada para no parpadear.
+  // Hoy se deshabilita aparte, sin importar el modo, si ya no le queda ningún horario
+  // disponible (todos ya pasaron, o el día está completo). En modo agregado ningún otro
+  // día se deshabilita. En modo doctor/enfermera puntual, además se deshabilita si su día
+  // de la semana no está marcado como laborable o si cae en una excepción. Mientras
+  // workingDays todavía no llega (null), no se bloquea nada de eso para no parpadear.
   const diaDeshabilitado = (d) => {
-    if (!doctor || workingDays === null) return false;
+    if (toDateStr(d) === toDateStr(new Date()) && !todayHasSlots) return true;
+    if (!provider || workingDays === null) return false;
     if (!workingDays.includes(d.getDay())) return true;
     return fechaDentroDeExcepcionBloqueante(d);
   };
@@ -138,7 +190,9 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
       <p className="text-sm text-gray-500 mb-6">
         {doctor
           ? `Días y horarios disponibles de Dr. ${doctor.name} ${doctor.last_name}.`
-          : "Se muestran los horarios donde al menos un doctor está disponible."}
+          : nurse
+            ? `Días y horarios disponibles de ${nurse.name} ${nurse.last_name}.`
+            : "Se muestran los horarios donde al menos un doctor está disponible."}
       </p>
 
       <p className="text-sm font-semibold text-gray-700 mb-3">Selecciona un día</p>
@@ -248,13 +302,17 @@ const StepFechaHora = ({ procedureId, duration, doctor, date, slot, onSelectDate
         </div>
       )}
 
-      {/* En modo agregado (sin doctor puntual) la cita queda sin asignar: la puede
-          aceptar cualquier doctor disponible para ese horario. En modo doctor puntual
-          ya se sabe quién atiende, así que este aviso no aplica. */}
-      {slotsVisibles.length > 0 && !doctor && (
+      {/* En modo agregado (sin proveedor puntual) la cita queda sin asignar: la puede
+          aceptar cualquier doctor (o enfermera) disponible para ese horario. En modo
+          doctor/enfermera puntual ya se sabe quién atiende, así que este aviso no aplica. */}
+      {slotsVisibles.length > 0 && !provider && (
         <div className="flex items-start gap-2 bg-gray-50 rounded-lg p-3 mt-6">
           <Info className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-gray-500">Tu cita quedará pendiente de que cualquier doctor disponible la acepte.</p>
+          {/* Este componente no sabe si el modo agregado resolvió contra doctores o
+              enfermeras (esa decisión la toma el backend de forma transparente, ver
+              getPatientAvailableSlots), así que el aviso usa un término genérico en vez
+              de asumir "doctor". */}
+          <p className="text-xs text-gray-500">Tu cita quedará pendiente de que cualquier profesional disponible la acepte.</p>
         </div>
       )}
     </div>

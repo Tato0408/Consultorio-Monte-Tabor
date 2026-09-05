@@ -9,6 +9,8 @@ import appointmentsRoutes from "./src/routes/appointments/appointments.js"
 import receptionistRoutes from "./src/routes/receptionist/receptionist.js"
 import registerReceptionistRoutes from "./src/routes/receptionist/registerReceptionist.js"
 import consultationsRoutes from "./src/routes/consultations/consultation.js"
+import labOrdersRoutes from "./src/routes/consultations/labOrder.js"
+import prescriptionsRoutes from "./src/routes/consultations/prescription.js"
 import patientsRoute from "./src/routes/patients/patients.js"
 import nurseRoutes from './src/routes/nurse/nurses.js'
 import loginCommonRoleRoute from './src/routes/login/loginCommonRole.js'
@@ -107,6 +109,8 @@ app.use("/api/patientAccount", patientSelfRoutes);
 app.use("/api/nurses", authenticate(), nurseRoutes);
 
 app.use("/api/consultations", authenticate(), consultationsRoutes);
+app.use("/api/lab-orders", authenticate(), labOrdersRoutes);
+app.use("/api/prescriptions", authenticate(), prescriptionsRoutes);
 app.use("/api/appointments" , authenticate() , appointmentsRoutes);
 app.use("/api/appointment-types", appointmentTypesRoutes);
 app.use("/api/inventory", authenticate(), inventoryRoutes);
@@ -124,7 +128,11 @@ app.use("/api/nurse-dashboard", authenticate(["nurse"]), nurseDashboardRoutes);
 // vencido o corrupto dejaría la cookie pegada en el navegador para
 // siempre en vez de borrarla.
 app.use("/api/logout", logoutRoute);
-app.use("/api/nurse_notes",  nurse_noteRoute);
+// Antes sin ninguna protección: cualquiera en internet, sin sesión, podía
+// leer, crear, editar o borrar notas de enfermería de pacientes reales.
+// Nota: hoy ningún frontend (admin, público ni móvil) consume este
+// endpoint — se deja así, solo protegido, hasta que se conecte a algo.
+app.use("/api/nurse_notes", authenticate(), nurse_noteRoute);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permissions", permissionsRoutes);
 app.use("/api/reports", authenticate(), reportsRoutes);

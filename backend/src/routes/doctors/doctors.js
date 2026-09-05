@@ -17,6 +17,14 @@ router
   .route("/catalog")
   .get(authenticate(), doctorsController.getDoctorsCatalog);
 
+// Mismo catálogo liviano de arriba, pero solo con doctores que ya tienen horario
+// configurado. Usado por el registro rápido de citas del dashboard de
+// enfermería/recepción (ver doctorsController.getSchedulableDoctorsCatalog). Va antes de
+// "/:id" más abajo para que Express no lo capture como si "schedulable" fuera un id.
+router
+  .route("/catalog/schedulable")
+  .get(authenticate(), doctorsController.getSchedulableDoctorsCatalog);
+
 router
   .route("/")
   .get(authenticate(), authorize("users.doctors", "view"), doctorsController.getDoctors)

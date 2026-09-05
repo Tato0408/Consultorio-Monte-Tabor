@@ -80,7 +80,7 @@ const DoctorStatusSection = ({ data }) => {
                                         En consulta
                                     </span>
                                     <span className="text-xs text-slate-400 flex-shrink-0 whitespace-nowrap">
-                                        Desde {appt.start_time}
+                                        {appt.start_time} - {appt.end_time}
                                     </span>
                                 </div>
                             ))}
@@ -111,8 +111,8 @@ const DoctorStatusSection = ({ data }) => {
                         <div className="flex flex-col divide-y divide-slate-50">
                             {upcoming.map((appt) => (
                                 <div key={appt._id} className="flex items-center gap-3 py-3">
-                                    <span className="text-sm font-bold text-slate-700 w-12 flex-shrink-0 tabular-nums">
-                                        {appt.start_time}
+                                    <span className="text-sm font-bold text-slate-700 w-24 flex-shrink-0 tabular-nums">
+                                        {appt.start_time} - {appt.end_time}
                                     </span>
                                     <Avatar src={appt.doctor?.img_url} name={doctorName(appt.doctor)} />
                                     <div className="flex-1 min-w-0">

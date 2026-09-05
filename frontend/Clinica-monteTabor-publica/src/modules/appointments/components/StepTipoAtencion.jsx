@@ -1,7 +1,8 @@
-import { Stethoscope, FlaskConical, Syringe, ClipboardList, HeartPulse, Activity, Clock, CreditCard, ShieldCheck, Info } from "lucide-react";
+import { useState } from "react";
+import { Stethoscope, FlaskConical, Syringe, ClipboardList, HeartPulse, Activity, Clock, CreditCard, ShieldCheck, Info, Search } from "lucide-react";
 import InfoSidebar from "./InfoSidebar";
 
-// Se van rotando entre los procedimientos reales para que no se vean todos idénticos
+// Se van rotando entre los procedimientos para que no se vean todos idénticos
 const ICONOS = [Stethoscope, FlaskConical, Syringe, ClipboardList, HeartPulse, Activity];
 const COLORES = [
   { bg: "bg-blue-50", text: "text-blue-500" },
@@ -24,92 +25,100 @@ const Radio = ({ selected }) => (
   </div>
 );
 
-// Paso 1: el paciente elige si quiere una consulta general o un procedimiento específico.
-// "general" es un valor fijo (siempre existe); el resto son los procedimientos reales que
-// el staff haya configurado — si no hay ninguno, solo se ofrece la consulta general.
-const StepTipoAtencion = ({ procedures, selected, onSelect }) => (
-  <div className="flex flex-col lg:flex-row gap-6">
-    <InfoSidebar
-      hero={
-        <>
-          <div className="w-11 h-11 rounded-xl bg-[#3B6FCA]/10 flex items-center justify-center mb-3">
-            <HeartPulse className="w-5 h-5 text-[#3B6FCA]" />
-          </div>
-          <p className="font-bold text-gray-900">Tu salud es nuestra prioridad</p>
-          <p className="text-sm text-gray-500 mt-1">Agenda tu cita de manera rápida y segura.</p>
-        </>
-      }
-      items={{ tipo: "importante", list: INFO_ITEMS }}
-    />
+// Paso 1: el paciente elige un procedimiento del catálogo (incluida la Consulta Médica
+// General, que es un procedimiento real más, no un caso especial fuera del catálogo).
+const StepTipoAtencion = ({ procedures, selected, onSelect }) => {
+  const [busqueda, setBusqueda] = useState("");
+  const procedimientosFiltrados = busqueda.trim()
+    ? procedures.filter((p) => p.name.toLowerCase().includes(busqueda.trim().toLowerCase()))
+    : procedures;
 
-    <div className="flex-1 min-w-0">
-      <h2 className="text-lg font-bold text-gray-900 mb-1">Selecciona el tipo de atención</h2>
-      <p className="text-sm text-gray-500 mb-6">Elige una opción para continuar.</p>
-
-      <div className="grid sm:grid-cols-2 gap-4">
-        <button
-          type="button"
-          onClick={() => onSelect("general")}
-          className={`text-left p-5 rounded-2xl border-2 transition-all ${
-            selected === "general" ? "border-[#3B6FCA] bg-[#3B6FCA]/5" : "border-gray-100 hover:border-[#3B6FCA]/40"
-          }`}
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-              <Stethoscope className="w-5 h-5 text-blue-500" />
+  return (
+    <div className="flex flex-col lg:flex-row gap-6">
+      <InfoSidebar
+        hero={
+          <>
+            <div className="w-11 h-11 rounded-xl bg-[#3B6FCA]/10 flex items-center justify-center mb-3">
+              <HeartPulse className="w-5 h-5 text-[#3B6FCA]" />
             </div>
-            <Radio selected={selected === "general"} />
-          </div>
-          <p className="font-semibold text-gray-800">Consulta médica general</p>
-          <p className="text-sm text-gray-500 mt-1">Evaluación con un médico general para problemas de salud comunes.</p>
-          <div className="flex items-center justify-between mt-4 text-sm">
-            <span className="flex items-center gap-1.5 text-gray-400"><Clock className="w-3.5 h-3.5" /> 30 min</span>
-            <span className="font-bold text-[#3B6FCA]">$15.00</span>
-          </div>
-        </button>
+            <p className="font-bold text-gray-900">Tu salud es nuestra prioridad</p>
+            <p className="text-sm text-gray-500 mt-1">Agenda tu cita de manera rápida y segura.</p>
+          </>
+        }
+        items={{ tipo: "importante", list: INFO_ITEMS }}
+      />
 
-        {procedures.map((p, i) => {
-          const Icon = ICONOS[i % ICONOS.length];
-          const color = COLORES[i % COLORES.length];
-          const isSelected = selected === p._id;
-          return (
-            <button
-              key={p._id}
-              type="button"
-              onClick={() => onSelect(p._id)}
-              className={`text-left p-5 rounded-2xl border-2 transition-all ${
-                isSelected ? "border-[#3B6FCA] bg-[#3B6FCA]/5" : "border-gray-100 hover:border-[#3B6FCA]/40"
-              }`}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl ${color.bg} flex items-center justify-center`}>
-                  <Icon className={`w-5 h-5 ${color.text}`} />
+      <div className="flex-1 min-w-0">
+        <h2 className="text-lg font-bold text-gray-900 mb-1">Selecciona el tipo de atención</h2>
+        <p className="text-sm text-gray-500 mb-4">Elige una opción para continuar.</p>
+
+        {procedures.length > 0 && (
+          <div className="relative mb-4">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar procedimiento por nombre..."
+              maxLength={100}
+              className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:border-[#3B6FCA] focus:bg-white transition-colors"
+            />
+          </div>
+        )}
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          {procedimientosFiltrados.map((p, i) => {
+            const Icon = ICONOS[i % ICONOS.length];
+            const color = COLORES[i % COLORES.length];
+            const isSelected = selected === p._id;
+            return (
+              <button
+                key={p._id}
+                type="button"
+                onClick={() => onSelect(p._id)}
+                className={`text-left p-5 rounded-2xl border-2 transition-all ${
+                  isSelected ? "border-[#3B6FCA] bg-[#3B6FCA]/5" : "border-gray-100 hover:border-[#3B6FCA]/40"
+                }`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`w-10 h-10 rounded-xl ${color.bg} flex items-center justify-center`}>
+                    <Icon className={`w-5 h-5 ${color.text}`} />
+                  </div>
+                  <Radio selected={isSelected} />
                 </div>
-                <Radio selected={isSelected} />
-              </div>
-              <p className="font-semibold text-gray-800">{p.name}</p>
-              {p.description && <p className="text-sm text-gray-500 mt-1">{p.description}</p>}
-              <div className="flex items-center justify-between mt-4 text-sm">
-                <span className="flex items-center gap-1.5 text-gray-400">
-                  <Clock className="w-3.5 h-3.5" /> {p.estimated_duration ? `${p.estimated_duration} min` : "—"}
-                </span>
-                <span className="font-bold text-[#3B6FCA]">${Number(p.price || 0).toFixed(2)}</span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {procedures.length === 0 && (
-        <div className="flex items-start gap-2 bg-[#3B6FCA]/5 border border-[#3B6FCA]/10 rounded-xl p-4 mt-4">
-          <Info className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-gray-600">
-            Por ahora no hay procedimientos adicionales disponibles, pero puedes agendar tu consulta general.
-          </p>
+                <p className="font-semibold text-gray-800">{p.name}</p>
+                {p.description && <p className="text-sm text-gray-500 mt-1">{p.description}</p>}
+                <div className="flex items-center justify-between mt-4 text-sm">
+                  <span className="flex items-center gap-1.5 text-gray-400">
+                    <Clock className="w-3.5 h-3.5" /> {p.estimated_duration ? `${p.estimated_duration} min` : "—"}
+                  </span>
+                  <span className="font-bold text-[#3B6FCA]">${Number(p.price || 0).toFixed(2)}</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
-      )}
+
+        {procedures.length === 0 && (
+          <div className="flex items-start gap-2 bg-[#3B6FCA]/5 border border-[#3B6FCA]/10 rounded-xl p-4 mt-4">
+            <Info className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-gray-600">
+              Por ahora no hay procedimientos disponibles. Vuelve a intentarlo más tarde.
+            </p>
+          </div>
+        )}
+
+        {procedures.length > 0 && procedimientosFiltrados.length === 0 && (
+          <div className="flex items-start gap-2 bg-[#3B6FCA]/5 border border-[#3B6FCA]/10 rounded-xl p-4 mt-4">
+            <Info className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-gray-600">
+              Ningún procedimiento coincide con "{busqueda.trim()}". Prueba con otro término.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default StepTipoAtencion;

@@ -87,7 +87,10 @@ const ROLE_PERMISSIONS = {
         // La enfermera sí puede crear, confirmar y cancelar citas desde
         // su dashboard.
         "calendar.appointments": [true, true, true, true],
-        "calendar.consultations": [false, false, false, false],
+        // Con un procedimiento sin doctor (requires_doctor false) la enfermera es la
+        // proveedora principal de la cita: necesita poder registrar (y editar) la consulta
+        // igual que un doctor. Eliminar queda fuera a propósito, igual que con el doctor.
+        "calendar.consultations": [true, true, true, false],
         "users.doctors": [false, false, false, false],
         // A diferencia de recepción, la enfermera no registra pacientes
         // nuevos, solo necesita verlos para buscarlos al agendar una
@@ -95,9 +98,17 @@ const ROLE_PERMISSIONS = {
         "users.patients": [true, false, false, false],
         "users.receptionist": [false, false, false, false],
         "users.nurses": [false, false, false, false],
-        "procedures": [false, false, false, false],
+        // Ver y crear: la enfermera necesita el catálogo completo de procedimientos para el
+        // registro rápido de citas y el formulario de agendar (elegir cuál requiere doctor,
+        // enfermera o ambos), y poder crear uno nuevo desde el modal de creación rápida sin
+        // salir del formulario. Editar y eliminar quedan fuera, no administra el catálogo en sí.
+        // Obligatorio: ver LOCKED_TRUE_PERMISSIONS en rolesController.js.
+        "procedures": [true, true, false, false],
         "reports.appointments": [false, false, false, false],
-        "reports.records": [false, false, false, false],
+        // Solo ver: la enfermera puede revisar el expediente de un paciente al que atendió,
+        // pero no editar antecedentes/incapacidades ni otra información clínica que sigue
+        // siendo responsabilidad del doctor o del admin.
+        "reports.records": [true, false, false, false],
         "reports.patients": [false, false, false, false],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],
@@ -119,15 +130,18 @@ const ROLE_PERMISSIONS = {
         "calendar.consultations": [true, false, false, false],
         // Catálogos necesarios exclusivamente para completar una cita.
         "users.doctors": [true, false, false, false],
-        "users.patients": [true, false, false, false],
+        // Recepción registra (formulario rápido del dashboard), edita y
+        // elimina pacientes. El CRUD real de pacientes siempre fue
+        // users.patients (rutas /patients/*), no reports.patients.
+        "users.patients": [true, true, true, true],
         "users.receptionist": [false, false, false, false],
         "users.nurses": [true, false, false, false],
         "procedures": [true, false, false, false],
         "reports.appointments": [false, false, false, false],
         "reports.records": [false, false, false, false],
-        // La recepción sí registra pacientes nuevos (es parte central
-        // de su trabajo).
-        "reports.patients": [true, true, true, true],
+        // Solo lectura: reports.patients es el reporte analítico de
+        // pacientes (una única ruta GET), no el registro de pacientes.
+        "reports.patients": [true, false, false, false],
         "reports.doctors": [false, false, false, false],
         "inventory.products": [false, false, false, false],
         "inventory.treatments": [false, false, false, false],

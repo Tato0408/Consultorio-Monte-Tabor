@@ -6,7 +6,11 @@ const appointmentsSchema = new Schema({
     doctor_id: { type: mongoose.Schema.Types.ObjectId, ref: "Doctors", default: null },
     patient_id: { type: mongoose.Schema.Types.ObjectId, ref: "Patients", required: true },
     nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "nurses" },
-    procedure_id: { type: mongoose.Schema.Types.ObjectId, ref: "Procedure" },
+    // El modelo real se registra en minúscula y singular (ver
+    // models/procedures/procedures.js: model("procedure", ...)); el ref
+    // debe calzar exacto o cualquier .populate("procedure_id") revienta con
+    // MissingSchemaError (pasaba en patientSelfController.getMyConsultations).
+    procedure_id: { type: mongoose.Schema.Types.ObjectId, ref: "procedure" },
     type: { type: String, required: true },
     // Nombre (denormalizado, no una referencia) de un AppointmentType del
     // catálogo global, usado solo para categorizar y colorear la cita en
@@ -24,6 +28,11 @@ const appointmentsSchema = new Schema({
     status: { type: String, required: true },
     total: { type: Number, required: true },
     cancellation_reason: { type: String },
+    // Cuando status === "needs_reschedule": por qué quedó así.
+    //   "no_aceptada"    -> ningún proveedor la aceptó antes de su hora de fin.
+    //   "cupo_asignado"  -> el proveedor aceptó a otro paciente para ese horario.
+    // Ver src/utils/appointmentStatus.js.
+    reschedule_reason: { type: String },
     // Id de la transacción de Wompi cuando la cita se paga en línea. El
     // estado queda en pending hasta que se confirma el pago.
     wompi_transaction_id: { type: String },

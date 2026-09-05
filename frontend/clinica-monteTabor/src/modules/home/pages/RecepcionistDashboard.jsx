@@ -26,18 +26,23 @@ const todayStr = () => {
 const RecepcionistDashboard = () => {
     const { user, userType } = useAuth();
     const navigate = useNavigate();
-    const { getStats, getDoctorsAgenda, getUpcomingAppointments, getPendingConfirmations } = useReceptionistDashboard();
+    const { getStats, getDoctorsAgenda, getNursesAgenda, getUpcomingAppointments, getPendingConfirmations } = useReceptionistDashboard();
     const medicalData = useMedicalData();
     const { createPatient } = usePatients();
 
     const [stats, setStats] = useState(null);
-    const [agenda, setAgenda] = useState({ doctors: [] });
+    const [agenda, setAgenda] = useState({ doctors: [], nurses: [] });
     const [agendaDate, setAgendaDate] = useState(todayStr());
     const [agendaLoading, setAgendaLoading] = useState(true);
     const [upcoming, setUpcoming] = useState([]);
     const [pending, setPending] = useState({ pending: [], confirmed: [], counts: { pending: 0, confirmed: 0 } });
     const [loading, setLoading] = useState(true);
     const [prefill, setPrefill] = useState(null);
+    // Qué debe mostrar la agenda (DoctorsAgendaSection.jsx), según el procedimiento elegido
+    // en el registro rápido de citas (QuickAppointmentForm.jsx). Vacía por defecto: la
+    // agenda arranca sin nada hasta que se elige un procedimiento.
+    const [procedureInfo, setProcedureInfo] = useState({ procedureChosen: false, requiresDoctorForProcedure: true, isNurseRequired: false, duration: 30 });
+    const handleProcedureInfoChange = useCallback((info) => setProcedureInfo(info), []);
 
     const patientFormRef = useRef(null);
 
@@ -53,27 +58,32 @@ const RecepcionistDashboard = () => {
         });
     }, [getStats, getUpcomingAppointments, getPendingConfirmations]);
 
-    const loadAgenda = useCallback((date) => {
+    const loadAgenda = useCallback((date, duration) => {
         setAgendaLoading(true);
-        return getDoctorsAgenda(date)
-            .then((data) => setAgenda(data))
-            .catch(() => setAgenda({ doctors: [] }))
+        return Promise.allSettled([getDoctorsAgenda(date, duration), getNursesAgenda(date, duration)])
+            .then(([d, n]) => setAgenda({
+                doctors: d.status === "fulfilled" ? d.value.doctors : [],
+                nurses: n.status === "fulfilled" ? n.value.nurses : [],
+            }))
             .finally(() => setAgendaLoading(false));
-    }, [getDoctorsAgenda]);
+    }, [getDoctorsAgenda, getNursesAgenda]);
 
     useEffect(() => {
         loadStatsAndLists().finally(() => setLoading(false));
     }, [loadStatsAndLists]);
 
+    // Vuelve a pedir la agenda también cuando cambia la duración del procedimiento elegido
+    // (procedureInfo.duration): los horarios "disponible" deben tilearse con esa duración
+    // real, no con un valor fijo, ver agendaService.js.
     useEffect(() => {
-        loadAgenda(agendaDate);
-    }, [agendaDate, loadAgenda]);
+        loadAgenda(agendaDate, procedureInfo.duration);
+    }, [agendaDate, procedureInfo.duration, loadAgenda]);
 
     // Refresca todo lo que puede haber cambiado después de crear,
     // confirmar o cancelar una cita.
     const refreshAll = () => {
         loadStatsAndLists();
-        loadAgenda(agendaDate);
+        loadAgenda(agendaDate, procedureInfo.duration);
     };
 
     const refreshAfterPatient = () => {
@@ -146,7 +156,7 @@ const RecepcionistDashboard = () => {
                     iconBg="bg-amber-100"
                     label="Citas próximas (1h)"
                     value={s.upcomingAppointments?.count ?? 0}
-                    growth={s.upcomingAppointments?.next ? `Próxima a las ${s.upcomingAppointments.next.start_time}` : "Sin citas próximas"}
+                    growth={s.upcomingAppointments?.next ? `Próxima a las ${s.upcomingAppointments.next.start_time} - ${s.upcomingAppointments.next.end_time}` : "Sin citas próximas"}
                     growthLabel={s.upcomingAppointments?.next?.doctorName ?? ""}
                     sparkline={[]}
                     sparklineColor="#d97706"
@@ -162,6 +172,8 @@ const RecepcionistDashboard = () => {
                         onDateChange={setAgendaDate}
                         onSlotClick={setPrefill}
                         loading={agendaLoading}
+                        procedureChosen={procedureInfo.procedureChosen}
+                        requiresDoctorForProcedure={procedureInfo.requiresDoctorForProcedure}
                     />
                     <QuickPatientForm ref={patientFormRef} createPatient={createPatient} onCreated={refreshAfterPatient} />
                 </div>
@@ -172,6 +184,7 @@ const RecepcionistDashboard = () => {
                         prefill={prefill}
                         onCreated={refreshAll}
                         onRequestNewPatient={() => patientFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                        onProcedureInfoChange={handleProcedureInfoChange}
                     />
                     <UpcomingAppointmentsList
                         appointments={upcoming}

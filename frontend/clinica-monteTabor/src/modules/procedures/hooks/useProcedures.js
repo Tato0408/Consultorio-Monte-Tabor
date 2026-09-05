@@ -48,7 +48,7 @@ const useProcedures = () => {
         materials: (data.materials || []).map(({ _id, ...rest }) => rest),
       };
 
-      await apiClient(id ? `/procedures/${id}` : "/procedures", {
+      const response = await apiClient(id ? `/procedures/${id}` : "/procedures", {
         method: id ? "PUT" : "POST",
         body: cleanedData,
       });
@@ -65,7 +65,11 @@ const useProcedures = () => {
       });
 
       await fetchProcedures();
-      return true;
+      // Se devuelve el documento real (con _id) en vez de solo `true`: ProcedureModal
+      // lo necesita para auto-seleccionar el procedimiento recién creado en el
+      // formulario de citas (sin esto, created._id quedaba undefined y el
+      // selector de procedimiento se quedaba en el valor anterior).
+      return response?.Data || true;
     } catch (err) {
       Swal.fire({
         icon: "error",

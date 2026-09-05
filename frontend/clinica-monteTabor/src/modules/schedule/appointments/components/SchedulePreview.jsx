@@ -2,11 +2,10 @@ import { useState } from "react";
 import { Eye, X } from "lucide-react";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
-// La duración de cada cita ya no es una configuración propia del doctor: la
-// define siempre el procedimiento elegido al agendar (o un valor fijo para
-// Consulta Médica General). Esta vista previa solo ilustra cómo se
-// combinan los bloques de horario con el tiempo entre citas, con una
-// duración de referencia de 30 min.
+// La duración de cada cita ya no es una configuración propia del doctor:
+// siempre la define el procedimiento elegido al agendar. Esta vista previa
+// solo ilustra cómo se combinan los bloques de horario con el tiempo entre
+// citas, con una duración de referencia de 30 min.
 const PREVIEW_DURATION = 30;
 
 const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];

@@ -18,7 +18,8 @@ export const statusTones = {
   pending: { bg: "#FFF4E5", fg: "#B45309", label: "Pendiente" },
   cancelled: { bg: "#FDECEC", fg: colors.danger, label: "Cancelada" },
   no_show: { bg: "#F1F2F6", fg: colors.muted, label: "No se presentó" },
-  expired: { bg: "#F1F2F6", fg: colors.muted, label: "Vencida" },
+  expired: { bg: "#FFEDD5", fg: "#C2410C", label: "Por reagendar" },
+  needs_reschedule: { bg: "#FFEDD5", fg: "#C2410C", label: "Por reagendar" },
 };
 
 const styles = StyleSheet.create({
@@ -61,6 +62,7 @@ const styles = StyleSheet.create({
   requestBadge_green: { backgroundColor: "#DDF8F0" }, requestBadgeText_green: { color: "#16836B" },
   requestBadge_red: { backgroundColor: "#FEE8E8" }, requestBadgeText_red: { color: "#C43B3B" },
   requestBadge_gray: { backgroundColor: "#EEF2F6" }, requestBadgeText_gray: { color: "#64748B" },
+  requestBadge_orange: { backgroundColor: "#FFEDD5" }, requestBadgeText_orange: { color: "#C2410C" },
   requestReasonRow: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E7EBF2", marginTop: 13, paddingTop: 11 },
   requestReasonLabel: { fontSize: 10, fontWeight: "700", color: "#64748B", marginBottom: 3 },
   requestReason: { fontSize: 12, color: "#475569", lineHeight: 17 },

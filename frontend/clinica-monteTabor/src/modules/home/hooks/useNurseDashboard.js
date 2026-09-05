@@ -15,8 +15,11 @@ const useNurseDashboard = () => {
     const getStats = useCallback(() =>
         apiClient("/nurse-dashboard/stats"), []);
 
-    const getDoctorsAgenda = useCallback((date) =>
-        apiClient("/nurse-dashboard/doctors-agenda", { params: { date } }), []);
+    const getDoctorsAgenda = useCallback((date, duration) =>
+        apiClient("/nurse-dashboard/doctors-agenda", { params: { date, duration } }), []);
+
+    const getNursesAgenda = useCallback((date, duration) =>
+        apiClient("/nurse-dashboard/nurses-agenda", { params: { date, duration } }), []);
 
     const getUpcomingAppointments = useCallback(() =>
         apiClient("/nurse-dashboard/upcoming-appointments"), []);
@@ -24,7 +27,7 @@ const useNurseDashboard = () => {
     const getPendingConfirmations = useCallback(() =>
         apiClient("/nurse-dashboard/pending-confirmations"), []);
 
-    return { getStats, getDoctorsAgenda, getUpcomingAppointments, getPendingConfirmations };
+    return { getStats, getDoctorsAgenda, getNursesAgenda, getUpcomingAppointments, getPendingConfirmations };
 };
 
 export default useNurseDashboard;

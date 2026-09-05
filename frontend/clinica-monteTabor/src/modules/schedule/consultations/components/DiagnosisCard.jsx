@@ -1,15 +1,19 @@
 import { useFormContext } from "react-hook-form";
 import SectionCard from "./SectionCard";
+import CieDiagnosisCombobox from "./CieDiagnosisCombobox";
 
 const DiagnosisCard = ({ readOnly }) => {
     const { register, setValue, watch, formState: { errors } } = useFormContext();
 
-    // Máscara de CIE-10: solo letras, números y punto, en mayúsculas
-    // (por ejemplo J00 o E11.9). Mismo criterio de limpiar mientras
-    // se escribe que las demás máscaras del sistema.
-    const handleIcdMask = (e) => {
-        const masked = e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 8);
-        setValue("clinical_data.icd_diagnosis", masked, { shouldValidate: true });
+    const icdCode = watch("clinical_data.icd_diagnosis");
+
+    // Al elegir un código en el combobox se fija el código y se PRE-LLENA el
+    // nombre con la descripción oficial CIE-10. El nombre queda editable, pero
+    // solo después de haber elegido un código (ver el input de abajo). Si se
+    // limpia la selección, se limpia también el nombre.
+    const handleCieChange = ({ code, name }) => {
+        setValue("clinical_data.icd_diagnosis", code, { shouldValidate: true, shouldDirty: true });
+        setValue("clinical_data.diagnosis", code ? name : "", { shouldValidate: true, shouldDirty: true });
     };
 
     return (
@@ -17,18 +21,22 @@ const DiagnosisCard = ({ readOnly }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div>
                     <label className="text-xs text-slate-500 block mb-1">
-                        CIE-10 <span className="text-red-500">*</span>
+                        Diagnóstico (CIE-10) <span className="text-red-500">*</span>
                     </label>
+                    {/* Input real para react-hook-form (validación + envío). El valor lo
+                        maneja el combobox vía setValue; no se teclea a mano. */}
                     <input
-                        type="text"
-                        placeholder="Ej. J00"
-                        disabled={readOnly}
+                        type="hidden"
                         {...register("clinical_data.icd_diagnosis", {
-                            required: "El código CIE-10 es obligatorio",
-                            pattern: { value: /^[A-Z0-9.]*$/, message: "Solo letras, números y punto" },
+                            required: "Elige un diagnóstico de la lista CIE-10",
                         })}
-                        onChange={handleIcdMask}
-                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                    />
+                    <CieDiagnosisCombobox
+                        code={icdCode}
+                        name={watch("clinical_data.diagnosis")}
+                        onChange={handleCieChange}
+                        disabled={readOnly}
+                        error={!!errors?.clinical_data?.icd_diagnosis}
                     />
                     {errors?.clinical_data?.icd_diagnosis && (
                         <p className="text-[11px] text-red-500 mt-0.5">{errors.clinical_data.icd_diagnosis.message}</p>
@@ -40,9 +48,9 @@ const DiagnosisCard = ({ readOnly }) => {
                     </label>
                     <input
                         type="text"
-                        maxLength={100}
-                        disabled={readOnly}
-                        placeholder="Ej. Faringitis aguda"
+                        maxLength={300}
+                        disabled={readOnly || !icdCode}
+                        placeholder={icdCode ? "" : "Elige primero un código CIE-10"}
                         {...register("clinical_data.diagnosis", {
                             required: "El nombre del diagnóstico es obligatorio",
                         })}
@@ -53,7 +61,7 @@ const DiagnosisCard = ({ readOnly }) => {
                             <p className="text-[11px] text-red-500 mt-0.5">{errors.clinical_data.diagnosis.message}</p>
                         ) : <span />}
                         <span className="text-[11px] text-gray-400 mt-0.5 ml-auto">
-                            {watch("clinical_data.diagnosis")?.length ?? 0}/100
+                            {watch("clinical_data.diagnosis")?.length ?? 0}/300
                         </span>
                     </div>
                 </div>

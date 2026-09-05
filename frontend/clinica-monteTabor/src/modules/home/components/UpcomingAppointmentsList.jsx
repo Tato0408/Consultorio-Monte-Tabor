@@ -1,3 +1,5 @@
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
+
 const STATUS_BADGE = {
     scheduled: { label: "Confirmada", cls: "bg-emerald-50 text-emerald-600" },
     pending: { label: "Pendiente", cls: "bg-amber-50 text-amber-600" },
@@ -7,17 +9,19 @@ const STATUS_BADGE = {
     expired: { label: "Vencida", cls: "bg-orange-50 text-orange-600" },
 };
 
-// Lista simple de las próximas citas del día, ordenadas por hora.
+// Lista simple de las próximas citas del día, ordenadas por hora. Expandible/colapsable con
+// el mismo componente que usa Inventario (CollapsibleCard.jsx, ver InventoryAlertsRow.jsx).
 const UpcomingAppointmentsList = ({ appointments, onViewAll }) => {
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-slate-800 text-sm">Próximas citas</h3>
-                <button type="button" onClick={onViewAll} className="text-xs font-semibold text-blue-600 hover:underline">
+        <CollapsibleCard
+            title="Próximas citas"
+            defaultOpen
+            actions={
+                <button type="button" onClick={onViewAll} className="text-xs font-semibold text-blue-600 hover:underline flex-shrink-0">
                     Ver todas
                 </button>
-            </div>
-
+            }
+        >
             {appointments.length === 0 ? (
                 <p className="text-xs text-slate-400 text-center py-6">No hay más citas por venir hoy.</p>
             ) : (
@@ -30,7 +34,7 @@ const UpcomingAppointmentsList = ({ appointments, onViewAll }) => {
                         return (
                             <div key={a._id} className="flex items-center justify-between py-2.5 gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <span className="text-xs font-bold text-slate-700 w-12 flex-shrink-0">{a.start_time}</span>
+                                    <span className="text-xs font-bold text-slate-700 w-24 flex-shrink-0">{a.start_time} - {a.end_time}</span>
                                     <div className="min-w-0">
                                         <p className="text-xs font-semibold text-slate-700 truncate">
                                             {a.patient ? `${a.patient.name} ${a.patient.last_name}` : "Paciente"}
@@ -46,7 +50,7 @@ const UpcomingAppointmentsList = ({ appointments, onViewAll }) => {
                     })}
                 </div>
             )}
-        </div>
+        </CollapsibleCard>
     );
 };
 

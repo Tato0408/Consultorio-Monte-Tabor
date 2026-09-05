@@ -1,4 +1,5 @@
-import { User, Gift, CreditCard, Phone, Mail, UserPlus2, Edit2, Trash2 } from "lucide-react";
+import { Gift, CreditCard, Phone, Mail, UserPlus2, Edit2, Trash2 } from "lucide-react";
+import PatientAvatar from "@/components/ui/PatientAvatar";
 
 const PatientProfileCard = ({ patient, onEdit, onDelete, canUpdate = true, canDelete = true }) => {
   if (!patient) {
@@ -12,9 +13,14 @@ const PatientProfileCard = ({ patient, onEdit, onDelete, canUpdate = true, canDe
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
       <div className="bg-blue-600 pt-8 pb-6 px-4 flex flex-col items-center justify-center text-white">
-        <div className="w-16 h-16 rounded-full border-2 border-white/40 overflow-hidden flex items-center justify-center mb-3 bg-blue-500">
-          <User className="w-8 h-8 text-white/90" strokeWidth={1.5} />
-        </div>
+        <PatientAvatar
+          name={patient.name}
+          lastName={patient.last_name}
+          gender={patient.gender}
+          active={patient.is_active}
+          size="lg"
+          className="border-2 border-white/40 mb-3"
+        />
         <h3 className="text-[15px] font-semibold text-center px-2 leading-tight">
           {patient.name} {patient.last_name}
         </h3>

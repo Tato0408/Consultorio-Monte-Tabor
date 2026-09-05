@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Calendar, CheckCircle2, Circle } from "lucide-react";
+import { User, Mail, Lock, Calendar, Phone, IdCard, CheckCircle2, Circle } from "lucide-react";
 import InputField from "@/components/ui/InputField";
 import FooterLogin from "../../components/Footer";
 import { useAuth } from "@/context/AuthContext";
@@ -8,6 +8,19 @@ import { showSuccess, showError } from "@/lib/alerts";
 
 // Tope máximo seleccionable en el input de fecha (hoy), para no dejar elegir una fecha futura
 const HOY_STR = new Date().toISOString().split("T")[0];
+
+// Mismo enum de género que el panel privado (PatientFormModal.jsx).
+const GENEROS = ["Masculino", "Femenino"];
+
+// Máscaras: teléfono XXXX-XXXX, DUI XXXXXXXX-X (mismo formato que valida el backend).
+const maskPhone = (v) => {
+  const d = v.replace(/\D/g, "").slice(0, 8);
+  return d.length > 4 ? `${d.slice(0, 4)}-${d.slice(4)}` : d;
+};
+const maskDui = (v) => {
+  const d = v.replace(/\D/g, "").slice(0, 9);
+  return d.length > 8 ? `${d.slice(0, 8)}-${d.slice(8)}` : d;
+};
 
 const Register = () => {
   const navigate = useNavigate();
@@ -17,6 +30,9 @@ const Register = () => {
     name: "",
     last_name: "",
     birthdate: "",
+    gender: "",
+    phone: "",
+    dui: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -43,6 +59,11 @@ const Register = () => {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
+  const handleMasked = (field, mask) => (e) => {
+    setFormData((prev) => ({ ...prev, [field]: mask(e.target.value) }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
+
   const validate = () => {
     const e = {};
     if (!formData.name.trim()) e.name = "Requerido";
@@ -54,6 +75,14 @@ const Register = () => {
       if (fecha > new Date()) e.birthdate = "La fecha no puede ser futura";
       else if (new Date().getFullYear() - fecha.getFullYear() > 120) e.birthdate = "Ingresa una fecha de nacimiento válida";
     }
+
+    if (!formData.gender) e.gender = "Requerido";
+
+    if (!formData.phone.trim()) e.phone = "Requerido";
+    else if (!/^\d{4}-\d{4}$/.test(formData.phone)) e.phone = "Formato: 0000-0000";
+
+    // El DUI es opcional (pueden registrarse menores de edad sin DUI).
+    if (formData.dui.trim() && !/^\d{8}-\d$/.test(formData.dui)) e.dui = "Formato: 00000000-0";
 
     if (!formData.email.trim()) e.email = "Requerido";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = "Correo inválido";
@@ -85,7 +114,10 @@ const Register = () => {
       await registerPatient({
         name: formData.name,
         last_name: formData.last_name,
-        birthdate: formData.birthdate,
+        birth_date: formData.birthdate,
+        gender: formData.gender,
+        phone: formData.phone,
+        dui: formData.dui.trim() || undefined,
         email: formData.email,
         password: formData.password,
       });
@@ -167,9 +199,41 @@ const Register = () => {
                   icon={<User className="w-4 h-4" />} error={errors.last_name} disabled={isLoading} />
               </div>
 
-              <InputField label="Fecha de nacimiento" id="birthdate" type="date" max={HOY_STR}
-                value={formData.birthdate} onChange={handleChange("birthdate")}
-                icon={<Calendar className="w-4 h-4" />} error={errors.birthdate} disabled={isLoading} />
+              <div className="grid grid-cols-2 gap-4">
+                <InputField label="Fecha de nacimiento" id="birthdate" type="date" max={HOY_STR}
+                  value={formData.birthdate} onChange={handleChange("birthdate")}
+                  icon={<Calendar className="w-4 h-4" />} error={errors.birthdate} disabled={isLoading} />
+
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="gender" className="text-sm font-medium text-gray-700">Género</label>
+                  <select
+                    id="gender"
+                    value={formData.gender}
+                    onChange={handleChange("gender")}
+                    disabled={isLoading}
+                    className={`h-[42px] px-3 bg-white border rounded-lg text-sm outline-none transition-all disabled:bg-gray-50 disabled:opacity-60 ${
+                      errors.gender
+                        ? "border-red-400 focus:ring-2 focus:ring-red-200"
+                        : "border-gray-200 focus:border-[#3B6FCA] focus:ring-2 focus:ring-[#3B6FCA]/20"
+                    } ${formData.gender ? "text-gray-800" : "text-gray-400"}`}
+                  >
+                    <option value="">Selecciona</option>
+                    {GENEROS.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                  {errors.gender && <p className="text-xs text-red-500 mt-0.5">{errors.gender}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <InputField label="Teléfono" id="phone" type="tel" placeholder="0000-0000"
+                  inputMode="numeric" maxLength={9}
+                  value={formData.phone} onChange={handleMasked("phone", maskPhone)}
+                  icon={<Phone className="w-4 h-4" />} error={errors.phone} disabled={isLoading} />
+                <InputField label="DUI (opcional)" id="dui" type="text" placeholder="00000000-0"
+                  inputMode="numeric" maxLength={10}
+                  value={formData.dui} onChange={handleMasked("dui", maskDui)}
+                  icon={<IdCard className="w-4 h-4" />} error={errors.dui} disabled={isLoading} />
+              </div>
 
               <InputField label="Correo electrónico" id="email" type="email" placeholder="Ingresa tu correo electrónico"
                 value={formData.email} onChange={handleChange("email")}

@@ -1,5 +1,8 @@
-const API_URL = "https://clinica-monte-tabor.onrender.com/api";
-//const API_URL = "http://localhost:4000/api";
+// En producción se llama a "/api" en el MISMO dominio de Vercel; vercel.json lo redirige
+// (proxy inverso) al backend de Render. Es mismo-origen a propósito: así la cookie de
+// sesión queda de primera parte y Safari/iOS la acepta (cross-site la bloquea el ITP).
+// En desarrollo se apunta directo al backend de Render (incluye el prefijo /api).
+const API_URL = import.meta.env.DEV ? "https://clinica-monte-tabor.onrender.com/api" : "/api";
 
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     //Construimos la url de la peticion enviando primero la url y segundo el endpoint que queremos
@@ -18,13 +21,24 @@ async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     }
 
     //Ejecucion del fetch nativo
-    const response = await fetch(url, {
-        method,
-        credentials: "include", // Cookies de sesión
-        headers: body instanceof FormData ? undefined : body ? { "Content-Type": "application/json" } : undefined,
-        body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-        signal,
-    });
+    let response;
+    try {
+        response = await fetch(url, {
+            method,
+            credentials: "include", // Cookies de sesión
+            headers: body instanceof FormData ? undefined : body ? { "Content-Type": "application/json" } : undefined,
+            body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+            signal,
+        });
+    } catch (err) {
+        // Cancelación intencional (ej. al desmontar): se propaga tal cual.
+        if (err?.name === "AbortError") throw err;
+        // Falla de red real (servidor caído, reiniciándose, sin conexión). NO lleva
+        // .status: AuthContext se apoya en eso para NO cerrar la sesión por un bache.
+        const netError = new Error("No se pudo conectar con el servidor. Revisa tu conexión.");
+        netError.network = true;
+        throw netError;
+    }
 
     // Intentamos parsear JSON siempre, incluso en errores, porque la API devuelve { message: "..." } tanto en éxito como en fallos controlados.
     const data = await response.json().catch(() => null);

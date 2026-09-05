@@ -9,6 +9,9 @@ const PatientHeader = ({ appointment, bloodTypeOverride }) => {
 
     const patient = appointment.patient_id;
     const doctor = appointment.doctor_id;
+    // Procedimiento sin doctor (requires_doctor false): la enfermera asignada es quien
+    // atiende, en vez de un doctor.
+    const nurse = appointment.nurse_id;
     const bloodType = bloodTypeOverride ?? patient?.clinical_history?.blood_type ?? null;
 
     // Calcula edad aproximada a partir de la fecha de nacimiento del paciente,
@@ -71,13 +74,17 @@ const PatientHeader = ({ appointment, bloodTypeOverride }) => {
                 <span className="flex items-center gap-2 whitespace-nowrap">
                     <Clock className="w-4 h-4" />
                     <span className="text-white/70">Última visita</span>
-                    {appointment.date} {appointment.start_time}
+                    {appointment.date} {appointment.start_time} - {appointment.end_time}
                 </span>
 
                 <span className="flex items-center gap-2 whitespace-nowrap">
                     <Stethoscope className="w-4 h-4" />
-                    <span className="text-white/70">Doctor encargado</span>
-                    {doctor?.name ?? "—"} {doctor?.last_name ?? "-"}
+                    <span className="text-white/70">{doctor ? "Doctor encargado" : "Enfermera encargada"}</span>
+                    {doctor
+                        ? `${doctor.name ?? "—"} ${doctor.last_name ?? "-"}`
+                        : nurse
+                            ? `${nurse.name ?? "—"} ${nurse.last_name ?? "-"}`
+                            : "—"}
                 </span>
             </div>
         </div>

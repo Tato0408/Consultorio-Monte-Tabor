@@ -84,7 +84,7 @@ const Home = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-gray-800">
+    <div className="min-h-screen bg-white text-gray-800 overflow-x-hidden">
       {/* ── Header ── */}
       <header className="sticky top-3 z-20 px-3 sm:px-6">
         <div className="max-w-6xl mx-auto bg-white/90 backdrop-blur border border-gray-100 shadow-sm shadow-gray-200/60 rounded-2xl px-5 sm:px-7 h-16 flex items-center justify-between">

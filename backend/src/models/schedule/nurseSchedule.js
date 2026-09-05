@@ -9,7 +9,10 @@ que asumen que todo lo que hay en Schedules pertenece a un doctor.
 import mongoose, { Schema, model } from "mongoose";
 
 const nurseScheduleSchema = new Schema({
-    nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "Nurses", required: true, unique: true },
+    // El modelo real se registra en minúscula (ver models/nurses/nurses.js:
+    // model('nurses', ...)); "Nurses" no existe y habría reventado cualquier
+    // .populate("nurse_id") futuro con MissingSchemaError.
+    nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "nurses", required: true, unique: true },
 
     weekly_availability: [
         {

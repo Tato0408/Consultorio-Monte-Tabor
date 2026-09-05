@@ -22,7 +22,7 @@ const IncapacidadDocument = ({ title, patientName, dui, age, diagnosis, restDays
 
       <View style={styles.row}>
         <Text>Fecha: {date}</Text>
-        <Text>DUI: {dui || "—"}</Text>
+        {dui ? <Text>DUI: {dui}</Text> : null}
       </View>
 
       <Text style={styles.paragraph}>

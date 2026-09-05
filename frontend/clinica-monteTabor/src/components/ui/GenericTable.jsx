@@ -19,6 +19,10 @@ const GenericTable = ({
   // de forma pareja en vez de amontonados a un lado. Es opcional, para no afectar las tablas
   // existentes que ya dependen del ancho automático.
   evenColumns = false,
+  // stripedHeader pinta la fila de encabezados con la misma franja gris azulada
+  // (bg-slate-50, texto en mayúsculas) que usan las tablas de los reportes
+  // (ver ReportsSection.jsx). Opcional para no cambiar el resto de tablas.
+  stripedHeader = false,
   // Reporta (en px) la distancia entre el borde superior de este componente y el borde
   // superior de la tabla real, es decir después de la barra de búsqueda y filtros de arriba,
   // para que quien lo use pueda alinear otro elemento (ej. un panel lateral) con el inicio de
@@ -44,13 +48,16 @@ const GenericTable = ({
   onItemsPerPageChange,
   // Opciones del selector "Filas por página", ver TablePagination.jsx.
   pageSizeOptions,
+  // Filas por página con las que arranca la tabla. Debe ser uno de los valores de
+  // pageSizeOptions. Por defecto 8, para no cambiar las tablas existentes.
+  defaultPageSize = 8,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   // Admite los valores all, yes o no.
   const [nurseFilter, setNurseFilter] = useState("all");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(8);
+  const [itemsPerPage, setItemsPerPage] = useState(defaultPageSize);
 
   const rootRef = useRef(null);
   const tableContainerRef = useRef(null);
@@ -168,11 +175,17 @@ const GenericTable = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse" style={evenColumns ? { tableLayout: "fixed" } : undefined}>
             <thead>
-              <tr className="border-b border-gray-100 text-gray-400 text-xs font-normal">
+              <tr
+                className={
+                  stripedHeader
+                    ? "bg-slate-50 border-b border-slate-100 text-slate-400 text-[11px] font-semibold uppercase tracking-wide"
+                    : "border-b border-gray-100 text-gray-400 text-xs font-normal"
+                }
+              >
                 {columns.map((col, idx) => (
                   <th
                     key={idx}
-                    className={`py-4 font-normal text-gray-400 ${
+                    className={`${stripedHeader ? "py-3 font-semibold" : "py-4 font-normal text-gray-400"} ${
                       col.align === "right" ? "text-right pr-6 pl-4" : col.align === "center" ? "text-center px-8" : "pl-4"
                     }`}
                   >

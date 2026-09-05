@@ -11,8 +11,16 @@ export const AuthProvider = ({ children }) => {
     // Copia siempre actualizada de isLoggedIn para leer dentro del listener de
     // "session-expired" (ver más abajo), que se suscribe una sola vez al montar.
     const isLoggedInRef = useRef(false);
+    // Evita que la revalidación de handleSessionExpired (que también llama a /auth/me y
+    // puede volver a disparar "session-expired" con su propio 401) entre en bucle.
+    const revalidatingRef = useRef(false);
 
-    const checkSession = useCallback(async () => {
+    // Devuelve true si al terminar hay una sesión de paciente válida, false si no.
+    // Un fallo de red (backend caído, reiniciándose, sin conexión) NO cierra la sesión:
+    // el token puede seguir vivo, solo no se pudo confirmar ahora. Se reintenta un par de
+    // veces (cubre la ventana de reinicio del backend) y únicamente un rechazo real de
+    // autenticación (401/403) limpia la sesión.
+    const checkSession = useCallback(async (retries = 2) => {
         try {
             const response = await apiClient("/auth/me");
             // /auth/me es compartido con el panel privado y valida "cualquier
@@ -29,13 +37,26 @@ export const AuthProvider = ({ children }) => {
             if (response.userType !== "patient") {
                 setPatient(null);
                 setIsLoggedIn(false);
-                return;
+                return false;
             }
             setPatient(response.user);
             setIsLoggedIn(true);
-        } catch {
-            setPatient(null);
-            setIsLoggedIn(false);
+            return true;
+        } catch (err) {
+            // 401 = token vencido/ausente; 403 = cookie de otro rol (staff). Solo en esos
+            // casos se cierra la sesión.
+            if (err?.status === 401 || err?.status === 403) {
+                setPatient(null);
+                setIsLoggedIn(false);
+                return false;
+            }
+            // Falla de red / backend reiniciándose: reintenta antes de rendirse.
+            if (retries > 0) {
+                await new Promise((r) => setTimeout(r, 800));
+                return checkSession(retries - 1);
+            }
+            // Sin poder confirmar: no se toca el estado (si había sesión, se conserva).
+            return isLoggedInRef.current;
         }
     }, []);
 
@@ -63,19 +84,31 @@ export const AuthProvider = ({ children }) => {
 
     // apiClient dispara "session-expired" ante cualquier 401. Solo se actúa si había
     // una sesión activa: así no interfiere con el 401 de /auth/me en visitantes sin
-    // sesión, ni con un intento de login fallido por credenciales inválidas. Al poner
-    // isLoggedIn en false, ProtectedRoute (que ya observa ese estado) redirige a
-    // /login por su cuenta, sin necesidad de navegar manualmente desde aquí.
+    // sesión, ni con un intento de login fallido por credenciales inválidas.
+    //
+    // Antes de cerrar sesión se revalida contra /auth/me: un 401 puede venir de un
+    // endpoint no relacionado o ser transitorio, y no debe tumbar una sesión que sigue
+    // siendo válida (con la sesión deslizante de 2 h del backend esto pasaba seguido).
+    // Solo si la revalidación también falla se cierra la sesión — y ahí ProtectedRoute,
+    // que ya observa isLoggedIn, redirige a /login por su cuenta.
     useEffect(() => {
-        const handleSessionExpired = () => {
-            if (!isLoggedInRef.current) return;
-            setPatient(null);
-            setIsLoggedIn(false);
-            showWarning("Tu sesión expiró. Inicia sesión de nuevo.");
+        const handleSessionExpired = async () => {
+            if (!isLoggedInRef.current || revalidatingRef.current) return;
+            revalidatingRef.current = true;
+            let stillValid = false;
+            try {
+                stillValid = await checkSession();
+            } finally {
+                revalidatingRef.current = false;
+            }
+            if (!stillValid) {
+                isLoggedInRef.current = false;
+                showWarning("Tu sesión expiró. Inicia sesión de nuevo.");
+            }
         };
         window.addEventListener("session-expired", handleSessionExpired);
         return () => window.removeEventListener("session-expired", handleSessionExpired);
-    }, []);
+    }, [checkSession]);
 
     // Inicia sesión de un paciente contra /api/loginPatient/login
     const login = async (email, password) => {

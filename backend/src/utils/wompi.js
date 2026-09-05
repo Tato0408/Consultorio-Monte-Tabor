@@ -64,5 +64,14 @@ export function verifyWebhookSignature(rawBody, receivedHash) {
     const hmac = crypto.createHmac("sha256", config.wompi.clientSecret);
     hmac.update(rawBody);
     const expected = hmac.digest("hex");
-    return expected === receivedHash;
+
+    // Comparación en tiempo constante en vez de ===: comparar strings byte a
+    // byte con === corta apenas encuentra la primera diferencia, lo que en
+    // teoría deja adivinar la firma correcta midiendo cuánto tarda cada
+    // intento. timingSafeEqual exige buffers del mismo largo (si no,
+    // lanza), por eso se valida el largo antes en vez de dejar que reviente.
+    const expectedBuffer = Buffer.from(expected, "hex");
+    const receivedBuffer = Buffer.from(String(receivedHash), "hex");
+    if (expectedBuffer.length !== receivedBuffer.length) return false;
+    return crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
 }

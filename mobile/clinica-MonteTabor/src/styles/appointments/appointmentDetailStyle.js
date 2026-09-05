@@ -18,6 +18,8 @@ export default StyleSheet.create({
   notice: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 16, backgroundColor: "#FFF", borderRadius: 13, borderWidth: 1, borderColor: "#E7EBF2", padding: 13 }, noticeText: { flex: 1, fontSize: 12, lineHeight: 17, fontWeight: "600" },
   cancelButton: { height: 48, marginTop: 18, borderRadius: 13, borderWidth: 1, borderColor: "#FCA5A5", backgroundColor: "#FFF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   cancelButtonText: { color: "#DC2626", fontSize: 13, fontWeight: "800" },
+  rescheduleButton: { height: 48, marginTop: 18, borderRadius: 13, backgroundColor: "#2F6BFF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  rescheduleButtonText: { color: "#FFF", fontSize: 13, fontWeight: "800" },
   cancellationUnavailable: { marginTop: 18, padding: 13, borderRadius: 13, borderWidth: 1, borderColor: "#E2E8F0", backgroundColor: "#F8FAFC", flexDirection: "row", alignItems: "center", gap: 9 }, cancellationUnavailableText: { flex: 1, color: "#64748B", fontSize: 11, lineHeight: 17, fontWeight: "600" },
   modalKeyboard: { flex: 1 }, modalBackdrop: { flex: 1, backgroundColor: "rgba(15,23,42,.48)", justifyContent: "center", padding: 20 },
   modalCard: { backgroundColor: "#FFF", borderRadius: 20, padding: 20, ...shadow }, modalIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#FEE2E2", alignItems: "center", justifyContent: "center", alignSelf: "center" },

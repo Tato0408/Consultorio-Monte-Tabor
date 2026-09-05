@@ -3,27 +3,21 @@ import patientsModel from "../../models/patients/patients.js";
 import doctorsModel from "../../models/doctors/doctors.js";
 import notificationModel from "../../models/notifications/notification.js";
 import { isSlotFreeForDoctor } from "../schedule/scheduleController.js";
-import { isNurseAvailable } from "../schedule/nurseScheduleController.js";
+import { isNurseAvailable, isSlotFreeForNurse, anyNurseAvailable } from "../schedule/nurseScheduleController.js";
 import { notifyAppointmentRecipients } from "../../services/notificationService.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import { getNonNegativeError } from "../../utils/validators.js";
+import { RESCHEDULE_REASONS } from "../../utils/appointmentStatus.js";
 
 const appointmentsController = {};
-const GENERAL_CONSULTATION_PRICE = 15;
-const GENERAL_CONSULTATION_DURATION = 30;
 
-// Resuelve tipo, duración y precio del servicio elegido por el paciente,
-// tomando el catálogo del servidor o la consulta general por defecto.
+// Resuelve tipo, duración y precio del servicio elegido por el paciente, tomando siempre
+// el catálogo del servidor: la Consulta Médica General ahora es un procedimiento real más
+// (antes, sin procedureId, se devolvía un valor fijo — $15/30 min — sin consultar la base
+// de datos). Un procedureId vacío ya no es un caso especial, es simplemente inválido.
 async function resolvePatientService(procedureId) {
-    if (!procedureId || procedureId === "general") {
-        return {
-            procedure_id: null,
-            type: "Consulta Médica General",
-            duration_minutes: 30,
-            total: GENERAL_CONSULTATION_PRICE,
-        };
-    }
+    if (!procedureId) return null;
 
     const procedure = await proceduresModel.findOne({ _id: procedureId, is_active: true })
         .select("name estimated_duration price requires_nurse");
@@ -31,7 +25,9 @@ async function resolvePatientService(procedureId) {
 
     return {
         procedure_id: procedure._id,
-        type: "Procedimiento",
+        // Se identifica por nombre solo para mantener el mismo campo type de siempre (lo
+        // usan los reportes para separar consultas de procedimientos).
+        type: procedure.name === "Consulta Médica General" ? "Consulta Médica General" : "Procedimiento",
         duration_minutes: Number(procedure.estimated_duration) || 30,
         total: Number(procedure.price) || 0,
         procedure,
@@ -55,19 +51,19 @@ async function validateStaffServiceCoherence({ procedure_id, type, duration_minu
         return "La duración no coincide con el horario seleccionado.";
     }
 
-    if (!procedure_id || procedure_id === "general") {
-        if (type !== "Consulta Médica General" || Number(duration_minutes) !== GENERAL_CONSULTATION_DURATION) {
-            return "Los datos de la consulta general no son válidos.";
-        }
-        return null;
+    // La Consulta Médica General ahora es un procedimiento real más: ya no hay un caso
+    // "sin procedimiento" válido para el personal, siempre debe venir uno.
+    if (!procedure_id) {
+        return "Debes seleccionar un procedimiento.";
     }
 
     const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: true })
-        .select("estimated_duration");
+        .select("name estimated_duration");
     if (!procedure) {
         return "El procedimiento seleccionado no está disponible.";
     }
-    if (type !== "Procedimiento" || Number(duration_minutes) !== (Number(procedure.estimated_duration) || 30)) {
+    const expectedType = procedure.name === "Consulta Médica General" ? "Consulta Médica General" : "Procedimiento";
+    if (type !== expectedType || Number(duration_minutes) !== (Number(procedure.estimated_duration) || 30)) {
         return "Los datos del procedimiento no son válidos.";
     }
     return null;
@@ -91,55 +87,123 @@ function getDayRange(dateInput) {
     return { start, end };
 }
 
-// Tiempo máximo que una cita puede esperar sin que ningún doctor la acepte
-// antes de vencer sola (independiente de si su fecha ya llegó o no).
+// Tiempo máximo que una solicitud puede esperar sin que ningún proveedor la acepte
+// antes de pasar a "por reagendar", aunque su fecha todavía no haya llegado.
 const PENDING_EXPIRATION_MS = 48 * 60 * 60 * 1000;
 
-// Marca como "no_show" las "pending" cuya fecha ya pasó, y como "expired"
-// las que llevan demasiado tiempo sin que ningún doctor las acepte.
-async function expirePendingAppointments() {
+// Transiciones automáticas por el paso del tiempo. No hay cron: esto se corre de forma
+// perezosa al listar citas (getAppointments), igual que el resto del proyecto.
+//   1) scheduled cuya hora de fin ya pasó y no se realizó la consulta  -> no_show.
+//   2) pending cuya hora de fin ya pasó, o que lleva +48 h sin aceptar  -> needs_reschedule
+//      (el paciente puede reagendarla; ver appointmentStatus.js), con notificación.
+// Margen tras la hora de fin antes de dar una cita aceptada por "No se presentó": el
+// doctor puede estar atendiendo con retraso. Al pasar este margen sin que se registre la
+// consulta, se asume que el paciente no llegó.
+const NO_SHOW_GRACE_MS = 60 * 60 * 1000;
+
+// Se exporta para que otros endpoints self-service del paciente (ej.
+// patientSelfController.getMyConsultations, que alimenta el dashboard de la app móvil)
+// apliquen las mismas transiciones perezosas al leer, sin depender de que el paciente
+// pase antes por la pantalla de citas.
+export async function runAppointmentAutoTransitions() {
     const now = new Date();
     const { start: startOfToday, end: endOfToday } = getDayRange(now);
-    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const fmtTime = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const currentTime = fmtTime(now);
+    const staleCutoff = new Date(now.getTime() - PENDING_EXPIRATION_MS);
 
+    // "Hora de fin ya pasó (sin margen)": para las solicitudes sin aceptar.
+    const pastEndTime = [
+        { date: { $lt: startOfToday } },
+        { date: { $gte: startOfToday, $lte: endOfToday }, end_time: { $lte: currentTime } },
+    ];
+
+    // "Hora de fin pasó + margen": para las citas ya aceptadas.
+    const graceMoment = new Date(now.getTime() - NO_SHOW_GRACE_MS);
+    const graceSameDay = graceMoment.getDate() === now.getDate() && graceMoment.getMonth() === now.getMonth();
+    const pastEndPlusGrace = [
+        { date: { $lt: startOfToday } },
+        ...(graceSameDay
+            ? [{ date: { $gte: startOfToday, $lte: endOfToday }, end_time: { $lte: fmtTime(graceMoment) } }]
+            : []),
+    ];
+
+    // 1) Citas ya aceptadas que no se realizaron -> No se presentó. (Si la consulta se
+    //    hubiera hecho, la propia consulta la habría puesto en "completed".)
     await appointmentsModel.updateMany(
-        {
-            status: "pending",
-            $or: [
-                { date: { $lt: startOfToday } },
-                { date: { $gte: startOfToday, $lte: endOfToday }, start_time: { $lt: currentTime } },
-            ],
-        },
+        { status: "scheduled", $or: pastEndPlusGrace },
         { $set: { status: "no_show" } }
     );
 
-    const staleCutoff = new Date(now.getTime() - PENDING_EXPIRATION_MS);
-    const staleAppointments = await appointmentsModel
-        .find({ status: "pending", createdAt: { $lt: staleCutoff } })
+    // 2) Solicitudes que ningún proveedor aceptó a tiempo -> por reagendar.
+    const notAccepted = await appointmentsModel
+        .find({ status: "pending", $or: [...pastEndTime, { createdAt: { $lt: staleCutoff } }] })
         .select("_id patient_id");
 
-    if (staleAppointments.length > 0) {
+    if (notAccepted.length > 0) {
         await appointmentsModel.updateMany(
-            { _id: { $in: staleAppointments.map(a => a._id) } },
-            { $set: { status: "expired" } }
+            { _id: { $in: notAccepted.map((a) => a._id) } },
+            { $set: { status: "needs_reschedule", reschedule_reason: RESCHEDULE_REASONS.NOT_ACCEPTED } }
         );
-
-        await notificationModel.insertMany(staleAppointments.map(a => ({
+        await notificationModel.insertMany(notAccepted.map((a) => ({
             recipient_role: "patient",
             recipient_id: a.patient_id,
-            title: "Solicitud de cita vencida",
-            type: "appointment_expired",
-            message: "Tu solicitud de cita venció porque ningún doctor la aceptó a tiempo. Puedes agendar de nuevo o contactar a la clínica.",
+            title: "Cita sin aceptar",
+            type: "appointment_reschedule_needed",
+            message: "Ningún doctor aceptó tu cita a tiempo. Puedes reagendarla para otra fecha y horario.",
             appointment_id: a._id,
             action_url: `/appointments/${a._id}/edit`,
         })));
     }
 }
 
+// Al aceptar/asignar una cita, el cupo de ESE proveedor a ESA hora queda tomado. Las
+// demás solicitudes (pending) del MISMO proveedor que se solapan con ese horario ya no
+// pueden concretarse: pasan a needs_reschedule para que esos pacientes reagenden. Las
+// solicitudes "sin proveedor elegido" (doctor_id / nurse_id null) no se tocan: otro
+// proveedor todavía puede aceptarlas. Nunca debe tumbar la aceptación si algo falla.
+async function bumpCompetingRequests(accepted) {
+    const providerFilter = accepted.doctor_id
+        ? { doctor_id: accepted.doctor_id }
+        : accepted.nurse_id
+        ? { nurse_id: accepted.nurse_id }
+        : null;
+    if (!providerFilter) return;
+
+    const { start, end } = getDayRange(accepted.date);
+    const competitors = await appointmentsModel
+        .find({
+            _id: { $ne: accepted._id },
+            status: "pending",
+            ...providerFilter,
+            date: { $gte: start, $lte: end },
+        })
+        .select("_id patient_id start_time end_time");
+
+    const aStart = toMinutes(accepted.start_time);
+    const aEnd = toMinutes(accepted.end_time);
+    const overlapping = competitors.filter((c) => toMinutes(c.start_time) < aEnd && toMinutes(c.end_time) > aStart);
+    if (overlapping.length === 0) return;
+
+    await appointmentsModel.updateMany(
+        { _id: { $in: overlapping.map((c) => c._id) } },
+        { $set: { status: "needs_reschedule", reschedule_reason: RESCHEDULE_REASONS.SLOT_TAKEN } }
+    );
+    await notificationModel.insertMany(overlapping.map((c) => ({
+        recipient_role: "patient",
+        recipient_id: c.patient_id,
+        title: "Tu cupo ya fue asignado",
+        type: "appointment_reschedule_needed",
+        message: "El horario que solicitaste ya fue asignado a otro paciente. Reagenda tu cita para otra fecha y horario.",
+        appointment_id: c._id,
+        action_url: `/appointments/${c._id}/edit`,
+    })));
+}
+
 // Lista citas con paginación, filtros y búsqueda.
 appointmentsController.getAppointments = async (req, res) => {
     try {
-        await expirePendingAppointments();
+        await runAppointmentAutoTransitions();
 
         const {
             date,
@@ -221,9 +285,31 @@ appointmentsController.getAppointments = async (req, res) => {
         // Alcance forzado por rol: el doctor solo ve las suyas; la
         // recepcionista no ve las que aún no han sido aceptadas.
         if (req.user.role === "doctor") {
-            // Ve sus citas y las solicitudes aún sin tomar para poder aceptarlas.
+            // Ve sus citas y las solicitudes aún sin tomar para poder aceptarlas. Se excluyen
+            // las solicitudes de un procedimiento sin doctor (requires_doctor false): esas
+            // solo debe verlas y aceptarlas la enfermera (ver rama "nurse" más abajo), el
+            // doctor no puede tomarlas (acceptAppointment las rechazaría de todos modos).
+            const doctorEligibleProcedures = await proceduresModel.find({ requires_doctor: { $ne: false } }).select("_id");
             filters.$and = (filters.$and || []).concat([{
-                $or: [{ doctor_id: req.user.id }, { doctor_id: null, status: "pending" }],
+                $or: [
+                    { doctor_id: req.user.id },
+                    { doctor_id: null, status: "pending", procedure_id: { $in: doctorEligibleProcedures.map(p => p._id) } },
+                ],
+            }]);
+        } else if (req.user.role === "nurse") {
+            // Mismo criterio que el doctor: ve las citas donde ya es la enfermera asignada
+            // (proveedora principal o de apoyo) y las solicitudes aún sin tomar de un
+            // procedimiento sin doctor (ahí ella es la proveedora principal, ver
+            // patientPortalController.bookAppointment), para poder aceptarlas. Un
+            // procedimiento con doctor + enfermera de apoyo no entra en el segundo caso: esa
+            // enfermera la elige el doctor/admin al aceptar/asignar, no hay solicitud propia
+            // que la enfermera deba tomar ella misma.
+            const nurseOnlyProcedures = await proceduresModel.find({ requires_doctor: false }).select("_id");
+            filters.$and = (filters.$and || []).concat([{
+                $or: [
+                    { nurse_id: req.user.id },
+                    { nurse_id: null, status: "pending", procedure_id: { $in: nurseOnlyProcedures.map(p => p._id) } },
+                ],
             }]);
         } else if (req.user.role === "patient") {
             filters.patient_id = req.user.id;
@@ -247,9 +333,12 @@ appointmentsController.getAppointments = async (req, res) => {
             appointmentsModel
                 .find(filters)
                 .populate("doctor_id", "name last_name specialty img_url")
+                .populate("nurse_id", "name last_name img_url")
                 .populate({ path: "patient_id", model: "Patients", select: "name last_name" })
-                .populate({ path: "procedure_id", model: "procedure", select: "name requires_nurse" })
-                .sort({ date: dateDirection, start_time: dateDirection })
+                .populate({ path: "procedure_id", model: "procedure", select: "name requires_nurse requires_doctor" })
+                // createdAt asc como desempate: si dos solicitudes son para la misma
+                // fecha y hora, en "Por aceptar" aparece primero la que se solicitó antes.
+                .sort({ date: dateDirection, start_time: dateDirection, createdAt: 1 })
                 .skip(skip)
                 .limit(limitNumber),
             appointmentsModel.countDocuments(filters),
@@ -281,8 +370,8 @@ appointmentsController.getPatientAppointmentById = async (req, res) => {
         const appointment = await appointmentsModel
             .findOne({ _id: req.params.id, patient_id: req.user.id })
             .populate("doctor_id", "name last_name specialty img_url")
-            .populate({ path: "nurse_id", model: "nurses", select: "name last_name" })
-            .populate({ path: "procedure_id", model: "procedure", select: "name requires_nurse" });
+            .populate({ path: "nurse_id", model: "nurses", select: "name last_name img_url" })
+            .populate({ path: "procedure_id", model: "procedure", select: "name requires_nurse requires_doctor" });
         if (!appointment) {
             return res.status(404).json({ message: "No se encontró la cita." });
         }
@@ -365,7 +454,7 @@ appointmentsController.getAppointmentById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        await expirePendingAppointments();
+        await runAppointmentAutoTransitions();
 
         const appointment = await appointmentsModel.findById(id)
             .populate({ path: "patient_id", model: "Patients", select: "name last_name phone gender birth_date dui clinical_history.blood_type email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social" })
@@ -407,6 +496,7 @@ appointmentsController.insertAppointment = async (req, res) => {
             status,
             total,
             cancellation_reason,
+            confirm_no_nurse,
         } = req.body;
 
         // Sanitiza los campos de texto.
@@ -447,8 +537,28 @@ appointmentsController.insertAppointment = async (req, res) => {
             total = service.total;
         }
 
-        // Valida que estén los campos obligatorios.
-        if ((!doctor_id && req.user.role !== "patient") || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
+        // Un procedimiento sin doctor (requires_doctor false) se agenda con una enfermera
+        // como proveedora principal: el personal (admin/recepción/enfermera) no elige
+        // doctor ahí, nurse_id lo reemplaza. No aplica a la rama "patient" de arriba (ese
+        // flujo del portal público vive en patientPortalController.bookAppointment).
+        let procedureRequiresDoctor = true;
+        let procedureRequiresNurse = false;
+        if (req.user.role !== "patient" && procedure_id) {
+            const procedureDoc = await proceduresModel.findById(procedure_id).select("requires_doctor requires_nurse");
+            procedureRequiresDoctor = procedureDoc ? procedureDoc.requires_doctor !== false : true;
+            procedureRequiresNurse = !!procedureDoc?.requires_nurse;
+            if (!procedureRequiresDoctor) {
+                doctor_id = null;
+                if (!nurse_id) {
+                    return res.status(400).json({ message: "Este procedimiento no requiere doctor: selecciona una enfermera." });
+                }
+            }
+        }
+
+        // Valida que estén los campos obligatorios. procedure_id es obligatorio para
+        // cualquier cita ahora (la Consulta Médica General es un procedimiento real más,
+        // ya no un caso "sin procedimiento"); para el paciente ya quedó resuelto arriba.
+        if ((!doctor_id && req.user.role !== "patient" && procedureRequiresDoctor) || !patient_id || !procedure_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
             return res.status(400).json({ message: "Completa todos los campos requeridos." });
         }
 
@@ -486,6 +596,38 @@ appointmentsController.insertAppointment = async (req, res) => {
             }
         }
 
+        // Revalida contra la base de datos que el horario elegido sigue libre, sin confiar en
+        // que la lista de horarios sugeridos que vio el cliente siga vigente (pudo quedar
+        // desactualizada, o dos personas intentar agendar el mismo horario casi al mismo
+        // tiempo). Antes esto nunca se comprobaba al guardar, solo al calcular qué horarios
+        // sugerir: la sugerencia excluía bien los solapados, pero nada revisaba de nuevo el
+        // horario realmente enviado, así que una cita podía terminar guardada encima de otra
+        // ya existente. Se revisan doctor y enfermera por separado: una cita puede tener
+        // ambos (enfermera de apoyo) y cualquiera de los dos podría ya estar ocupado.
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        if (doctor_id) {
+            const { free, reason } = await isSlotFreeForDoctor(doctor_id, dateStr, start_time, end_time);
+            if (!free) return res.status(400).json({ message: reason || "Ese horario ya no está disponible para el doctor." });
+        }
+        if (nurse_id) {
+            const { free, reason } = await isSlotFreeForNurse(nurse_id, dateStr, start_time, end_time, appointmentsModel);
+            if (!free) return res.status(400).json({ message: reason || "Ese horario ya no está disponible para la enfermera." });
+        }
+
+        // Procedimiento con doctor + enfermera de apoyo, sin enfermera asignada todavía: se
+        // permite igual que en acceptAppointment/assignDoctor, solo con confirm_no_nurse Y
+        // solo si de verdad no hay ninguna enfermera libre para este horario (evita que el
+        // bypass sirva para saltarse la asignación cuando sí hay alguna disponible).
+        if (procedureRequiresDoctor && procedureRequiresNurse && !nurse_id) {
+            if (!confirm_no_nurse) {
+                return res.status(400).json({ message: "Este procedimiento requiere seleccionar una enfermera.", code: "NURSE_REQUIRED" });
+            }
+            const hayEnfermeraLibre = await anyNurseAvailable(dateStr, start_time, end_time);
+            if (hayEnfermeraLibre) {
+                return res.status(400).json({ message: "Hay enfermeras disponibles para este horario: selecciona una." });
+            }
+        }
+
         const newAppointment = new appointmentsModel({
             doctor_id,
             patient_id,
@@ -505,6 +647,13 @@ appointmentsController.insertAppointment = async (req, res) => {
         });
 
         await newAppointment.save();
+
+        // Si el personal la creó ya agendada, el cupo de ese proveedor a esa hora quedó
+        // tomado: las solicitudes de pacientes que competían por ese mismo horario pasan a
+        // "por reagendar".
+        if (newAppointment.status === "scheduled") {
+            await bumpCompetingRequests(newAppointment).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
+        }
 
         // Informa al profesional y al paciente sin incluir diagnósticos ni
         // otros datos clínicos en la campana.
@@ -546,6 +695,7 @@ appointmentsController.updateAppointment = async (req, res) => {
             status,
             total,
             cancellation_reason,
+            confirm_no_nurse,
         } = req.body;
 
         // Sanitiza los campos de texto.
@@ -559,8 +709,26 @@ appointmentsController.updateAppointment = async (req, res) => {
             date = getDayRange(date).start;
         }
 
-        // Valida que estén los campos obligatorios.
-        if (!doctor_id || !patient_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
+        // Igual que insertAppointment: un procedimiento sin doctor (requires_doctor false)
+        // se reagenda con una enfermera como proveedora principal, nurse_id reemplaza a
+        // doctor_id.
+        let procedureRequiresDoctor = true;
+        let procedureRequiresNurse = false;
+        if (procedure_id) {
+            const procedureDoc = await proceduresModel.findById(procedure_id).select("requires_doctor requires_nurse");
+            procedureRequiresDoctor = procedureDoc ? procedureDoc.requires_doctor !== false : true;
+            procedureRequiresNurse = !!procedureDoc?.requires_nurse;
+            if (!procedureRequiresDoctor) {
+                doctor_id = null;
+                if (!nurse_id) {
+                    return res.status(400).json({ message: "Este procedimiento no requiere doctor: selecciona una enfermera." });
+                }
+            }
+        }
+
+        // Valida que estén los campos obligatorios. procedure_id es obligatorio para
+        // cualquier cita ahora (ver el mismo comentario en insertAppointment).
+        if ((!doctor_id && procedureRequiresDoctor) || !patient_id || !procedure_id || !type || date == null || !start_time || !end_time || duration_minutes == null || !status || total == null) {
             return res.status(400).json({ message: "Completa todos los campos requeridos." });
         }
 
@@ -594,6 +762,33 @@ appointmentsController.updateAppointment = async (req, res) => {
         const coherenceError = await validateStaffServiceCoherence({ procedure_id, type, duration_minutes, start_time, end_time });
         if (coherenceError) {
             return res.status(400).json({ message: coherenceError });
+        }
+
+        // Misma revalidación que insertAppointment (ver el comentario ahí): el horario
+        // elegido debe seguir libre de verdad, no solo haberlo estado cuando se calculó la
+        // lista de sugerencias. excludeAppointmentId es la propia cita que se está editando,
+        // para que no choque contra sí misma (su horario actual, antes de este cambio).
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        if (doctor_id) {
+            const { free, reason } = await isSlotFreeForDoctor(doctor_id, dateStr, start_time, end_time, req.params.id);
+            if (!free) return res.status(400).json({ message: reason || "Ese horario ya no está disponible para el doctor." });
+        }
+        if (nurse_id) {
+            const { free, reason } = await isSlotFreeForNurse(nurse_id, dateStr, start_time, end_time, appointmentsModel, req.params.id);
+            if (!free) return res.status(400).json({ message: reason || "Ese horario ya no está disponible para la enfermera." });
+        }
+
+        // Mismo criterio que insertAppointment: procedimiento con doctor + enfermera de
+        // apoyo, sin enfermera asignada, solo se permite con confirm_no_nurse y solo si de
+        // verdad no hay ninguna libre para este horario.
+        if (procedureRequiresDoctor && procedureRequiresNurse && !nurse_id) {
+            if (!confirm_no_nurse) {
+                return res.status(400).json({ message: "Este procedimiento requiere seleccionar una enfermera.", code: "NURSE_REQUIRED" });
+            }
+            const hayEnfermeraLibre = await anyNurseAvailable(dateStr, start_time, end_time, req.params.id);
+            if (hayEnfermeraLibre) {
+                return res.status(400).json({ message: "Hay enfermeras disponibles para este horario: selecciona una." });
+            }
         }
 
         // Reagendar solo aplica a una cita Programada (ver
@@ -778,11 +973,16 @@ appointmentsController.deleteAppointment = async (req, res) => {
 // "reabrir" una cita completada o cancelada de vuelta a scheduled con solo mandar ese
 // status, sin ninguna validación).
 const VALID_STATUS_TRANSITIONS = {
-    pending: ["cancelled"],
+    pending: ["cancelled", "needs_reschedule"],
     scheduled: ["completed", "cancelled", "no_show"],
+    // El paciente reagenda por su propio endpoint (rescheduleMyAppointment); el personal
+    // también puede cancelarla desde aquí.
+    needs_reschedule: ["cancelled"],
     completed: [],
     cancelled: [],
-    no_show: [],
+    // Si la consulta sí se realizó (con retraso, después del margen de no_show), al
+    // guardarla se vuelve a "completed": la consulta real manda sobre el auto-no_show.
+    no_show: ["completed"],
     expired: [],
 };
 
@@ -806,6 +1006,18 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
             return res.status(404).json({ message: "Cita no encontrada" });
         }
 
+        // Llamada idempotente: si el estado no cambia, no hay transición que validar.
+        // El editor de consultas reenvía "completed" cada vez que se guarda un
+        // registro ya existente, y sin esto esa edición fallaba con
+        // "No se puede cambiar una cita de completed a completed".
+        if (status === appointment.status) {
+            if (status === "cancelled" && cancellation_reason) {
+                appointment.cancellation_reason = cancellation_reason.trim();
+                await appointment.save();
+            }
+            return res.status(200).json({ message: "Estado actualizado correctamente", data: appointment });
+        }
+
         const permitido = VALID_STATUS_TRANSITIONS[appointment.status] || [];
         if (!permitido.includes(status)) {
             return res.status(400).json({
@@ -827,6 +1039,7 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
             cancelled: "Cancelada",
             no_show: "No se presentó",
             expired: "Vencida",
+            needs_reschedule: "Por reagendar",
         };
         const translatedStatus = statusLabels[status] || status;
         await notifyAppointmentRecipients(appointmentUpdated, {
@@ -855,7 +1068,7 @@ appointmentsController.acceptAppointment = async (req, res) => {
             return res.status(403).json({ message: "Solo un doctor puede aceptar una cita." });
         }
 
-        const { nurse_id } = req.body;
+        const { nurse_id, confirm_no_nurse } = req.body;
         const appointment = await appointmentsModel.findById(req.params.id);
         if (!appointment) {
             return res.status(404).json({ message: "Appointment not found" });
@@ -889,7 +1102,18 @@ appointmentsController.acceptAppointment = async (req, res) => {
             const procedure = await proceduresModel.findById(appointment.procedure_id)
                 .select("requires_nurse");
             if (procedure?.requires_nurse && !nurse_id) {
-                return res.status(400).json({ message: "Este procedimiento requiere seleccionar una enfermera." });
+                // Sin confirm_no_nurse, sigue siendo obligatorio elegir una enfermera. Con
+                // confirm_no_nurse, se revalida contra la base de datos que de verdad no haya
+                // ninguna libre para este horario antes de dejar pasar el "continuar sin
+                // enfermera": ese bypass no debe servir para saltarse la asignación cuando en
+                // realidad sí hay alguna disponible.
+                if (!confirm_no_nurse) {
+                    return res.status(400).json({ message: "Este procedimiento requiere seleccionar una enfermera.", code: "NURSE_REQUIRED" });
+                }
+                const hayEnfermeraLibre = await anyNurseAvailable(dateStr, appointment.start_time, appointment.end_time, appointment._id);
+                if (hayEnfermeraLibre) {
+                    return res.status(400).json({ message: "Hay enfermeras disponibles para este horario: selecciona una." });
+                }
             }
         }
         if (nurse_id) {
@@ -913,6 +1137,10 @@ appointmentsController.acceptAppointment = async (req, res) => {
         if (!accepted) {
             return res.status(409).json({ message: "Esta cita ya fue tomada por otro doctor." });
         }
+
+        // El cupo de este doctor a esta hora quedó tomado: las demás solicitudes del
+        // mismo doctor que se solapan pasan a "por reagendar".
+        await bumpCompetingRequests(accepted).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
 
         const acceptingDoctor = await doctorsModel.findById(req.user.id).select("name last_name").lean();
         const doctorName = acceptingDoctor
@@ -943,7 +1171,7 @@ appointmentsController.assignDoctor = async (req, res) => {
             return res.status(403).json({ message: "Solo un administrador puede asignar una cita a un doctor." });
         }
 
-        const { doctor_id, nurse_id } = req.body;
+        const { doctor_id, nurse_id, confirm_no_nurse } = req.body;
         if (!doctor_id) {
             return res.status(400).json({ message: "Debes seleccionar un doctor." });
         }
@@ -982,7 +1210,16 @@ appointmentsController.assignDoctor = async (req, res) => {
             const procedure = await proceduresModel.findById(appointment.procedure_id)
                 .select("requires_nurse");
             if (procedure?.requires_nurse && !nurse_id) {
-                return res.status(400).json({ message: "Este procedimiento requiere seleccionar una enfermera." });
+                // Mismo criterio que acceptAppointment: sin confirm_no_nurse sigue siendo
+                // obligatorio, y con confirm_no_nurse se revalida que de verdad no haya
+                // ninguna enfermera libre antes de dejarlo pasar.
+                if (!confirm_no_nurse) {
+                    return res.status(400).json({ message: "Este procedimiento requiere seleccionar una enfermera.", code: "NURSE_REQUIRED" });
+                }
+                const hayEnfermeraLibre = await anyNurseAvailable(dateStr, appointment.start_time, appointment.end_time, appointment._id);
+                if (hayEnfermeraLibre) {
+                    return res.status(400).json({ message: "Hay enfermeras disponibles para este horario: selecciona una." });
+                }
             }
         }
         if (nurse_id) {
@@ -1000,6 +1237,8 @@ appointmentsController.assignDoctor = async (req, res) => {
         if (!assigned) {
             return res.status(409).json({ message: "Esta cita ya fue tomada por un doctor." });
         }
+
+        await bumpCompetingRequests(assigned).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
 
         await notifyAppointmentRecipients(assigned, {
             doctorMessage: "Se te asignó una nueva cita.",
@@ -1019,6 +1258,151 @@ appointmentsController.assignDoctor = async (req, res) => {
     }
 };
 
+// La enfermera acepta una cita "pending" propia (procedimiento sin doctor, ella es la
+// proveedora principal), mismo mecanismo que acceptAppointment pero para enfermería:
+// revalida que el horario siga libre desde que se creó la solicitud.
+appointmentsController.acceptAppointmentAsNurse = async (req, res) => {
+    try {
+        if (req.user.role !== "nurse") {
+            return res.status(403).json({ message: "Solo una enfermera puede aceptar esta cita." });
+        }
+
+        const appointment = await appointmentsModel.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({ message: "Appointment not found" });
+        }
+
+        if (appointment.nurse_id && appointment.nurse_id.toString() !== req.user.id) {
+            return res.status(403).json({ message: "No puedes aceptar una cita asignada a otra enfermera." });
+        }
+
+        if (appointment.status !== "pending") {
+            return res.status(400).json({ message: "Esta cita ya no está pendiente de aceptación." });
+        }
+
+        const d = appointment.date;
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+        const { free, reason } = await isSlotFreeForNurse(
+            req.user.id,
+            dateStr,
+            appointment.start_time,
+            appointment.end_time,
+            appointmentsModel,
+            appointment._id
+        );
+
+        if (!free) {
+            return res.status(409).json({ message: reason || "Ese horario ya no está disponible." });
+        }
+
+        // La condición exige que siga sin asignar (o asignada a esta misma enfermera en
+        // citas anteriores), para que dos enfermeras no puedan tomarla a la vez.
+        const accepted = await appointmentsModel.findOneAndUpdate(
+            {
+                _id: appointment._id,
+                status: "pending",
+                nurse_id: appointment.nurse_id ? req.user.id : null,
+            },
+            { $set: { nurse_id: req.user.id, status: "scheduled" } },
+            { new: true }
+        );
+        if (!accepted) {
+            return res.status(409).json({ message: "Esta cita ya fue tomada por otra enfermera." });
+        }
+
+        await bumpCompetingRequests(accepted).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
+
+        const acceptingNurse = await nursesModel.findById(req.user.id).select("name last_name").lean();
+        const nurseName = acceptingNurse
+            ? `${acceptingNurse.name} ${acceptingNurse.last_name || ""}`.trim()
+            : "La enfermera";
+
+        await notifyAppointmentRecipients(accepted, {
+            patientMessage: `${nurseName} aceptó tu cita.`,
+            patientTitle: "Cita aceptada",
+            type: "appointment_accepted",
+            actor: req.user,
+        }).catch((error) => console.log("Error notificando aceptación de cita:", error));
+
+        return res.status(200).json({ message: "Cita aceptada correctamente", data: accepted });
+    } catch (error) {
+        console.log("error" + error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// El admin asigna una enfermera a una cita "pending" cuyo procedimiento no requiere
+// doctor, dejándola programada de una vez. Mismo mecanismo que assignDoctor, pero la
+// enfermera queda como proveedora principal en vez de como apoyo de un doctor.
+appointmentsController.assignNurse = async (req, res) => {
+    try {
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Solo un administrador puede asignar una cita a una enfermera." });
+        }
+
+        const { nurse_id } = req.body;
+        if (!nurse_id) {
+            return res.status(400).json({ message: "Debes seleccionar una enfermera." });
+        }
+
+        const appointment = await appointmentsModel.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({ message: "Appointment not found" });
+        }
+
+        if (appointment.status !== "pending") {
+            return res.status(400).json({ message: "Esta cita ya no está pendiente de asignación." });
+        }
+
+        const nurse = await nursesModel.findById(nurse_id).select("_id");
+        if (!nurse) {
+            return res.status(400).json({ message: "La enfermera seleccionada no existe." });
+        }
+
+        const d = appointment.date;
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+        const { free, reason } = await isSlotFreeForNurse(
+            nurse_id,
+            dateStr,
+            appointment.start_time,
+            appointment.end_time,
+            appointmentsModel,
+            appointment._id
+        );
+
+        if (!free) {
+            return res.status(409).json({ message: reason || "Ese horario ya no está disponible para la enfermera seleccionada." });
+        }
+
+        const assigned = await appointmentsModel.findOneAndUpdate(
+            { _id: appointment._id, status: "pending" },
+            { $set: { nurse_id, status: "scheduled" } },
+            { new: true }
+        );
+        if (!assigned) {
+            return res.status(409).json({ message: "Esta cita ya fue tomada por otra enfermera." });
+        }
+
+        await bumpCompetingRequests(assigned).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
+
+        await notifyAppointmentRecipients(assigned, {
+            nurseMessage: "Se te asignó una nueva cita.",
+            patientMessage: "Tu cita fue asignada a una enfermera.",
+            nurseTitle: "Nueva cita asignada",
+            patientTitle: "Enfermera asignada a tu cita",
+            type: "appointment_assigned",
+            actor: req.user,
+        }).catch((error) => console.log("Error notificando asignación de cita:", error));
+
+        return res.status(200).json({ message: "Cita asignada correctamente", data: assigned });
+    } catch (error) {
+        console.log("error" + error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
 // Catálogo seguro del portal: solo procedimientos activos y los campos que
 // el paciente necesita para elegir y conocer su precio/duración.
 appointmentsController.getPatientProcedures = async (req, res) => {
@@ -1027,7 +1411,7 @@ appointmentsController.getPatientProcedures = async (req, res) => {
             return res.status(403).json({ message: "Acceso denegado." });
         }
         const procedures = await proceduresModel.find({ is_active: true })
-            .select("name description estimated_duration price")
+            .select("name description estimated_duration price requires_nurse requires_doctor")
             .sort({ name: 1 })
             .lean();
         return res.json({ data: procedures });

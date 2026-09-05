@@ -269,18 +269,17 @@ const PatientFormModal = ({ isOpen, onClose, onSave, patient }) => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-gray-400">DUI</label>
+              <label className="text-xs font-semibold text-gray-400">DUI <span className="font-normal text-gray-300">(opcional)</span></label>
               <input
                 type="text"
                 inputMode="numeric"
                 placeholder="00000000-0"
                 maxLength={10}
                 {...register("dui", {
-                  required: "El DUI es requerido",
-                  pattern: {
-                    value: /^\d{8}-\d{1}$/,
-                    message: "Formato de DUI: XXXXXXXX-X",
-                  },
+                  // Opcional: hay pacientes menores de edad sin DUI. Solo se valida el
+                  // formato cuando se escribe algo.
+                  validate: (value) =>
+                    !value || /^\d{8}-\d{1}$/.test(value) || "Formato de DUI: XXXXXXXX-X",
                 })}
                 onChange={handleDuiMask}
                 className={inputClass(errors.dui)}

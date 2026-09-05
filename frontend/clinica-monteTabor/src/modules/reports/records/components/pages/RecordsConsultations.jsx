@@ -21,6 +21,7 @@ const ConsultasDelDia = ({
   onEliminar,
   canAttend = false,
   canEdit = false,
+  canDelete = false,
 }) => {
   const consultas = patient.consultas ?? [];
   const enEspera = consultas.filter((c) => c.estado === "en_espera").length;
@@ -135,14 +136,17 @@ const ConsultasDelDia = ({
 
       {/* Tabla */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        {/* table-fixed reparte las 5 columnas en anchos iguales; el encabezado usa la
+            misma franja gris (bg-slate-50 + texto en mayúsculas) que las tablas de los
+            reportes, y tanto títulos como datos van centrados. */}
+        <table className="w-full min-w-[560px] text-sm table-fixed">
           <thead>
-            <tr className="text-left text-xs text-slate-400">
-              <th className="font-medium pb-3 pr-4">Hora</th>
-              <th className="font-medium pb-3 pr-4">Paciente</th>
-              <th className="font-medium pb-3 pr-4">Médico atendiendo</th>
-              <th className="font-medium pb-3 pr-4 text-center">Estado</th>
-              <th className="font-medium pb-3 text-center">Acciones</th>
+            <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <th className="py-2.5 px-2 font-semibold text-center">Hora</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Paciente</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Médico atendiendo</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Estado</th>
+              <th className="py-2.5 px-2 font-semibold text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -158,28 +162,39 @@ const ConsultasDelDia = ({
               const atendido = c.estado === "atendido";
               return (
                 <tr key={c.id} className="border-t border-slate-100">
-                  <td className="py-4 pr-4 text-slate-700 whitespace-nowrap">{c.hora}</td>
-                  <td className="py-4 pr-4 text-slate-700">{c.paciente}</td>
-                  <td className="py-4 pr-4 text-slate-700">{c.medico}</td>
-                  <td className="py-4 pr-4 text-center">
+                  <td className="py-4 px-2 text-center text-slate-700 whitespace-nowrap">{c.hora}</td>
+                  <td className="py-4 px-2 text-center text-slate-700">{c.paciente}</td>
+                  <td className="py-4 px-2 text-center text-slate-700">{c.medico}</td>
+                  <td className="py-4 px-2 text-center">
                     <Badge tone={est.tone}>{est.label}</Badge>
                   </td>
-                  <td className="py-4 text-center">
-                    {atendido ? (
-                      <button
-                        onClick={() => onVerRegistro?.(c)}
-                        className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-1.5 rounded-lg"
-                      >
-                        {canEdit ? "Editar" : "Ver registro"}
-                      </button>
-                    ) : canAttend ? (
-                      <button
-                        onClick={() => onContinuar?.(c)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-1.5 rounded-lg"
-                      >
-                        Continuar
-                      </button>
-                    ) : null}
+                  <td className="py-4 px-2 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      {atendido ? (
+                        <button
+                          onClick={() => onVerRegistro?.(c)}
+                          className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-1.5 rounded-lg"
+                        >
+                          {canEdit ? "Editar" : "Ver registro"}
+                        </button>
+                      ) : canAttend ? (
+                        <button
+                          onClick={() => onContinuar?.(c)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-1.5 rounded-lg"
+                        >
+                          Continuar
+                        </button>
+                      ) : null}
+                      {atendido && canDelete && (
+                        <button
+                          onClick={() => onEliminar?.(c)}
+                          title="Eliminar consulta"
+                          className="text-slate-400 hover:text-red-600 p-1.5"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

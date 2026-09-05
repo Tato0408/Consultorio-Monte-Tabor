@@ -6,16 +6,28 @@ import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
 import { formatLongDate } from "../../utils/date";
-import { descargarIncapacidadPdf, descargarRecetaPdf } from "../../lib/pdf/patientDocuments";
+import { descargarIncapacidadPdf, descargarRecetaPdf, descargarOrdenLaboratorioPdf } from "../../lib/pdf/patientDocuments";
+import { countSelectedTests } from "../../lib/labOrderCatalog";
 import FormDateInput from "../../components/profile/FormDateInput";
 import styles from "../../styles/documents/documentsStyle";
 
 const TIPO_INFO = {
   incapacidad: { titulo: "Incapacidades", endpoint: "/patient-portal/sick-leaves", fechaCampo: "start_date", icon: "id-card-outline" },
   receta: { titulo: "Recetas", endpoint: "/patient-portal/prescriptions", fechaCampo: "issued_at", icon: "document-text-outline" },
+  laboratorio: { titulo: "Órdenes de laboratorio", endpoint: "/patient-portal/lab-orders", fechaCampo: "date", icon: "flask-outline" },
 };
 
 const nombreDoctor = (doctor) => (doctor ? `Dr. ${doctor.name} ${doctor.last_name || ""}`.trim() : "Doctor no especificado");
+
+// Misma regla que usePatientRecordDetail.js (expediente clínico, web privada): vigente
+// mientras la fecha de finalización no haya pasado, o no exista (registros antiguos sin
+// end_date, que se asumen vigentes por no tener forma de saber lo contrario).
+const esIncapacidadVigente = (endDate) => {
+  if (!endDate) return true;
+  const fin = new Date(endDate);
+  fin.setHours(23, 59, 59, 999);
+  return fin >= new Date();
+};
 
 // El backend guarda estas fechas como medianoche UTC del día real (mismo criterio que
 // las citas, ver formatLongDate en utils/date.js): hay que leerlas con los getters UTC,
@@ -59,6 +71,7 @@ export default function DocumentsListScreen({ navigation, route }) {
     setDescargandoId(doc._id);
     try {
       if (tipo === "receta") await descargarRecetaPdf(doc);
+      else if (tipo === "laboratorio") await descargarOrdenLaboratorioPdf(doc);
       else await descargarIncapacidadPdf(doc);
     } catch (error) {
       showError(error.message || "No se pudo generar el documento.");
@@ -108,7 +121,16 @@ export default function DocumentsListScreen({ navigation, route }) {
             <View key={doc._id} style={styles.docCard}>
               <View style={styles.docCardTop}>
                 <View>
-                  <Text style={styles.docCardDate}>{formatLongDate(doc[info.fechaCampo])}</Text>
+                  <View style={styles.docCardDateRow}>
+                    <Text style={styles.docCardDate}>{formatLongDate(doc[info.fechaCampo])}</Text>
+                    {tipo === "incapacidad" && (
+                      <View style={[styles.vigenteBadge, { backgroundColor: esIncapacidadVigente(doc.end_date) ? "#E6F7EE" : "#F1F5F9" }]}>
+                        <Text style={[styles.vigenteBadgeText, { color: esIncapacidadVigente(doc.end_date) ? "#16A34A" : "#64748B" }]}>
+                          {esIncapacidadVigente(doc.end_date) ? "Vigente" : "No vigente"}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.docCardDoctor}>{nombreDoctor(doc.doctor_id || doc.doctor)}</Text>
                 </View>
                 <TouchableOpacity
@@ -132,6 +154,16 @@ export default function DocumentsListScreen({ navigation, route }) {
                   <>
                     <Text style={styles.docCardLabel}>Diagnóstico</Text>
                     <Text style={styles.docCardValue}>{doc.diagnosis || "Sin diagnóstico registrado"}</Text>
+                  </>
+                ) : tipo === "laboratorio" ? (
+                  <>
+                    <Text style={styles.docCardLabel}>Exámenes solicitados</Text>
+                    <Text style={styles.docCardValue}>
+                      {(() => {
+                        const n = countSelectedTests(doc.tests);
+                        return n === 1 ? "1 examen solicitado" : `${n} exámenes solicitados`;
+                      })()}
+                    </Text>
                   </>
                 ) : (
                   <>

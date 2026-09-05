@@ -17,9 +17,14 @@ const AntecedentsCard = ({ title, name, fields, readOnly }) => {
         <SectionCard title={title}>
             <div className="space-y-2 mb-3">
                 {rows.map((row, index) => (
-                    <div key={row.id} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                    // flex en vez de grid de columnas fijas: fields puede traer 1 o
+                    // varios campos según el llamador (ver ConsultationForm.jsx), un
+                    // grid-cols fijo dejaba el botón de borrar mal ubicado cuando
+                    // solo había un campo. flex-1 reparte el ancho por igual entre
+                    // los campos que vengan y apila todo en móvil.
+                    <div key={row.id} className="flex flex-col sm:flex-row sm:items-end gap-2">
                         {fields.map((field) => (
-                            <div key={field.key} className="flex flex-col gap-0.5">
+                            <div key={field.key} className="flex flex-col gap-0.5 flex-1 min-w-0">
                                 <label className="text-[11px] text-slate-500">{field.label}</label>
                                 <input
                                     type="text"
@@ -34,7 +39,7 @@ const AntecedentsCard = ({ title, name, fields, readOnly }) => {
                                             { shouldValidate: true }
                                         )
                                     }
-                                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
                                 />
                                 <span className="self-end text-[11px] text-gray-400">
                                     {watch(`${name}.${index}.${field.key}`)?.length ?? 0}/{field.maxLength || 100}
@@ -46,7 +51,7 @@ const AntecedentsCard = ({ title, name, fields, readOnly }) => {
                             <button
                                 type="button"
                                 onClick={() => remove(index)}
-                                className="text-slate-400 hover:text-red-500"
+                                className="self-end shrink-0 text-slate-400 hover:text-red-500"
                             >
                                 <Trash2 size={16} />
                             </button>

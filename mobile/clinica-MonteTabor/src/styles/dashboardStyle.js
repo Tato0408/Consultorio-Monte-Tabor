@@ -59,6 +59,10 @@ const styles = StyleSheet.create({
 
   /* Próxima cita / Última consulta */
   appointmentCard: { backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 18, marginBottom: 16, ...shadow },
+  rescheduleBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFF7ED", borderWidth: 1, borderColor: "#FED7AA", borderRadius: 16, padding: 14, marginBottom: 14 },
+  rescheduleBannerIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#FFEDD5", alignItems: "center", justifyContent: "center" },
+  rescheduleBannerTitle: { fontSize: 13, fontWeight: "800", color: "#9A3412" },
+  rescheduleBannerText: { fontSize: 11, color: "#C2410C", marginTop: 2 },
   cardHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
   cardHeaderTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
   cardHeaderLink: { flexDirection: "row", alignItems: "center", gap: 2 },

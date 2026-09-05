@@ -10,6 +10,12 @@ const sickLeaveSchema = new Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Doctors",
     },
+    // Solo se llena cuando la incapacidad la emite la enfermera asignada a una cita de un
+    // procedimiento sin doctor (requires_doctor false en el procedimiento).
+    nurse_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "nurses",
+    },
     consultation_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Consultations",

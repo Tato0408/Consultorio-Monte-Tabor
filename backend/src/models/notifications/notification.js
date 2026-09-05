@@ -23,6 +23,7 @@ const notificationSchema = new Schema({
             "appointment_accepted",
             "appointment_assigned",
             "appointment_expired",
+            "appointment_reschedule_needed",
             "inventory_alert",
             "general",
         ],

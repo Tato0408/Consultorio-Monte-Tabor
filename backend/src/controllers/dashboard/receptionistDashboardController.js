@@ -1,7 +1,10 @@
 import appointmentsModel from "../../models/appointments/appointments.js";
 import doctorsModel from "../../models/doctors/doctors.js";
+import nursesModel from "../../models/nurses/nurses.js";
 import patientsModel from "../../models/patients/patients.js";
 import scheduleModel from "../../models/schedule/schedule.js";
+import nurseScheduleModel from "../../models/schedule/nurseSchedule.js";
+import { buildProviderAgenda } from "../../services/agendaService.js";
 
 const receptionistDashboardController = {};
 
@@ -14,10 +17,6 @@ const COMPLETED = "completed";
 const CANCELLED = "cancelled";
 
 const pad = (n) => String(n).padStart(2, "0");
-const timeToMins = (t) => {
-    const [h, m] = (t || "0:0").split(":").map(Number);
-    return h * 60 + m;
-};
 
 const getDayRange = (dateStr) => {
     const [yr, mo, dy] = dateStr.split("-").map(Number);
@@ -106,6 +105,7 @@ receptionistDashboardController.getStats = async (req, res) => {
         const nextAppointment = upcoming[0]
             ? {
                 start_time: upcoming[0].start_time,
+                end_time: upcoming[0].end_time,
                 doctorName: upcoming[0].doctor_id ? `Dr. ${upcoming[0].doctor_id.name} ${upcoming[0].doctor_id.last_name}` : "",
             }
             : null;
@@ -140,6 +140,10 @@ receptionistDashboardController.getDoctorsAgenda = async (req, res) => {
             const d = new Date();
             return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         })();
+        // Duración real del procedimiento elegido en el registro rápido de citas (ver
+        // QuickAppointmentForm.jsx → onProcedureInfoChange). 30 min por defecto cuando aún no
+        // se ha elegido ninguno, mismo valor que Consulta Médica General.
+        const durationMin = Number(req.query.duration) || 30;
         const { start, end, dayOfWeek } = getDayRange(dateStr);
 
         const [doctors, schedules, appointments] = await Promise.all([
@@ -150,96 +154,39 @@ receptionistDashboardController.getDoctorsAgenda = async (req, res) => {
                 .lean(),
         ]);
 
-        const scheduleByDoctor = new Map(schedules.map((s) => [s.doctor_id.toString(), s]));
-        const apptsByDoctor = new Map();
-        appointments.forEach((a) => {
-            if (!a.doctor_id) return;
-            const key = a.doctor_id.toString();
-            if (!apptsByDoctor.has(key)) apptsByDoctor.set(key, []);
-            apptsByDoctor.get(key).push(a);
-        });
-
-        const SLOT_MIN = 30;
-
-        const agenda = doctors.map((doctor) => {
-            const schedule = scheduleByDoctor.get(doctor._id.toString());
-            const dayConfig = schedule?.weekly_availability?.find((d) => d.day === dayOfWeek);
-            const doctorAppts = apptsByDoctor.get(doctor._id.toString()) || [];
-
-            // Map en vez de array: si dos bloques del horario del doctor se solapan (ej. un
-            // bloque mal configurado), el mismo start_time no debe aparecer dos veces. Si un
-            // horario ya quedó marcado por una cita/descanso real, no se deja que una segunda
-            // vuelta lo pise con "available".
-            const slotsByStart = new Map();
-            if (dayConfig?.is_available && dayConfig.time_blocks?.length) {
-                for (const block of dayConfig.time_blocks) {
-                    let current = timeToMins(block.start_time);
-                    const blockEnd = timeToMins(block.end_time);
-
-                    while (current + SLOT_MIN <= blockEnd) {
-                        const slotEnd = current + SLOT_MIN;
-                        const hh = pad(Math.floor(current / 60));
-                        const mm = pad(current % 60);
-                        const hhe = pad(Math.floor(slotEnd / 60));
-                        const mme = pad(slotEnd % 60);
-                        const startStr = `${hh}:${mm}`;
-                        const endStr = `${hhe}:${mme}`;
-
-                        const existing = slotsByStart.get(startStr);
-                        if (existing && existing.status !== "available") {
-                            current += SLOT_MIN;
-                            continue;
-                        }
-
-                        const onBreak = (schedule.breaks || []).some((br) => {
-                            if (br.day !== dayOfWeek) return false;
-                            return current < timeToMins(br.end_time) && slotEnd > timeToMins(br.start_time);
-                        });
-
-                        const matchingAppt = doctorAppts.find((a) =>
-                            current < timeToMins(a.end_time) && slotEnd > timeToMins(a.start_time)
-                        );
-
-                        if (matchingAppt) {
-                            slotsByStart.set(startStr, {
-                                start_time: startStr,
-                                end_time: endStr,
-                                status: matchingAppt.status,
-                                appointment: {
-                                    _id: matchingAppt._id,
-                                    patientName: matchingAppt.patient_id ? `${matchingAppt.patient_id.name} ${matchingAppt.patient_id.last_name}` : "Paciente",
-                                    type: matchingAppt.type,
-                                },
-                            });
-                        } else if (onBreak) {
-                            slotsByStart.set(startStr, { start_time: startStr, end_time: endStr, status: "break", appointment: null });
-                        } else {
-                            slotsByStart.set(startStr, { start_time: startStr, end_time: endStr, status: "available", appointment: null });
-                        }
-
-                        current += SLOT_MIN;
-                    }
-                }
-            }
-
-            // Orden cronológico: un bloque mal configurado que empieza más tarde en el día (ej.
-            // uno desde medianoche) podía terminar antes en el arreglo si no se ordenaba.
-            const slots = [...slotsByStart.values()].sort((a, b) => a.start_time.localeCompare(b.start_time));
-
-            return {
-                _id: doctor._id,
-                name: doctor.name,
-                last_name: doctor.last_name,
-                img_url: doctor.img_url,
-                specialty: doctor.specialty || "",
-                hasSchedule: !!dayConfig?.is_available,
-                slots,
-            };
-        });
-
+        const agenda = buildProviderAgenda(doctors, schedules, appointments, dayOfWeek, "doctor_id", durationMin);
         return res.status(200).json({ date: dateStr, doctors: agenda });
     } catch (error) {
         console.error("receptionistDashboard.getDoctorsAgenda:", error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// GET /api/receptionist-dashboard/nurses-agenda?date=YYYY-MM-DD
+// Igual que getDoctorsAgenda, pero para enfermeras: se usa cuando el procedimiento elegido
+// en el registro rápido de citas requiere una enfermera (de apoyo o como proveedora
+// principal, ver QuickAppointmentForm.jsx).
+receptionistDashboardController.getNursesAgenda = async (req, res) => {
+    try {
+        const dateStr = req.query.date || (() => {
+            const d = new Date();
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        })();
+        const durationMin = Number(req.query.duration) || 30;
+        const { start, end, dayOfWeek } = getDayRange(dateStr);
+
+        const [nurses, schedules, appointments] = await Promise.all([
+            nursesModel.find({ is_active: true }, "name last_name img_url").lean(),
+            nurseScheduleModel.find({}).lean(),
+            appointmentsModel.find({ date: { $gte: start, $lte: end }, status: { $ne: CANCELLED } })
+                .populate("patient_id", "name last_name")
+                .lean(),
+        ]);
+
+        const agenda = buildProviderAgenda(nurses, schedules, appointments, dayOfWeek, "nurse_id", durationMin);
+        return res.status(200).json({ date: dateStr, nurses: agenda });
+    } catch (error) {
+        console.error("receptionistDashboard.getNursesAgenda:", error);
         return res.status(500).json({ message: "Error interno del servidor" });
     }
 };

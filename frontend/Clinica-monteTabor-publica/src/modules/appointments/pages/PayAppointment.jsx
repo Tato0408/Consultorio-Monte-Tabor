@@ -5,6 +5,7 @@ import {
   User, Mail, Lock, Calendar, Info, ClipboardList, Stethoscope, Clock, MapPin, AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import NotificationsMenu from "@/components/NotificationsMenu";
 import InputField from "@/components/ui/InputField";
 import { getMyAppointments, confirmPayment } from "@/services/appointmentsService";
 import { generarTokenWompi, tokenizarTarjeta, cobrarTarjeta } from "@/services/wompiService";
@@ -279,11 +280,14 @@ const PayAppointment = () => {
               <CheckCircle2 className="w-7 h-7 text-emerald-600" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">¡Pago aprobado!</h1>
-            <p className="text-gray-500 text-sm mt-1">Tu anticipo quedó registrado. Tu cita queda pendiente de que el doctor la acepte.</p>
+            <p className="text-gray-500 text-sm mt-1">
+              Tu anticipo quedó registrado. Tu cita queda pendiente de que {cita.nurse_id ? "la enfermera" : "el doctor"} la acepte.
+            </p>
           </div>
 
           <TicketCita
             doctor={cita.doctor_id}
+            nurse={cita.nurse_id}
             tipoLabel={cita.type}
             generalidades={cita.procedure_id?.name}
             date={new Date(cita.date)}
@@ -310,7 +314,7 @@ const PayAppointment = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <header className="bg-white border-b border-gray-100 px-6 py-4 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <button onClick={() => navigate("/mis-citas")} className="text-gray-400 hover:text-gray-600 text-sm flex items-center gap-1">
@@ -318,7 +322,8 @@ const PayAppointment = () => {
           </button>
           <span className="font-bold text-gray-800">Pagar cita</span>
 
-          <div className="relative">
+          <div className="relative flex items-center gap-1">
+            <NotificationsMenu />
             <button onClick={() => setUserMenuOpen((v) => !v)} className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-50 transition-colors">
               <div className="w-8 h-8 rounded-full bg-[#3B6FCA]/10 flex items-center justify-center text-[#3B6FCA] font-semibold text-sm flex-shrink-0">
                 {patient?.name?.[0]}
@@ -330,6 +335,10 @@ const PayAppointment = () => {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                 <div className="absolute right-0 top-11 w-44 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-50">
+                  <Link to="/profile" className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <User className="w-4 h-4 text-gray-400" /> Mi perfil
+                  </Link>
+                  <hr className="my-1 border-gray-100" />
                   <button onClick={handleLogout} className="w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors text-left">
                     Cerrar sesión
                   </button>
@@ -372,7 +381,11 @@ const PayAppointment = () => {
                   <div className="min-w-0">
                     <p className="text-xs text-gray-400">Detalle de la cita</p>
                     <p className="font-semibold text-gray-800 truncate">
-                      {cita.doctor_id ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}` : "Por asignar"}
+                      {cita.doctor_id
+                        ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}`
+                        : cita.nurse_id
+                          ? `${cita.nurse_id.name} ${cita.nurse_id.last_name}`
+                          : "Por asignar"}
                     </p>
                     <p className="text-sm text-gray-500 truncate">{cita.type}</p>
                   </div>
@@ -500,7 +513,11 @@ const PayAppointment = () => {
                 <div className="flex items-start justify-between gap-3">
                   <span className="flex items-center gap-2 text-gray-400"><User className="w-4 h-4" /> Doctor(a)</span>
                   <span className="font-medium text-gray-800 text-right">
-                    {cita.doctor_id ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}` : "Por asignar"}
+                    {cita.doctor_id
+                      ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}`
+                      : cita.nurse_id
+                        ? `${cita.nurse_id.name} ${cita.nurse_id.last_name}`
+                        : "Por asignar"}
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-3">

@@ -5,6 +5,10 @@ import patientsModel from "../../models/patients/patients.js"
 import { config } from "../../../config.js"
 import HTMLCreatePatient from "../../utils/HTMLCreatePatient.js";
 import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { getMissingRequiredField, validateUserFieldFormats, getPasswordError } from "../../utils/validators.js";
+
+// Mismo enum que ofrece el formulario de pacientes del panel privado (PatientFormModal.jsx).
+const GENEROS_VALIDOS = ["Masculino", "Femenino"];
 
 //Array de funciones
 const registerPatientController = {};
@@ -12,11 +16,16 @@ const registerPatientController = {};
 //Registro de pacientes
 registerPatientController.register = async (req, res) => {
     try {
-        //#1 Solicito los datos a guardar
-        const {
+        //#1 Solicito los datos a guardar. birth_date es el nombre del campo en el modelo;
+        //   se acepta también "birthdate" por compatibilidad con clientes viejos.
+        let {
             name,
             last_name,
+            birth_date,
             birthdate,
+            phone,
+            dui,
+            gender,
             email,
             password,
             is_active,
@@ -25,10 +34,43 @@ registerPatientController.register = async (req, res) => {
             timeOut,
         } = req.body;
 
-        //#2 Validar si existe el correo del usuario dentro de la base de datos
+        birth_date = birth_date || birthdate;
+        // El DUI es opcional (menores de edad sin DUI).
+        dui = dui?.trim() || undefined;
+
+        //#1.1 Validaciones de campos obligatorios y de formato (mismas reglas que el panel privado)
+        const requiredError = getMissingRequiredField(
+            { name, last_name, birth_date, phone, gender, email, password },
+            ["name", "last_name", "birth_date", "phone", "gender", "email", "password"]
+        );
+        if (requiredError) {
+            return res.status(400).json({ message: requiredError });
+        }
+
+        const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date });
+        if (formatError) {
+            return res.status(400).json({ message: formatError });
+        }
+
+        if (!GENEROS_VALIDOS.includes(gender)) {
+            return res.status(400).json({ message: "Género no válido" });
+        }
+
+        const passwordError = getPasswordError(password);
+        if (passwordError) {
+            return res.status(400).json({ message: passwordError });
+        }
+
+        //#2 Validar si existe el correo (o el DUI) del usuario dentro de la base de datos
         const existsPatient = await patientsModel.findOne({ email });
         if (existsPatient) {
             return res.status(400).json({ message: "El paciente ya existe" });
+        }
+        if (dui) {
+            const duiTaken = await patientsModel.findOne({ dui });
+            if (duiTaken) {
+                return res.status(400).json({ message: "Ya existe un paciente registrado con ese DUI" });
+            }
         }
 
         //#3 Encriptar la contraseña
@@ -44,7 +86,10 @@ registerPatientController.register = async (req, res) => {
                 randomCode,
                 name,
                 last_name,
-                birthdate,
+                birth_date,
+                phone,
+                dui,
+                gender,
                 email,
                 password: passwordHashed,
                 is_active,
@@ -100,26 +145,31 @@ registerPatientController.verifyCode = async (req, res) => {
             randomCode: storedCode,
             name,
             last_name,
-            birthdate,
+            birth_date,
+            phone,
+            dui,
+            gender,
             email,
             password,
-            is_active,
-            is_verified,
-            loginAttemps,
-            timeOut,
         } = decoded
 
         if (verificationCodeRequest !== storedCode) {
             return res.status(400).json({ message: "Código inválido" })
         }
 
-        //Si todos los datos estan correctos guardamos en la base de datos
+        //Si todos los datos estan correctos guardamos en la base de datos.
+        //birth_date (no "birthdate"): así es el campo en el modelo, antes se guardaba con
+        //el nombre equivocado y Mongoose lo descartaba silenciosamente.
         const newPatient = patientsModel({
             name,
             last_name,
-            birthdate,
+            birth_date,
+            phone,
+            gender,
             email,
             password,
+            // El DUI es opcional: solo se guarda si el paciente lo proporcionó.
+            ...(dui ? { dui } : {}),
             is_active: true,
             is_verified: true,
         });

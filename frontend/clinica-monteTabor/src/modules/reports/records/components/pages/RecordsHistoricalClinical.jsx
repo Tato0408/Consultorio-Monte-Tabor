@@ -34,25 +34,27 @@ function AddButton({ children, ...props }) {
   );
 }
 
-// Tabla de antecedentes: tres columnas más una de acción.
+// Tabla de antecedentes: tres columnas más una de acción. Las cuatro columnas quedan
+// con el mismo ancho (grid-cols-4) y todo va centrado, con la misma franja gris de
+// encabezado (bg-slate-50, mayúsculas) que las tablas de los reportes.
 function AntecedentesTable({ headers, rows, onEdit, onDelete }) {
-  const cols = "grid grid-cols-[1.3fr_1.3fr_1fr_64px] gap-2";
+  const cols = "grid grid-cols-4 gap-2";
   return (
     <div className="text-sm">
-      <div className={`${cols} border-b border-slate-100 px-1 pb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400`}>
+      <div className={`${cols} rounded-lg bg-slate-50 px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400`}>
         <span>{headers[0]}</span>
         <span>{headers[1]}</span>
         <span>{headers[2]}</span>
-        <span className="text-right">Acción</span>
+        <span>Acción</span>
       </div>
       {rows.map((r) => (
-        <div key={r.id} className={`${cols} items-start border-b border-slate-50 px-1 py-3 last:border-0`}>
+        <div key={r.id} className={`${cols} items-center border-b border-slate-50 px-2 py-3 text-center last:border-0`}>
           <span className="text-slate-700 break-words">{r.a}</span>
           <span className="text-slate-600 break-words">{r.b}</span>
-          <span>
+          <span className="flex justify-center">
             <Badge tone={toneFor(r.tipo)} className="whitespace-normal break-words text-center">{r.tipo}</Badge>
           </span>
-          <div className="flex items-start justify-end gap-1">
+          <div className="flex items-center justify-center gap-1">
             <button
               type="button"
               onClick={() => onEdit(r)}

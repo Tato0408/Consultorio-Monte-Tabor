@@ -1,7 +1,49 @@
 import proceduresModel from '../../models/procedures/procedures.js'
+import appointmentTypeModel from '../../models/appointmentTypes/appointmentType.js'
 import { getNonNegativeError, escapeRegex } from '../../utils/validators.js'
 
 const proceduresController = {}
+
+// Un procedimiento siempre debe tener al menos un rol que lo atienda: si no
+// requiere enfermera, el doctor es obligatorio sin importar lo que se haya
+// mandado (nunca puede haber un procedimiento sin doctor NI enfermera). Si sí
+// requiere enfermera, respeta lo que se mandó (por defecto true: es raro que
+// un doctor no participe).
+const resolveRequiresDoctor = (requiresNurse, requiresDoctorRaw) => {
+    if (!requiresNurse) return true
+    if (requiresDoctorRaw === undefined || requiresDoctorRaw === null || requiresDoctorRaw === "") return true
+    return !!requiresDoctorRaw
+}
+
+// Limpia y valida la lista de tipos de cita elegidos (ver appointment_type_ids en el
+// modelo): obligatorio, al menos uno, cada elemento debe ser un ObjectId con forma válida
+// (24 caracteres hex) y no puede repetirse (el mismo tipo de cita elegido dos veces no
+// aporta nada) — el resto (que existan de verdad en la colección) lo revisa el propio
+// Mongoose al popular/guardar la referencia.
+const getAppointmentTypeIdsError = (appointmentTypeIds) => {
+    if (!Array.isArray(appointmentTypeIds) || appointmentTypeIds.length === 0) {
+        return "Debes elegir al menos un tipo de cita."
+    }
+    const invalido = appointmentTypeIds.some((id) => !/^[0-9a-fA-F]{24}$/.test(String(id)))
+    if (invalido) return "Uno de los tipos de cita elegidos no es válido."
+    const unicos = new Set(appointmentTypeIds.map((id) => String(id)))
+    if (unicos.size !== appointmentTypeIds.length) {
+        return "No puedes elegir el mismo tipo de cita más de una vez."
+    }
+    return null
+}
+
+// No tiene sentido elegir más tipos de cita que los que existen en el catálogo: como
+// getAppointmentTypeIdsError ya impide repetir uno, superar ese total implicaría
+// forzosamente un duplicado. Es async (a diferencia del resto de validaciones de este
+// campo) porque necesita contar el catálogo real en la base de datos.
+const getAppointmentTypeIdsCountError = async (appointmentTypeIds) => {
+    const total = await appointmentTypeModel.countDocuments()
+    if (appointmentTypeIds.length > total) {
+        return `No puedes elegir más de ${total} tipo(s) de cita: es el total que existe en el catálogo.`
+    }
+    return null
+}
 
 // Evita procedimientos duplicados (mismo nombre, sin importar
 // mayúsculas o espacios extra). Dos procedimientos con el mismo
@@ -48,6 +90,9 @@ proceduresController.getProcedures = async (req, res) => {
         const response = await proceduresModel.find()
             // Populate del ObjectId insumo trayendo solo el nombre del inventario
             .populate("materials.insumo", "name")
+            // Populate de los tipos de cita elegibles para este procedimiento, con lo
+            // necesario para mostrarlos (nombre y color) sin una segunda consulta aparte.
+            .populate("appointment_type_ids", "name color category")
 
         if (!response) return res.status(400).json({ message: "Dato no encontrado" })
         return res.status(200).json(response)
@@ -69,11 +114,19 @@ proceduresController.insertProcedure = async (req, res) => {
             pre_care_instructions,
             post_operative_instructions,
             requires_nurse,
+            requires_doctor,
+            appointment_type_ids,
             is_active
         } = req.body
 
         const procedureError = getProcedureError({ price, estimated_duration, materials })
         if (procedureError) return res.status(400).json({ message: procedureError })
+
+        const appointmentTypeError = getAppointmentTypeIdsError(appointment_type_ids)
+        if (appointmentTypeError) return res.status(400).json({ message: appointmentTypeError })
+
+        const appointmentTypeCountError = await getAppointmentTypeIdsCountError(appointment_type_ids)
+        if (appointmentTypeCountError) return res.status(400).json({ message: appointmentTypeCountError })
 
         const duplicateError = await findDuplicateProcedureName(name)
         if (duplicateError) return res.status(400).json({ message: duplicateError })
@@ -96,10 +149,13 @@ proceduresController.insertProcedure = async (req, res) => {
             pre_care_instructions,
             post_operative_instructions,
             requires_nurse,
+            requires_doctor: resolveRequiresDoctor(requires_nurse, requires_doctor),
+            appointment_type_ids,
             is_active
         })
 
         const savedProcedure = await payload.save()
+        await savedProcedure.populate("appointment_type_ids", "name color category")
         return res.status(200).json({ message: "Dato guardado", Data: savedProcedure })
     } catch (error) {
         console.log(error)
@@ -122,11 +178,19 @@ proceduresController.updateProcedure = async (req, res) => {
             pre_care_instructions,
             post_operative_instructions,
             requires_nurse,
+            requires_doctor,
+            appointment_type_ids,
             is_active
         } = req.body
 
         const procedureError = getProcedureError({ price, estimated_duration, materials })
         if (procedureError) return res.status(400).json({ message: procedureError })
+
+        const appointmentTypeError = getAppointmentTypeIdsError(appointment_type_ids)
+        if (appointmentTypeError) return res.status(400).json({ message: appointmentTypeError })
+
+        const appointmentTypeCountError = await getAppointmentTypeIdsCountError(appointment_type_ids)
+        if (appointmentTypeCountError) return res.status(400).json({ message: appointmentTypeCountError })
 
         const duplicateError = await findDuplicateProcedureName(name, req.params.id)
         if (duplicateError) return res.status(400).json({ message: duplicateError })
@@ -149,14 +213,16 @@ proceduresController.updateProcedure = async (req, res) => {
             pre_care_instructions,
             post_operative_instructions,
             requires_nurse,
+            requires_doctor: resolveRequiresDoctor(requires_nurse, requires_doctor),
+            appointment_type_ids,
             is_active
         }
 
         const procedureUpdate = await proceduresModel.findByIdAndUpdate(
             req.params.id,
             payload,
-            { new: true }
-        )
+            { new: true, runValidators: true }
+        ).populate("appointment_type_ids", "name color category")
         return res.status(200).json({ message: "Dato actualizado", Data: procedureUpdate })
     } catch (error) {
         console.log(error)

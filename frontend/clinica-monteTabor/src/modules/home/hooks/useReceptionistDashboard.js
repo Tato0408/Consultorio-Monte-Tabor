@@ -15,8 +15,11 @@ const useReceptionistDashboard = () => {
     const getStats = useCallback(() =>
         apiClient("/receptionist-dashboard/stats"), []);
 
-    const getDoctorsAgenda = useCallback((date) =>
-        apiClient("/receptionist-dashboard/doctors-agenda", { params: { date } }), []);
+    const getDoctorsAgenda = useCallback((date, duration) =>
+        apiClient("/receptionist-dashboard/doctors-agenda", { params: { date, duration } }), []);
+
+    const getNursesAgenda = useCallback((date, duration) =>
+        apiClient("/receptionist-dashboard/nurses-agenda", { params: { date, duration } }), []);
 
     const getUpcomingAppointments = useCallback(() =>
         apiClient("/receptionist-dashboard/upcoming-appointments"), []);
@@ -24,7 +27,7 @@ const useReceptionistDashboard = () => {
     const getPendingConfirmations = useCallback(() =>
         apiClient("/receptionist-dashboard/pending-confirmations"), []);
 
-    return { getStats, getDoctorsAgenda, getUpcomingAppointments, getPendingConfirmations };
+    return { getStats, getDoctorsAgenda, getNursesAgenda, getUpcomingAppointments, getPendingConfirmations };
 };
 
 export default useReceptionistDashboard;

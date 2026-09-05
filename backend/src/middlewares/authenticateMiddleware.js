@@ -1,5 +1,6 @@
 import jsonwebToken from "jsonwebtoken";
 import { config } from "../../config.js";
+import { renewPatientSessionIfStale } from "../utils/patientSession.js";
 
 // Único middleware de sesión del backend: antes coexistían authenticate
 // (sin restricción de rol, req.user = { id, role }) y validateAuthCookie
@@ -46,6 +47,10 @@ export const authenticate = (allowedTypes = []) => {
             if (allowedTypes.length > 0 && !allowedTypes.includes(decoded.userType)) {
                 return res.status(401).json({ message: "Acceso denegado" });
             }
+
+            // Sesión deslizante del portal público: cada request de un paciente con sesión
+            // activa renueva su ventana de 2 h. No afecta a las sesiones de staff.
+            renewPatientSessionIfStale(res, decoded);
 
             req.user = { ...decoded, id: decoded.id, role: decoded.userType, userType: decoded.userType };
 

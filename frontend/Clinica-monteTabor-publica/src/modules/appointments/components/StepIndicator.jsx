@@ -1,17 +1,19 @@
 import { Check } from "lucide-react";
 
-// Etiquetas por modo: en el modo rápido no hay paso de doctor (queda sin asignar,
-// cualquier doctor disponible la acepta); en el modo doctor primero sí, y la fecha y
-// hora pasa a ser el paso siguiente en vez del segundo.
-const PASOS_POR_MODO = {
+// Etiquetas por modo: en el modo rápido no hay paso de proveedor (la cita queda sin
+// asignar, cualquier doctor o enfermera disponible la acepta); en el modo doctor
+// primero sí, y la fecha y hora pasa a ser el paso siguiente en vez del segundo.
+// requiresDoctor cambia esa etiqueta a "Enfermera" cuando el procedimiento elegido no
+// requiere doctor (ver requiresDoctorForProcedure en NewAppointment.jsx).
+const pasosPorModo = (requiresDoctor) => ({
   rapido: ["Tipo de atención", "Fecha y hora", "Confirmar"],
-  doctor: ["Tipo de atención", "Doctor", "Fecha y hora", "Confirmar"],
-};
+  doctor: ["Tipo de atención", requiresDoctor ? "Doctor" : "Enfermera", "Fecha y hora", "Confirmar"],
+});
 
 // Indicador visual del paso actual del wizard de agendamiento. La lista de pasos
 // depende del modo elegido dentro del paso 2 (ver ModeToggle en NewAppointment.jsx).
-const StepIndicator = ({ current, modo = "rapido" }) => {
-  const pasos = PASOS_POR_MODO[modo] || PASOS_POR_MODO.rapido;
+const StepIndicator = ({ current, modo = "rapido", requiresDoctor = true }) => {
+  const pasos = pasosPorModo(requiresDoctor)[modo] || pasosPorModo(requiresDoctor).rapido;
 
   return (
     <div className="flex items-center justify-center gap-2 sm:gap-4 mb-10 flex-wrap">

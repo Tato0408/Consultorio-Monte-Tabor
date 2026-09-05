@@ -44,6 +44,7 @@ const styles = StyleSheet.create({
   summaryCard: { backgroundColor: "#FFF", borderRadius: 14, borderWidth: 1, borderColor: "#E2E6ED", padding: 16, ...shadow },
   summaryRow: { flexDirection: "row", alignItems: "center", minHeight: 54 }, summaryIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#F0F3FF", alignItems: "center", justifyContent: "center", marginRight: 11 }, summaryText: { flex: 1 }, summaryLabel: { fontSize: 11, color: "#8A94A6" }, summaryValue: { fontSize: 13, fontWeight: "700", color: "#111827", marginTop: 2, textTransform: "capitalize" },
   inputLabel: { fontSize: 12, fontWeight: "700", color: "#111827", marginTop: 22, marginBottom: 8 }, optional: { color: "#8A94A6", fontWeight: "400" },
+  rescheduleNote: { fontSize: 12, color: "#64748B", lineHeight: 18, backgroundColor: "#F1F5F9", borderRadius: 12, padding: 12, marginTop: 16 },
   textarea: { minHeight: 116, borderRadius: 12, borderWidth: 1, borderColor: "#DDE2EA", backgroundColor: "#FFF", padding: 13, fontSize: 13, color: "#111827", lineHeight: 19 }, characterCount: { fontSize: 10, color: "#94A3B8", textAlign: "right", marginTop: 5 },
   footer: { backgroundColor: "#FFF", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E2E6ED", paddingHorizontal: 20, paddingTop: 12, paddingBottom: 14 },
   primaryButton: { minHeight: 50, borderRadius: 11, backgroundColor: "#2F6BFF", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 }, primaryButtonText: { color: "#FFF", fontSize: 14, fontWeight: "800" }, buttonDisabled: { opacity: 0.45 },

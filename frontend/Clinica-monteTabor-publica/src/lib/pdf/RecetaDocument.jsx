@@ -23,8 +23,9 @@ const styles = StyleSheet.create({
 });
 
 // Receta médica, formato compacto de media página. patientName/dui/age son del propio
-// paciente (los conoce por su sesión, ver AuthContext), medications/labOrders vienen tal
-// cual los guardó el doctor en la consulta (prescriptionsModel).
+// paciente (los conoce por su sesión, ver AuthContext), medications viene tal cual lo
+// guardó el doctor en la consulta (prescriptionsModel). Las órdenes de laboratorio ya
+// no van acá: tienen su propio documento (LabOrderDocument.jsx).
 const RecetaDocument = ({
   title,
   patientName,
@@ -33,7 +34,6 @@ const RecetaDocument = ({
   doctorName,
   date,
   medications = [],
-  labOrders = [],
   instructions,
 }) => (
   <Document title={title}>
@@ -47,7 +47,7 @@ const RecetaDocument = ({
       </View>
       <View style={styles.row}>
         <Text>Edad: {age ?? "—"}</Text>
-        <Text>DUI: {dui || "—"}</Text>
+        {dui ? <Text>DUI: {dui}</Text> : null}
       </View>
 
       {medications.length > 0 && (
@@ -69,15 +69,6 @@ const RecetaDocument = ({
               <Text style={styles.cell}>{m.frequency || "—"}</Text>
               <Text style={styles.cell}>{m.duration || "—"}</Text>
             </View>
-          ))}
-        </>
-      )}
-
-      {labOrders.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>Órdenes de laboratorio</Text>
-          {labOrders.map((o, i) => (
-            <Text key={i} style={styles.paragraph}>- {o.test_name || "—"}{o.notes ? ` (${o.notes})` : ""}</Text>
           ))}
         </>
       )}

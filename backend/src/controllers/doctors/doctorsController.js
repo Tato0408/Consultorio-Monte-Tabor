@@ -1,4 +1,5 @@
 import doctorsModel from "../../models/doctors/doctors.js";
+import scheduleModel from "../../models/schedule/schedule.js";
 import adminModel from "../../models/admin/admins.js";
 import patientsModel from "../../models/patients/patients.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
@@ -119,6 +120,38 @@ doctorController.getDoctorsCatalog = async (req, res) => {
     );
 
     const doctors = await doctorsModel.find().select("-password");
+    return res.status(200).json(doctors);
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// GET /doctors/catalog/schedulable — igual que /doctors/catalog, pero solo devuelve
+// doctores activos que ya configuraron al menos un día laborable en su horario
+// (mismo criterio que patientPortalController.getSchedulableDoctors, pero accesible con
+// sesión de staff en vez de solo con sesión de paciente). Se usa en el registro rápido
+// de citas del dashboard de enfermería/recepción: un doctor sin horario no tiene forma
+// de calcular horarios libres, así que no debe aparecer como opción ahí.
+doctorController.getSchedulableDoctorsCatalog = async (req, res) => {
+  try {
+    const admins = await adminModel.find({ email: { $exists: true, $ne: "" } });
+    await Promise.all(
+      admins.map((admin) =>
+        syncAdminMirrorDoctor(admin).catch((err) =>
+          console.log(`No se pudo sincronizar el doctor espejo del admin ${admin._id}: ${err}`)
+        )
+      )
+    );
+
+    const schedules = await scheduleModel
+      .find({ "weekly_availability.is_available": true })
+      .select("doctor_id");
+    const doctorIds = schedules.map((s) => s.doctor_id);
+
+    const doctors = await doctorsModel
+      .find({ _id: { $in: doctorIds }, is_active: true })
+      .select("-password");
     return res.status(200).json(doctors);
   } catch (error) {
     console.log("error " + error);

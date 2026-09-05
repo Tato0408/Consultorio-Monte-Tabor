@@ -3,15 +3,25 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ChevronLeft, ChevronDown, Plus, CalendarDays, Clock, History, XCircle,
   MapPin, Trash2, CalendarCheck, HeartPulse, IdCard, CalendarX,
-  Loader2, User, CreditCard, CalendarClock,
+  Loader2, User, CreditCard, CalendarClock, AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getMyAppointments, cancelAppointment } from "@/services/appointmentsService";
 import { showSuccess, showError, confirmAction, confirmActionWithReason } from "@/lib/alerts";
+import NotificationsMenu from "@/components/NotificationsMenu";
 
-const STATUS_LABELS = { pending: "Pendiente", scheduled: "Programada", completed: "Completada", cancelled: "Cancelada", no_show: "No se presentó" };
-const STATUS_COLORS = { pending: "bg-amber-100 text-amber-700", scheduled: "bg-emerald-100 text-emerald-700", completed: "bg-slate-100 text-slate-600", cancelled: "bg-red-100 text-red-600", no_show: "bg-gray-100 text-gray-500" };
-const STATUS_DOT = { pending: "bg-amber-500", scheduled: "bg-emerald-500", completed: "bg-slate-400", cancelled: "bg-red-500", no_show: "bg-gray-400" };
+const STATUS_LABELS = { pending: "Pendiente", scheduled: "Programada", completed: "Completada", cancelled: "Cancelada", no_show: "No se presentó", needs_reschedule: "Por reagendar", expired: "Por reagendar" };
+const STATUS_COLORS = { pending: "bg-amber-100 text-amber-700", scheduled: "bg-emerald-100 text-emerald-700", completed: "bg-slate-100 text-slate-600", cancelled: "bg-red-100 text-red-600", no_show: "bg-gray-100 text-gray-500", needs_reschedule: "bg-orange-100 text-orange-700", expired: "bg-orange-100 text-orange-700" };
+const STATUS_DOT = { pending: "bg-amber-500", scheduled: "bg-emerald-500", completed: "bg-slate-400", cancelled: "bg-red-500", no_show: "bg-gray-400", needs_reschedule: "bg-orange-500", expired: "bg-orange-500" };
+
+// Estados en los que el paciente puede (y debe) reagendar la cita reusando el mismo
+// registro: ningún doctor la aceptó a tiempo ("no_aceptada") o el cupo se lo asignaron
+// a otro paciente ("cupo_asignado").
+const REAGENDABLES = ["needs_reschedule", "expired"];
+const MOTIVO_REAGENDAR = {
+  no_aceptada: "Ningún profesional aceptó tu cita a tiempo. Elige una nueva fecha y hora.",
+  cupo_asignado: "El horario que solicitaste se le asignó a otro paciente. Elige una nueva fecha y hora.",
+};
 
 const fmt12 = (t) => {
   if (!t) return "";
@@ -39,69 +49,91 @@ const puedeReagendar = (cita) =>
   esCancelable(cita.status) && inicioDeCita(cita).getTime() - Date.now() > LIMITE_REAGENDAR_MS;
 
 const TABS = [
-  { key: "proximas", label: "Próximas citas", icon: CalendarDays, badge: "Próxima cita" },
-  { key: "pasadas", label: "Citas pasadas", icon: History, badge: "Cita pasada" },
-  { key: "canceladas", label: "Citas canceladas", icon: XCircle, badge: "Cancelada" },
+  { key: "proximas", label: "Próximas", icon: CalendarDays, badge: "Próxima cita", vacio: "próximas citas", vacioHint: "Cuando agendes una cita, aparecerá aquí." },
+  { key: "porReagendar", label: "Por reagendar", icon: CalendarClock, badge: "Por reagendar", vacio: "citas por reagendar", vacioHint: "Aquí verás las citas que debas reagendar." },
+  { key: "pasadas", label: "Pasadas", icon: History, badge: "Cita pasada", vacio: "citas pasadas", vacioHint: "Tus citas completadas y pasadas aparecerán aquí." },
+  { key: "canceladas", label: "Canceladas", icon: XCircle, badge: "Cancelada", vacio: "citas canceladas", vacioHint: "Cuando canceles una cita, aparecerá aquí." },
 ];
 
 const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, reagendando, onPagar, expandedId, setExpandedId }) => {
   const expandida = expandedId === cita._id;
   const depositoPendiente = cita.status === "pending" && cita.deposit_amount != null && !cita.deposit_paid;
   const depositoPagado = cita.deposit_paid && cita.deposit_amount != null;
+  const necesitaReagendar = REAGENDABLES.includes(cita.status);
+
+  // En móvil los botones se apilan: una acción principal a ancho completo (pagar, o
+  // reagendar cuando la cita quedó sin confirmar) y el par "Reagendar / Cancelar" en
+  // una rejilla de dos. En sm+ vuelven a una fila. "Reagendar" solo aparece como
+  // secundario cuando NO es la acción principal.
+  const mostrarReagendarSecundario = puedeReagendar(cita) && !necesitaReagendar;
+  const mostrarCancelar = esCancelable(cita.status);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <div className="flex items-start justify-between gap-3 mb-1">
+    <div className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-5 ${necesitaReagendar ? "border-orange-200" : "border-gray-100"}`}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="inline-block px-2.5 py-1 rounded-full bg-[#3B6FCA]/10 text-[#3B6FCA] text-xs font-semibold">{badge}</span>
-        <div className="text-right flex-shrink-0">
-          <p className="text-xl font-bold text-gray-900">${Number(cita.total).toFixed(2)}</p>
-          <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[cita.status] || "bg-gray-100 text-gray-500"}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[cita.status] || "bg-gray-400"}`} /> {STATUS_LABELS[cita.status] || cita.status}
-          </span>
-          {depositoPendiente && (
-            <p className="text-xs text-amber-600 font-medium mt-1">Anticipo: ${Number(cita.deposit_amount).toFixed(2)}</p>
-          )}
-          {depositoPagado && (
-            <p className="text-xs text-emerald-600 font-medium mt-1">Anticipo pagado · resta ${Number(cita.total - cita.deposit_amount).toFixed(2)}</p>
-          )}
-        </div>
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[cita.status] || "bg-gray-100 text-gray-500"}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[cita.status] || "bg-gray-400"}`} /> {STATUS_LABELS[cita.status] || cita.status}
+        </span>
       </div>
+      <div className="flex items-baseline justify-between gap-2 mt-2.5">
+        <p className="text-xl sm:text-2xl font-bold text-gray-900">${Number(cita.total).toFixed(2)}</p>
+        {depositoPendiente && (
+          <p className="text-xs text-amber-600 font-medium flex-shrink-0">Anticipo: ${Number(cita.deposit_amount).toFixed(2)}</p>
+        )}
+      </div>
+      {depositoPagado && (
+        <p className="text-xs text-emerald-600 font-medium mt-1">Anticipo pagado · resta ${Number(cita.total - cita.deposit_amount).toFixed(2)}</p>
+      )}
+
+      {necesitaReagendar && (
+        <div className="flex items-start gap-2 bg-orange-50 border border-orange-100 rounded-xl px-3 py-2.5 mt-3">
+          <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-orange-700">
+            {MOTIVO_REAGENDAR[cita.reschedule_reason] || "Esta cita quedó sin confirmar. Elige una nueva fecha y hora."}
+          </p>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mt-3">
-        <div className="w-12 h-12 rounded-full bg-[#3B6FCA]/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-          {cita.doctor_id?.img_url ? (
-            <img src={cita.doctor_id.img_url} alt="" className="w-full h-full object-cover" />
+        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#3B6FCA]/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+          {cita.doctor_id?.img_url || cita.nurse_id?.img_url ? (
+            <img src={cita.doctor_id?.img_url || cita.nurse_id?.img_url} alt="" className="w-full h-full object-cover" />
           ) : (
             <User className="w-5 h-5 text-[#3B6FCA]" />
           )}
         </div>
-        <div>
-          <p className="font-semibold text-gray-800">
-            {cita.doctor_id ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}` : "Por asignar"}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-800 truncate">
+            {cita.doctor_id
+              ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}`
+              : cita.nurse_id
+                ? `${cita.nurse_id.name} ${cita.nurse_id.last_name}`
+                : "Por asignar"}
           </p>
-          <p className="text-sm text-gray-400">{cita.type}</p>
+          <p className="text-sm text-gray-400 truncate">{cita.type}</p>
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-50">
-        <div className="flex items-start gap-2">
+      <div className="flex flex-col sm:grid sm:grid-cols-3 gap-3 sm:gap-4 mt-4 pt-4 border-t border-gray-50">
+        <div className="flex items-start gap-2 min-w-0">
           <CalendarDays className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
-          <div>
+          <div className="min-w-0">
             <p className="text-xs text-gray-400">Fecha</p>
             <p className="text-sm font-medium text-gray-700 capitalize">{fmtFecha(cita.date)}</p>
           </div>
         </div>
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-2 min-w-0">
           <Clock className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
-          <div>
+          <div className="min-w-0">
             <p className="text-xs text-gray-400">Hora</p>
             <p className="text-sm font-medium text-gray-700">{fmt12(cita.start_time)} - {fmt12(cita.end_time)}</p>
             <p className="text-xs text-gray-400">Duración: {cita.duration_minutes} minutos</p>
           </div>
         </div>
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-2 min-w-0">
           <MapPin className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
-          <div>
+          <div className="min-w-0">
             <p className="text-xs text-gray-400">Sede</p>
             <p className="text-sm font-medium text-gray-700">San Salvador, El Salvador</p>
           </div>
@@ -120,39 +152,52 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, rea
         </div>
       )}
 
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-50">
-        <div className="flex items-center gap-2 flex-wrap">
-          {puedeReagendar(cita) && (
+      <div className="mt-4 pt-4 border-t border-gray-50 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          {depositoPendiente && (
+            <button
+              onClick={() => onPagar(cita._id)}
+              className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2 rounded-lg bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold transition-colors"
+            >
+              <CreditCard className="w-4 h-4" /> Pagar anticipo
+            </button>
+          )}
+          {necesitaReagendar && (
             <button
               onClick={() => onReagendar(cita)}
               disabled={reagendando || cancelando}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#3B6FCA]/20 text-[#3B6FCA] hover:bg-[#3B6FCA]/5 text-sm font-semibold transition-colors disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2 rounded-lg bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold transition-colors disabled:opacity-50"
             >
               <CalendarClock className="w-4 h-4" /> Reagendar cita
             </button>
           )}
-          {esCancelable(cita.status) && (
-            <button
-              onClick={() => onCancelar(cita)}
-              disabled={cancelando || reagendando}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 text-sm font-semibold transition-colors disabled:opacity-50"
-            >
-              <Trash2 className="w-4 h-4" /> Cancelar cita
-            </button>
-          )}
-          {cita.status === "pending" && cita.deposit_amount != null && !cita.deposit_paid && (
-            <button
-              onClick={() => onPagar(cita._id)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold transition-colors"
-            >
-              <CreditCard className="w-4 h-4" /> Pagar anticipo
-            </button>
+          {(mostrarReagendarSecundario || mostrarCancelar) && (
+            <div className={`grid gap-2 sm:flex sm:gap-2 ${mostrarReagendarSecundario && mostrarCancelar ? "grid-cols-2" : "grid-cols-1"}`}>
+              {mostrarReagendarSecundario && (
+                <button
+                  onClick={() => onReagendar(cita)}
+                  disabled={reagendando || cancelando}
+                  className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2 rounded-lg border border-[#3B6FCA]/20 text-[#3B6FCA] hover:bg-[#3B6FCA]/5 text-sm font-semibold transition-colors disabled:opacity-50"
+                >
+                  <CalendarClock className="w-4 h-4" /> Reagendar
+                </button>
+              )}
+              {mostrarCancelar && (
+                <button
+                  onClick={() => onCancelar(cita)}
+                  disabled={cancelando || reagendando}
+                  className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 text-sm font-semibold transition-colors disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" /> Cancelar
+                </button>
+              )}
+            </div>
           )}
         </div>
 
         <button
           onClick={() => setExpandedId(expandida ? null : cita._id)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#3B6FCA]/20 text-[#3B6FCA] hover:bg-[#3B6FCA]/5 text-sm font-semibold transition-colors"
+          className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2 rounded-lg border border-[#3B6FCA]/20 text-[#3B6FCA] hover:bg-[#3B6FCA]/5 text-sm font-semibold transition-colors"
         >
           <CalendarCheck className="w-4 h-4" /> {expandida ? "Ocultar detalles" : "Ver detalles"}
         </button>
@@ -188,25 +233,48 @@ const MyAppointments = () => {
     const proximas = appointments
       .filter((a) => ["pending", "scheduled"].includes(a.status))
       .sort((a, b) => new Date(a.date) - new Date(b.date) || a.start_time.localeCompare(b.start_time));
+    const porReagendar = appointments
+      .filter((a) => REAGENDABLES.includes(a.status))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
     const pasadas = appointments
       .filter((a) => ["completed", "no_show"].includes(a.status))
       .sort((a, b) => new Date(b.date) - new Date(a.date));
     const canceladas = appointments
       .filter((a) => a.status === "cancelled")
       .sort((a, b) => new Date(b.date) - new Date(a.date));
-    return { proximas, pasadas, canceladas };
+    return { proximas, porReagendar, pasadas, canceladas };
   }, [appointments]);
 
   const tabActivo = TABS.find((t) => t.key === tab);
   const lista = grupos[tab] || [];
+  const VacioIcon = tabActivo.icon;
 
   // Lleva al asistente de agendar cita con el tipo, doctor y motivo de la cita anterior
   // ya elegidos — solo quedan vacíos fecha y hora, que el paciente vuelve a elegir.
-  const irAReagendar = (cita) => {
+  // Se usa cuando la cita YA se canceló (crear una nueva desde cero).
+  const irAAgendarConPrefill = (cita) => {
     navigate("/agendar-cita", {
       state: {
         prefill: {
-          tipo: cita.procedure_id?._id || "general",
+          // Una cita histórica de antes de que la Consulta Médica General fuera un
+          // procedimiento real puede no traer procedure_id: queda sin tipo preseleccionado,
+          // para que se vuelva a elegir explícitamente en el paso 1.
+          tipo: cita.procedure_id?._id || null,
+          doctorId: cita.doctor_id?._id || null,
+          motivo: cita.description || "",
+        },
+      },
+    });
+  };
+
+  // Reagendar reusando el mismo registro (conserva el anticipo): el asistente arranca en
+  // el paso de fecha/hora y al confirmar llama a PATCH /appointments/:id/reschedule.
+  const irAReagendarReusando = (cita) => {
+    navigate("/agendar-cita", {
+      state: {
+        reschedule: {
+          appointmentId: cita._id,
+          tipo: cita.procedure_id?._id || null,
           doctorId: cita.doctor_id?._id || null,
           motivo: cita.description || "",
         },
@@ -241,7 +309,7 @@ const MyAppointments = () => {
           confirmLabel: "Sí, reagendar",
           cancelLabel: "No, gracias",
         });
-        if (quiereReagendar) irAReagendar(cita);
+        if (quiereReagendar) irAAgendarConPrefill(cita);
       }
     } catch (err) {
       showError(err.message || "No se pudo cancelar la cita.");
@@ -250,9 +318,17 @@ const MyAppointments = () => {
     }
   };
 
-  // Reagendar = cancelar esta cita (para liberar el horario) y llevar al paciente
-  // directo al asistente de agendar con los mismos datos, listo para elegir horario nuevo.
+  // Reagendar. Dos caminos:
+  // - Cita "por reagendar" (needs_reschedule/expired) o "pending": se reusa el mismo
+  //   registro (conserva anticipo), no se cancela nada. El asistente confirma con el
+  //   endpoint de reschedule.
+  // - Cita ya "scheduled" (un doctor la aceptó): sí se cancela para liberar el cupo y se
+  //   agenda una nueva desde cero.
   const handleReagendar = async (cita) => {
+    if (REAGENDABLES.includes(cita.status) || cita.status === "pending") {
+      irAReagendarReusando(cita);
+      return;
+    }
     const confirmado = await confirmAction(
       "¿Deseas reagendar esta cita? Se cancelará esta cita para que puedas elegir una nueva fecha y hora.",
       { confirmLabel: "Sí, reagendar" }
@@ -261,7 +337,7 @@ const MyAppointments = () => {
     setReagendandoId(cita._id);
     try {
       await cancelAppointment(cita._id, "Cancelada por el paciente para reagendar");
-      irAReagendar(cita);
+      irAAgendarConPrefill(cita);
     } catch (err) {
       showError(err.message || "No se pudo reagendar la cita.");
     } finally {
@@ -277,14 +353,15 @@ const MyAppointments = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 px-6 py-4 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      <header className="bg-white border-b border-gray-100 px-4 sm:px-6 py-4 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2">
           <Link to="/dashboard" className="text-gray-400 hover:text-gray-600 text-sm flex items-center gap-1">
             <ChevronLeft className="w-4 h-4" /> Volver
           </Link>
           <span className="font-bold text-gray-800">Mis citas</span>
-          <div className="relative">
+          <div className="relative flex items-center gap-1">
+            <NotificationsMenu />
             <button onClick={() => setUserMenuOpen((v) => !v)} className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-50 transition-colors">
               <div className="w-8 h-8 rounded-full bg-[#3B6FCA]/10 flex items-center justify-center text-[#3B6FCA] font-semibold text-sm flex-shrink-0">
                 {patient?.name?.[0]}
@@ -296,6 +373,10 @@ const MyAppointments = () => {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                 <div className="absolute right-0 top-11 w-44 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-50">
+                  <Link to="/profile" className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <User className="w-4 h-4 text-gray-400" /> Mi perfil
+                  </Link>
+                  <hr className="my-1 border-gray-100" />
                   <button onClick={handleLogout} className="w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors text-left">
                     Cerrar sesión
                   </button>
@@ -306,42 +387,70 @@ const MyAppointments = () => {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-[#3B6FCA]/10 flex items-center justify-center flex-shrink-0">
-              <CalendarDays className="w-6 h-6 text-[#3B6FCA]" />
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#3B6FCA]/10 flex items-center justify-center flex-shrink-0">
+              <CalendarDays className="w-5 h-5 sm:w-6 sm:h-6 text-[#3B6FCA]" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Mis citas</h1>
-              <p className="text-gray-500 text-sm">Consulta, gestiona o cancela tus citas médicas.</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Mis citas</h1>
+              <p className="text-gray-500 text-xs sm:text-sm">Consulta, gestiona o cancela tus citas médicas.</p>
             </div>
           </div>
           <Link
             to="/agendar-cita"
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white font-semibold text-sm transition-colors shadow-md shadow-[#3B6FCA]/20"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-3 rounded-xl bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white font-semibold text-sm transition-colors shadow-md shadow-[#3B6FCA]/20"
           >
             <Plus className="w-4 h-4" /> Agendar nueva cita
           </Link>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <div className="flex items-center gap-1 border-b border-gray-100 mb-5">
-              {TABS.map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  onClick={() => setTab(key)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                    tab === key ? "border-[#3B6FCA] text-[#3B6FCA] bg-[#3B6FCA]/5 rounded-t-lg" : "border-transparent text-gray-400 hover:text-gray-600"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" /> {label}
-                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${tab === key ? "bg-[#3B6FCA] text-white" : "bg-gray-100 text-gray-500"}`}>
-                    {grupos[key]?.length || 0}
-                  </span>
-                </button>
-              ))}
+        {!loading && grupos.porReagendar.length > 0 && tab !== "porReagendar" && (
+          <button
+            onClick={() => setTab("porReagendar")}
+            className="w-full flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 mb-6 text-left hover:bg-orange-100/70 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-4 h-4 text-orange-500" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-orange-800">
+                {grupos.porReagendar.length === 1
+                  ? "Tienes 1 cita por reagendar"
+                  : `Tienes ${grupos.porReagendar.length} citas por reagendar`}
+              </p>
+              <p className="text-xs text-orange-600">Elige una nueva fecha y hora para no perder tu atención.</p>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-orange-400 rotate-180 flex-shrink-0" />
+          </button>
+        )}
+
+        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 min-w-0">
+            {/* Móvil: rejilla 2×2 de "pills" — las 4 pestañas con su contador caben sin scroll
+                ni recorte. sm+: barra de pestañas con subrayado (el diseño de escritorio de
+                antes). */}
+            <div className="grid grid-cols-2 gap-2 mb-5 sm:flex sm:items-center sm:gap-1 sm:border-b sm:border-gray-100">
+              {TABS.map(({ key, label, icon: Icon }) => {
+                const activa = tab === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setTab(key)}
+                    className={`flex items-center justify-center sm:justify-start gap-1 sm:gap-2 px-2.5 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-sm font-semibold leading-tight flex-shrink-0 transition-colors rounded-xl border sm:whitespace-nowrap sm:rounded-none sm:rounded-t-lg sm:border-x-0 sm:border-t-0 sm:border-b-2 sm:-mb-px ${
+                      activa
+                        ? "border-[#3B6FCA]/20 bg-[#3B6FCA]/10 text-[#3B6FCA] sm:border-[#3B6FCA] sm:bg-[#3B6FCA]/5"
+                        : "border-gray-100 bg-white text-gray-500 sm:border-transparent sm:bg-transparent sm:text-gray-400 sm:hover:text-gray-600"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" /> {label}
+                    <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-full text-xs ${activa ? "bg-[#3B6FCA] text-white" : "bg-gray-100 text-gray-500"}`}>
+                      {grupos[key]?.length || 0}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {loading ? (
@@ -349,8 +458,12 @@ const MyAppointments = () => {
                 <Loader2 className="w-6 h-6 animate-spin text-[#3B6FCA]" /> Cargando tus citas...
               </div>
             ) : lista.length === 0 ? (
-              <div className="text-center py-20">
-                <p className="text-gray-400 text-sm">No tienes {tabActivo.label.toLowerCase()}.</p>
+              <div className="text-center py-14 sm:py-20">
+                <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                  <VacioIcon className="w-6 h-6 text-gray-400" />
+                </div>
+                <p className="text-sm font-semibold text-gray-500">No tienes {tabActivo.vacio}.</p>
+                <p className="text-xs text-gray-400 mt-1">{tabActivo.vacioHint}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -372,7 +485,7 @@ const MyAppointments = () => {
             )}
           </div>
 
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-5 min-w-0">
             <div className="bg-gradient-to-br from-[#3B6FCA]/10 to-[#3B6FCA]/0 border border-[#3B6FCA]/10 rounded-2xl p-5">
               <HeartPulse className="w-7 h-7 text-[#3B6FCA] mb-2" />
               <p className="font-bold text-gray-900">Tu salud es lo más importante</p>

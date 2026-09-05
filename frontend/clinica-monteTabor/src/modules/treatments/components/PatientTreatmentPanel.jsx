@@ -44,6 +44,12 @@ const IconAction = ({ icon: Icon, label, onClick, tone }) => (
 // padre (TreatmentsPage) refresca la lista completa.
 const PatientTreatmentPanel = ({
   patient,
+  // Permiso inventory.treatments. Si el rol no tiene la acción
+  // correspondiente, el botón/ícono ni se muestra (el backend lo
+  // rechaza igual, esto solo evita ofrecer algo que va a dar 403).
+  canCreate = true,
+  canUpdate = true,
+  canDelete = true,
   onClose,
   onUpdateEvolution,
   onDeleteEvolution,
@@ -201,17 +207,19 @@ const PatientTreatmentPanel = ({
               selector permite fijarlo a mano cuando el cálculo automático
               no aplica a un caso puntual, y "Automático" lo borra para
               volver al cálculo por fecha. */}
-          <select
-            value={patient.statusIsManual ? patient.status : "auto"}
-            onChange={handleChangeStatus}
-            disabled={changingStatus}
-            className="text-[11px] font-semibold text-slate-500 border border-slate-200 rounded-lg px-1.5 py-1 disabled:opacity-60"
-          >
-            <option value="auto">Automático (según fecha de control)</option>
-            <option value="En tratamiento">En tratamiento</option>
-            <option value="Requiere revisión">Requiere revisión</option>
-            <option value="Finalizado">Finalizado</option>
-          </select>
+          {canUpdate && (
+            <select
+              value={patient.statusIsManual ? patient.status : "auto"}
+              onChange={handleChangeStatus}
+              disabled={changingStatus}
+              className="text-[11px] font-semibold text-slate-500 border border-slate-200 rounded-lg px-1.5 py-1 disabled:opacity-60"
+            >
+              <option value="auto">Automático (según fecha de control)</option>
+              <option value="En tratamiento">En tratamiento</option>
+              <option value="Requiere revisión">Requiere revisión</option>
+              <option value="Finalizado">Finalizado</option>
+            </select>
+          )}
         </div>
       </div>
 
@@ -308,8 +316,8 @@ const PatientTreatmentPanel = ({
               <div className="flex items-center justify-between mt-2">
                 <p className="text-[11px] text-slate-400">{patient.evolution.date} · {patient.evolution.author}</p>
                 <div className="flex items-center gap-0.5 -mr-1.5">
-                  <IconAction icon={Pencil} label="Editar evolución" onClick={() => setOpenModal("evolution")} tone="blue" />
-                  <IconAction icon={Trash2} label="Eliminar evolución" onClick={handleDeleteEvolution} tone="red" />
+                  {canUpdate && <IconAction icon={Pencil} label="Editar evolución" onClick={() => setOpenModal("evolution")} tone="blue" />}
+                  {canDelete && <IconAction icon={Trash2} label="Eliminar evolución" onClick={handleDeleteEvolution} tone="red" />}
                 </div>
               </div>
             </div>
@@ -331,8 +339,8 @@ const PatientTreatmentPanel = ({
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-[11px] text-slate-400">{note.date} · {note.author}</p>
                     <div className="flex items-center gap-0.5 -mr-1.5">
-                      <IconAction icon={Pencil} label="Editar nota" onClick={() => openNoteModal(note.id)} tone="blue" />
-                      <IconAction icon={Trash2} label="Eliminar nota" onClick={() => handleDeleteNote(note.id)} tone="red" />
+                      {canUpdate && <IconAction icon={Pencil} label="Editar nota" onClick={() => openNoteModal(note.id)} tone="blue" />}
+                      {canDelete && <IconAction icon={Trash2} label="Eliminar nota" onClick={() => handleDeleteNote(note.id)} tone="red" />}
                     </div>
                   </div>
                 </div>
@@ -366,70 +374,86 @@ const PatientTreatmentPanel = ({
                     </a>
                     <p className="text-[11px] text-slate-400 mt-0.5">{doc.date} · {doc.uploadedBy}</p>
                   </div>
-                  <IconAction icon={Trash2} label="Eliminar documento" onClick={() => handleDeleteDocument(doc.id)} tone="red" />
+                  {canDelete && (
+                    <IconAction icon={Trash2} label="Eliminar documento" onClick={() => handleDeleteDocument(doc.id)} tone="red" />
+                  )}
                 </div>
               ))
             ) : (
               <p className="text-sm text-slate-400 text-center py-10">
-                Sin documentos todavía. Sube el primero abajo.
+                {canCreate ? "Sin documentos todavía. Sube el primero abajo." : "Sin documentos todavía."}
               </p>
             )}
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              className="hidden"
-              onChange={handleFileSelected}
-            />
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-dashed border-slate-300 text-slate-500 text-xs font-semibold hover:bg-slate-50 hover:border-slate-400 transition-colors disabled:opacity-60"
-            >
-              {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-              {uploading ? "Subiendo..." : "Subir documento (PDF, Word o imagen, máx. 10 MB)"}
-            </button>
+            {canCreate && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  className="hidden"
+                  onChange={handleFileSelected}
+                />
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-dashed border-slate-300 text-slate-500 text-xs font-semibold hover:bg-slate-50 hover:border-slate-400 transition-colors disabled:opacity-60"
+                >
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+                  {uploading ? "Subiendo..." : "Subir documento (PDF, Word o imagen, máx. 10 MB)"}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
 
       {/* Acciones */}
-      <div className="grid grid-cols-2 gap-2.5 p-5 pt-0">
-        <button
-          type="button"
-          onClick={() => setOpenModal("evolution")}
-          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors"
-        >
-          <RefreshCcw className="w-3.5 h-3.5" />
-          Actualizar evolución
-        </button>
-        <button
-          type="button"
-          onClick={() => openNoteModal(null)}
-          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors"
-        >
-          <FileEdit className="w-3.5 h-3.5" />
-          Agregar nota
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpenModal("control")}
-          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors"
-        >
-          <CalendarPlus className="w-3.5 h-3.5" />
-          Programar control
-        </button>
-        <button
-          type="button"
-          onClick={handleDischarge}
-          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-colors"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          Dar de alta
-        </button>
-      </div>
+      {(canCreate || canUpdate) && (
+        <div className="grid grid-cols-2 gap-2.5 p-5 pt-0">
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => setOpenModal("evolution")}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors"
+            >
+              <RefreshCcw className="w-3.5 h-3.5" />
+              Actualizar evolución
+            </button>
+          )}
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => openNoteModal(null)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 transition-colors"
+            >
+              <FileEdit className="w-3.5 h-3.5" />
+              Agregar nota
+            </button>
+          )}
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => setOpenModal("control")}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors"
+            >
+              <CalendarPlus className="w-3.5 h-3.5" />
+              Programar control
+            </button>
+          )}
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={handleDischarge}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Dar de alta
+            </button>
+          )}
+        </div>
+      )}
 
       <TreatmentTextModal
         isOpen={openModal === "evolution"}

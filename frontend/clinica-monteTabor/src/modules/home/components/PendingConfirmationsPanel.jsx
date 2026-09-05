@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Check, X, ChevronRight } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmCancelAppointment } from "@/lib/alerts";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 // Panel de confirmación y cancelación de citas: pestañas de pendientes
 // y confirmadas, con acciones reales contra el endpoint
 // PATCH /api/appointments/:id/status, el mismo que usa el módulo de
-// Citas.
+// Citas. Expandible/colapsable con el mismo componente que usa Inventario
+// (CollapsibleCard.jsx, ver InventoryAlertsRow.jsx).
 const PendingConfirmationsPanel = ({ data, onChanged, onViewAll }) => {
     const [tab, setTab] = useState("pending");
     const [busyId, setBusyId] = useState(null);
@@ -34,11 +36,7 @@ const PendingConfirmationsPanel = ({ data, onChanged, onViewAll }) => {
     };
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-slate-800 text-sm">Confirmación / cancelación de citas</h3>
-            </div>
-
+        <CollapsibleCard title="Confirmación / cancelación de citas" defaultOpen>
             <div className="flex items-center gap-2 mb-3">
                 <button
                     type="button"
@@ -71,7 +69,7 @@ const PendingConfirmationsPanel = ({ data, onChanged, onViewAll }) => {
                     {list.map((a) => (
                         <div key={a._id} className="flex items-center justify-between py-2.5 gap-3">
                             <div className="flex items-center gap-3 min-w-0">
-                                <span className="text-xs font-bold text-slate-700 w-12 flex-shrink-0">{a.start_time}</span>
+                                <span className="text-xs font-bold text-slate-700 w-24 flex-shrink-0">{a.start_time} - {a.end_time}</span>
                                 <div className="min-w-0">
                                     <p className="text-xs font-semibold text-slate-700 truncate">
                                         {a.patient ? `${a.patient.name} ${a.patient.last_name}` : "Paciente"}
@@ -117,7 +115,7 @@ const PendingConfirmationsPanel = ({ data, onChanged, onViewAll }) => {
             >
                 Ver todas las citas pendientes <ChevronRight className="w-3.5 h-3.5" />
             </button>
-        </div>
+        </CollapsibleCard>
     );
 };
 
