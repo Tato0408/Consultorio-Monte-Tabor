@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "../../../lib/apiClient";
 import { confirmDelete, showSuccess, showError } from "../../../lib/alerts";
+import { sortByName } from "../../../lib/utils";
 
 const useNurse = () => {
   const [nurses, setNurses]               = useState([]);
@@ -24,7 +25,9 @@ const useNurse = () => {
         apiClient("/nurses/countProcedures"),
       ]);
 
-      setNurses(Array.isArray(nursesData) ? nursesData : []);
+      // La tabla de gestión de enfermeras se muestra ordenada alfabéticamente
+      // por el campo Nombre.
+      setNurses(sortByName(nursesData));
       setStats({
         nurses:       nursesCountRes.status === "fulfilled"       ? (nursesCountRes.value?.count       || 0) : 0,
         notes:        notesCountRes.status === "fulfilled"        ? (notesCountRes.value?.count        || 0) : 0,

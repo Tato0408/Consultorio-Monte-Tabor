@@ -6,7 +6,7 @@ import DoctorProfileCard from "../components/DoctorProfileCard";
 import DoctorForm from "../components/DoctorsForm";
 
 import { useDoctors } from "../hooks/useDoctors";
-import { showSuccess, showError, confirmDelete } from "../../../lib/alerts";
+import { showSuccess, showError, confirmDelete, confirmCascadeDelete } from "../../../lib/alerts";
 import { useAuth } from "@/context/AuthContext";
 
 const DoctorsList = () => {
@@ -80,7 +80,10 @@ const DoctorsList = () => {
     setDoctorToEdit(null);
   };
 
-  // Elimina un doctor previa confirmacion del usuario.
+  // Elimina un doctor previa confirmacion. Si el backend responde 409 porque
+  // el doctor tiene citas o consultas, se pide una segunda confirmacion
+  // reforzada y, si se acepta, se reintenta con cascade para eliminar
+  // tambien todo lo relacionado.
   const handleDeleteDoctor = async (id) => {
     const confirmed = await confirmDelete({
       title: "¿Eliminar este doctor?",
@@ -88,16 +91,34 @@ const DoctorsList = () => {
     });
     if (!confirmed) return;
 
-    try {
-      await deleteDoctor(id);
-      await getDoctors();
-
+    const afterDelete = () => {
       showSuccess("El doctor fue eliminado correctamente.");
-
       if (selectedDoctor?._id === id) {
         setSelectedDoctor(null);
       }
+    };
+
+    try {
+      await deleteDoctor(id);
+      afterDelete();
     } catch (error) {
+      if (error.status === 409 && error.data?.code === "HAS_RELATED_RECORDS") {
+        const doctor = doctors.find((d) => d._id === id);
+        const cascadeConfirmed = await confirmCascadeDelete({
+          subject: "doctor",
+          name: `${doctor?.name || ""} ${doctor?.last_name || ""}`.trim() || "este doctor",
+          related: error.data.related,
+        });
+        if (!cascadeConfirmed) return;
+        try {
+          await deleteDoctor(id, { cascade: true });
+          afterDelete();
+        } catch (cascadeError) {
+          console.error(cascadeError);
+          showError(cascadeError.message || "No se pudo eliminar el doctor.");
+        }
+        return;
+      }
       console.error(error);
       showError(error.message || "No se pudo eliminar el doctor.");
     }

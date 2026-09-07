@@ -8,6 +8,7 @@ import VitalSignsFormModal from "../global/VitalSignsFormModal";
 import TextFieldModal from "../global/TextFieldModal";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmDelete } from "@/lib/alerts";
+import { useAuth } from "@/context/AuthContext";
 
 // Color del badge de tipo según su categoría.
 const TIPO_TONE = {
@@ -36,16 +37,18 @@ function AddButton({ children, ...props }) {
 
 // Tabla de antecedentes: tres columnas más una de acción. Las cuatro columnas quedan
 // con el mismo ancho (grid-cols-4) y todo va centrado, con la misma franja gris de
-// encabezado (bg-slate-50, mayúsculas) que las tablas de los reportes.
-function AntecedentesTable({ headers, rows, onEdit, onDelete }) {
+// encabezado (bg-slate-50, mayúsculas) que las tablas de los reportes. Los botones de
+// editar y eliminar solo se muestran si el rol tiene esos permisos en el expediente.
+function AntecedentesTable({ headers, rows, onEdit, onDelete, canUpdate, canDelete }) {
   const cols = "grid grid-cols-4 gap-2";
+  const showAction = canUpdate || canDelete;
   return (
     <div className="text-sm">
       <div className={`${cols} rounded-lg bg-slate-50 px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400`}>
         <span>{headers[0]}</span>
         <span>{headers[1]}</span>
         <span>{headers[2]}</span>
-        <span>Acción</span>
+        <span>{showAction ? "Acción" : ""}</span>
       </div>
       {rows.map((r) => (
         <div key={r.id} className={`${cols} items-center border-b border-slate-50 px-2 py-3 text-center last:border-0`}>
@@ -55,22 +58,26 @@ function AntecedentesTable({ headers, rows, onEdit, onDelete }) {
             <Badge tone={toneFor(r.tipo)} className="whitespace-normal break-words text-center">{r.tipo}</Badge>
           </span>
           <div className="flex items-center justify-center gap-1">
-            <button
-              type="button"
-              onClick={() => onEdit(r)}
-              title="Editar"
-              className="p-1.5 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(r)}
-              title="Eliminar"
-              className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            {canUpdate && (
+              <button
+                type="button"
+                onClick={() => onEdit(r)}
+                title="Editar"
+                className="p-1.5 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {canDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(r)}
+                title="Eliminar"
+                className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
       ))}
@@ -105,6 +112,14 @@ function VitalMini({ label, value, unit, variant }) {
 export default function HistoriaClinicaTab({ patient = {}, onSaved }) {
   const h = patient.historiaClinica ?? {};
   const v = patient.signosVitales ?? {};
+
+  // Las acciones de agregar, editar y eliminar del expediente dependen del
+  // modulo "Expediente" (reports.records) en Roles y Permisos, no del de
+  // gestion de pacientes.
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("reports.records", "create");
+  const canUpdate = hasPermission("reports.records", "update");
+  const canDelete = hasPermission("reports.records", "delete");
 
   const [hereditaryModalOpen, setHereditaryModalOpen] = useState(false);
   const [pathologicalModalOpen, setPathologicalModalOpen] = useState(false);
@@ -167,21 +182,31 @@ export default function HistoriaClinicaTab({ patient = {}, onSaved }) {
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       {/* Columna izquierda */}
       <div className="space-y-6">
-        <SectionCard title="Antecedentes hereditarios" action={<AddButton onClick={openAddHereditary}>Agregar</AddButton>}>
+        <SectionCard
+          title="Antecedentes hereditarios"
+          action={canCreate ? <AddButton onClick={openAddHereditary}>Agregar</AddButton> : null}
+        >
           <AntecedentesTable
             headers={["Parentesco", "Condición", "Tipo"]}
             rows={h.hereditarios ?? []}
             onEdit={openEditHereditary}
             onDelete={handleDeleteHereditary}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
           />
         </SectionCard>
 
-        <SectionCard title="Antecedentes patológicos" action={<AddButton onClick={openAddPathological}>Agregar</AddButton>}>
+        <SectionCard
+          title="Antecedentes patológicos"
+          action={canCreate ? <AddButton onClick={openAddPathological}>Agregar</AddButton> : null}
+        >
           <AntecedentesTable
             headers={["Enfermedad", "Diagnosticado", "Tipo"]}
             rows={h.patologicos ?? []}
             onEdit={openEditPathological}
             onDelete={handleDeletePathological}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
           />
         </SectionCard>
       </div>
@@ -191,13 +216,15 @@ export default function HistoriaClinicaTab({ patient = {}, onSaved }) {
         <SectionCard
           title="Signos vitales - Última toma"
           action={
-            <button
-              type="button"
-              onClick={() => setVitalsModalOpen(true)}
-              className="text-xs font-medium text-blue-600 hover:underline"
-            >
-              Actualizar
-            </button>
+            canCreate ? (
+              <button
+                type="button"
+                onClick={() => setVitalsModalOpen(true)}
+                className="text-xs font-medium text-blue-600 hover:underline"
+              >
+                Actualizar
+              </button>
+            ) : null
           }
         >
           <div className="grid grid-cols-2 gap-3">
@@ -213,22 +240,26 @@ export default function HistoriaClinicaTab({ patient = {}, onSaved }) {
         <SectionCard
           title="Antecedentes no patológicos"
           action={
-            <button
-              type="button"
-              onClick={() => setNonPathologicalModalOpen(true)}
-              className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-200"
-            >
-              Editar
-            </button>
+            canUpdate ? (
+              <button
+                type="button"
+                onClick={() => setNonPathologicalModalOpen(true)}
+                className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-200"
+              >
+                Editar
+              </button>
+            ) : null
           }
         >
           <div className="rounded-xl bg-slate-50 p-5">
             <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600">
               {h.noPatologicos ?? "—"}
             </p>
-            <p className="mt-4 text-[11px] italic text-slate-300">
-              Da clic en “Editar” para modificar este campo libremente
-            </p>
+            {canUpdate && (
+              <p className="mt-4 text-[11px] italic text-slate-300">
+                Da clic en “Editar” para modificar este campo libremente
+              </p>
+            )}
           </div>
         </SectionCard>
       </div>

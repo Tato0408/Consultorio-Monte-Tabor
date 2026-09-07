@@ -18,7 +18,9 @@ const useMedicalData = () => {
     setLoadingData(true);
 
     const [patientsRes, doctorsRes, nursesRes, proceduresRes] = await Promise.allSettled([
-      apiClient("/patients"),
+      // scope=active: no se puede agendar una cita para un paciente inactivo,
+      // asi que no aparece en el selector de pacientes del formulario.
+      apiClient("/patients", { params: { scope: "active" } }),
       // Catálogo liviano, no requiere el permiso Ver Doctores/Ver Enfermeras. Cualquier rol
       // autenticado necesita esta lista para agendar una cita (ver
       // backend/src/routes/doctors/doctors.js y backend/src/routes/nurse/nurses.js). Antes

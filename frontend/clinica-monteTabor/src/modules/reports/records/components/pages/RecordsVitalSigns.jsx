@@ -8,6 +8,7 @@ import { Card, SectionCard } from "../global/ui";
 import VitalSignsFormModal from "../global/VitalSignsFormModal";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmDelete } from "@/lib/alerts";
+import { useAuth } from "@/context/AuthContext";
 
 // Configuración de cada tarjeta clicable: a qué campo o campos de
 // signosVitalesHistorial corresponde y cómo graficarlo.
@@ -15,7 +16,7 @@ const METRICS = {
   presionArterial: { label: "Presión arterial", unit: "mmHg", color: "#3b82f6", type: "bp" },
   glucosa: { label: "Glucosa", unit: "mg/dL", color: "#ef4444", type: "single", field: "glucosa" },
   peso: { label: "Peso", unit: "kg", color: "#10b981", type: "single", field: "peso" },
-  altura: { label: "Altura", unit: "m", color: "#8b5cf6", type: "single", field: "altura" },
+  temperatura: { label: "Temperatura", unit: "°C", color: "#f97316", type: "single", field: "temp" },
   imc: { label: "IMC", unit: "kg/m²", color: "#eab308", type: "single", field: "imc" },
 };
 
@@ -45,6 +46,13 @@ const buildChartData = (historial, metricKey) => {
 // patient.signosVitalesHistorial (para el gráfico y la tabla).
 const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
   const v = patient.signosVitales ?? {};
+  // Agregar, editar y eliminar tomas depende del modulo "Expediente"
+  // (reports.records) en Roles y Permisos.
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("reports.records", "create");
+  const canUpdate = hasPermission("reports.records", "update");
+  const canDelete = hasPermission("reports.records", "delete");
+  const showRowActions = canUpdate || canDelete;
   const [selectedMetric, setSelectedMetric] = useState("imc");
   const [modalOpen, setModalOpen] = useState(false);
   // Cuando editEntry es null, el modal de agregar o editar está en modo
@@ -56,7 +64,7 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
     { key: "presionArterial", label: "Presión arterial", value: v.presionArterial, unit: "mmHg" },
     { key: "glucosa", label: "Glucosa", value: v.glucosa, unit: "mg/dL" },
     { key: "peso", label: "Peso", value: v.peso, unit: "" },
-    { key: "altura", label: "Altura", value: v.altura, unit: "" },
+    { key: "temperatura", label: "Temperatura", value: v.temperatura, unit: "°C" },
     { key: "imc", label: "IMC", value: v.imc, unit: v.imcCategoria || "kg/m²" },
   ];
 
@@ -66,6 +74,10 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
     [historial, selectedMetric]
   );
   const isImc = selectedMetric === "imc";
+  // La temperatura corporal se mueve en una banda estrecha (fiebre desde ~38,
+  // riesgo alto sobre 40), así que el eje se fija a un rango clínico legible
+  // en vez de dejar que se autoescale con una o dos tomas.
+  const isTemperatura = selectedMetric === "temperatura";
 
   const openAddModal = () => {
     setEditEntry(null);
@@ -100,14 +112,16 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
     <div className="space-y-5">
 
       {/* Encabezado */}
-      <div className="flex justify-end">
-        <button
-          onClick={openAddModal}
-          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm"
-        >
-          Agregar <Plus size={16} />
-        </button>
-      </div>
+      {canCreate && (
+        <div className="flex justify-end">
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm"
+          >
+            Agregar <Plus size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Tarjetas de métricas: clic para actualizar el gráfico de abajo */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -163,8 +177,8 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
             <XAxis dataKey="cita" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
             <YAxis
-              domain={isImc ? [20, 40] : ["auto", "auto"]}
-              ticks={isImc ? [20, 25, 30, 35, 40] : undefined}
+              domain={isImc ? [20, 40] : isTemperatura ? [35, 41] : ["auto", "auto"]}
+              ticks={isImc ? [20, 25, 30, 35, 40] : isTemperatura ? [35, 36, 37, 38, 39, 40, 41] : undefined}
               tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={36}
             />
             <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
@@ -220,7 +234,7 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
               <th className="py-2.5 px-2 font-semibold text-center">IMC</th>
               <th className="py-2.5 px-2 font-semibold text-center">Temperatura (c°)</th>
               <th className="py-2.5 px-2 font-semibold text-center">SPO2%</th>
-              <th className="py-2.5 px-2 font-semibold text-center">Acción</th>
+              {showRowActions && <th className="py-2.5 px-2 font-semibold text-center">Acción</th>}
             </tr>
           </thead>
           <tbody>
@@ -234,31 +248,37 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
                 <td className="py-3 px-2 text-center">{r.imc}</td>
                 <td className="py-3 px-2 text-center">{r.temp}</td>
                 <td className="py-3 px-2 text-center">{r.spo2 !== "—" ? `${r.spo2}%` : "—"}</td>
-                <td className="py-3 px-2">
-                  <div className="flex items-center justify-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(r)}
-                      title="Editar"
-                      className="p-1.5 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(r)}
-                      title="Eliminar"
-                      className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </td>
+                {showRowActions && (
+                  <td className="py-3 px-2">
+                    <div className="flex items-center justify-center gap-1">
+                      {canUpdate && (
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(r)}
+                          title="Editar"
+                          className="p-1.5 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(r)}
+                          title="Eliminar"
+                          className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
             {historial.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-6 text-center text-slate-400">
+                <td colSpan={showRowActions ? 9 : 8} className="py-6 text-center text-slate-400">
                   Sin tomas de signos vitales registradas todavía.
                 </td>
               </tr>

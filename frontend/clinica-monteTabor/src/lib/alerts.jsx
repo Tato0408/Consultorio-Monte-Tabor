@@ -110,6 +110,43 @@ export const confirmDelete = async ({
   return result.isConfirmed;
 };
 
+// Confirmacion reforzada para el borrado en cascada de un paciente o un
+// doctor que tiene citas o consultas relacionadas. El backend responde 409
+// con el conteo de esos registros y la gestion de usuarios llama aqui antes
+// de reintentar el borrado con cascade. subject es "paciente" o "doctor",
+// name es el nombre completo para el mensaje, y related trae los conteos
+// { appointments, consultations }.
+export const confirmCascadeDelete = async ({ subject, name, related = {} }) => {
+  const appointments = related.appointments || 0;
+  const consultations = related.consultations || 0;
+  const cita = appointments === 1 ? "cita" : "citas";
+  const consulta = consultations === 1 ? "consulta" : "consultas";
+
+  const result = await Swal.fire({
+    title: `¿Eliminar a ${name} y todo lo relacionado?`,
+    html:
+      `Este ${subject} tiene <b>${appointments}</b> ${cita} y <b>${consultations}</b> ${consulta} registradas. ` +
+      `Si continúas, también se eliminarán todas sus citas, consultas, recetas, órdenes de laboratorio, ` +
+      `incapacidades y demás información relacionada. Esta acción no se puede deshacer.`,
+    icon: "warning",
+    iconColor: "#fbbf24",
+    showCancelButton: true,
+    confirmButtonText: "Sí, eliminar todo",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#ef4444",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return result.isConfirmed;
+};
+
 export const confirmResetPermissions = async (roleName) => {
   const result = await Swal.fire({
     title: `¿Restablecer permisos de ${roleName}?`,

@@ -38,8 +38,10 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated, initialTab }) => {
   const { extra, loading, error, refetch } = usePatientRecordDetail(record?.id, fullName);
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
-  const canAttend = hasPermission("calendar.consultations", "create");
-  const canEdit = hasPermission("calendar.consultations", "update");
+  // Atender/registrar una consulta desde el expediente exige "crear" tanto en
+  // Consultas como en Expediente (mismo criterio que aplica el formulario).
+  const canAttend =
+    hasPermission("calendar.consultations", "create") && hasPermission("reports.records", "create");
   const canDeleteConsulta = hasPermission("reports.records", "delete");
   const [activeTab, setActiveTab] = useState(() => {
     const idx = TAB_LABELS.indexOf(initialTab);
@@ -134,7 +136,6 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated, initialTab }) => {
         <ConsultasTab
           patient={patient}
           canAttend={canAttend}
-          canEdit={canEdit}
           canDelete={canDeleteConsulta}
           onContinuar={(c) =>
             c.appointmentId &&
@@ -147,7 +148,11 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated, initialTab }) => {
           }
           onVerRegistro={(c) =>
             c.appointmentId &&
-            navigate(`/calendar/consultations/${c.appointmentId}${canEdit ? "" : "?mode=view"}`, {
+            navigate(`/calendar/consultations/${c.appointmentId}`, {
+              // El formulario decide si es editable o solo lectura segun los
+              // permisos (Consultas y, por venir del expediente, tambien
+              // Expediente). fromRecords deja que el boton de volver regrese
+              // exactamente a este expediente y su pestaña Consultas.
               state: { fromRecords: true, patientId: patient.id },
             })
           }

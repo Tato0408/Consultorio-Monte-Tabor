@@ -47,6 +47,10 @@ async function apiClient(path, { method = "GET", body, params, signal } = {}) {
         // puntuales (ej. código 403 para cuenta desactivada) sin depender
         // del texto exacto del mensaje.
         error.status = response.status;
+        // Adjunta el cuerpo completo de la respuesta de error para que quien
+        // llame pueda leer campos extra que manda el backend (ej. un código
+        // de error y datos de contexto), no solo el mensaje.
+        error.data = data;
         throw error;
     }
 

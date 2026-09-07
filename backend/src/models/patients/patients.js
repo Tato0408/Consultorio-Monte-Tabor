@@ -180,7 +180,8 @@ const patientSchema = new Schema({
         type: String
     },
     is_active: {
-        type: Boolean
+        type: Boolean,
+        default: true
     },
     is_verified: {
         type: Boolean

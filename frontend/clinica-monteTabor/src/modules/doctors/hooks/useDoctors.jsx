@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "@/lib/apiClient";
+import { sortByName } from "@/lib/utils";
 
 // Agrupa el estado y las funciones necesarias para gestionar doctores, de
 // forma que puedan reutilizarse en cualquier componente que use este hook.
@@ -20,7 +21,9 @@ export const useDoctors = () => {
 
       const data = await apiClient("/doctors");
 
-      setDoctors(data);
+      // La tabla de gestión de doctores se muestra ordenada alfabéticamente
+      // por el campo Nombre.
+      setDoctors(sortByName(data));
 
       // Si alguna de estas peticiones falla (por ejemplo, sin permiso), la
       // cifra correspondiente queda en 0 en vez de tumbar toda la carga.
@@ -57,7 +60,7 @@ export const useDoctors = () => {
         `/doctors/search?search=${encodeURIComponent(search)}`
       );
 
-      setDoctors(data);
+      setDoctors(sortByName(data));
     } catch (err) {
       console.error("Error al buscar doctores:", err);
       setError(err.message);
@@ -120,10 +123,13 @@ export const useDoctors = () => {
     }
   };
 
-  // Elimina un doctor por su id y refresca la lista general al terminar.
-  const deleteDoctor = async (id) => {
+  // Elimina un doctor por su id y refresca la lista general al terminar. Con
+  // { cascade: true } se pide al backend eliminar tambien todas sus citas,
+  // consultas y demas informacion relacionada (ver deleteDoctor en el
+  // backend).
+  const deleteDoctor = async (id, { cascade = false } = {}) => {
     try {
-      const data = await apiClient(`/doctors/${id}`, {
+      const data = await apiClient(`/doctors/${id}${cascade ? "?cascade=true" : ""}`, {
         method: "DELETE",
       });
 

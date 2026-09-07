@@ -42,6 +42,16 @@ authController.getCurrentUser = async (req, res) => {
             return res.status(404).json({ message: "Usuario no encontrado" });
         }
 
+        // Una cuenta desactivada despues de iniciar sesion pierde la sesion en
+        // la siguiente revalidacion: se responde 401 para que el frontend la
+        // cierre, igual que hace el login al rechazar el acceso inicial. El
+        // admin queda fuera: es el unico rol que no se puede desactivar.
+        if (userType !== "admin" && userFound.is_active === false) {
+            return res.status(401).json({
+                message: "Su cuenta ha sido desactivada. Si cree que esto es un error, comuníquese con el administrador.",
+            });
+        }
+
         // Arma la respuesta con los campos que necesita el frontend.
         return res.status(200).json({
             userType,

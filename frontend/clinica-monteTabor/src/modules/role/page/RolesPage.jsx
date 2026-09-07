@@ -379,7 +379,7 @@ const RolesPage = () => {
                 onModuleChange={handleModuleChange}
                 accentSolidClass={ROLE_COLOR_TOKENS[selectedRole.color].solidBg}
                 readOnly={selectedRole.locked || isSaving}
-                defaultOpen={section.section === "Calendario"}
+                defaultOpen={false}
                 roleKey={selectedRole.key}
               />
             ))}

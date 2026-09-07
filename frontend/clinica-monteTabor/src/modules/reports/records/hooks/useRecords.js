@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import apiClient from "../../../../lib/apiClient";
+import { sortByName } from "../../../../lib/utils";
 
 // Las recetas, incapacidades, referencias, laboratorios, consultas, notas
 // de evolución e impresión diagnóstica se completan aparte, en el hook
@@ -125,6 +126,7 @@ const toRecordDetail = (patient) => {
           glucosa: lastVital.glucosa_mgdl ?? "—",
           peso: lastVital.weight ? `${lastVital.weight} kg` : "—",
           altura: lastVital.height ? `${lastVital.height} m` : "—",
+          temperatura: lastVital.temperature ?? "—",
           imc: lastVital.imc ?? "—",
           imcCategoria: getImcCategoria(lastVital.imc),
           // El modelo de paciente no registra un estado general calculado, se
@@ -202,8 +204,12 @@ const useRecords = () => {
       setLoading(true);
       setError(null);
 
-      const data = await apiClient("/patients");
-      setPatients(Array.isArray(data) ? data : []);
+      // scope=active: el expediente clínico solo lista pacientes activos. Un
+      // paciente inactivo solo sigue visible en la gestión de usuarios.
+      const data = await apiClient("/patients", { params: { scope: "active" } });
+      // El listado del expediente clínico se muestra ordenado alfabéticamente
+      // por el campo Nombre.
+      setPatients(sortByName(data));
     } catch (err) {
       setError(err.message || "Error al cargar los expedientes de pacientes");
     } finally {

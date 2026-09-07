@@ -23,6 +23,7 @@ import { openPdfInNewTab } from "../pdf/openPdfInNewTab";
 import { showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
 import apiClient from "@/lib/apiClient";
+import { useAuth } from "@/context/AuthContext";
 
 // Borrador de la consulta en curso, guardado en sessionStorage al salir a
 // "Generar orden de laboratorio" para no perder lo que el doctor llevaba
@@ -53,10 +54,24 @@ const ConsultationForm = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const location = useLocation();
+    const { hasPermission } = useAuth();
 
-    // Si viene el parámetro mode=view, el formulario queda en modo de
-    // solo lectura, para solo consultar la información.
-    const readOnly = searchParams.get("mode") === "view";
+    // Esta consulta se abrió desde la pestaña Consultas del expediente de un
+    // paciente (RecordDetailPage.jsx manda fromRecords en location.state).
+    const fromRecords = !!location.state?.fromRecords;
+
+    // Registrar una consulta nueva exige "crear" en Consultas (y también en
+    // Expediente si se abrió desde ahí). Editar una consulta ya registrada
+    // exige además "actualizar" en los mismos módulos. El botón de la lista
+    // siempre dice "Ver" para una consulta ya registrada: que además se pueda
+    // editar depende de estos permisos, no del botón.
+    const canCreateConsult = hasPermission("calendar.consultations", "create");
+    const canUpdateConsult = hasPermission("calendar.consultations", "update");
+    const canCreateRecords = hasPermission("reports.records", "create");
+    const canUpdateRecords = hasPermission("reports.records", "update");
+    const canRegisterConsultation = canCreateConsult && (!fromRecords || canCreateRecords);
+    const canEditExistingConsultation =
+        canRegisterConsultation && canUpdateConsult && (!fromRecords || canUpdateRecords);
 
     // Esta pantalla se abre desde dos lugares distintos: el listado de
     // Consultas (por defecto) o la pestaña Consultas del expediente de un
@@ -76,6 +91,14 @@ const ConsultationForm = () => {
 
     const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord } =
         useConsultation(appointmentId);
+
+    // El formulario queda en solo lectura si se pidió explícitamente
+    // (mode=view), o si el rol no puede registrar la consulta (cuando es
+    // nueva) ni editarla (cuando ya existe). En solo lectura, el botón de
+    // guardar pasa a ser un "Finalizar" que solo cierra el formulario.
+    const forcedView = searchParams.get("mode") === "view";
+    const readOnly = forcedView
+        || (hasExistingRecord ? !canEditExistingConsultation : !canRegisterConsultation);
 
     // Refleja al instante lo que se guarda en BloodTypeCard sin
     // depender de recargar toda la cita. PatientHeader (solo lectura)
@@ -448,6 +471,7 @@ const ConsultationForm = () => {
                             readOnly={readOnly}
                             isSaving={isSaving}
                             onFinish={methods.handleSubmit(onSubmit)}
+                            onClose={goBack}
                             onPreview={handlePreview}
                             onGenerateIncapacidad={handleOpenIncapacidad}
                             onGenerateReceta={handleGenerateReceta}

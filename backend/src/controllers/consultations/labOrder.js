@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import labOrdersModel from "../../models/consultations/labOrder.js";
+import { isPatientInactive } from "../../utils/activeScope.js";
 
 const labOrderController = {};
 
@@ -51,6 +52,11 @@ labOrderController.list = async (req, res) => {
     try {
         const { patient_id } = req.query;
         if (!patient_id || !mongoose.Types.ObjectId.isValid(patient_id)) {
+            return res.status(200).json([]);
+        }
+
+        // Un paciente inactivo no muestra sus ordenes de laboratorio.
+        if (await isPatientInactive(patient_id)) {
             return res.status(200).json([]);
         }
 

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import consultationModel from "../../models/consultations/consultation.js";
+import { getInactivePatientIds } from "../../utils/activeScope.js";
 
 const doctorDashboardController = {};
 
@@ -111,8 +112,14 @@ doctorDashboardController.getTodayAppointments = async (req, res) => {
         const doctorId = new mongoose.Types.ObjectId(req.user.id);
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+        // Las citas de pacientes inactivos no aparecen en la agenda del doctor.
+        const inactivePatientIds = await getInactivePatientIds();
         const appointments = await appointmentsModel
-            .find({ doctor_id: doctorId, date: { $gte: today, $lt: tomorrow } })
+            .find({
+                doctor_id: doctorId,
+                date: { $gte: today, $lt: tomorrow },
+                ...(inactivePatientIds.length ? { patient_id: { $nin: inactivePatientIds } } : {}),
+            })
             .populate("patient_id", "name last_name img_url")
             .sort({ start_time: 1 }).lean();
         res.status(200).json(appointments.map((a) => ({
@@ -131,8 +138,13 @@ doctorDashboardController.getTodayAppointments = async (req, res) => {
 doctorDashboardController.getConsultationsAndRecords = async (req, res) => {
     try {
         const doctorId = new mongoose.Types.ObjectId(req.user.id);
+        // Consultas recientes y expedientes: se omiten los pacientes inactivos.
+        const inactivePatientIds = await getInactivePatientIds();
         const last20 = await appointmentsModel
-            .find({ doctor_id: doctorId })
+            .find({
+                doctor_id: doctorId,
+                ...(inactivePatientIds.length ? { patient_id: { $nin: inactivePatientIds } } : {}),
+            })
             .populate("patient_id", "name last_name img_url")
             .sort({ date: -1 }).limit(20).lean();
 

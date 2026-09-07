@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "../../../lib/apiClient";
-import { confirmDelete, showSuccess, showError } from "../../../lib/alerts";
+import { confirmDelete, confirmCascadeDelete, showSuccess, showError } from "../../../lib/alerts";
+import { sortByName } from "../../../lib/utils";
 
 const usePatients = () => {
   const [patients, setPatients] = useState([]);
@@ -13,7 +14,9 @@ const usePatients = () => {
       setLoading(true);
       setError(null);
       const data = await apiClient("/patients");
-      setPatients(Array.isArray(data) ? data : []);
+      // La tabla de gestión de pacientes se muestra ordenada alfabéticamente
+      // por el campo Nombre.
+      setPatients(sortByName(data));
     } catch (err) {
       setError(err.message || "Error al cargar los pacientes");
     } finally {
@@ -45,6 +48,10 @@ const usePatients = () => {
     }
   }, [fetchPatients]);
 
+  // Al confirmar el borrado se llama al backend sin cascade. Si el paciente
+  // tiene citas o consultas, el backend responde 409 con el conteo: se pide
+  // una segunda confirmacion reforzada y, si se acepta, se reintenta con
+  // ?cascade=true para eliminar tambien todo lo relacionado.
   const deletePatient = useCallback(async (patient) => {
     const confirmed = await confirmDelete({
       title: "¿Eliminar paciente?",
@@ -53,16 +60,32 @@ const usePatients = () => {
 
     if (!confirmed) return;
 
+    const removeFromState = async () => {
+      setSelectedPatient((prev) => (prev?._id === patient._id ? null : prev));
+      await fetchPatients();
+      showSuccess("El paciente fue eliminado correctamente.");
+    };
+
     try {
       setError(null);
       await apiClient(`/patients/${patient._id}`, { method: "DELETE" });
-
-      setSelectedPatient((prev) => (prev?._id === patient._id ? null : prev));
-
-      await fetchPatients();
-
-      showSuccess("El paciente fue eliminado correctamente.");
+      await removeFromState();
     } catch (err) {
+      if (err.status === 409 && err.data?.code === "HAS_RELATED_RECORDS") {
+        const cascadeConfirmed = await confirmCascadeDelete({
+          subject: "paciente",
+          name: `${patient.name} ${patient.last_name}`,
+          related: err.data.related,
+        });
+        if (!cascadeConfirmed) return;
+        try {
+          await apiClient(`/patients/${patient._id}?cascade=true`, { method: "DELETE" });
+          await removeFromState();
+        } catch (cascadeErr) {
+          showError(cascadeErr.message || "No se pudo eliminar el paciente.");
+        }
+        return;
+      }
       showError(err.message || "No se pudo eliminar el paciente.");
     }
   }, [fetchPatients]);
