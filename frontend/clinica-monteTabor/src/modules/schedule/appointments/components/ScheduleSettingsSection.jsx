@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import CollapsibleCard from "@/components/ui/CollapsibleCard";
+import ScheduleCard from "./ScheduleCard";
 
 const DEFAULT_BUFFER_OPTIONS  = [0, 5, 10, 15, 20, 30];
 
@@ -30,22 +30,35 @@ const ScheduleSettingsSection = ({
     };
 
     return (
-        <CollapsibleCard
-            title="4. Configuración de agenda"
-            subtitle="Ajusta cuanto será el tiempo entre citas y si permites citas fuera de tu horario."
-            defaultOpen={false}
+        <ScheduleCard
+            number={4}
+            title="Cómo se agenda"
+            subtitle="El tiempo libre que dejas entre una cita y la siguiente, y si aceptas solicitudes fuera de tu horario."
         >
             <div className="flex flex-col gap-5">
                 {/* Tiempo entre citas */}
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-slate-600">Tiempo entre citas</label>
-                    <select
-                        value={bufferTime}
-                        onChange={e => onChange("buffer_time", Number(e.target.value))}
-                        className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    >
-                        {options.map(v => <option key={v} value={v}>{v === 0 ? "Sin tiempo de espera" : `${v} minutos`}</option>)}
-                    </select>
+                <div className="flex flex-col gap-2">
+                    <label className="text-xs font-medium text-slate-600">Tiempo libre entre citas</label>
+                    <div className="flex flex-wrap gap-1.5">
+                        {options.map(v => {
+                            const active = v === bufferTime;
+                            return (
+                                <button
+                                    key={v}
+                                    type="button"
+                                    onClick={() => onChange("buffer_time", v)}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
+                                    style={
+                                        active
+                                            ? { background: "#ADD7F6", color: "#0f3a63", borderColor: "#ADD7F6" }
+                                            : { background: "#fff", color: "#475569", borderColor: "#e2e8f0" }
+                                    }
+                                >
+                                    {v === 0 ? "Sin espera" : `${v} min`}
+                                </button>
+                            );
+                        })}
+                    </div>
 
                     {/* Agrega un tiempo propio a la lista de opciones, se selecciona
                         automáticamente. */}
@@ -59,13 +72,14 @@ const ScheduleSettingsSection = ({
                                 value={newBuffer}
                                 onChange={e => setNewBuffer(e.target.value.replace(/[^0-9]/g, ""))}
                                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addBufferOption(); } }}
-                                className="w-36 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                className="w-36 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#ADD7F6]"
                             />
                             <button
                                 type="button"
                                 onClick={addBufferOption}
                                 disabled={!newBuffer}
-                                className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="flex items-center gap-1 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                                style={{ color: "#2E6DA4" }}
                             >
                                 <Plus className="w-3.5 h-3.5" /> Agregar
                             </button>
@@ -89,13 +103,14 @@ const ScheduleSettingsSection = ({
                     <button
                         type="button"
                         onClick={() => onChange("allow_outside_hours", !allowOutsideHours)}
-                        className={`w-10 h-6 rounded-full flex-shrink-0 transition-colors relative mt-0.5 ${allowOutsideHours ? "bg-blue-500" : "bg-slate-200"}`}
+                        className="w-10 h-6 rounded-full flex-shrink-0 transition-colors relative mt-0.5"
+                        style={{ background: allowOutsideHours ? "#ADD7F6" : "#e2e8f0" }}
                     >
                         <span className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${allowOutsideHours ? "translate-x-4" : "translate-x-0"}`} />
                     </button>
                 </div>
             </div>
-        </CollapsibleCard>
+        </ScheduleCard>
     );
 };
 

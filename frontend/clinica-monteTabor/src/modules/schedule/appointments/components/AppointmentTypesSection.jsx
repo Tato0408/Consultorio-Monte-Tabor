@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 import InputField from "@/components/ui/InputField";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import CollapsibleCard from "@/components/ui/CollapsibleCard";
+import ScheduleCard from "./ScheduleCard";
 import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import { showError } from "@/lib/alerts";
 import { maskLettersOnly } from "@/lib/inputMasks";
@@ -85,17 +85,17 @@ const AppointmentTypesSection = ({ editing }) => {
     };
 
     return (
-        <CollapsibleCard
+        <ScheduleCard
             title="Tipos de citas"
             subtitle="Catálogo global: define el color de cada tipo de cita. Se usa en la leyenda del calendario y al agendar una cita."
-            defaultOpen={false}
             actions={
                 editing && (
                     <button
                         onClick={startNew}
                         disabled={rowEditing !== null}
                         title={rowEditing !== null ? "Guarda o cancela el tipo que estás editando antes de agregar otro" : undefined}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 whitespace-nowrap flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-[#eaf4fd] whitespace-nowrap flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                        style={{ borderColor: "#cfe4f7", color: "#2E6DA4" }}
                     >
                         <Plus className="w-3.5 h-3.5" /> Agregar tipo
                     </button>
@@ -137,7 +137,7 @@ const AppointmentTypesSection = ({ editing }) => {
                                                 <button
                                                     onClick={() => startEdit(i)}
                                                     disabled={rowEditing !== null}
-                                                    className="p-1 text-slate-400 hover:text-blue-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-400"
+                                                    className="p-1 text-slate-400 hover:text-[#2E6DA4] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-400"
                                                 >
                                                     <Pencil className="w-3.5 h-3.5" />
                                                 </button>
@@ -155,7 +155,7 @@ const AppointmentTypesSection = ({ editing }) => {
                             ))}
 
                             {rowEditing !== null && (
-                                <tr className="border-b border-blue-100 bg-blue-50/40">
+                                <tr className="border-b" style={{ background: "#f4f9fe", borderColor: "#cfe4f7" }}>
                                     <td className="py-2.5 pr-2" colSpan={2}>
                                         <div className="flex items-center gap-2">
                                             {/* Círculos de color en vez de texto con el código hexadecimal. */}
@@ -211,7 +211,7 @@ const AppointmentTypesSection = ({ editing }) => {
             {!loading && types.length === 0 && rowEditing === null && (
                 <p className="text-center text-xs text-slate-400 py-4">Aún no has agregado tipos de cita</p>
             )}
-        </CollapsibleCard>
+        </ScheduleCard>
     );
 };
 
