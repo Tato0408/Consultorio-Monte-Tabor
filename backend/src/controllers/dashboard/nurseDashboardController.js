@@ -4,6 +4,7 @@ import nursesModel from "../../models/nurses/nurses.js";
 import scheduleModel from "../../models/schedule/schedule.js";
 import nurseScheduleModel from "../../models/schedule/nurseSchedule.js";
 import { buildProviderAgenda } from "../../services/agendaService.js";
+import { buildActivePartiesAppointmentFilter } from "../../utils/activeScope.js";
 
 const nurseDashboardController = {};
 
@@ -45,6 +46,10 @@ nurseDashboardController.getStats = async (req, res) => {
             return { dayStart, dayEnd };
         });
 
+        // Las citas de pacientes o doctores inactivos no cuentan en la agenda
+        // ni en los recortes operativos del dashboard.
+        const activePartiesFilter = await buildActivePartiesAppointmentFilter();
+
         const [
             todayAppointments,
             activeDoctors,
@@ -53,13 +58,13 @@ nurseDashboardController.getStats = async (req, res) => {
             apptSparkline,
             attendedSparkline,
         ] = await Promise.all([
-            appointmentsModel.find({ date: { $gte: today, $lt: tomorrow } })
+            appointmentsModel.find({ ...activePartiesFilter, date: { $gte: today, $lt: tomorrow } })
                 .populate("doctor_id", "name last_name")
                 .populate("patient_id", "name last_name createdAt")
                 .sort({ start_time: 1 })
                 .lean(),
             doctorsModel.find({ is_active: true }, "_id").lean(),
-            appointmentsModel.find({ date: { $gte: today, $lt: tomorrow }, status: COMPLETED })
+            appointmentsModel.find({ ...activePartiesFilter, date: { $gte: today, $lt: tomorrow }, status: COMPLETED })
                 .populate("patient_id", "name last_name createdAt")
                 .lean(),
             appointmentsModel.countDocuments({ date: { $gte: yesterday, $lt: today }, status: COMPLETED }),
@@ -148,7 +153,7 @@ nurseDashboardController.getDoctorsAgenda = async (req, res) => {
         const [doctors, schedules, appointments] = await Promise.all([
             doctorsModel.find({ is_active: true }, "name last_name img_url specialty").lean(),
             scheduleModel.find({}).lean(),
-            appointmentsModel.find({ date: { $gte: start, $lte: end }, status: { $ne: CANCELLED } })
+            appointmentsModel.find({ ...(await buildActivePartiesAppointmentFilter()), date: { $gte: start, $lte: end }, status: { $ne: CANCELLED } })
                 .populate("patient_id", "name last_name")
                 .lean(),
         ]);
@@ -177,7 +182,7 @@ nurseDashboardController.getNursesAgenda = async (req, res) => {
         const [nurses, schedules, appointments] = await Promise.all([
             nursesModel.find({ is_active: true }, "name last_name img_url").lean(),
             nurseScheduleModel.find({}).lean(),
-            appointmentsModel.find({ date: { $gte: start, $lte: end }, status: { $ne: CANCELLED } })
+            appointmentsModel.find({ ...(await buildActivePartiesAppointmentFilter()), date: { $gte: start, $lte: end }, status: { $ne: CANCELLED } })
                 .populate("patient_id", "name last_name")
                 .lean(),
         ]);
@@ -199,6 +204,7 @@ nurseDashboardController.getUpcomingAppointments = async (req, res) => {
         const currentTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
         const appointments = await appointmentsModel.find({
+            ...(await buildActivePartiesAppointmentFilter()),
             date: { $gte: today, $lt: tomorrow },
             status: { $in: [PENDING, CONFIRMED] },
             start_time: { $gte: currentTime },
@@ -231,6 +237,7 @@ nurseDashboardController.getPendingConfirmations = async (req, res) => {
         const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
 
         const appointments = await appointmentsModel.find({
+            ...(await buildActivePartiesAppointmentFilter()),
             date: { $gte: today, $lt: tomorrow },
             status: { $in: [PENDING, CONFIRMED] },
         })

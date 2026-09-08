@@ -2,9 +2,14 @@ import { WebSocketServer } from "ws";
 import jsonwebToken from "jsonwebtoken";
 import { config } from "../../config.js";
 
-// Ruta del WebSocket de tiempo real. Solo se usa para avisar al panel
-// privado que los permisos de un rol cambiaron, para que recargue y tome
-// la matriz nueva sin tener que esperar a toparse con un 403.
+// Canal WebSocket de tiempo real del panel privado. Atiende dos usos sobre
+// la misma conexion autenticada por cookie de sesion:
+//   1) Avisar a quien tiene un rol con sesion abierta que sus permisos
+//      cambiaron, para que recargue y tome la matriz nueva sin esperar a un
+//      403 (broadcastRoleUpdate).
+//   2) Empujar a cada usuario sus notificaciones nuevas apenas se crean,
+//      para que la campana se actualice sin recargar la pagina
+//      (broadcastNotification).
 const WS_PATH = "/ws/roles";
 
 // Milisegundos entre cada ping de mantenimiento. Render (y varios proxys)
@@ -100,4 +105,33 @@ export function broadcastRoleUpdate(roleKey) {
             ws.send(payload);
         }
     }
+}
+
+// Envía un mensaje arbitrario a todas las conexiones abiertas de un usuario
+// puntual (mismo rol y mismo id de sesión). Nunca lanza: si no hay servidor
+// o el envío falla, se ignora.
+export function broadcastToUser(role, userId, message) {
+    if (!wss) return;
+    const targetId = String(userId);
+    const payload = JSON.stringify(message);
+    for (const ws of wss.clients) {
+        if (ws.readyState === ws.OPEN && ws.roleKey === role && String(ws.userId) === targetId) {
+            try {
+                ws.send(payload);
+            } catch {
+                // El envío a un socket puntual no debe cortar el broadcast al resto.
+            }
+        }
+    }
+}
+
+// Empuja una notificación recién creada a la campana del panel de su
+// destinatario en tiempo real. El frontend la agrega a la lista sin recargar
+// (ver useNotifications y el manejador del WebSocket en AuthContext).
+export function broadcastNotification(notification) {
+    if (!notification?.recipient_role || !notification?.recipient_id) return;
+    broadcastToUser(notification.recipient_role, notification.recipient_id, {
+        type: "notification",
+        notification,
+    });
 }

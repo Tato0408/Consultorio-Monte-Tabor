@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, X, CalendarDays, Tag, FileText, Clock3 } from "lucide-react";
 import InputField from "@/components/ui/InputField";
-import CollapsibleCard from "@/components/ui/CollapsibleCard";
+import ScheduleCard from "./ScheduleCard";
 
 // Fecha de hoy en formato YYYY-MM-DD (hora local). Ni la fecha de
 // inicio ni la de fin de una excepción pueden quedar en el pasado.
@@ -109,9 +109,9 @@ const ExceptionModal = ({ form, setForm, errors, setErrors, onSave, onClose, isE
                 <div className="flex items-center justify-between mb-5">
                     <div>
                         <h2 className="text-base font-bold text-slate-900">
-                            {isEditing ? "Editar excepción" : "Nueva excepción"}
+                            {isEditing ? "Editar día especial" : "Nuevo día especial"}
                         </h2>
-                        <p className="text-xs text-slate-400 mt-0.5">Día especial, vacaciones o cambio en tu horario habitual.</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Feriado, vacaciones o cambio en tu horario habitual.</p>
                     </div>
                     <button
                         type="button"
@@ -157,7 +157,7 @@ const ExceptionModal = ({ form, setForm, errors, setErrors, onSave, onClose, isE
                         <select
                             value={form.type}
                             onChange={(e) => setField("type")(e.target.value)}
-                            className="px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 outline-none focus:border-[#3B6FCA] focus:ring-2 focus:ring-[#3B6FCA]/20 transition-all duration-200"
+                            className="px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 outline-none focus:border-[#ADD7F6] focus:ring-2 focus:ring-[#ADD7F6]/30 transition-all duration-200"
                         >
                             {Object.entries(TYPE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                         </select>
@@ -192,11 +192,12 @@ const ExceptionModal = ({ form, setForm, errors, setErrors, onSave, onClose, isE
                                     key={l}
                                     type="button"
                                     onClick={() => setField("allDay")(v)}
-                                    className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                                    className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
+                                    style={
                                         form.allDay === v
-                                            ? "bg-blue-600 text-white border-blue-600"
-                                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                                    }`}
+                                            ? { background: "#ADD7F6", color: "#0f3a63", borderColor: "#ADD7F6" }
+                                            : { background: "#fff", color: "#475569", borderColor: "#e2e8f0" }
+                                    }
                                 >
                                     {l}
                                 </button>
@@ -234,7 +235,8 @@ const ExceptionModal = ({ form, setForm, errors, setErrors, onSave, onClose, isE
                     <button
                         type="button"
                         onClick={onSave}
-                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+                        className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                        style={{ background: "#ADD7F6", color: "#0f3a63" }}
                     >
                         Guardar
                     </button>
@@ -293,17 +295,18 @@ const ExceptionsSection = ({ exceptions, onChange, editing }) => {
     const remove = (i) => onChange(exceptions.filter((_, idx) => idx !== i));
 
     return (
-        <CollapsibleCard
-            title="3. Excepciones y días no laborables"
-            subtitle="Administra las excepciones que tendrás en días especiales, tus vacaciones o cambios a tu horario habitual"
-            defaultOpen={false}
+        <ScheduleCard
+            number={3}
+            title="Días especiales"
+            subtitle="Feriados, vacaciones o días con un horario distinto al de siempre."
             actions={
                 editing && (
                     <button
                         onClick={startNew}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 whitespace-nowrap flex-shrink-0"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors hover:bg-[#eaf4fd]"
+                        style={{ borderColor: "#cfe4f7", color: "#2E6DA4" }}
                     >
-                        <Plus className="w-3.5 h-3.5" /> Agregar excepción
+                        <Plus className="w-3.5 h-3.5" /> Agregar día especial
                     </button>
                 )
             }
@@ -334,7 +337,7 @@ const ExceptionsSection = ({ exceptions, onChange, editing }) => {
                                 <td className="py-2.5">
                                     {editing && (
                                         <>
-                                            <button onClick={() => startEdit(i)} className="p-1 text-slate-400 hover:text-blue-500"><Pencil className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => startEdit(i)} className="p-1 text-slate-400 hover:text-[#2E6DA4]"><Pencil className="w-3.5 h-3.5" /></button>
                                             <button onClick={() => remove(i)} className="p-1 text-slate-400 hover:text-red-500 ml-1"><Trash2 className="w-3.5 h-3.5" /></button>
                                         </>
                                     )}
@@ -346,7 +349,7 @@ const ExceptionsSection = ({ exceptions, onChange, editing }) => {
             </div>
 
             {exceptions.length === 0 && (
-                <p className="text-center text-xs text-slate-400 py-4">Sin excepciones registradas</p>
+                <p className="text-center text-xs text-slate-400 py-4">Sin días especiales registrados</p>
             )}
 
             {rowEditing !== null && (
@@ -360,7 +363,7 @@ const ExceptionsSection = ({ exceptions, onChange, editing }) => {
                     isEditing={rowEditing !== "new"}
                 />
             )}
-        </CollapsibleCard>
+        </ScheduleCard>
     );
 };
 

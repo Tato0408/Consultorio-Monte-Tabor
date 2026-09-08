@@ -29,6 +29,7 @@ import recoveryNursePassword from "./src/routes/nurse/recoveryPasswordNurse.js"
 import recoveryPatientPassword from "./src/routes/patients/recoveryPasswordPatient.js"
 import { authenticate } from './src/middlewares/authenticateMiddleware.js';
 import { authorize } from './src/middlewares/authorizeMiddleware.js';
+import { requireActiveUser } from './src/middlewares/requireActiveUser.js';
 import registerPatientRoutes from "./src/routes/patients/registerPatients.js"
 import patientSelfRoutes from "./src/routes/patients/patientSelf.js"
 import scheduleRoutes from './src/routes/schedule/schedule.js'
@@ -119,7 +120,7 @@ app.use("/api/treatments", authenticate(), treatmentsRoutes);
 app.use("/api/schedule", authenticate(), scheduleRoutes);
 app.use("/api/nurse-schedule", authenticate(), nurseScheduleRoutes);
 app.use("/api/dashboard", authenticate(["admin"]), dashboardRoutes);
-app.use("/api/doctor-dashboard", authenticate(["doctor"]), doctorDashboardRoutes);
+app.use("/api/doctor-dashboard", authenticate(["doctor"]), requireActiveUser, doctorDashboardRoutes);
 app.use("/api/receptionist-dashboard", authenticate(["receptionist"]), receptionistDashboardRoutes);
 app.use("/api/nurse-dashboard", authenticate(["nurse"]), nurseDashboardRoutes);
 
@@ -142,7 +143,7 @@ app.use("/api/notifications", authenticate(), notificationsRoutes);
 // Portal del paciente, sitio público solo para pacientes logueados. Sus
 // endpoints propios no dependen de los permisos de staff (admin, doctor,
 // enfermera, recepcionista).
-app.use("/api/patient-portal", authenticate(["patient"]), patientPortalRoutes);
+app.use("/api/patient-portal", authenticate(["patient"]), requireActiveUser, patientPortalRoutes);
 
 // Webhook de Wompi: no lleva cookie de sesión porque lo llama Wompi, no un
 // navegador logueado. La seguridad la da la firma HMAC verificada dentro

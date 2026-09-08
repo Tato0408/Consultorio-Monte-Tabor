@@ -78,7 +78,9 @@ const resolveActorName = async (req) => {
 // tratamiento actual del paciente.
 const loadPatientWithLatestProcedure = async (patientId) => {
   const patient = await patientsModel.findById(patientId);
-  if (!patient) return { patient: null, latest: null };
+  // Un paciente inactivo se trata como inexistente para el seguimiento de
+  // tratamientos: no se listan ni se editan sus datos hasta reactivarlo.
+  if (!patient || patient.is_active === false) return { patient: null, latest: null };
 
   const procedures = patient.clinical_history?.procedures || [];
   if (!procedures.length) return { patient, latest: null };
@@ -110,7 +112,7 @@ treatmentsController.getFollowUp = async (req, res) => {
     // para no cargar todo el documento del paciente, y .lean() porque
     // esta respuesta es de solo lectura.
     const patients = await patientsModel
-      .find({ "clinical_history.procedures.0": { $exists: true } })
+      .find({ "clinical_history.procedures.0": { $exists: true }, is_active: { $ne: false } })
       .select("name last_name birth_date gender clinical_history.procedures")
       .lean();
 

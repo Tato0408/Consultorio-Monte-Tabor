@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import InputField from "@/components/ui/InputField";
-import CollapsibleCard from "@/components/ui/CollapsibleCard";
+import ScheduleCard from "./ScheduleCard";
 
 const DAYS = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 
@@ -35,17 +35,18 @@ const BreaksSection = ({ breaks, availability, onChange, editing }) => {
     };
 
     return (
-        <CollapsibleCard
-            title="2. Descansos"
-            subtitle="Agrega los horarios en los cuales descansarás durante tu jornada laboral."
-            defaultOpen={false}
+        <ScheduleCard
+            number={2}
+            title="Pausas del día"
+            subtitle="Las horas en las que no atiendes aunque sea tu jornada, como el almuerzo."
             actions={
                 editing && (
                     <button
                         onClick={startNew}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 whitespace-nowrap flex-shrink-0"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors hover:bg-[#eaf4fd]"
+                        style={{ borderColor: "#cfe4f7", color: "#2E6DA4" }}
                     >
-                        <Plus className="w-3.5 h-3.5" /> Agregar descanso
+                        <Plus className="w-3.5 h-3.5" /> Agregar pausa
                     </button>
                 )
             }
@@ -73,7 +74,7 @@ const BreaksSection = ({ breaks, availability, onChange, editing }) => {
                                     <td className="py-2.5">
                                         {editing && brk && (
                                             <div className="flex gap-1">
-                                                <button onClick={() => startEdit(brkIdx)} className="p-1 text-slate-400 hover:text-blue-500">
+                                                <button onClick={() => startEdit(brkIdx)} className="p-1 text-slate-400 hover:text-[#2E6DA4]">
                                                     <Pencil className="w-3.5 h-3.5" />
                                                 </button>
                                                 <button onClick={() => remove(brkIdx)} className="p-1 text-slate-400 hover:text-red-500">
@@ -87,10 +88,10 @@ const BreaksSection = ({ breaks, availability, onChange, editing }) => {
                         })}
 
                         {rowEditing !== null && (
-                            <tr className="bg-blue-50/40 border-b border-blue-100">
+                            <tr className="border-b" style={{ background: "#f4f9fe", borderColor: "#cfe4f7" }}>
                                 <td className="py-2.5 pr-2">
                                     <select
-                                        className="text-sm border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                        className="text-sm border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#ADD7F6]"
                                         value={form.day}
                                         onChange={e => setForm(p => ({ ...p, day: Number(e.target.value) }))}>
                                         {availableDays.map(d => <option key={d} value={d}>{DAYS[d]}</option>)}
@@ -113,7 +114,7 @@ const BreaksSection = ({ breaks, availability, onChange, editing }) => {
                     </tbody>
                 </table>
             </div>
-        </CollapsibleCard>
+        </ScheduleCard>
     );
 };
 

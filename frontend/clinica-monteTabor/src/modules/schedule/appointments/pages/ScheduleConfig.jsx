@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Save, Pencil } from "lucide-react";
+import { Save, Pencil, Info } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { useAuth } from "@/context/AuthContext";
 import useSchedule from "../hooks/useSchedule";
@@ -10,7 +10,8 @@ import WeeklyAvailabilitySection from "../components/WeeklyAvailabilitySection";
 import BreaksSection             from "../components/BreaksSection";
 import ExceptionsSection         from "../components/ExceptionsSection";
 import ScheduleSettingsSection   from "../components/ScheduleSettingsSection";
-import SchedulePreview           from "../components/SchedulePreview";
+import ScheduleStatusHero        from "../components/ScheduleStatusHero";
+import CalendarViewPanel         from "../components/CalendarViewPanel";
 
 const DAYS = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 
@@ -188,15 +189,15 @@ const ScheduleConfig = () => {
     return (
         <div className="p-4 sm:p-6 bg-slate-50 min-h-screen">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Configuración de disponibilidad</h1>
                     <p className="text-sm text-slate-400 mt-1">
                         {isNurse
-                            ? "Define tus horarios de disponibilidad y descansos."
+                            ? "Define tus horarios de disponibilidad y descansos. Sin antes definidos tus horarios, no podras recibir citas."
                             : isAdmin
-                            ? "Define tus horarios de atención, descansos y el catálogo global de tipos de cita."
-                            : "Define tus horarios de atención y descansos."}
+                            ? "Define tus horarios de atención, descansos y el catálogo global de tipos de cita. Sin antes definidos tus horarios, no podras recibir citas."
+                            : "Define tus horarios de atención y descansos. Sin antes definidos tus horarios, no podras recibir citas."}
                     </p>
                 </div>
                 {/* sm:mt-8 baja el botón (sin tocar su tamaño ni forma original)
@@ -220,7 +221,8 @@ const ScheduleConfig = () => {
                                     type="button"
                                     onClick={handleSave}
                                     disabled={saving}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-60"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60"
+                                    style={{ background: "#ADD7F6", color: "#0f3a63" }}
                                 >
                                     <Save className="w-4 h-4" />
                                     {saving ? "Guardando..." : "Guardar cambios"}
@@ -230,7 +232,8 @@ const ScheduleConfig = () => {
                             <button
                                 type="button"
                                 onClick={startEditing}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold"
+                                style={{ background: "#ADD7F6", color: "#0f3a63" }}
                             >
                                 <Pencil className="w-4 h-4" />
                                 Editar horario
@@ -240,73 +243,94 @@ const ScheduleConfig = () => {
                 </div>
             </div>
 
+            {/* Estado: responde de un vistazo a "ya me pueden agendar?". */}
+            <div className="mb-4">
+                <ScheduleStatusHero
+                    weeklyAvailability={config.weekly_availability}
+                    breaks={config.breaks}
+                    exceptions={config.exceptions}
+                    canEdit={canUpdate}
+                    onEdit={startEditing}
+                />
+            </div>
+
+            {/* Aviso de modo edición: deja claro que los cambios no se guardan
+                hasta pulsar Guardar cambios. */}
+            {editing && (
+                <div
+                    className="mb-4 flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm"
+                    style={{ background: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
+                >
+                    <Info className="w-4 h-4 flex-shrink-0" />
+                    Estás editando tu horario. Los cambios se guardan cuando pulsas &ldquo;Guardar cambios&rdquo;.
+                </div>
+            )}
+
             {error && (
                 <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
                     {error}
                 </div>
             )}
 
-            {/* Grid de secciones */}
-            {/* items-start: sin esto, CSS Grid estira cada card a la altura de
-                la más alta de su fila por defecto. Al colapsar una card,
-                quedaba con su encabezado compacto pero una caja en blanco debajo
-                hasta esa altura estirada, en vez de encogerse a solo título y
-                descripción. */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
-                {/* Catálogo global de tipos de cita, exclusivo de admin (ver
-                    comentario en isAdmin más arriba). Autocontenido: no depende del
-                    botón Guardar cambios de esta página, cada acción persiste de
-                    inmediato contra su propio endpoint, por eso queda fuera del
-                    fieldset de modo edición de abajo (no tiene nada que descartar).
-                    Aun así, sus botones de agregar, editar y eliminar solo existen
-                    si editing es true (se pasa directo, ver
-                    AppointmentTypesSection.jsx), para que la interfaz completa se
-                    sienta consistente. Son los mismos tipos que aparecen en el
-                    selector de tipo de cita al agendar una cita (AppointmentsForm.jsx)
-                    y en la leyenda del calendario. */}
-                {isAdmin && <AppointmentTypesSection editing={editing} />}
+            {/* Layout de dos columnas: a la izquierda la configuración, a la
+                derecha la vista fija del calendario. En pantallas chicas la
+                vista queda debajo. */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-5 items-start">
+                <div className="flex flex-col gap-5">
+                    {/* Catálogo global de tipos de cita, exclusivo de admin (ver
+                        comentario en isAdmin más arriba). Autocontenido: no depende del
+                        botón Guardar cambios de esta página, cada acción persiste de
+                        inmediato contra su propio endpoint, por eso queda fuera del
+                        fieldset de modo edición de abajo (no tiene nada que descartar).
+                        Aun así, sus botones de agregar, editar y eliminar solo existen
+                        si editing es true (se pasa directo, ver
+                        AppointmentTypesSection.jsx), para que la interfaz completa se
+                        sienta consistente. */}
+                    {isAdmin && <AppointmentTypesSection editing={editing} />}
 
-                {/* fieldset con display:contents. Desactiva los inputs, selects y
-                    toggles que contienen estas secciones de un solo golpe, tanto
-                    mientras se guarda como mientras la página está en modo de solo
-                    lectura (antes de presionar Editar horario), sin alterar el
-                    layout de grid. No hace falta estar dentro de un <form> para que
-                    funcione. Los botones de agregar, editar y eliminar de cada
-                    sección además reciben editing directamente y desaparecen por
-                    completo (no solo se deshabilitan) cuando no se está editando.
-                    Los despliegues de CollapsibleCard, por día, siguen funcionando
-                    igual estando disabled: son <div role="button">, no <button>,
-                    así que el fieldset no los toca (ver CollapsibleCard.jsx). */}
-                <fieldset disabled={saving || !editing} className="contents">
-                    <WeeklyAvailabilitySection
-                        availability={config.weekly_availability}
-                        onChange={v => patch("weekly_availability", v)}
-                        editing={editing}
-                    />
-                    <BreaksSection
-                        breaks={config.breaks}
-                        availability={config.weekly_availability}
-                        onChange={v => patch("breaks", v)}
-                        editing={editing}
-                    />
-                    <ExceptionsSection
-                        exceptions={config.exceptions}
-                        onChange={v => patch("exceptions", v)}
-                        editing={editing}
-                    />
-                    <ScheduleSettingsSection
-                        bufferTime={config.buffer_time}
-                        bufferOptions={config.buffer_time_options}
-                        allowOutsideHours={config.allow_outside_hours}
-                        onChange={(key, val) => patch(key, val)}
-                        editing={editing}
-                    />
-                </fieldset>
+                    {/* fieldset con display:contents. Desactiva los inputs, selects y
+                        toggles que contienen estas secciones de un solo golpe, tanto
+                        mientras se guarda como mientras la página está en modo de solo
+                        lectura (antes de presionar Editar horario), sin alterar el
+                        layout. No hace falta estar dentro de un <form> para que
+                        funcione. Los botones de agregar, editar y eliminar de cada
+                        sección además reciben editing directamente y desaparecen por
+                        completo (no solo se deshabilitan) cuando no se está editando.
+                        Las pestañas de cada sección son <div role="button">, no
+                        <button>, así que el fieldset no las toca y siguen alternando
+                        la vista estando en solo lectura. */}
+                    <fieldset disabled={saving || !editing} className="contents">
+                        <WeeklyAvailabilitySection
+                            availability={config.weekly_availability}
+                            onChange={v => patch("weekly_availability", v)}
+                            breaks={config.breaks}
+                            onBreaksChange={v => patch("breaks", v)}
+                            editing={editing}
+                        />
+                        <BreaksSection
+                            breaks={config.breaks}
+                            availability={config.weekly_availability}
+                            onChange={v => patch("breaks", v)}
+                            editing={editing}
+                        />
+                        <ExceptionsSection
+                            exceptions={config.exceptions}
+                            onChange={v => patch("exceptions", v)}
+                            editing={editing}
+                        />
+                        <ScheduleSettingsSection
+                            bufferTime={config.buffer_time}
+                            bufferOptions={config.buffer_time_options}
+                            allowOutsideHours={config.allow_outside_hours}
+                            onChange={(key, val) => patch(key, val)}
+                            editing={editing}
+                        />
+                    </fieldset>
+                </div>
 
-                {/* Vista previa: de solo lectura (no cambia config), fuera del
-                    fieldset para que el botón de vista previa siga funcionando en
-                    modo de solo lectura. */}
-                <SchedulePreview
+                {/* Vista de tu calendario: de solo lectura (no cambia config), se
+                    dibuja sola con lo que se configura a la izquierda. */}
+                <CalendarViewPanel
                     availability={config.weekly_availability}
                     breaks={config.breaks}
                     bufferTime={config.buffer_time}

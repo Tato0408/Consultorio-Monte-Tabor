@@ -63,7 +63,6 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
         const requiresDoctor = !appt.procedure_id || appt.procedure_id.requires_doctor !== false;
         return canAttend && !requiresDoctor;
     };
-    const canEdit = hasPermission("calendar.consultations", "update");
     const canDelete = hasPermission("calendar.consultations", "delete");
     // Evita doble clic mientras se resuelve la auto-asignación de una
     // consulta sin médico (ver más abajo), por fila para no bloquear
@@ -234,14 +233,10 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                     {appt.status === "completed" ? (
                                         <>
                                             <button
-                                                onClick={() =>
-                                                    navigate(
-                                                        `/calendar/consultations/${appt._id}${canEdit ? "" : "?mode=view"}`
-                                                    )
-                                                }
+                                                onClick={() => navigate(`/calendar/consultations/${appt._id}`)}
                                                 className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
                                             >
-                                                {canEdit ? "Editar" : "Ver registro"}
+                                                Ver
                                             </button>
                                             {canDelete && (
                                                 <button

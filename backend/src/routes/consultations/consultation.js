@@ -1,6 +1,6 @@
 import express from "express"
 import consultationController from "../../controllers/consultations/consultation.js"
-import { authorize } from "../../middlewares/authorizeMiddleware.js"
+import { authorize, authorizeAll } from "../../middlewares/authorizeMiddleware.js"
 
 const router = express.Router();
 
@@ -12,7 +12,10 @@ router.route("/")
     .post(authorize("calendar.consultations", "create"), consultationController.insertConsultation);
 
 router.route("/:id")
-    .put(authorize("calendar.consultations", "update"), consultationController.updateConsultation)
+    // Editar una consulta ya registrada exige poder crear y actualizar en el
+    // modulo de consultas (misma regla que el boton "Finalizar y guardar" del
+    // formulario, que solo funciona con ambos permisos).
+    .put(authorizeAll(["calendar.consultations", "create"], ["calendar.consultations", "update"]), consultationController.updateConsultation)
     .delete(authorize("calendar.consultations", "delete"), consultationController.deleteConsultation)
     .get(authorize("calendar.consultations", "view"), consultationController.getConsultationById);
 

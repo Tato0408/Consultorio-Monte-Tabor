@@ -4,12 +4,12 @@ import adminModel from "../../models/admin/admins.js";
 import patientsModel from "../../models/patients/patients.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import proceduresModel from "../../models/procedures/procedures.js";
-import consultationsModel from "../../models/consultations/consultation.js";
 import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js";
 import { sendEmail } from "../../utils/sendMailMailjet.js";
 import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js";
+import { countDoctorRelatedRecords, deleteDoctorCascade } from "../../utils/cascadeDelete.js";
 
 //array de funciones, aqui agregamos las funciones y
 //al final del archivo este objeto lo exportaremos
@@ -119,7 +119,9 @@ doctorController.getDoctorsCatalog = async (req, res) => {
       )
     );
 
-    const doctors = await doctorsModel.find().select("-password");
+    // Solo doctores activos: un doctor inactivo no puede recibir citas nuevas
+    // ni aparecer como opcion al agendar o asignar.
+    const doctors = await doctorsModel.find({ is_active: true }).select("-password");
     return res.status(200).json(doctors);
   } catch (error) {
     console.log("error " + error);
@@ -467,18 +469,29 @@ doctorController.deleteDoctor = async (req, res) => {
       });
     }
 
-    // No se permite eliminar un doctor con citas o consultas relacionadas: doctor_id es una
-    // referencia obligatoria en esos registros, así que borrarlo de todos modos los dejaría
-    // apuntando a un doctor fantasma (Citas, Consultas y Reportes podrían fallar o mostrar el
-    // campo en blanco al intentar leerlo). Se revisa ANTES de tocar Cloudinary, para no borrar
-    // las fotos del doctor si al final la eliminación no procede.
-    const [hasAppointments, hasConsultations] = await Promise.all([
-      appointmentsModel.exists({ doctor_id: req.params.id }),
-      consultationsModel.exists({ "procedure.doctor_id": req.params.id }),
-    ]);
-    if (hasAppointments || hasConsultations) {
-      return res.status(400).json({
-        message: "Este doctor tiene citas o consultas relacionadas, por eso no se puede eliminar. Si ya no debe seguir activo, márcalo como inactivo en su lugar.",
+    // Con citas o consultas relacionadas el borrado es en dos pasos: la
+    // primera llamada responde 409 con el conteo de registros relacionados
+    // para que la gestion de usuarios muestre una confirmacion, y la
+    // segunda, con ?cascade=true, elimina al doctor junto con todo lo que
+    // depende de el (citas, consultas y sus documentos derivados, horario y
+    // notificaciones). Se revisa ANTES de tocar Cloudinary.
+    const related = await countDoctorRelatedRecords(req.params.id);
+    const hasRelated = related.appointments > 0 || related.consultations > 0;
+
+    if (hasRelated && req.query.cascade !== "true") {
+      return res.status(409).json({
+        message: "Este doctor tiene citas o consultas relacionadas.",
+        code: "HAS_RELATED_RECORDS",
+        related,
+      });
+    }
+
+    if (hasRelated) {
+      // deleteDoctorCascade se encarga tambien de borrar sus imagenes en
+      // Cloudinary.
+      await deleteDoctorCascade(req.params.id);
+      return res.status(200).json({
+        message: "Doctor y toda su información relacionada eliminados",
       });
     }
 

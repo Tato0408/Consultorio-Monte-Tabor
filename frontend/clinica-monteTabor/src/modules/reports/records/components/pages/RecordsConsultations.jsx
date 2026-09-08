@@ -20,7 +20,6 @@ const ConsultasDelDia = ({
   onVerRegistro,
   onEliminar,
   canAttend = false,
-  canEdit = false,
   canDelete = false,
 }) => {
   const consultas = patient.consultas ?? [];
@@ -175,7 +174,7 @@ const ConsultasDelDia = ({
                           onClick={() => onVerRegistro?.(c)}
                           className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-1.5 rounded-lg"
                         >
-                          {canEdit ? "Editar" : "Ver registro"}
+                          Ver
                         </button>
                       ) : canAttend ? (
                         <button

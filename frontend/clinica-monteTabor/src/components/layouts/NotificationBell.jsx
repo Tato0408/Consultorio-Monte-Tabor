@@ -27,8 +27,9 @@ const notificationIcon = (type) => {
     return <CalendarClock className="w-4 h-4" />;
 };
 
-// Campana de notificaciones del header. No hay push en tiempo real:
-// useNotifications refresca con un poll periódico.
+// Campana de notificaciones del header. useNotifications recibe las
+// notificaciones nuevas en tiempo real por WebSocket y mantiene un poll de
+// respaldo por si el socket se cae.
 export default function NotificationBell() {
     const [open, setOpen] = useState(false);
     const navigate = useNavigate();

@@ -1,7 +1,8 @@
-// Barra de acciones de la derecha. En modo de solo lectura (readOnly)
-// solo se muestra el botón de vista previa e impresión.
+// Barra de acciones de la derecha. En modo de solo lectura (readOnly) se
+// ocultan las acciones de escritura y el botón inferior pasa a ser
+// "Finalizar", que solo cierra el formulario (onClose) sin guardar nada.
 
-const ConsultationActions = ({ readOnly, isSaving, onFinish, onPreview, onGenerateIncapacidad, onGenerateLabOrder, onGenerateReceta }) => {
+const ConsultationActions = ({ readOnly, isSaving, onFinish, onClose, onPreview, onGenerateIncapacidad, onGenerateLabOrder, onGenerateReceta }) => {
     return (
         <div className="bg-white border border-slate-100 rounded-xl p-4 space-y-2">
             {!readOnly && (
@@ -44,7 +45,17 @@ const ConsultationActions = ({ readOnly, isSaving, onFinish, onPreview, onGenera
                 Vista previa e imprimir
             </button>
 
-            {!readOnly && (
+            {readOnly ? (
+                // Solo lectura: no guarda, solo cierra el formulario y vuelve a
+                // la lista de la que se abrió (consultas o expediente).
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full bg-[#0b66d6] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#0a59ba]"
+                >
+                    Finalizar
+                </button>
+            ) : (
                 // type="submit" porque dispara el handleSubmit del <form> padre
                 <button
                     type="submit"

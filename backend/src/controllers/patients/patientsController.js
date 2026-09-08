@@ -1,20 +1,38 @@
 import patientsModel from "../../models/patients/patients.js";
-import appointmentsModel from "../../models/appointments/appointments.js";
-import consultationsModel from "../../models/consultations/consultation.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import inventoryController from "../inventory/inventoryController.js";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, getVitalSignsError } from "../../utils/validators.js";
 import { sendEmail } from "../../utils/sendMailMailjet.js";
 import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js";
+import { countPatientRelatedRecords, deletePatientCascade } from "../../utils/cascadeDelete.js";
+import { getModulePermission } from "../../services/roleCache.js";
 
 //Array de funciones
 const patientsController = {};
 
+// Campos del cuerpo de PUT /patients/:id que agregan o reemplazan datos del
+// historial clinico. Solo se editan desde el expediente, asi que exigen el
+// permiso de ese modulo (reports.records) y no el de gestion de pacientes.
+const CLINICAL_HISTORY_FIELDS = [
+  "new_vital_signs",
+  "new_pathological",
+  "new_hereditary",
+  "new_procedure",
+  "non_pathological",
+  "blood_type",
+];
+
 //Get de todos los pacientes
+// Con scope=active solo devuelve pacientes activos (is_active distinto de
+// false), para las vistas clinicas como el expediente y el catalogo de
+// pacientes al agendar. Sin ese parametro devuelve todos, incluidos los
+// inactivos, para la gestion de usuarios que es el unico lugar donde deben
+// seguir viendose.
 patientsController.getAllPatients = async (req, res) => {
   try {
-    const patients = await patientsModel.find().lean();
+    const query = req.query.scope === "active" ? { is_active: { $ne: false } } : {};
+    const patients = await patientsModel.find(query).lean();
 
     // La duración de un procedimiento no se guarda en clinical_history.procedures
     // (a diferencia de procedure_name/doctor_name, que sí se congelan al momento
@@ -132,6 +150,12 @@ patientsController.createPatient = async (req, res) => {
 };
 
 //Delete
+// Con citas o consultas relacionadas, el borrado necesita dos pasos: la
+// primera llamada responde 409 con el conteo de registros relacionados para
+// que la gestion de usuarios muestre una confirmacion, y la segunda, con
+// ?cascade=true, elimina al paciente junto con todo lo que depende de el
+// (citas, consultas, recetas, ordenes de laboratorio, incapacidades, notas
+// de enfermeria, registros de medicacion y notificaciones).
 patientsController.deletePatient = async (req, res) => {
   try {
     //Buscamos el paciente por su id (sin borrar todavía, para poder revisar sus citas/consultas)
@@ -141,23 +165,30 @@ patientsController.deletePatient = async (req, res) => {
       return res.status(400).json({ message: "Paciente no encontrado" });
     }
 
-    // No se permite eliminar un paciente con citas o consultas relacionadas: patient_id es una
-    // referencia obligatoria en esos registros, así que borrarlo de todos modos los dejaría
-    // apuntando a un paciente fantasma (Citas, Consultas y Reportes podrían fallar o mostrar el
-    // campo en blanco al intentar leerlo).
-    const [hasAppointments, hasConsultations] = await Promise.all([
-      appointmentsModel.exists({ patient_id: req.params.id }),
-      consultationsModel.exists({ patient_id: req.params.id }),
-    ]);
-    if (hasAppointments || hasConsultations) {
-      return res.status(400).json({
-        message: "Este paciente tiene citas o consultas relacionadas, por eso no se puede eliminar.",
+    const related = await countPatientRelatedRecords(req.params.id);
+    const hasRelated = related.appointments > 0 || related.consultations > 0;
+
+    // Sin registros relacionados: borrado directo del documento, igual que
+    // siempre.
+    if (!hasRelated) {
+      await patientsModel.findByIdAndDelete(req.params.id);
+      return res.status(200).json({ message: "Paciente eliminado" });
+    }
+
+    // Hay registros relacionados y el administrador todavia no confirma el
+    // borrado en cascada: se le informan las cifras para la confirmacion.
+    if (req.query.cascade !== "true") {
+      return res.status(409).json({
+        message: "Este paciente tiene citas o consultas relacionadas.",
+        code: "HAS_RELATED_RECORDS",
+        related,
       });
     }
 
-    await patientsModel.findByIdAndDelete(req.params.id);
-    //Si todo es correcto elimina el paciente
-    return res.status(200).json({ message: "Paciente eliminado" });
+    await deletePatientCascade(req.params.id);
+    return res.status(200).json({
+      message: "Paciente y toda su información relacionada eliminados",
+    });
   } catch (error) {
     console.log("error" + error);
     return res.status(500).json({ message: "Error interno del servidor" });
@@ -195,6 +226,17 @@ patientsController.updatePatient = async (req, res) => {
     const patientFound = await patientsModel.findById(req.params.id);
     if (!patientFound) {
       return res.status(400).json({ message: "Paciente no encontrado" });
+    }
+
+    // Si el cuerpo trae campos del historial clinico, la edicion viene del
+    // expediente: se exige poder crear o actualizar en ese modulo, sin importar
+    // que el permiso de gestion de pacientes haya dejado pasar la ruta.
+    const touchesClinicalHistory = CLINICAL_HISTORY_FIELDS.some((field) => req.body[field] !== undefined);
+    if (touchesClinicalHistory) {
+      const recordsPermission = getModulePermission(req.user.role, "reports.records");
+      if (!recordsPermission || (!recordsPermission.create && !recordsPermission.update)) {
+        return res.status(403).json({ message: "No tienes permiso para modificar el expediente clínico." });
+      }
     }
 
     //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no

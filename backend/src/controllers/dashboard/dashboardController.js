@@ -3,6 +3,7 @@ import doctorsModel from "../../models/doctors/doctors.js";
 import patientsModel from "../../models/patients/patients.js";
 import receptionistModel from "../../models/receptionist/receptionist.js";
 import consultationModel from "../../models/consultations/consultation.js";
+import { buildActivePartiesAppointmentFilter } from "../../utils/activeScope.js";
 
 const dashboardController = {};
 
@@ -116,8 +117,11 @@ dashboardController.getDoctorStatus = async (req, res) => {
         const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
         const oneHourLaterTime = `${pad(oneHourLater.getHours())}:${pad(oneHourLater.getMinutes())}`;
 
+        // La agenda del dia y los recortes de en consulta y proxima hora no
+        // incluyen citas de pacientes o doctores inactivos.
+        const activePartiesFilter = await buildActivePartiesAppointmentFilter();
         const todayAppointments = await appointmentsModel
-            .find({ date: { $gte: today, $lt: tomorrow } })
+            .find({ ...activePartiesFilter, date: { $gte: today, $lt: tomorrow } })
             .populate("doctor_id", "name last_name img_url specialty")
             .populate("patient_id", "name last_name");
 

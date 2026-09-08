@@ -1,4 +1,5 @@
 import sickLeavesModel from "../../models/sickLeaves/sickLeave.js";
+import { isPatientInactive, getInactivePatientIds } from "../../utils/activeScope.js";
 
 const sickLeaveController = {};
 
@@ -8,7 +9,17 @@ sickLeaveController.getSickLeaves = async (req, res) => {
     const { patient_id } = req.query;
     const filters = {};
     if (patient_id) {
+      // Un paciente inactivo no muestra sus incapacidades en el expediente.
+      if (await isPatientInactive(patient_id)) {
+        return res.status(200).json([]);
+      }
       filters.patient_id = patient_id;
+    } else {
+      // Lista general: se excluyen las incapacidades de pacientes inactivos.
+      const inactivePatientIds = await getInactivePatientIds();
+      if (inactivePatientIds.length) {
+        filters.patient_id = { $nin: inactivePatientIds };
+      }
     }
 
     const sickLeaves = await sickLeavesModel

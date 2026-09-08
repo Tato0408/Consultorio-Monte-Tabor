@@ -7,6 +7,8 @@ import doctorsModel from "../../models/doctors/doctors.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import inventoryController from "../inventory/inventoryController.js";
 import { getVitalSignsError, getRequiredConsultationFieldsError } from "../../utils/validators.js";
+import appointmentsModel from "../../models/appointments/appointments.js";
+import { assertActiveParties, isPatientInactive } from "../../utils/activeScope.js";
 const consultationController = {};
 
 // Convierte el triage de la consulta al shape de Patients.clinical_history.vital_signs — null si
@@ -184,20 +186,33 @@ consultationController.getConsultations = async (req, res) => {
       filters.patient_id = patient_id;
     }
 
+    // Un paciente inactivo no tiene consultas visibles en la interfaz de
+    // consultas ni en su expediente.
+    if (patient_id && (await isPatientInactive(patient_id))) {
+      return res.status(200).json([]);
+    }
+
     const consultations = await consultationsModel
       .find(filters)
       .populate("patient_id")
       .populate({
         path: "appointment_id",
         populate: [
-          { path: "doctor_id", select: "name last_name" },
+          { path: "doctor_id", select: "name last_name is_active" },
           { path: "nurse_id", select: "name last_name" },
         ],
       });
 
+    // Se ocultan las consultas cuyo paciente esta inactivo (caso lista
+    // general, sin patient_id) o cuya cita quedo asignada a un doctor
+    // inactivo.
+    const visibleConsultations = consultations.filter(
+      (c) => c.patient_id?.is_active !== false && c.appointment_id?.doctor_id?.is_active !== false
+    );
+
     // Adjuntamos la prescripción de cada consulta (misma relación que ya usa
     // getConsultationById), para no obligar al frontend a pedirlas aparte.
-    const consultationIds = consultations.map((c) => c._id);
+    const consultationIds = visibleConsultations.map((c) => c._id);
     const prescriptions = await prescriptionsModel.find({
       consultation_id: { $in: consultationIds },
     });
@@ -205,7 +220,7 @@ consultationController.getConsultations = async (req, res) => {
       prescriptions.map((p) => [String(p.consultation_id), p])
     );
 
-    const responseData = consultations.map((c) => ({
+    const responseData = visibleConsultations.map((c) => ({
       ...c.toObject(),
       prescription: prescriptionByConsultationId.get(String(c._id)) || null,
     }));
@@ -244,6 +259,21 @@ consultationController.insertConsultation = async (req, res) => {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({ message: requiredFieldsError });
+    }
+
+    // No se registra una consulta de un paciente inactivo ni de una cita
+    // asignada a un doctor inactivo: esa consulta no seria visible despues.
+    const consultationAppointment = appointment_id
+      ? await appointmentsModel.findById(appointment_id).select("doctor_id").lean()
+      : null;
+    const inactivePartyError = await assertActiveParties({
+      patientId: patient_id,
+      doctorId: consultationAppointment?.doctor_id,
+    });
+    if (inactivePartyError) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: inactivePartyError });
     }
 
     // El frontend (TriageCard.jsx) ya bloquea el signo "-" al escribir, pero el backend nunca
@@ -433,6 +463,21 @@ consultationController.updateConsultation = async (req, res) => {
       return res.status(400).json({ message: requiredFieldsError });
     }
 
+    // No se edita una consulta de un paciente inactivo ni de una cita
+    // asignada a un doctor inactivo.
+    const consultationAppointment = appointment_id
+      ? await appointmentsModel.findById(appointment_id).select("doctor_id").lean()
+      : null;
+    const inactivePartyError = await assertActiveParties({
+      patientId: patient_id,
+      doctorId: consultationAppointment?.doctor_id,
+    });
+    if (inactivePartyError) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: inactivePartyError });
+    }
+
     const vitalSignsCheck = buildVitalSignsEntry(clinical_data?.triage, null);
     if (vitalSignsCheck) {
       const vitalsError = getVitalSignsError(vitalSignsCheck);
@@ -576,6 +621,14 @@ consultationController.getConsultationById = async (req, res) => {
       return res.status(404).json({ message: "Consulta no encontrada" });
     }
 
+    // Una consulta de un paciente o doctor inactivo se trata como inexistente.
+    if (
+      consultation.patient_id?.is_active === false ||
+      (await assertActiveParties({ doctorId: consultation.appointment_id?.doctor_id }))
+    ) {
+      return res.status(404).json({ message: "Consulta no encontrada" });
+    }
+
     //Buscamos si hay alguna prescripcion asociada a la consulta
     const prescription = await prescriptionsModel.findOne({ consultation_id: id });
 
@@ -610,6 +663,15 @@ consultationController.getConsultationByAppointmentId = async (req, res) => {
       .populate("appointment_id");
 
     if (!consultation) {
+      return res.status(200).json({ data: null, message: "No hay consulta previa" });
+    }
+
+    // Un paciente o doctor inactivo oculta la consulta: se responde como si la
+    // cita todavia no tuviera una registrada.
+    if (
+      consultation.patient_id?.is_active === false ||
+      (await assertActiveParties({ doctorId: consultation.appointment_id?.doctor_id }))
+    ) {
       return res.status(200).json({ data: null, message: "No hay consulta previa" });
     }
 

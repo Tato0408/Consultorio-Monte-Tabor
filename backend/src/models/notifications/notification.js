@@ -1,4 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
+import { broadcastNotification } from "../../services/roleSocket.js";
 
 // Notificación personal simple dentro de la aplicación. La combinación de
 // recipient_role y recipient_id identifica a quién pertenece, sin depender
@@ -35,6 +36,31 @@ const notificationSchema = new Schema({
     read: { type: Boolean, default: false },
 }, {
     timestamps: true,
+});
+
+// Empuja cada notificación recién creada a su destinatario por WebSocket,
+// para que la campana del panel se actualice en tiempo real sin recargar. Es
+// best effort: si el socket no está disponible o falla, la notificación ya
+// quedó guardada y el poll de respaldo del frontend la recogerá igual. Solo
+// aplica a las altas (save e insertMany); marcar como leída o borrar no
+// dispara nada. updateMany y findOneAndUpdate no pasan por estos hooks, así
+// que no hace falta filtrarlos.
+const pushNotificationRealtime = (documents) => {
+    for (const document of Array.isArray(documents) ? documents : [documents]) {
+        try {
+            broadcastNotification(document?.toObject ? document.toObject() : document);
+        } catch (error) {
+            console.log("Error empujando notificación en tiempo real:", error);
+        }
+    }
+};
+
+notificationSchema.post("save", function (document) {
+    pushNotificationRealtime(document);
+});
+
+notificationSchema.post("insertMany", function (documents) {
+    pushNotificationRealtime(documents);
 });
 
 export default model("Notification", notificationSchema);

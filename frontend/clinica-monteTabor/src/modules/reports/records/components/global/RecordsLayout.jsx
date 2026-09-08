@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronRight, Pencil } from "lucide-react";
 import { Badge } from "./ui";
 import EditPatientModal from "./EditPatientModal";
+import { useAuth } from "@/context/AuthContext";
 
 // Contiene lo que se mantiene fijo al navegar entre pestañas: breadcrumb,
 // tabs (navegadas por índice) y la barra del paciente.
@@ -77,6 +78,10 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
 function PatientBar({ patient, onPatientUpdated }) {
   const [editOpen, setEditOpen] = useState(false);
   const female = (patient.sexo || patient.sexoCorto || "").toLowerCase().startsWith("f");
+  // Editar los datos del paciente desde el expediente depende del permiso de
+  // actualizacion del modulo "Expediente" (reports.records).
+  const { hasPermission } = useAuth();
+  const canEditPatient = hasPermission("reports.records", "update");
 
   return (
     <div className="flex flex-wrap items-center gap-x-6 sm:gap-x-8 gap-y-4 border-b border-slate-100 pb-6">
@@ -121,22 +126,26 @@ function PatientBar({ patient, onPatientUpdated }) {
           {patient.estado && <Badge tone="green">{patient.estado}</Badge>}
           {patient.tipoSangre && <Badge tone="red">{patient.tipoSangre}</Badge>}
         </div>
-        <button
-          type="button"
-          onClick={() => setEditOpen(true)}
-          className="rounded-lg border border-slate-200 p-2 text-blue-500 hover:bg-slate-50"
-          aria-label="Editar expediente"
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
+        {canEditPatient && (
+          <button
+            type="button"
+            onClick={() => setEditOpen(true)}
+            className="rounded-lg border border-slate-200 p-2 text-blue-500 hover:bg-slate-50"
+            aria-label="Editar expediente"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      <EditPatientModal
-        isOpen={editOpen}
-        onClose={() => setEditOpen(false)}
-        patient={patient}
-        onSaved={onPatientUpdated}
-      />
+      {canEditPatient && (
+        <EditPatientModal
+          isOpen={editOpen}
+          onClose={() => setEditOpen(false)}
+          patient={patient}
+          onSaved={onPatientUpdated}
+        />
+      )}
     </div>
   );
 }

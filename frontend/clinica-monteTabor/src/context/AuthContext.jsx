@@ -98,11 +98,15 @@ export const AuthProvider = ({ children }) => {
         userTypeRef.current = userType;
     }, [userType]);
 
-    // WebSocket de tiempo real: cuando un admin cambia los permisos de un
-    // rol, el backend avisa por acá a quien tenga ese rol con sesión
-    // abierta. Antes ese cambio solo se veía tras recargar a mano o al
-    // toparse con un 403, porque el frontend guarda la matriz de permisos
-    // en memoria y no la volvía a pedir.
+    // WebSocket de tiempo real del panel privado. Una sola conexión atiende
+    // dos casos:
+    //   1) role-updated: un admin cambió los permisos del rol de este
+    //      usuario. Se recarga para tomar la matriz nueva sin esperar a un
+    //      403 (el frontend guarda los permisos en memoria y no los repide).
+    //   2) notification: llegó una notificación nueva para este usuario. Se
+    //      reemite como evento del navegador ("app:notification") para que la
+    //      campana (useNotifications) la agregue al instante sin recargar,
+    //      mismo patrón desacoplado que "session-expired".
     useEffect(() => {
         if (!isLoggedIn) return;
 
@@ -122,6 +126,12 @@ export const AuthProvider = ({ children }) => {
                 }
                 if (data.type === "role-updated" && data.roleKey === userTypeRef.current) {
                     window.location.reload();
+                    return;
+                }
+                if (data.type === "notification" && data.notification) {
+                    window.dispatchEvent(
+                        new CustomEvent("app:notification", { detail: data.notification })
+                    );
                 }
             };
 

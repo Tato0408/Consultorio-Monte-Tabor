@@ -357,8 +357,8 @@ patientPortalController.bookAppointment = async (req, res) => {
 
         if (requiresDoctor && doctor_id) {
             const doctor = await doctorsModel.findById(doctor_id);
-            if (!doctor) {
-                return res.status(404).json({ message: "El doctor seleccionado no existe." });
+            if (!doctor || doctor.is_active === false) {
+                return res.status(404).json({ message: "El doctor seleccionado no está disponible." });
             }
         }
         if (!requiresDoctor && nurse_id) {

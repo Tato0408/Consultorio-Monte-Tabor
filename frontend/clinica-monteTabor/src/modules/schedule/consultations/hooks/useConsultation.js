@@ -252,8 +252,15 @@ function useConsultation(appointmentId) {
         }
       }
     } catch (err) {
+      // Aquí solo caen los fallos al traer la cita (el 404 de la consulta se
+      // maneja arriba, en su propio try). Un 404 o 403 sobre la cita ahora
+      // significa que pertenece a un paciente o doctor inactivo y ya no debe
+      // abrirse: se trata como error de carga para redirigir fuera de la
+      // pantalla, igual que una cita eliminada.
       const status = err.status || err.response?.status;
-      if (status !== 404 && !err.message?.includes("404")) {
+      if (status === 404 || status === 403) {
+        setError("Esta cita ya no está disponible.");
+      } else {
         setError(err.message || "Error al cargar los datos");
       }
     } finally {

@@ -9,6 +9,7 @@ import proceduresModel from "../../models/procedures/procedures.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import { getNonNegativeError } from "../../utils/validators.js";
 import { RESCHEDULE_REASONS } from "../../utils/appointmentStatus.js";
+import { buildActivePartiesAppointmentFilter, assertActiveParties } from "../../utils/activeScope.js";
 
 const appointmentsController = {};
 
@@ -322,6 +323,17 @@ appointmentsController.getAppointments = async (req, res) => {
             }
         }
 
+        // Un paciente o doctor inactivo desaparece de la gestion de citas: sus
+        // citas no se listan en el calendario ni en la interfaz de consultas.
+        // No aplica al propio paciente (solo ve las suyas y no tiene sesion si
+        // esta inactivo).
+        if (req.user.role !== "patient") {
+            const activePartiesFilter = await buildActivePartiesAppointmentFilter();
+            if (Object.keys(activePartiesFilter).length > 0) {
+                filters.$and = (filters.$and || []).concat([activePartiesFilter]);
+            }
+        }
+
         const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
         const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
         const skip = (pageNumber - 1) * limitNumber;
@@ -409,9 +421,14 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
             appointmentsModel.countDocuments(completedFilter),
         ]);
 
+        // La tarjeta de "proxima cita" no debe mostrar la cita de un paciente o
+        // doctor inactivo, aunque los contadores de arriba si conserven la
+        // historia.
+        const activePartiesFilter = await buildActivePartiesAppointmentFilter();
+
         // Busca la próxima cita "scheduled" de hoy con hora igual o mayor a la actual.
         let nextAppointment = await appointmentsModel
-            .findOne({ ...dayFilter, status: "scheduled", start_time: { $gte: currentTimeString() } })
+            .findOne({ ...dayFilter, ...activePartiesFilter, status: "scheduled", start_time: { $gte: currentTimeString() } })
             .sort({ start_time: 1 })
             .populate("doctor_id", "name last_name specialty img_url")
             .populate({ path: "patient_id", model: "Patients", select: "name last_name" });
@@ -420,6 +437,7 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         if (!nextAppointment) {
             nextAppointment = await appointmentsModel
                 .findOne({
+                    ...activePartiesFilter,
                     date: { $gt: end },
                     status: "scheduled",
                     ...(req.user.role === "doctor" ? { doctor_id: req.user.id } : {}),
@@ -457,11 +475,18 @@ appointmentsController.getAppointmentById = async (req, res) => {
         await runAppointmentAutoTransitions();
 
         const appointment = await appointmentsModel.findById(id)
-            .populate({ path: "patient_id", model: "Patients", select: "name last_name phone gender birth_date dui clinical_history.blood_type email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social" })
-            .populate("doctor_id", "name last_name")
+            .populate({ path: "patient_id", model: "Patients", select: "name last_name phone gender birth_date dui clinical_history.blood_type email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social is_active" })
+            .populate("doctor_id", "name last_name is_active")
             .populate("nurse_id", "name last_name");
 
         if (!appointment) {
+            return res.status(404).json({ message: "Cita no encontrada" });
+        }
+
+        // Una cita de un paciente o doctor inactivo no se muestra al personal:
+        // se responde como si no existiera para que la interfaz de consultas y
+        // el formulario de edicion la traten igual que una cita eliminada.
+        if (appointment.patient_id?.is_active === false || appointment.doctor_id?.is_active === false) {
             return res.status(404).json({ message: "Cita no encontrada" });
         }
 
@@ -628,6 +653,12 @@ appointmentsController.insertAppointment = async (req, res) => {
             }
         }
 
+        // Un paciente o doctor inactivo no puede asignarse a una cita nueva.
+        const inactivePartyError = await assertActiveParties({ patientId: patient_id, doctorId: doctor_id });
+        if (inactivePartyError) {
+            return res.status(400).json({ message: inactivePartyError });
+        }
+
         const newAppointment = new appointmentsModel({
             doctor_id,
             patient_id,
@@ -789,6 +820,13 @@ appointmentsController.updateAppointment = async (req, res) => {
             if (hayEnfermeraLibre) {
                 return res.status(400).json({ message: "Hay enfermeras disponibles para este horario: selecciona una." });
             }
+        }
+
+        // Un paciente o doctor inactivo no puede quedar asignado a la cita
+        // editada.
+        const inactivePartyError = await assertActiveParties({ patientId: patient_id, doctorId: doctor_id });
+        if (inactivePartyError) {
+            return res.status(400).json({ message: inactivePartyError });
         }
 
         // Reagendar solo aplica a una cita Programada (ver
@@ -1082,6 +1120,13 @@ appointmentsController.acceptAppointment = async (req, res) => {
             return res.status(400).json({ message: "Esta cita ya no está pendiente de aceptación." });
         }
 
+        // No se puede aceptar una solicitud de un paciente que quedo inactivo
+        // despues de agendarla.
+        const inactivePartyError = await assertActiveParties({ patientId: appointment.patient_id });
+        if (inactivePartyError) {
+            return res.status(400).json({ message: inactivePartyError });
+        }
+
         const d = appointment.date;
         const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -1185,9 +1230,15 @@ appointmentsController.assignDoctor = async (req, res) => {
             return res.status(400).json({ message: "Esta cita ya no está pendiente de asignación." });
         }
 
-        const doctor = await doctorsModel.findById(doctor_id).select("_id");
+        const doctor = await doctorsModel.findById(doctor_id).select("_id is_active");
         if (!doctor) {
             return res.status(400).json({ message: "El doctor seleccionado no existe." });
+        }
+
+        // El doctor asignado y el paciente de la cita deben estar activos.
+        const inactivePartyError = await assertActiveParties({ patientId: appointment.patient_id, doctorId: doctor_id });
+        if (inactivePartyError) {
+            return res.status(400).json({ message: inactivePartyError });
         }
 
         const d = appointment.date;
@@ -1280,6 +1331,12 @@ appointmentsController.acceptAppointmentAsNurse = async (req, res) => {
             return res.status(400).json({ message: "Esta cita ya no está pendiente de aceptación." });
         }
 
+        // No se puede aceptar una solicitud de un paciente que quedo inactivo.
+        const inactivePartyError = await assertActiveParties({ patientId: appointment.patient_id });
+        if (inactivePartyError) {
+            return res.status(400).json({ message: inactivePartyError });
+        }
+
         const d = appointment.date;
         const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -1358,6 +1415,12 @@ appointmentsController.assignNurse = async (req, res) => {
         const nurse = await nursesModel.findById(nurse_id).select("_id");
         if (!nurse) {
             return res.status(400).json({ message: "La enfermera seleccionada no existe." });
+        }
+
+        // El paciente de la cita debe seguir activo.
+        const inactivePartyError = await assertActiveParties({ patientId: appointment.patient_id });
+        if (inactivePartyError) {
+            return res.status(400).json({ message: inactivePartyError });
         }
 
         const d = appointment.date;
@@ -1456,7 +1519,7 @@ appointmentsController.getDoctorsWithAppointments = async (req, res) => {
     try {
         const doctorIds = await appointmentsModel.distinct("doctor_id", { doctor_id: { $ne: null } });
         const doctors = await doctorsModel
-            .find({ _id: { $in: doctorIds } })
+            .find({ _id: { $in: doctorIds }, is_active: true })
             .select("name last_name")
             .sort({ name: 1, last_name: 1 });
         return res.status(200).json(doctors);
@@ -1481,6 +1544,10 @@ appointmentsController.getAppointmentsHistory = async (req, res) => {
         if (req.user.role === "doctor") {
             historyFilter.doctor_id = req.user.id;
         }
+
+        // El historial del dia oculta las citas de pacientes o doctores
+        // inactivos, igual que el resto de la interfaz de consultas.
+        Object.assign(historyFilter, await buildActivePartiesAppointmentFilter());
 
         const history = await appointmentsModel
             .find(historyFilter)

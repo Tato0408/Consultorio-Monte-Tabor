@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "@/lib/apiClient";
+import { sortByName } from "@/lib/utils";
 
 
 export const useReceptionist = () => {
@@ -16,8 +17,11 @@ export const useReceptionist = () => {
       // apiClient por defecto hace un GET y sabe a dónde apuntar
       const data = await apiClient("/recepcionist");
 
-      setReceptionists(data);
-      return data;
+      // La tabla de gestión de recepcionistas se muestra ordenada
+      // alfabéticamente por el campo Nombre.
+      const sorted = sortByName(data);
+      setReceptionists(sorted);
+      return sorted;
     } catch (error) {
       console.error("Error al obtener los recepcionistas:", error);
       setError(error.message);
@@ -82,7 +86,7 @@ export const useReceptionist = () => {
         params: { search }
       });
 
-      setReceptionists(data);
+      setReceptionists(sortByName(data));
     } catch (err) {
       console.error("Error al buscar recepcionistas:", err);
       setError(err.message);
