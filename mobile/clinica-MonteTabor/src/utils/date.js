@@ -24,6 +24,22 @@ export const formatDate = (date) => {
   return `${d}/${m}/${date.getFullYear()}`;
 };
 
+/** ISO/Date/"YYYY-MM-DD" -> "12/03/1996" (cadena vacia si no es una fecha).
+ * Usa getters UTC por lo mismo que formatLongDate: el backend guarda estas
+ * fechas como medianoche UTC del dia y leerlas en local corre el dia atras
+ * en husos detras de UTC. */
+export const formatShortDate = (input) => {
+  if (!input) return "";
+  const value = String(input).trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${d}/${m}/${date.getUTCFullYear()}`;
+};
+
 const MONTHS_ES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",

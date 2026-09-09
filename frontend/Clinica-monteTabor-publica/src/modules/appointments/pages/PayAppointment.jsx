@@ -491,7 +491,7 @@ const PayAppointment = () => {
               <div className="flex items-start gap-2 bg-[#3B6FCA]/5 border border-[#3B6FCA]/10 rounded-xl p-4">
                 <Info className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-gray-600">
-                  Este anticipo aparta tu hora y no se reembolsa si cancelas la cita. El resto (${Number(cita.total - cita.deposit_amount).toFixed(2)}) se paga en recepción el día de tu cita. Tu tarjeta no será guardada en nuestro sistema.
+                  Este anticipo aparta tu hora. <span className="font-semibold text-gray-800">Si cancelas la cita después de pagarlo, por política de la clínica este monto no se te reembolsa.</span> El resto (${Number(cita.total - cita.deposit_amount).toFixed(2)}) se paga en recepción el día de tu cita. Tu tarjeta no será guardada en nuestro sistema.
                 </p>
               </div>
             </div>

@@ -12,16 +12,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import FormInput from "../../components/profile/FormInput";
-import FormDateInput from "../../components/profile/FormDateInput";
 import apiClient from "../../lib/apiClient";
 import { showError, showSuccess } from "../../lib/toast";
-import { displayToIso } from "../../utils/date";
 import styles from "../../styles/profile/healthStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
+// El diagnóstico es texto libre corto (ej. "Confirmado en 2019"), no una
+// fecha: se guarda tal cual como string.
+const DIAGNOSIS_MAX = 50;
+
 const AddPathologicalScreen = ({ navigation }) => {
   const [disease, setDisease] = useState("");
-  const [fecha, setFecha] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
@@ -31,11 +33,6 @@ const AddPathologicalScreen = ({ navigation }) => {
     const next = {};
     if (!disease.trim()) next.disease = "Escribe el nombre de la enfermedad";
 
-    // La fecha es opcional: mucha gente no recuerda cuándo la diagnosticaron
-    const iso = fecha ? displayToIso(fecha) : null;
-    if (fecha && !iso) next.fecha = "Usa el formato DD/MM/AAAA";
-    else if (iso && new Date(iso) > new Date()) next.fecha = "La fecha no puede ser futura";
-
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
@@ -43,7 +40,7 @@ const AddPathologicalScreen = ({ navigation }) => {
     try {
       await apiClient("/patientAccount/me/pathological", {
         method: "POST",
-        body: { disease: disease.trim(), diagnosis: iso },
+        body: { disease: disease.trim(), diagnosis: diagnosis.trim() || null },
       });
 
       showSuccess("Enfermedad agregada.");
@@ -91,17 +88,16 @@ const AddPathologicalScreen = ({ navigation }) => {
             error={errors.disease}
           />
 
-          <Text style={styles.sectionTitle}>Fecha de diagnóstico</Text>
+          <Text style={styles.sectionTitle}>Diagnóstico</Text>
           <Text style={styles.sectionSubtitle}>
-            Opcional. Déjala vacía si no la recuerdas.
+            Opcional. Máximo {DIAGNOSIS_MAX} caracteres.
           </Text>
-          <FormDateInput
-            value={fecha}
-            onChange={(value) => {
-              setFecha(value);
-              if (errors.fecha) setErrors((prev) => ({ ...prev, fecha: null }));
-            }}
-            error={errors.fecha}
+          <FormInput
+            label="Diagnóstico"
+            value={diagnosis}
+            onChangeText={(value) => setDiagnosis(value.slice(0, DIAGNOSIS_MAX))}
+            placeholder="Ej. Confirmado en 2019"
+            maxLength={DIAGNOSIS_MAX}
           />
 
           <View style={styles.notice}>

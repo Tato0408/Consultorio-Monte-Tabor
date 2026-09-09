@@ -2,6 +2,9 @@ import adminModel from "../models/admin/admins.js";
 import notificationModel from "../models/notifications/notification.js";
 import patientsModel from "../models/patients/patients.js";
 import doctorsModel from "../models/doctors/doctors.js";
+import appointmentsModel from "../models/appointments/appointments.js";
+import proceduresModel from "../models/procedures/procedures.js";
+import consultationsModel from "../models/consultations/consultation.js";
 
 const formatAppointmentDate = (appointment) => {
     if (!appointment?.date) return "fecha pendiente";
@@ -91,6 +94,73 @@ export async function notifyAppointmentRecipients(appointment, {
 
     if (notifications.length > 0) {
         await notificationModel.insertMany(notifications);
+    }
+}
+
+// Cuenta las notas de enfermería pendientes de una enfermera: consultas ya
+// registradas, de citas donde ella es la enfermera asignada y cuyo
+// procedimiento exige enfermera, que todavía no tienen nurse_note. No filtra
+// por estado de la cita: que exista la consulta ya significa que el doctor
+// (o la enfermera) la registró.
+async function countPendingNurseNotes(nurseId) {
+    const appointments = await appointmentsModel
+        .find({ nurse_id: nurseId })
+        .select("_id procedure_id")
+        .lean();
+    if (!appointments.length) return 0;
+
+    const procedureIds = [
+        ...new Set(appointments.filter((a) => a.procedure_id).map((a) => String(a.procedure_id))),
+    ];
+    const requiresNurse = new Set(
+        (await proceduresModel
+            .find({ _id: { $in: procedureIds }, requires_nurse: true })
+            .select("_id")
+            .lean()
+        ).map((p) => String(p._id))
+    );
+
+    const appointmentIds = appointments
+        .filter((a) => a.procedure_id && requiresNurse.has(String(a.procedure_id)))
+        .map((a) => a._id);
+    if (!appointmentIds.length) return 0;
+
+    const consultations = await consultationsModel
+        .find({ appointment_id: { $in: appointmentIds } })
+        .select("nurse_note")
+        .lean();
+
+    return consultations.filter((c) => !String(c.nurse_note || "").trim()).length;
+}
+
+// Mantiene una única notificación consolidada por enfermera con el total de
+// notas de enfermería que le faltan por agregar. Se llama al finalizar una
+// consulta que exige nota y al guardar una nota. Reemplaza siempre la
+// anterior para que la campana muestre solo una, siempre al día. Best effort:
+// nunca revierte la operación principal si algo falla.
+export async function refreshNurseNotePendingNotification(nurseId) {
+    if (!nurseId) return;
+    try {
+        const pending = await countPendingNurseNotes(nurseId);
+
+        await notificationModel.deleteMany({
+            recipient_role: "nurse",
+            recipient_id: nurseId,
+            type: "nurse_note_pending",
+        });
+
+        if (pending > 0) {
+            await notificationModel.create({
+                recipient_role: "nurse",
+                recipient_id: nurseId,
+                title: "Notas de enfermería pendientes",
+                type: "nurse_note_pending",
+                message: `Tienes ${pending} nota${pending === 1 ? "" : "s"} de enfermería por agregar.`,
+                action_url: "/calendar/consultations",
+            });
+        }
+    } catch (error) {
+        console.log("Error actualizando notificación de notas de enfermería:", error);
     }
 }
 

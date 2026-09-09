@@ -18,6 +18,9 @@ import { validateUserFieldFormats, getMissingRequiredField, getPasswordError } f
 // (identidad tomada del token, nunca de un :id).
 const patientSelfController = {};
 
+// El diagnóstico de un antecedente patológico es texto libre corto.
+const MAX_DIAGNOSIS_LENGTH = 50;
+
 const REQUIRED_FIELDS = ["name", "last_name", "birth_date", "gender", "phone", "email", "password"];
 
 const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
@@ -366,6 +369,46 @@ patientSelfController.deleteHereditary = async (req, res) => {
     }
 };
 
+// PUT /api/patientAccount/me/hereditary/:entryId, edita un antecedente
+// familiar ya registrado. type solo se toca si viene en el body: el portal
+// del paciente no lo edita y no debe borrar lo que haya puesto el personal.
+patientSelfController.updateHereditary = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const { relationship, condition, type } = req.body;
+        if (!relationship?.trim()) {
+            return res.status(400).json({ message: "Indica el parentesco" });
+        }
+        if (!condition?.trim()) {
+            return res.status(400).json({ message: "Indica la condición o enfermedad" });
+        }
+
+        const patient = await patientsModel.findById(req.user.id);
+        if (!patient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        const entry = patient.clinical_history?.hereditary?.id(req.params.entryId);
+        if (!entry) {
+            return res.status(404).json({ message: "Antecedente no encontrado" });
+        }
+
+        entry.relationship = relationship.trim();
+        entry.condition = condition.trim();
+        if (type !== undefined) {
+            entry.type = type?.trim() || undefined;
+        }
+        await patient.save();
+
+        const updatedPatient = await patientsModel.findById(req.user.id).select("-password");
+        return res.status(200).json({ message: "Antecedente actualizado", user: updatedPatient });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
 // POST /api/patientAccount/me/pathological, agrega una enfermedad
 // crónica o diagnóstico.
 patientSelfController.addPathological = async (req, res) => {
@@ -378,16 +421,11 @@ patientSelfController.addPathological = async (req, res) => {
             return res.status(400).json({ message: "Indica la enfermedad" });
         }
 
-        let diagnosisDate;
-        if (diagnosis) {
-            const parsed = new Date(diagnosis);
-            if (Number.isNaN(parsed.getTime())) {
-                return res.status(400).json({ message: "Fecha de diagnóstico no válida" });
-            }
-            if (parsed > new Date()) {
-                return res.status(400).json({ message: "La fecha de diagnóstico no puede ser futura" });
-            }
-            diagnosisDate = parsed;
+        // El diagnóstico es texto libre corto (ej. "Confirmado en 2019"), no
+        // una fecha: se guarda tal cual como string.
+        const diagnosisText = diagnosis?.trim() || undefined;
+        if (diagnosisText && diagnosisText.length > MAX_DIAGNOSIS_LENGTH) {
+            return res.status(400).json({ message: `El diagnóstico admite máximo ${MAX_DIAGNOSIS_LENGTH} caracteres` });
         }
 
         const updatedPatient = await patientsModel
@@ -397,7 +435,7 @@ patientSelfController.addPathological = async (req, res) => {
                     $push: {
                         "clinical_history.pathological": {
                             disease: disease.trim(),
-                            diagnosis: diagnosisDate,
+                            diagnosis: diagnosisText,
                             type: type?.trim() || undefined,
                         },
                     },
@@ -436,6 +474,47 @@ patientSelfController.deletePathological = async (req, res) => {
         await patient.save();
 
         return res.status(200).json({ message: "Enfermedad eliminada" });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// PUT /api/patientAccount/me/pathological/:entryId, edita una enfermedad
+// crónica ya registrada. diagnosis es texto libre corto (no una fecha).
+patientSelfController.updatePathological = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const { disease, diagnosis, type } = req.body;
+        if (!disease?.trim()) {
+            return res.status(400).json({ message: "Indica la enfermedad" });
+        }
+
+        const diagnosisText = diagnosis?.trim() || undefined;
+        if (diagnosisText && diagnosisText.length > MAX_DIAGNOSIS_LENGTH) {
+            return res.status(400).json({ message: `El diagnóstico admite máximo ${MAX_DIAGNOSIS_LENGTH} caracteres` });
+        }
+
+        const patient = await patientsModel.findById(req.user.id);
+        if (!patient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        const entry = patient.clinical_history?.pathological?.id(req.params.entryId);
+        if (!entry) {
+            return res.status(404).json({ message: "Enfermedad no encontrada" });
+        }
+
+        entry.disease = disease.trim();
+        entry.diagnosis = diagnosisText;
+        if (type !== undefined) {
+            entry.type = type?.trim() || undefined;
+        }
+        await patient.save();
+
+        const updatedPatient = await patientsModel.findById(req.user.id).select("-password");
+        return res.status(200).json({ message: "Enfermedad actualizada", user: updatedPatient });
     } catch (error) {
         console.log("error " + error);
         return res.status(500).json({ message: "Error interno del servidor" });

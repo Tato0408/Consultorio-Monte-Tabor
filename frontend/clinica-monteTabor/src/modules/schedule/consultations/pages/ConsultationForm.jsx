@@ -18,8 +18,10 @@ import ConsultationActions from "../components/ConsultationActions";
 import IncapacidadModal from "../components/IncapacidadModal";
 import IncapacidadDocument from "../pdf/IncapacidadDocument";
 import RecetaDocument from "../pdf/RecetaDocument";
+import ReferenciaDocument from "../pdf/ReferenciaDocument";
 import ConsultationDocument from "../pdf/ConsultationDocument";
 import { openPdfInNewTab } from "../pdf/openPdfInNewTab";
+import { pdfDateTime } from "../pdf/pdfDate";
 import { showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
 import apiClient from "@/lib/apiClient";
@@ -49,12 +51,32 @@ const clearConsultationDraft = (appointmentId) => {
     }
 };
 
+// Une los hallazgos del examen físico (Paso 3) en un solo párrafo para la hoja
+// de referencia. La clave neurológica está mal escrita en PhysicalExamCard
+// ("neorulogical"), así que se leen ambas.
+const buildPhysicalExamText = (pe = {}) =>
+    [
+        pe.general,
+        pe.skin,
+        pe.cardiopulmonary,
+        pe.abdomen,
+        pe.neorulogical || pe.neurological,
+        pe.musculoskeletal,
+        pe.notes,
+    ]
+        .map((piece) => String(piece || "").trim())
+        .filter(Boolean)
+        .join("; ");
+
+// Lee un valor anidado ("referral.reason") del objeto de valores del formulario.
+const getNested = (obj, path) => path.split(".").reduce((acc, key) => acc?.[key], obj);
+
 const ConsultationForm = () => {
     const { appointmentId } = useParams();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const location = useLocation();
-    const { hasPermission } = useAuth();
+    const { hasPermission, userType } = useAuth();
 
     // Esta consulta se abrió desde la pestaña Consultas del expediente de un
     // paciente (RecordDetailPage.jsx manda fromRecords en location.state).
@@ -89,7 +111,7 @@ const ConsultationForm = () => {
         }
     };
 
-    const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord } =
+    const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord, consultationId } =
         useConsultation(appointmentId);
 
     // El formulario queda en solo lectura si se pidió explícitamente
@@ -106,6 +128,16 @@ const ConsultationForm = () => {
     // valor se levanta hasta aquí para que ambos lo compartan.
     const [bloodTypeOverride, setBloodTypeOverride] = useState(null);
     const [isIncapacidadOpen, setIsIncapacidadOpen] = useState(false);
+
+    // Nota de enfermería: vive fuera de react-hook-form porque se guarda por
+    // su propio endpoint (PATCH /consultations/:id/nurse-note) y no viaja con
+    // el resto de la consulta. Solo la maneja la enfermera asignada.
+    const isNurse = userType === "nurse";
+    const needsNurseNote = !!(appointment?.procedure_id?.requires_nurse && appointment?.nurse_id);
+    const showNurseNote = isNurse && needsNurseNote;
+    const [nurseNote, setNurseNote] = useState("");
+    const [nurseNoteAt, setNurseNoteAt] = useState(null);
+    const [savingNurseNote, setSavingNurseNote] = useState(false);
 
 
     // useForm arranca sin defaultValues porque la cita aún no ha
@@ -130,6 +162,9 @@ const ConsultationForm = () => {
             // que llevaba escrito sin guardar; si no, carga normalmente.
             const draft = readConsultationDraft(appointmentId);
             methods.reset(draft || defaultValues);
+            // La nota de enfermería no forma parte del borrador ni del form.
+            setNurseNote(defaultValues?.nurse_note || "");
+            setNurseNoteAt(defaultValues?.nurse_note_at || null);
         }
 
 
@@ -175,15 +210,10 @@ const ConsultationForm = () => {
         : nurse
             ? `${nurse.name || ""} ${nurse.last_name || ""}`.trim()
             : "";
-    const todayFormatted = new Date().toLocaleDateString("es-SV", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    });
-    // Misma fecha, sin barras, para usarla en el título del PDF (se
-    // vuelve el nombre sugerido al descargar), donde una barra podría
-    // leerse como separador de carpetas en vez de parte del nombre.
-    const todayFileSafe = todayFormatted.replace(/\//g, "-");
+    // Fecha y hora de emisión: el documento se genera en este momento, así que
+    // lleva el reloj local de ahora. todayFileSafe es la misma fecha sin
+    // barras, para el nombre sugerido del archivo al descargar.
+    const { date: todayFormatted, time: todayTime, fileSafe: todayFileSafe } = pdfDateTime();
 
     // Campos mínimos para que cada documento tenga sentido clínico:
     // diagnóstico para la incapacidad, y esos mismos más la evolución
@@ -227,6 +257,7 @@ const ConsultationForm = () => {
                     dui={patient?.dui}
                     doctorName={doctorFullName}
                     date={todayFormatted}
+                    time={todayTime}
                     vitals={{
                         weight: values?.clinical_data?.triage?.weight,
                         height: values?.clinical_data?.triage?.height,
@@ -234,6 +265,10 @@ const ConsultationForm = () => {
                         temperature: values?.clinical_data?.triage?.temperature,
                         bloodPressure: values?.clinical_data?.triage?.blood_pressure,
                         glucose: values?.clinical_data?.triage?.glucose,
+                        // FC/FR no se capturan en el triage; si el doctor los llenó
+                        // para la referencia, se muestran también acá.
+                        heartRate: values?.referral?.heart_rate,
+                        respiratoryRate: values?.referral?.respiratory_rate,
                     }}
                     icdCode={values?.clinical_data?.icd_diagnosis}
                     historial={values?.clinical_data?.evolution}
@@ -291,12 +326,71 @@ const ConsultationForm = () => {
                     age={calculateAge(patient?.birth_date)}
                     doctorName={doctorFullName}
                     date={todayFormatted}
+                    time={todayTime}
                     medications={medications}
                     instructions={values?.prescription?.indications}
                 />
             );
         } catch (err) {
             showError("Error al generar el PDF", err?.message || "No se pudo generar el recetario.");
+        }
+    };
+
+    // Botón "Generar referencia": arma la hoja de referencia con lo que el
+    // doctor cargó en la tarjeta "Referencia" (referido a, motivo, dirección,
+    // FC, FR) más lo que sale del resto de la consulta (PA, SPO2, examen físico,
+    // impresión diagnóstica). La referencia es opcional, así que esos campos no
+    // tienen "required" propio: se validan acá y se marcan en rojo, igual que en
+    // "Vista previa e imprimir".
+    const handleGenerateReferencia = async () => {
+        const values = methods.getValues();
+        const manualChecks = [
+            ["referral.referred_to", "Indica a quién se refiere al paciente"],
+            ["referral.reason", "Escribe el motivo de la referencia"],
+            ["referral.address", "Falta la dirección del paciente"],
+            ["referral.heart_rate", "Falta la frecuencia cardíaca"],
+            ["referral.respiratory_rate", "Falta la frecuencia respiratoria"],
+        ];
+        let missing = false;
+        for (const [field, message] of manualChecks) {
+            if (!String(getNested(values, field) ?? "").trim()) {
+                methods.setError(field, { type: "manual", message });
+                missing = true;
+            }
+        }
+        const diagOk = await methods.trigger([...DIAGNOSIS_FIELDS, "clinical_data.triage.blood_pressure"]);
+        if (missing || !diagOk) {
+            showError(
+                "Completa el destino, el motivo, la dirección, la FC/FR y el diagnóstico (con la presión arterial) antes de generar la referencia."
+            );
+            return;
+        }
+
+        try {
+            await openPdfInNewTab(
+                <ReferenciaDocument
+                    title={`Referencia de ${patientFullName} ${todayFileSafe}`}
+                    patientName={patientFullName}
+                    age={calculateAge(patient?.birth_date)}
+                    phone={patient?.phone}
+                    address={values?.referral?.address}
+                    date={todayFormatted}
+                    time={todayTime}
+                    referredTo={values?.referral?.referred_to}
+                    reason={values?.referral?.reason}
+                    bloodPressure={values?.clinical_data?.triage?.blood_pressure}
+                    heartRate={values?.referral?.heart_rate}
+                    respiratoryRate={values?.referral?.respiratory_rate}
+                    spo2={values?.clinical_data?.triage?.oxygen_saturation}
+                    physicalExam={buildPhysicalExamText(values?.physical_exam)}
+                    icdCode={values?.clinical_data?.icd_diagnosis}
+                    diagnosis={values?.clinical_data?.diagnosis}
+                    diagnosisDescription={values?.clinical_data?.diagnosis_description}
+                    doctorName={doctorFullName}
+                />
+            );
+        } catch (err) {
+            showError(err?.message || "No se pudo generar la referencia.");
         }
     };
 
@@ -375,8 +469,36 @@ const ConsultationForm = () => {
                 restDays={restDays}
                 doctorName={doctorFullName}
                 date={todayFormatted}
+                time={todayTime}
             />
         );
+    };
+
+    // La enfermera solo puede escribir la nota si la consulta ya existe y no
+    // se abrió en modo de solo lectura explícito. El resto del formulario
+    // sigue en readOnly para ella (no tiene permiso de editar consultas).
+    const canEditNurseNote = showNurseNote && hasExistingRecord && !forcedView;
+    const nurseNoteHint = showNurseNote && !hasExistingRecord
+        ? "Disponible cuando la consulta esté guardada."
+        : "";
+
+    // Guarda solo la nota de enfermería por su endpoint propio.
+    const handleSaveNurseNote = async (text) => {
+        if (savingNurseNote || !consultationId) return;
+        setSavingNurseNote(true);
+        try {
+            const res = await apiClient(`/consultations/${consultationId}/nurse-note`, {
+                method: "PATCH",
+                body: { text },
+            });
+            setNurseNote(res?.data?.nurse_note || "");
+            setNurseNoteAt(res?.data?.nurse_note_at || null);
+            await showSuccess("Nota guardada", "La nota de enfermería quedó registrada.");
+        } catch (err) {
+            showError("Error al guardar", err?.message || "No se pudo guardar la nota de enfermería.");
+        } finally {
+            setSavingNurseNote(false);
+        }
     };
 
     if (isLoading) {
@@ -417,7 +539,16 @@ const ConsultationForm = () => {
                         <EvolutionCard readOnly={readOnly} />
                         <TriageCard readOnly={readOnly} />
                         <PhysicalExamCard readOnly={readOnly} />
-                        <DiagnosisCard readOnly={readOnly} />
+                        <DiagnosisCard
+                            readOnly={readOnly}
+                            showNurseNote={showNurseNote}
+                            nurseNote={nurseNote}
+                            nurseNoteAt={nurseNoteAt}
+                            canEditNurseNote={canEditNurseNote}
+                            nurseNoteHint={nurseNoteHint}
+                            onSaveNurseNote={handleSaveNurseNote}
+                            savingNurseNote={savingNurseNote}
+                        />
                         <ProceduresCard readOnly={readOnly} />
 
                         <AntecedentsCard
@@ -476,6 +607,7 @@ const ConsultationForm = () => {
                             onGenerateIncapacidad={handleOpenIncapacidad}
                             onGenerateReceta={handleGenerateReceta}
                             onGenerateLabOrder={handleGenerateLabOrder}
+                            onGenerateReferencia={handleGenerateReferencia}
                         />
                     </div>
                 </div>

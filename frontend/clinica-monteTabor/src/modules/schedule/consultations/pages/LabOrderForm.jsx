@@ -5,6 +5,7 @@ import { ArrowLeft, Download, Eraser, Save } from "lucide-react";
 import useLabOrder from "../hooks/useLabOrder";
 import LabOrderDocument from "../pdf/LabOrderDocument";
 import { downloadPdf } from "../pdf/downloadPdf";
+import { pdfDateTime } from "../pdf/pdfDate";
 import {
     LAB_ORDER_CATALOG,
     testKey,
@@ -59,12 +60,9 @@ const LabOrderForm = () => {
         : nurse
             ? `${nurse.name || ""} ${nurse.last_name || ""}`.trim()
             : "";
-    const todayFormatted = new Date().toLocaleDateString("es-SV", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    });
-    const todayFileSafe = todayFormatted.replace(/\//g, "-");
+    // Fecha y hora de emisión: la orden se genera en este momento, con el
+    // reloj local de ahora.
+    const { date: todayFormatted, time: todayTime, fileSafe: todayFileSafe } = pdfDateTime();
 
     const selectedCount = countSelectedTests([...selected]);
 
@@ -107,6 +105,7 @@ const LabOrderForm = () => {
             dui={patient?.dui}
             doctorName={doctorFullName}
             date={todayFormatted}
+            time={todayTime}
             weight={triageWeight}
             height={triageHeight}
             pregnancy={pregnancy}

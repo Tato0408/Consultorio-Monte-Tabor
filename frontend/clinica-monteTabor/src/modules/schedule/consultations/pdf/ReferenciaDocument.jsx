@@ -8,42 +8,122 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: 700,
         textAlign: "center",
-        marginBottom: 20,
+        marginBottom: 22,
         textDecoration: "underline",
     },
-    row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 14 },
-    label: { fontWeight: 700 },
-    paragraph: { marginBottom: 12, lineHeight: 1.5 },
-    body: { marginBottom: 12, lineHeight: 1.5, paddingLeft: 8 },
+    field: { flexDirection: "row", marginBottom: 12, lineHeight: 1.4 },
+    fieldLabel: { fontWeight: 700, marginRight: 6 },
+    fieldValue: { flex: 1 },
+    twoCol: { flexDirection: "row", marginBottom: 12 },
+    colItem: { flexDirection: "row", marginRight: 24 },
+    sectionLabel: { fontWeight: 700, marginTop: 4, marginBottom: 6 },
+    vitalsRow: { flexDirection: "row", flexWrap: "wrap", marginBottom: 8 },
+    vitalItem: { flexDirection: "row", marginRight: 22, marginBottom: 4 },
+    vitalLabel: { fontWeight: 700, marginRight: 4 },
+    block: { marginBottom: 12, lineHeight: 1.5, paddingLeft: 6 },
 });
 
-// Referencia médica a otro especialista. Mismo formato de constancia que
-// IncapacidadDocument (encabezado con membrete, cuerpo y firma), adaptado al
-// motivo y destino de la referencia.
-const ReferenciaDocument = ({ title, patientName, dui, age, reason, referredTo, doctorName, date }) => (
-    <Document title={title}>
-        <Page size="LETTER" style={styles.page}>
-            <PdfLetterhead />
-            <Text style={styles.title}>REFERENCIA MÉDICA</Text>
+const val = (v) => (v !== undefined && v !== null && String(v).trim() !== "" ? String(v) : "—");
 
-            <View style={styles.row}>
-                <Text>Fecha: {date}</Text>
-                {dui ? <Text>DUI: {dui}</Text> : null}
-            </View>
+// Referencia médica a otro nivel de atención. Reproduce el formato de la hoja
+// de "CONSULTORIO MEDICO FAMILIAR" (campos: fecha, datos del paciente, referido
+// a, motivo, examen físico e impresión diagnóstica), pero con el membrete y la
+// firma de Clínica Monte Tabor (los mismos que el resto de documentos). Los
+// datos salen de la consulta; dirección, FC y FR los llena el doctor en el
+// panel "Referencia".
+const ReferenciaDocument = ({
+    title,
+    patientName,
+    age,
+    phone,
+    address,
+    date,
+    time,
+    referredTo,
+    reason,
+    bloodPressure,
+    heartRate,
+    respiratoryRate,
+    spo2,
+    physicalExam,
+    icdCode,
+    diagnosis,
+    diagnosisDescription,
+    doctorName,
+}) => {
+    // La hoja de referencia no incluye DUI; si algún llamador lo pasa, React lo
+    // ignora sin problema.
+    const impresion = [icdCode, diagnosis].filter(Boolean).join(" - ")
+        + (diagnosisDescription ? `${icdCode || diagnosis ? ". " : ""}${diagnosisDescription}` : "");
 
-            <Text style={styles.paragraph}>
-                Por este medio se refiere al paciente <Text style={styles.label}>{patientName}</Text>,
-                de {age ?? "—"} años de edad, a:
-            </Text>
+    return (
+        <Document title={title}>
+            <Page size="LETTER" style={styles.page}>
+                <PdfLetterhead />
+                <Text style={styles.title}>REFERENCIA</Text>
 
-            <Text style={styles.body}>{referredTo || "Especialista no especificado"}</Text>
+                <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>FECHA:</Text>
+                    <Text style={styles.fieldValue}>{val(date)}{time ? `   Hora: ${time}` : ""}</Text>
+                </View>
 
-            <Text style={styles.paragraph}>Motivo de la referencia:</Text>
-            <Text style={styles.body}>{reason || "Sin motivo registrado"}</Text>
+                <View style={styles.twoCol}>
+                    <View style={styles.colItem}>
+                        <Text style={styles.fieldLabel}>NOMBRE:</Text>
+                        <Text>{val(patientName)}</Text>
+                    </View>
+                    <View style={styles.colItem}>
+                        <Text style={styles.fieldLabel}>EDAD:</Text>
+                        <Text>{age !== undefined && age !== null ? `${age} años` : "—"}</Text>
+                    </View>
+                </View>
 
-            <PdfSignature doctorName={doctorName} />
-        </Page>
-    </Document>
-);
+                <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>DIRECCIÓN:</Text>
+                    <Text style={styles.fieldValue}>{val(address)}</Text>
+                </View>
+
+                <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>TELÉFONO:</Text>
+                    <Text style={styles.fieldValue}>{val(phone)}</Text>
+                </View>
+
+                <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>REFERIDO A:</Text>
+                    <Text style={styles.fieldValue}>{val(referredTo)}</Text>
+                </View>
+
+                <Text style={styles.sectionLabel}>MOTIVO DE REFERENCIA:</Text>
+                <Text style={styles.block}>{val(reason)}</Text>
+
+                <Text style={styles.sectionLabel}>EXAMEN FÍSICO:</Text>
+                <View style={styles.vitalsRow}>
+                    <View style={styles.vitalItem}>
+                        <Text style={styles.vitalLabel}>PA:</Text>
+                        <Text>{val(bloodPressure)}</Text>
+                    </View>
+                    <View style={styles.vitalItem}>
+                        <Text style={styles.vitalLabel}>FC:</Text>
+                        <Text>{val(heartRate)}</Text>
+                    </View>
+                    <View style={styles.vitalItem}>
+                        <Text style={styles.vitalLabel}>FR:</Text>
+                        <Text>{val(respiratoryRate)}</Text>
+                    </View>
+                    <View style={styles.vitalItem}>
+                        <Text style={styles.vitalLabel}>SPO2%:</Text>
+                        <Text>{val(spo2)}</Text>
+                    </View>
+                </View>
+                <Text style={styles.block}>{val(physicalExam)}</Text>
+
+                <Text style={styles.sectionLabel}>IMPRESIÓN DIAGNOSTICADA:</Text>
+                <Text style={styles.block}>{impresion.trim() || "—"}</Text>
+
+                <PdfSignature doctorName={doctorName} />
+            </Page>
+        </Document>
+    );
+};
 
 export default ReferenciaDocument;

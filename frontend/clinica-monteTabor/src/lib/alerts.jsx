@@ -147,6 +147,42 @@ export const confirmCascadeDelete = async ({ subject, name, related = {} }) => {
   return result.isConfirmed;
 };
 
+// Se muestra cuando se intenta eliminar un paciente que se registró hace
+// menos de un año: el backend bloquea el borrado (ver deletePatient), la
+// información clínica se protege ese primer año. La única acción disponible
+// mientras tanto es marcarlo como inactivo, y solo se ofrece si todavía está
+// activo. Devuelve true solo si el usuario confirmó "Marcar como inactivo".
+export const confirmDeleteLocked = async ({ name, unlockDate, isActive = true }) => {
+  const fecha = unlockDate
+    ? new Date(unlockDate).toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric" })
+    : "un año después de su registro";
+
+  const result = await Swal.fire({
+    title: "Todavía no se puede eliminar",
+    html:
+      `<b>${name}</b> se registró hace menos de un año. Para proteger la información clínica, el paciente podrá eliminarse a partir del <b>${fecha}</b>.` +
+      (isActive
+        ? "<br/><br/>Si no deseas que se muestre su información mientras tanto, puedes marcarlo como <b>inactivo</b>."
+        : "<br/><br/>Este paciente ya está inactivo, así que su información no aparece en las vistas clínicas."),
+    icon: "info",
+    iconColor: "#3B82F6",
+    showCancelButton: isActive,
+    confirmButtonText: isActive ? "Marcar como inactivo" : "Entendido",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#3B6FCA",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return isActive && result.isConfirmed;
+};
+
 export const confirmResetPermissions = async (roleName) => {
   const result = await Swal.fire({
     title: `¿Restablecer permisos de ${roleName}?`,

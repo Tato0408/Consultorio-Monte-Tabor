@@ -1,14 +1,26 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, LabelList,
 } from "recharts";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, SectionCard } from "../global/ui";
 import VitalSignsFormModal from "../global/VitalSignsFormModal";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmDelete } from "@/lib/alerts";
 import { useAuth } from "@/context/AuthContext";
+import { formatFecha } from "../../hooks/useRecords";
+import ClinicalHistoryDocument from "@/modules/schedule/consultations/pdf/ClinicalHistoryDocument";
+import { downloadPdf } from "@/modules/schedule/consultations/pdf/downloadPdf";
+import { pdfDateTime } from "@/modules/schedule/consultations/pdf/pdfDate";
+
+// Sentinela que useRecords deja en noPatologicos cuando el campo está vacío.
+// En el PDF ese texto no aplica, se quiere un guión.
+const NON_PATHOLOGICAL_PLACEHOLDER = "Sin antecedentes no patológicos registrados.";
+
+// La tabla de historial pagina a partir de 20 tomas: hasta 20 se muestran
+// todas sin controles, de la 21 en adelante aparece la paginación.
+const TABLE_PAGE_SIZE = 20;
 
 // Configuración de cada tarjeta clicable: a qué campo o campos de
 // signosVitalesHistorial corresponde y cómo graficarlo.
@@ -60,6 +72,20 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
   const [editEntry, setEditEntry] = useState(null);
   const historial = useMemo(() => patient.signosVitalesHistorial ?? [], [patient.signosVitalesHistorial]);
 
+  // Paginación de la tabla de historial (fija a 20 filas por página).
+  const [tablePage, setTablePage] = useState(1);
+  const tableTotalPages = Math.max(1, Math.ceil(historial.length / TABLE_PAGE_SIZE));
+  const currentTablePage = Math.min(tablePage, tableTotalPages);
+  // Al agregar o eliminar tomas la última página puede desaparecer, se
+  // recoloca en la última existente.
+  useEffect(() => {
+    if (tablePage > tableTotalPages) setTablePage(tableTotalPages);
+  }, [tablePage, tableTotalPages]);
+  const tableRows = historial.slice(
+    (currentTablePage - 1) * TABLE_PAGE_SIZE,
+    currentTablePage * TABLE_PAGE_SIZE
+  );
+
   const metrics = [
     { key: "presionArterial", label: "Presión arterial", value: v.presionArterial, unit: "mmHg" },
     { key: "glucosa", label: "Glucosa", value: v.glucosa, unit: "mg/dL" },
@@ -93,6 +119,59 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
   // onSaved (ver refreshAll en RecordDetailPage.jsx). Como el gráfico y las
   // tarjetas de arriba se derivan del mismo historial que llena esta tabla,
   // quedan al día automáticamente sin lógica aparte.
+  // Arma el PDF de historial clínico con los datos ya mapeados del expediente
+  // (mismo documento que puede descargar el paciente desde su portal). Los
+  // antecedentes que no estén registrados van como guión dentro del documento.
+  const handleDownloadHistory = async () => {
+    const h = patient.historiaClinica || {};
+    const nonPathological =
+      h.noPatologicos && h.noPatologicos !== NON_PATHOLOGICAL_PLACEHOLDER ? h.noPatologicos : "";
+    const patientFullName = `${patient.nombre || ""} ${patient.apellido || ""}`.trim();
+    const { date, time, fileSafe } = pdfDateTime();
+    try {
+      await downloadPdf(
+        <ClinicalHistoryDocument
+          title={`Historial clínico de ${patientFullName} ${fileSafe}`}
+          patientName={patientFullName}
+          age={patient.edad}
+          gender={patient.sexo}
+          dui={patient.dui}
+          bloodType={patient.tipoSangre}
+          birthDate={formatFecha(patient.birthDate)}
+          date={date}
+          time={time}
+          vitals={historial.map((r) => ({
+            fecha: r.fecha,
+            presion: r.presion,
+            glucosa: r.glucosa,
+            peso: r.peso,
+            altura: r.altura,
+            temp: r.temp,
+            spo2: r.spo2 !== "—" ? `${r.spo2}%` : "—",
+          }))}
+          hereditary={(h.hereditarios || []).map((item) => ({
+            parentesco: item.a,
+            condicion: item.b,
+            tipo: item.tipo,
+          }))}
+          pathological={(h.patologicos || []).map((item) => ({
+            enfermedad: item.a,
+            diagnostico: item.b,
+            tipo: item.tipo,
+          }))}
+          nonPathological={nonPathological}
+          ecologicalSocial={h.ecologicoSociales}
+          procedures={(patient.procedimientos || [])
+            .filter((p) => p.consultationId)
+            .map((p) => ({ nombre: p.nombre, fecha: p.fecha }))}
+        />,
+        `Historial clínico - ${patientFullName} ${fileSafe}`
+      );
+    } catch (err) {
+      showError(err.message || "No se pudo generar el historial clínico");
+    }
+  };
+
   const handleDelete = async (row) => {
     const confirmed = await confirmDelete({
       title: "¿Eliminar esta toma de signos vitales?",
@@ -111,15 +190,27 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
   return (
     <div className="space-y-5">
 
-      {/* Encabezado */}
-      {canCreate && (
-        <div className="flex justify-end">
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm"
-          >
-            Agregar <Plus size={16} />
-          </button>
+      {/* Encabezado: descargar el historial clínico solo aparece cuando ya hay
+          al menos una toma de signos vitales (ver regla en el PDF). Agregar
+          sigue dependiendo del permiso de crear en el expediente. */}
+      {(historial.length > 0 || canCreate) && (
+        <div className="flex justify-end gap-2">
+          {historial.length > 0 && (
+            <button
+              onClick={handleDownloadHistory}
+              className="flex items-center gap-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 text-sm font-medium px-4 py-2 rounded-lg"
+            >
+              <Download size={16} /> Descargar historial clínico
+            </button>
+          )}
+          {canCreate && (
+            <button
+              onClick={openAddModal}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm"
+            >
+              Agregar <Plus size={16} />
+            </button>
+          )}
         </div>
       )}
 
@@ -219,10 +310,11 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
       </SectionCard>
 
       {/* Tabla de historial */}
-      <Card className="overflow-x-auto">
+      <Card>
         {/* table-fixed reparte las 9 columnas en anchos iguales; encabezado con la misma
             franja gris (bg-slate-50, mayúsculas) que las tablas de los reportes y todo
             centrado. min-w mantiene la tabla legible y deja el scroll horizontal. */}
+        <div className="overflow-x-auto">
         <table className="w-full min-w-[920px] text-sm table-fixed">
           <thead>
             <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -238,7 +330,7 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
             </tr>
           </thead>
           <tbody>
-            {historial.map((r) => (
+            {tableRows.map((r) => (
               <tr key={r.id} className="border-t border-slate-100 text-slate-600">
                 <td className="py-3 px-2 text-center whitespace-nowrap">{r.fecha}</td>
                 <td className="py-3 px-2 text-center">{r.presion}</td>
@@ -285,6 +377,41 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
             )}
           </tbody>
         </table>
+        </div>
+
+        {/* Paginación: solo aparece a partir de la fila 21. */}
+        {historial.length > TABLE_PAGE_SIZE && (
+          <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-4 mt-1 text-sm text-slate-500">
+            <span>
+              {(currentTablePage - 1) * TABLE_PAGE_SIZE + 1}
+              {" a "}
+              {Math.min(currentTablePage * TABLE_PAGE_SIZE, historial.length)}
+              {" de "}
+              {historial.length} tomas
+            </span>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setTablePage(currentTablePage - 1)}
+                disabled={currentTablePage === 1}
+                className="flex items-center gap-1 text-slate-500 hover:text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" /> Anterior
+              </button>
+              <span className="text-slate-600">
+                <span className="font-medium text-slate-800">{currentTablePage}</span> de {tableTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setTablePage(currentTablePage + 1)}
+                disabled={currentTablePage === tableTotalPages}
+                className="flex items-center gap-1 text-slate-500 hover:text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Siguiente <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
 
       <VitalSignsFormModal

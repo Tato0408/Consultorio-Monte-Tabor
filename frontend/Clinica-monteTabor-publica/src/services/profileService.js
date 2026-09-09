@@ -32,11 +32,17 @@ export const updateMyLifestyle = (non_pathological, ecologycal_social) =>
 export const addMyPathological = (disease, diagnosis) =>
   apiClient("/patientAccount/me/pathological", { method: "POST", body: { disease, diagnosis } });
 
+export const updateMyPathological = (entryId, disease, diagnosis) =>
+  apiClient(`/patientAccount/me/pathological/${entryId}`, { method: "PUT", body: { disease, diagnosis } });
+
 export const deleteMyPathological = (entryId) =>
   apiClient(`/patientAccount/me/pathological/${entryId}`, { method: "DELETE" });
 
 export const addMyHereditary = (relationship, condition) =>
   apiClient("/patientAccount/me/hereditary", { method: "POST", body: { relationship, condition } });
+
+export const updateMyHereditary = (entryId, relationship, condition) =>
+  apiClient(`/patientAccount/me/hereditary/${entryId}`, { method: "PUT", body: { relationship, condition } });
 
 export const deleteMyHereditary = (entryId) =>
   apiClient(`/patientAccount/me/hereditary/${entryId}`, { method: "DELETE" });

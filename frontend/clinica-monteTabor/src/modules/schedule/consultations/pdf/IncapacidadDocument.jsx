@@ -21,14 +21,14 @@ const styles = StyleSheet.create({
 // "Constancia médica" del consultorio de referencia (nombre, edad,
 // "Presenta", firma y sello), con un campo de días de reposo
 // agregado, porque ese formato en papel no lo incluía.
-const IncapacidadDocument = ({ title, patientName, dui, age, diagnosis, restDays, doctorName, date }) => (
+const IncapacidadDocument = ({ title, patientName, dui, age, diagnosis, restDays, doctorName, date, time }) => (
     <Document title={title}>
         <Page size="LETTER" style={styles.page}>
             <PdfLetterhead />
             <Text style={styles.title}>CONSTANCIA DE INCAPACIDAD MÉDICA</Text>
 
             <View style={styles.row}>
-                <Text>Fecha: {date}</Text>
+                <Text>Fecha: {date}{time ? `   Hora: ${time}` : ""}</Text>
                 {dui ? <Text>DUI: {dui}</Text> : null}
             </View>
 

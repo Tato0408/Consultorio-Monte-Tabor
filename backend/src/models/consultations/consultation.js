@@ -101,6 +101,25 @@ const consultationSchema = new Schema({
     type: Date,
   },
 
+  // Nota de enfermería del procedimiento. Solo la escribe la enfermera
+  // asignada a la cita, y solo después de que la consulta ya existe (el
+  // doctor la finaliza, o la enfermera la crea en un procedimiento sin
+  // doctor). Queda en null mientras la enfermera no la haya llenado, aunque
+  // el procedimiento exija enfermera (ver PATCH /consultations/:id/nurse-note).
+  nurse_note: {
+    type: String,
+    default: null,
+  },
+  nurse_note_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "nurses",
+    default: null,
+  },
+  nurse_note_at: {
+    type: Date,
+    default: null,
+  },
+
   referral: {
     reason: {
       type: String,
@@ -115,6 +134,18 @@ const consultationSchema = new Schema({
       type: String,
       enum: ["Pendiente", "Completada"],
       default: "Pendiente",
+    },
+    // Campos que la hoja de referencia (CONSULTORIO MEDICO FAMILIAR) pide y
+    // que no se capturan en el resto de la consulta: el doctor los llena en
+    // el panel "Referencia". FC/FR van como texto libre (unidades incluidas).
+    address: {
+      type: String,
+    },
+    heart_rate: {
+      type: String,
+    },
+    respiratory_rate: {
+      type: String,
     },
   },
   date:{

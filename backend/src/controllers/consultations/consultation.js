@@ -9,7 +9,26 @@ import inventoryController from "../inventory/inventoryController.js";
 import { getVitalSignsError, getRequiredConsultationFieldsError } from "../../utils/validators.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import { assertActiveParties, isPatientInactive } from "../../utils/activeScope.js";
+import { refreshNurseNotePendingNotification } from "../../services/notificationService.js";
 const consultationController = {};
+
+// Refresca la notificación de notas de enfermería pendientes cuando la cita
+// de una consulta exige nota: tiene enfermera asignada y su procedimiento
+// requiere enfermera. Best effort, nunca corta la respuesta.
+const notifyNurseNoteIfNeeded = async (appointment) => {
+  try {
+    if (!appointment?.nurse_id || !appointment?.procedure_id) return;
+    const procedure = await proceduresModel
+      .findById(appointment.procedure_id)
+      .select("requires_nurse")
+      .lean();
+    if (procedure?.requires_nurse) {
+      await refreshNurseNotePendingNotification(appointment.nurse_id);
+    }
+  } catch (error) {
+    console.log("error notifyNurseNoteIfNeeded" + error);
+  }
+};
 
 // Convierte el triage de la consulta al shape de Patients.clinical_history.vital_signs — null si
 // no se capturó ningún signo vital (para no empujar un registro vacío al historial).
@@ -264,7 +283,7 @@ consultationController.insertConsultation = async (req, res) => {
     // No se registra una consulta de un paciente inactivo ni de una cita
     // asignada a un doctor inactivo: esa consulta no seria visible despues.
     const consultationAppointment = appointment_id
-      ? await appointmentsModel.findById(appointment_id).select("doctor_id").lean()
+      ? await appointmentsModel.findById(appointment_id).select("doctor_id nurse_id procedure_id").lean()
       : null;
     const inactivePartyError = await assertActiveParties({
       patientId: patient_id,
@@ -389,6 +408,10 @@ consultationController.insertConsultation = async (req, res) => {
     //Cerramos el canal de la session
     session.endSession();
 
+    // El doctor puede finalizar sin la nota de enfermería: si el
+    // procedimiento la exige, la enfermera asignada recibe el aviso.
+    await notifyNurseNoteIfNeeded(consultationAppointment);
+
     return res.status(200).json({ message: "Consulta guardada" });
   } catch (error) {
     //Si algo ocurre mal, no inserta ningun dato
@@ -466,7 +489,7 @@ consultationController.updateConsultation = async (req, res) => {
     // No se edita una consulta de un paciente inactivo ni de una cita
     // asignada a un doctor inactivo.
     const consultationAppointment = appointment_id
-      ? await appointmentsModel.findById(appointment_id).select("doctor_id").lean()
+      ? await appointmentsModel.findById(appointment_id).select("doctor_id nurse_id procedure_id").lean()
       : null;
     const inactivePartyError = await assertActiveParties({
       patientId: patient_id,
@@ -599,6 +622,10 @@ consultationController.updateConsultation = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    // Si el procedimiento exige nota de enfermería, se recalcula el aviso de
+    // la enfermera asignada (la consulta puede haber quedado sin nota).
+    await notifyNurseNoteIfNeeded(consultationAppointment);
+
     return res.status(200).json({ message: "Consulta actualizada" });
   } catch (error) {
     if (session.inTransaction()) {
@@ -697,7 +724,7 @@ consultationController.getConsultationByAppointmentId = async (req, res) => {
 // el cuerpo completo de la consulta.
 consultationController.updateReferral = async (req, res) => {
   try {
-    const { reason, referred_to, referred_date, status } = req.body;
+    const { reason, referred_to, referred_date, status, address, heart_rate, respiratory_rate } = req.body;
 
     const consultation = await consultationsModel.findByIdAndUpdate(
       req.params.id,
@@ -707,6 +734,9 @@ consultationController.updateReferral = async (req, res) => {
           "referral.referred_to": referred_to,
           "referral.referred_date": referred_date,
           "referral.status": status,
+          "referral.address": address,
+          "referral.heart_rate": heart_rate,
+          "referral.respiratory_rate": respiratory_rate,
         },
       },
       { new: true, runValidators: true }
@@ -736,6 +766,65 @@ consultationController.deleteReferral = async (req, res) => {
       return res.status(404).json({ message: "Consulta no encontrada" });
     }
     return res.status(200).json({ message: "Referencia eliminada" });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// PATCH /consultations/:id/nurse-note. La enfermera asignada a la cita
+// registra o corrige su nota de enfermería. Es el único punto por el que se
+// escribe nurse_note: el formulario del doctor nunca lo toca. Solo lo puede
+// llamar una enfermera, y solo si es la enfermera de esa cita y el
+// procedimiento exige enfermera.
+consultationController.setNurseNote = async (req, res) => {
+  try {
+    if (req.user.role !== "nurse") {
+      return res.status(403).json({ message: "Solo una enfermera puede registrar la nota de enfermería" });
+    }
+
+    const consultation = await consultationsModel.findById(req.params.id).select("appointment_id");
+    if (!consultation) {
+      return res.status(404).json({ message: "Consulta no encontrada" });
+    }
+
+    const appointment = consultation.appointment_id
+      ? await appointmentsModel.findById(consultation.appointment_id).select("nurse_id procedure_id").lean()
+      : null;
+    const assignedNurseId = appointment?.nurse_id ? String(appointment.nurse_id) : null;
+    if (!assignedNurseId || assignedNurseId !== String(req.user.id)) {
+      return res.status(403).json({ message: "No eres la enfermera asignada a esta consulta" });
+    }
+
+    const procedure = appointment.procedure_id
+      ? await proceduresModel.findById(appointment.procedure_id).select("requires_nurse").lean()
+      : null;
+    if (!procedure?.requires_nurse) {
+      return res.status(403).json({ message: "Esta consulta no requiere nota de enfermería" });
+    }
+
+    const text = String(req.body?.text || "").trim();
+    const update = text
+      ? { nurse_note: text, nurse_note_by: req.user.id, nurse_note_at: new Date() }
+      : { nurse_note: null, nurse_note_by: null, nurse_note_at: null };
+
+    const updated = await consultationsModel.findByIdAndUpdate(
+      req.params.id,
+      { $set: update },
+      { new: true }
+    );
+
+    // Con la nota agregada (o quitada) se recalcula el aviso consolidado.
+    await refreshNurseNotePendingNotification(req.user.id);
+
+    return res.status(200).json({
+      message: "Nota de enfermería guardada",
+      data: {
+        nurse_note: updated.nurse_note,
+        nurse_note_at: updated.nurse_note_at,
+        nurse_note_by: updated.nurse_note_by,
+      },
+    });
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });

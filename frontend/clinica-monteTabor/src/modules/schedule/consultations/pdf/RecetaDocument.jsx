@@ -33,6 +33,7 @@ const RecetaDocument = ({
   age,
   doctorName,
   date,
+  time,
   medications = [],
   instructions,
 }) => (
@@ -43,7 +44,7 @@ const RecetaDocument = ({
 
       <View style={styles.row}>
         <Text>Paciente: <Text style={styles.label}>{patientName}</Text></Text>
-        <Text>Fecha: {date}</Text>
+        <Text>Fecha: {date}{time ? `   Hora: ${time}` : ""}</Text>
       </View>
       <View style={styles.row}>
         <Text>Edad: {age ?? "—"}</Text>

@@ -37,6 +37,9 @@ const emptyConsultation = {
     reason: "",
     referred_to: "",
     referred_date: "",
+    address: "",
+    heart_rate: "",
+    respiratory_rate: "",
   },
   antecedents: {
     hereditary: [],
@@ -341,6 +344,7 @@ function useConsultation(appointmentId) {
     isLoading,
     isSaving,
     error,
+    consultationId,
     hasExistingRecord: !!consultationId,
   };
 }

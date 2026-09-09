@@ -8,22 +8,25 @@ import LabOrderDocument from "@/modules/schedule/consultations/pdf/LabOrderDocum
 import RecetaDocument from "@/modules/schedule/consultations/pdf/RecetaDocument";
 import { downloadPdf } from "@/modules/schedule/consultations/pdf/downloadPdf";
 import { openPdfInNewTab } from "@/modules/schedule/consultations/pdf/openPdfInNewTab";
+import { pdfDateTime } from "@/modules/schedule/consultations/pdf/pdfDate";
 import { calculateAge } from "@/lib/validators";
 
 // Arma y abre en una pestaña nueva el PDF de una receta (mismo documento que
-// se descarga desde la pestaña de Documentos, ver RecordsDocuments.jsx).
+// se descarga desde la pestaña de Documentos, ver RecordsDocuments.jsx). Al
+// generarse desde el expediente, la fecha y la hora son las de cuando se
+// emitió la receta (issued_at), no las de ahora.
 const descargarReceta = async (patient, receta) => {
-  const dateSource = receta.issuedAtRaw ? new Date(receta.issuedAtRaw) : new Date();
-  const dateFormatted = dateSource.toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const { date: dateFormatted, time: timeFormatted, fileSafe } = pdfDateTime(receta.issuedAtRaw);
   const patientFullName = `${patient.nombre || ""} ${patient.apellido || ""}`.trim();
   await openPdfInNewTab(
     <RecetaDocument
-      title={`Receta médica de ${patientFullName} ${dateFormatted.replace(/\//g, "-")}`}
+      title={`Receta médica de ${patientFullName} ${fileSafe}`}
       patientName={patientFullName}
       dui={patient.dui}
       age={calculateAge(patient.birthDate)}
       doctorName={receta.doctorName}
       date={dateFormatted}
+      time={timeFormatted}
       medications={receta.medicationsRaw}
       instructions={receta.instructionsRaw}
     />
@@ -40,10 +43,7 @@ const descargarOrdenLaboratorio = async (labOrder) => {
   const patientName = `${p.name || ""} ${p.last_name || ""}`.trim() || "Paciente";
   const doctorName = provider ? `${provider.name || ""} ${provider.last_name || ""}`.trim() : "";
   const dateSource = labOrder.consultation_id?.date || labOrder.issued_at || labOrder.createdAt;
-  const dateFormatted = dateSource
-    ? new Date(dateSource).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" })
-    : "";
-  const fileSafe = dateFormatted.replace(/\//g, "-");
+  const { date: dateFormatted, time: timeFormatted, fileSafe } = pdfDateTime(dateSource);
 
   await downloadPdf(
     <LabOrderDocument
@@ -54,6 +54,7 @@ const descargarOrdenLaboratorio = async (labOrder) => {
       dui={p.dui}
       doctorName={doctorName}
       date={dateFormatted}
+      time={timeFormatted}
       weight={labOrder.weight}
       height={labOrder.height}
       pregnancy={labOrder.pregnancy}

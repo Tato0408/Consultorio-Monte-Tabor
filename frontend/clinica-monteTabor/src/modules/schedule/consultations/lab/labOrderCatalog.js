@@ -353,6 +353,21 @@ export const groupSelectedTests = (tests) => {
     })).filter((panel) => panel.labels.length > 0);
 };
 
+// Igual que groupSelectedTests, pero cada panel devuelto trae TODOS sus
+// exámenes con una marca checked. Se usa para imprimir la orden como la hoja
+// original: solo las secciones con algo marcado, pero completas, con sus
+// casillas llenas y vacías. Devuelve [{ title, tests: [{ label, checked }] }].
+export const selectedPanelsWithAllTests = (tests) => {
+    const selected = new Set(Array.isArray(tests) ? tests : []);
+    return LAB_ORDER_CATALOG.map((panel) => ({
+        title: panel.title,
+        tests: panel.tests.map((test) => ({
+            label: test.label,
+            checked: selected.has(testKey(panel.key, test.key)),
+        })),
+    })).filter((panel) => panel.tests.some((test) => test.checked));
+};
+
 export const PREGNANCY_OPTIONS = [
     { value: "", label: "No aplica" },
     { value: "si", label: "Sí" },

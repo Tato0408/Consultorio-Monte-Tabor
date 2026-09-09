@@ -190,6 +190,9 @@ const toRecordDetail = (patient) => {
       noPatologicos:
         patient?.clinical_history?.non_pathological ||
         "Sin antecedentes no patológicos registrados.",
+      // Texto libre de antecedentes ecológico-sociales. Solo lo consume el PDF
+      // de historial clínico, la pestaña de historia clínica no lo muestra.
+      ecologicoSociales: patient?.clinical_history?.ecologycal_social || "",
     },
   };
 };

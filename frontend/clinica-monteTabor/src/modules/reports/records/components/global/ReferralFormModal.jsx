@@ -3,8 +3,17 @@ import { useForm } from "react-hook-form";
 import { X, Loader2, ArrowLeftRight } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
+import { maskAlnum, maskClinicalText } from "@/lib/inputMasks";
 
-const EMPTY = { referred_to: "", referred_date: "", reason: "", status: "Pendiente" };
+const EMPTY = {
+  referred_to: "",
+  referred_date: "",
+  reason: "",
+  status: "Pendiente",
+  address: "",
+  heart_rate: "",
+  respiratory_rate: "",
+};
 
 // Modal para editar la referencia de una consulta ya guardada. No existe
 // variante de "crear": una referencia solo nace dentro de una consulta (ver
@@ -19,8 +28,15 @@ const ReferralFormModal = ({ isOpen, onClose, entry, onSaved }) => {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm({ defaultValues: EMPTY });
+
+  // Mismas máscaras que el panel "Referencia" de la consulta: sin símbolos
+  // sueltos. maskAlnum (solo letras/números) en dirección, FC y FR;
+  // maskClinicalText (permite puntuación de frase) en referido a y motivo.
+  const maskChange = (path, mask, maxLength) => (e) =>
+    setValue(path, mask(e.target.value, maxLength), { shouldValidate: true });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -29,6 +45,9 @@ const ReferralFormModal = ({ isOpen, onClose, entry, onSaved }) => {
       referred_date: entry?.referredDateRaw ? String(entry.referredDateRaw).split("T")[0] : "",
       reason: entry?.reasonRaw || "",
       status: entry?.statusRaw || "Pendiente",
+      address: entry?.addressRaw || "",
+      heart_rate: entry?.heartRateRaw || "",
+      respiratory_rate: entry?.respiratoryRateRaw || "",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, entry?.id]);
@@ -91,6 +110,7 @@ const ReferralFormModal = ({ isOpen, onClose, entry, onSaved }) => {
                 placeholder="Ej. Dr. Pérez, Cardiología"
                 maxLength={100}
                 {...register("referred_to", { required: "Requerido" })}
+                onChange={maskChange("referred_to", maskClinicalText, 100)}
                 className={inputClass(errors.referred_to)}
               />
               {errors.referred_to && (
@@ -117,12 +137,50 @@ const ReferralFormModal = ({ isOpen, onClose, entry, onSaved }) => {
             </div>
 
             <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500">Dirección del paciente</label>
+              <input
+                type="text"
+                maxLength={200}
+                placeholder="Ej. Colonia Escalón calle El Mirador 12 San Salvador"
+                {...register("address")}
+                onChange={maskChange("address", maskAlnum, 200)}
+                className={inputClass(false)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-500">Frec. cardíaca</label>
+                <input
+                  type="text"
+                  maxLength={20}
+                  placeholder="Ej. 78 lpm"
+                  {...register("heart_rate")}
+                  onChange={maskChange("heart_rate", maskAlnum, 20)}
+                  className={inputClass(false)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-500">Frec. respiratoria</label>
+                <input
+                  type="text"
+                  maxLength={20}
+                  placeholder="Ej. 16 rpm"
+                  {...register("respiratory_rate")}
+                  onChange={maskChange("respiratory_rate", maskAlnum, 20)}
+                  className={inputClass(false)}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">Motivo de la referencia</label>
               <textarea
                 rows={3}
                 maxLength={500}
                 placeholder="Ej. Paciente requiere valoración cardiológica"
                 {...register("reason", { required: "Requerido" })}
+                onChange={maskChange("reason", maskClinicalText, 500)}
                 className={inputClass(errors.reason)}
               />
               <div className="flex items-start justify-between gap-2">

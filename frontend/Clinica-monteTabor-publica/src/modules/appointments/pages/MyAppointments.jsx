@@ -48,6 +48,16 @@ const inicioDeCita = (cita) => {
 const puedeReagendar = (cita) =>
   esCancelable(cita.status) && inicioDeCita(cita).getTime() - Date.now() > LIMITE_REAGENDAR_MS;
 
+// A menos de 30 minutos del inicio (o ya empezada), una cita ya aceptada no se
+// puede cancelar sola: el paciente debe coordinarlo con quien lo atenderá. El
+// backend también lo bloquea (ver isCancelLockedForPatient), esto solo evita
+// abrir el diálogo del motivo para nada.
+const CANCELAR_BLOQUEADO_MS = 30 * 60 * 1000;
+const MENSAJE_CANCELAR_BLOQUEADO =
+  "Tu cita está próxima a comenzar. Para cancelarla, comunícate con el doctor que te atenderá y lleguen a un acuerdo.";
+const cancelarBloqueado = (cita) =>
+  cita.status === "scheduled" && inicioDeCita(cita).getTime() - Date.now() <= CANCELAR_BLOQUEADO_MS;
+
 const TABS = [
   { key: "proximas", label: "Próximas", icon: CalendarDays, badge: "Próxima cita", vacio: "próximas citas", vacioHint: "Cuando agendes una cita, aparecerá aquí." },
   { key: "porReagendar", label: "Por reagendar", icon: CalendarClock, badge: "Por reagendar", vacio: "citas por reagendar", vacioHint: "Aquí verás las citas que debas reagendar." },
@@ -283,6 +293,10 @@ const MyAppointments = () => {
   };
 
   const handleCancelar = async (cita) => {
+    if (cancelarBloqueado(cita)) {
+      showError(MENSAJE_CANCELAR_BLOQUEADO);
+      return;
+    }
     // El mensaje cambia según si ya hay un anticipo pagado (se pierde, no se reembolsa)
     // o solo un intento de pago sin confirmar (cancelar no revisa ni revierte ese cobro)
     let mensaje = "¿Por qué deseas cancelar esta cita?";
@@ -296,6 +310,17 @@ const MyAppointments = () => {
     // paciente hubiera querido explicar.
     const motivo = await confirmActionWithReason(mensaje, { confirmLabel: "Sí, cancelar", placeholder: "Ej. Ya no puedo asistir a esa hora..." });
     if (!motivo) return;
+
+    // Segunda confirmación explícita cuando ya se pagó el anticipo: el paciente
+    // debe aceptar de forma clara que ese dinero no se le devuelve.
+    if (cita.deposit_paid) {
+      const aceptaPerderAnticipo = await confirmAction(
+        `¿Confirmas la cancelación? Ya pagaste un anticipo de $${Number(cita.deposit_amount).toFixed(2)} y, por política de la clínica, ese monto no se te reembolsará.`,
+        { confirmLabel: "Sí, cancelar", cancelLabel: "No, conservar la cita", danger: true }
+      );
+      if (!aceptaPerderAnticipo) return;
+    }
+
     // Se evalúa ANTES de cancelar: una vez cancelada, cita.status ya no calza con
     // esCancelable y puedeReagendar siempre daría false.
     const ofrecerReagendar = puedeReagendar(cita);

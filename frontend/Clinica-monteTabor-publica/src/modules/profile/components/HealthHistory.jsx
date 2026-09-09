@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Activity, Users, Leaf, Stethoscope, Info, Droplet } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Loader2, Activity, Users, Leaf, Stethoscope, Info, Droplet, Download } from "lucide-react";
 import InputField from "@/components/ui/InputField";
 import {
-  addMyPathological, deleteMyPathological,
-  addMyHereditary, deleteMyHereditary,
+  addMyPathological, updateMyPathological, deleteMyPathological,
+  addMyHereditary, updateMyHereditary, deleteMyHereditary,
   updateMyLifestyle,
 } from "@/services/profileService";
 import { showSuccess, showError, confirmAction } from "@/lib/alerts";
+import { descargarHistorialClinicoPdf } from "@/lib/pdf/patientDocuments";
 
 const PARENTESCOS = [
   "Madre", "Padre", "Hermano/a", "Abuelo/a materno", "Abuelo/a paterno",
@@ -28,7 +29,7 @@ const SectionHead = ({ title, onAdd }) => (
   </div>
 );
 
-const Item = ({ icon: Icon, iconClass = "bg-[#3B6FCA]/10 text-[#3B6FCA]", title, meta, onDelete, deleting }) => (
+const Item = ({ icon: Icon, iconClass = "bg-[#3B6FCA]/10 text-[#3B6FCA]", title, meta, onEdit, onDelete, deleting }) => (
   <div className="flex items-center gap-3 border border-gray-100 rounded-xl p-3 mb-2">
     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${iconClass}`}>
       <Icon className="w-4 h-4" />
@@ -37,6 +38,11 @@ const Item = ({ icon: Icon, iconClass = "bg-[#3B6FCA]/10 text-[#3B6FCA]", title,
       <p className="text-sm font-semibold text-gray-800 truncate">{title}</p>
       {meta && <p className="text-xs text-gray-500 truncate mt-0.5">{meta}</p>}
     </div>
+    {onEdit && (
+      <button onClick={onEdit} disabled={deleting} className="p-1.5 rounded-lg text-gray-400 hover:text-[#3B6FCA] hover:bg-[#3B6FCA]/10 disabled:opacity-50">
+        <Pencil className="w-4 h-4" />
+      </button>
+    )}
     {onDelete && (
       <button onClick={onDelete} disabled={deleting} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50">
         {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
@@ -62,6 +68,9 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
   const [sub, setSub] = useState("lista");
   const [deletingId, setDeletingId] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Id del registro que se está editando (null cuando el sub-formulario abierto
+  // es para agregar uno nuevo).
+  const [editingId, setEditingId] = useState(null);
 
   const [enf, setEnf] = useState({ disease: "", diagnosis: "" });
   const [ant, setAnt] = useState({ relationship: "Madre", condition: "" });
@@ -89,17 +98,53 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
     }
   };
 
+  // Abre el sub-formulario en modo agregar, con el estado limpio.
+  const abrirAgregar = (tipo) => {
+    setErrors({});
+    setEditingId(null);
+    if (tipo === "enfermedad") setEnf({ disease: "", diagnosis: "" });
+    else setAnt({ relationship: "Madre", condition: "" });
+    setSub(tipo);
+  };
+
+  // Abre el sub-formulario en modo edición, precargado con el registro.
+  const editarEnfermedad = (item) => {
+    setErrors({});
+    setEditingId(item._id);
+    setEnf({ disease: item.disease || "", diagnosis: item.diagnosis || "" });
+    setSub("enfermedad");
+  };
+  const editarAntecedente = (item) => {
+    setErrors({});
+    setEditingId(item._id);
+    setAnt({ relationship: item.relationship || "Madre", condition: item.condition || "" });
+    setSub("antecedente");
+  };
+
+  const cerrarSubformulario = () => {
+    setSub("lista");
+    setEditingId(null);
+    setErrors({});
+  };
+
   const guardarEnfermedad = async (e) => {
     e.preventDefault();
     if (saving) return;
     if (!enf.disease.trim()) { setErrors({ disease: "Escribe el nombre de la enfermedad" }); return; }
-    if (enf.diagnosis && new Date(enf.diagnosis) > new Date()) { setErrors({ diagnosis: "La fecha no puede ser futura" }); return; }
     setSaving(true);
     try {
-      await addMyPathological(enf.disease.trim(), enf.diagnosis || null);
-      showSuccess("Enfermedad agregada.");
+      const disease = enf.disease.trim();
+      const diagnosis = enf.diagnosis.trim() || null;
+      if (editingId) {
+        await updateMyPathological(editingId, disease, diagnosis);
+        showSuccess("Enfermedad actualizada.");
+      } else {
+        await addMyPathological(disease, diagnosis);
+        showSuccess("Enfermedad agregada.");
+      }
       setEnf({ disease: "", diagnosis: "" });
       setErrors({});
+      setEditingId(null);
       onChanged?.();
       setSub("lista");
     } catch (err) {
@@ -115,10 +160,17 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
     if (!ant.condition.trim()) { setErrors({ condition: "Escribe la condición o enfermedad" }); return; }
     setSaving(true);
     try {
-      await addMyHereditary(ant.relationship, ant.condition.trim());
-      showSuccess("Antecedente agregado.");
+      const condition = ant.condition.trim();
+      if (editingId) {
+        await updateMyHereditary(editingId, ant.relationship, condition);
+        showSuccess("Antecedente actualizado.");
+      } else {
+        await addMyHereditary(ant.relationship, condition);
+        showSuccess("Antecedente agregado.");
+      }
       setAnt({ relationship: "Madre", condition: "" });
       setErrors({});
+      setEditingId(null);
       onChanged?.();
       setSub("lista");
     } catch (err) {
@@ -148,9 +200,11 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
   if (sub === "enfermedad") {
     return (
       <div className="max-w-xl">
-        <BackLink onClick={() => { setSub("lista"); setErrors({}); }}>Volver a historia clínica</BackLink>
+        <BackLink onClick={cerrarSubformulario}>Volver a historia clínica</BackLink>
         <form onSubmit={guardarEnfermedad} className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-7">
-          <h2 className="text-base font-bold text-gray-900 mb-5">Agregar enfermedad crónica</h2>
+          <h2 className="text-base font-bold text-gray-900 mb-5">
+            {editingId ? "Editar enfermedad crónica" : "Agregar enfermedad crónica"}
+          </h2>
           <div className="flex flex-col gap-4">
             <InputField
               label="Nombre de la enfermedad"
@@ -161,18 +215,19 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
             />
             <div>
               <InputField
-                label="Fecha de diagnóstico (opcional)"
-                type="date"
+                label="Diagnóstico (opcional)"
                 value={enf.diagnosis}
-                onChange={(e) => { setEnf((p) => ({ ...p, diagnosis: e.target.value })); setErrors({}); }}
+                maxLength={50}
+                onChange={(e) => { setEnf((p) => ({ ...p, diagnosis: e.target.value.slice(0, 50) })); setErrors({}); }}
+                placeholder="Ej. Confirmado en 2019"
                 error={errors.diagnosis}
               />
-              <p className="text-xs text-gray-400 mt-1.5">Déjala vacía si no la recuerdas.</p>
+              <p className="text-xs text-gray-400 mt-1.5">Déjalo vacío si no aplica. Máximo 50 caracteres.</p>
             </div>
           </div>
           <Notice>Registra solo condiciones diagnosticadas por un médico. Esta información se muestra al personal de la clínica durante tus consultas.</Notice>
           <button type="submit" disabled={saving} className="mt-5 w-full flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold transition-colors disabled:opacity-60">
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />} Guardar
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {editingId ? "Guardar cambios" : "Guardar"}
           </button>
         </form>
       </div>
@@ -180,11 +235,18 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
   }
 
   if (sub === "antecedente") {
+    // El personal de la clínica puede haber guardado un parentesco que no está
+    // en la lista corta del portal, se agrega para no perderlo al editar.
+    const opcionesParentesco = PARENTESCOS.includes(ant.relationship)
+      ? PARENTESCOS
+      : [ant.relationship, ...PARENTESCOS];
     return (
       <div className="max-w-xl">
-        <BackLink onClick={() => { setSub("lista"); setErrors({}); }}>Volver a historia clínica</BackLink>
+        <BackLink onClick={cerrarSubformulario}>Volver a historia clínica</BackLink>
         <form onSubmit={guardarAntecedente} className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-7">
-          <h2 className="text-base font-bold text-gray-900 mb-5">Agregar antecedente familiar</h2>
+          <h2 className="text-base font-bold text-gray-900 mb-5">
+            {editingId ? "Editar antecedente familiar" : "Agregar antecedente familiar"}
+          </h2>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-gray-700">Parentesco</label>
@@ -193,7 +255,7 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
                 onChange={(e) => setAnt((p) => ({ ...p, relationship: e.target.value }))}
                 className="px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 outline-none focus:border-[#3B6FCA] focus:ring-2 focus:ring-[#3B6FCA]/20 transition-all"
               >
-                {PARENTESCOS.map((p) => <option key={p} value={p}>{p}</option>)}
+                {opcionesParentesco.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <InputField
@@ -206,7 +268,7 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
           </div>
           <Notice>Los antecedentes familiares ayudan al médico a identificar riesgos hereditarios. Agrega un registro por cada familiar y condición.</Notice>
           <button type="submit" disabled={saving} className="mt-5 w-full flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold transition-colors disabled:opacity-60">
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />} Guardar
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {editingId ? "Guardar cambios" : "Guardar"}
           </button>
         </form>
       </div>
@@ -252,10 +314,31 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
     );
   }
 
+  // Descargar el PDF del historial clínico. El botón solo se muestra cuando ya
+  // hay signos vitales registrados, es decir, después de la primera consulta.
+  const puedeDescargarHistorial = !!patient?.clinical_history?.vital_signs?.length;
+  const descargarHistorial = () => {
+    try {
+      descargarHistorialClinicoPdf(patient);
+    } catch (err) {
+      showError(err.message || "No se pudo generar tu historial clínico.");
+    }
+  };
+
   // ---------- Lista ----------
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-7">
-      <h2 className="text-base font-bold text-gray-900 mb-1">Historia clínica</h2>
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <h2 className="text-base font-bold text-gray-900">Historia clínica</h2>
+        {puedeDescargarHistorial && (
+          <button
+            onClick={descargarHistorial}
+            className="flex items-center gap-1.5 text-xs font-semibold text-[#3B6FCA] hover:text-[#2d5ab5] flex-shrink-0"
+          >
+            <Download className="w-3.5 h-3.5" /> Descargar historial clínico
+          </button>
+        )}
+      </div>
 
       <SectionHead title="Tipo de sangre" />
       <button onClick={onGoBloodType} className="w-full flex items-center gap-3 border border-gray-100 rounded-xl p-3 hover:border-[#3B6FCA]/40 transition-colors">
@@ -269,14 +352,15 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
         <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
       </button>
 
-      <SectionHead title="Enfermedades crónicas" onAdd={() => { setErrors({}); setSub("enfermedad"); }} />
+      <SectionHead title="Enfermedades crónicas" onAdd={() => abrirAgregar("enfermedad")} />
       {h.pathological?.length ? (
         h.pathological.map((item) => (
           <Item
             key={item._id}
             icon={Activity}
             title={item.disease}
-            meta={fmtFecha(item.diagnosis) ? `Diagnóstico: ${fmtFecha(item.diagnosis)}` : null}
+            meta={item.diagnosis ? `Diagnóstico: ${item.diagnosis}` : null}
+            onEdit={() => editarEnfermedad(item)}
             onDelete={() => eliminar("pathological", item, item.disease)}
             deleting={deletingId === item._id}
           />
@@ -285,7 +369,7 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
         <p className="text-sm text-gray-400 py-2">No has registrado enfermedades crónicas.</p>
       )}
 
-      <SectionHead title="Antecedentes familiares" onAdd={() => { setErrors({}); setSub("antecedente"); }} />
+      <SectionHead title="Antecedentes familiares" onAdd={() => abrirAgregar("antecedente")} />
       {h.hereditary?.length ? (
         h.hereditary.map((item) => (
           <Item
@@ -293,6 +377,7 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
             icon={Users}
             title={item.condition}
             meta={item.relationship}
+            onEdit={() => editarAntecedente(item)}
             onDelete={() => eliminar("hereditary", item, item.condition)}
             deleting={deletingId === item._id}
           />

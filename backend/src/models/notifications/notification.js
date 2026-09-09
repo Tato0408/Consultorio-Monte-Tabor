@@ -26,6 +26,7 @@ const notificationSchema = new Schema({
             "appointment_expired",
             "appointment_reschedule_needed",
             "inventory_alert",
+            "nurse_note_pending",
             "general",
         ],
         default: "general",

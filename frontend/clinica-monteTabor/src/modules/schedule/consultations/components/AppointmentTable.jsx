@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Trash2 } from "lucide-react";
+import { Trash2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import { showError, showSuccess, confirmDelete, confirmTakeOverAppointment } from "@/lib/alerts";
@@ -230,6 +230,18 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                     </span>
                                 </div>
                                 <div className="flex justify-center items-center gap-2">
+                                    {/* Aviso para la enfermera asignada: a esta consulta le
+                                        falta su nota de enfermería (ver nurse_note_pending en
+                                        getAppointments). Abre la consulta para llenarla. */}
+                                    {userType === "nurse" && appt.nurse_note_pending && (
+                                        <button
+                                            onClick={() => navigate(`/calendar/consultations/${appt._id}`)}
+                                            title="Falta tu nota de enfermería en esta consulta"
+                                            className="text-amber-500 hover:text-amber-600 p-1.5"
+                                        >
+                                            <AlertTriangle className="h-4 w-4" />
+                                        </button>
+                                    )}
                                     {appt.status === "completed" ? (
                                         <>
                                             <button

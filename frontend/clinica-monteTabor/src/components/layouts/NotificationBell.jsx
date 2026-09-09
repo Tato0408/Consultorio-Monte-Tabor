@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, CalendarCheck2, CalendarClock, CalendarX2, ChevronRight, PackageX, Trash2 } from "lucide-react";
+import { Bell, CalendarCheck2, CalendarClock, CalendarX2, ChevronRight, ClipboardList, PackageX, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import useNotifications from "@/hooks/useNotifications";
@@ -24,6 +24,7 @@ const notificationIcon = (type) => {
         return <CalendarCheck2 className="w-4 h-4" />;
     }
     if (type === "inventory_alert") return <PackageX className="w-4 h-4" />;
+    if (type === "nurse_note_pending") return <ClipboardList className="w-4 h-4" />;
     return <CalendarClock className="w-4 h-4" />;
 };
 

@@ -19,6 +19,12 @@ router.route("/:id")
     .delete(authorize("calendar.consultations", "delete"), consultationController.deleteConsultation)
     .get(authorize("calendar.consultations", "view"), consultationController.getConsultationById);
 
+// Nota de enfermería de una consulta. La escribe solo la enfermera asignada
+// a la cita (el controller valida el rol y la pertenencia), por eso basta
+// con el permiso de ver consultas: el doctor nunca pasa por acá.
+router.route("/:id/nurse-note")
+    .patch(authorize("calendar.consultations", "view"), consultationController.setNurseNote);
+
 // Edición/eliminación puntual de la referencia de una consulta, desde la
 // pestaña de Documentos del expediente (reports.records), no desde el flujo
 // de atención de la consulta (calendar.consultations).

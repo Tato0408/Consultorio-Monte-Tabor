@@ -165,6 +165,22 @@ patientsController.deletePatient = async (req, res) => {
       return res.status(400).json({ message: "Paciente no encontrado" });
     }
 
+    // Un paciente solo puede eliminarse cuando ya pasó 1 año desde su registro.
+    // Antes de ese plazo, la única opción es marcarlo como inactivo (para que
+    // deje de mostrarse su información en las vistas clínicas). createdAt viene
+    // de timestamps; si un registro viejo no lo tuviera, se usa la fecha
+    // embebida en el ObjectId como respaldo.
+    const DELETE_LOCK_MS = 365 * 24 * 60 * 60 * 1000;
+    const registeredAt = patientFound.createdAt || patientFound._id.getTimestamp();
+    const unlockAt = new Date(new Date(registeredAt).getTime() + DELETE_LOCK_MS);
+    if (Date.now() < unlockAt.getTime()) {
+      return res.status(409).json({
+        message: `Este paciente se registró hace menos de un año. Podrá eliminarse a partir del ${unlockAt.toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric" })}. Mientras tanto, si no deseas que se muestre su información, márcalo como inactivo.`,
+        code: "DELETE_LOCKED",
+        unlockDate: unlockAt.toISOString(),
+      });
+    }
+
     const related = await countPatientRelatedRecords(req.params.id);
     const hasRelated = related.appointments > 0 || related.consultations > 0;
 

@@ -2,7 +2,7 @@
 // (proxy inverso) al backend de Render. Es mismo-origen a propósito: así la cookie de
 // sesión queda de primera parte y Safari/iOS la acepta (cross-site la bloquea el ITP).
 // En desarrollo se apunta directo al backend de Render (incluye el prefijo /api).
-const API_URL = import.meta.env.DEV ? "https://clinica-monte-tabor.onrender.com/api" : "/api";
+const API_URL = import.meta.env.DEV ? "http://localhost:4000/api" : "/api";
 
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     //Construimos la url de la peticion enviando primero la url y segundo el endpoint que queremos

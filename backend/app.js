@@ -64,6 +64,15 @@ app.use(express.json({
     verify: (req, res, buf) => { req.rawBody = buf.toString("utf8"); }
 }));
 
+// Express 5 deja req.body en undefined cuando la petición no trae cuerpo (en
+// Express 4 quedaba en {}). Todo el proyecto asume {}, así que se restaura ese
+// valor por defecto y ningún handler revienta al leer o desestructurar
+// req.body en una petición sin cuerpo (ej. PATCH de cancelar cita sin motivo).
+app.use((req, res, next) => {
+    if (req.body === undefined) req.body = {};
+    next();
+});
+
 app.use(cors({
     // TEMPORAL: 5176 agregado solo para pruebas locales de esta sesión (varios
     // dev servers corriendo a la vez se van a puertos consecutivos). Quitarlo

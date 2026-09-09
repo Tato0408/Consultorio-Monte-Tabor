@@ -1,5 +1,5 @@
-const API_URL = "https://clinica-monte-tabor.onrender.com/api";
-//const API_URL = "http://localhost:4000/api";
+//const API_URL = "https://clinica-monte-tabor.onrender.com/api";
+const API_URL = "http://localhost:4000/api";
 
 // URL del WebSocket de tiempo real: mismo host que la API, con esquema
 // ws/wss y sin el sufijo "/api". Se deriva de API_URL para que al cambiar

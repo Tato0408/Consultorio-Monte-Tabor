@@ -42,6 +42,20 @@ const useNotifications = () => {
         const handlePushed = (event) => {
             const incoming = event.detail;
             if (!incoming?._id) return;
+
+            // La notificación de notas de enfermería pendientes es consolidada:
+            // el backend mantiene una sola por enfermera y la reemplaza al
+            // recalcular. En la campana se quita la anterior del mismo tipo y
+            // se resincroniza el conteo con el backend, que es la fuente de
+            // verdad de esa notificación.
+            if (incoming.type === "nurse_note_pending") {
+                setNotifications((prev) =>
+                    [incoming, ...prev.filter((n) => n.type !== "nurse_note_pending")].slice(0, MAX_NOTIFICATIONS)
+                );
+                fetchNotifications();
+                return;
+            }
+
             setNotifications((prev) => {
                 if (prev.some((n) => n._id === incoming._id)) return prev;
                 return [incoming, ...prev].slice(0, MAX_NOTIFICATIONS);

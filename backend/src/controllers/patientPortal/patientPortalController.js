@@ -15,7 +15,7 @@ import { isNurseAvailable, isSlotFreeForNurse } from "../../controllers/schedule
 import { isSlotFreeForDoctor } from "../../controllers/schedule/scheduleController.js";
 import { runAppointmentAutoTransitions } from "../../controllers/appointments/appointmentsController.js";
 import { getTransactionStatus } from "../../utils/wompi.js";
-import { RESCHEDULABLE_STATUSES } from "../../utils/appointmentStatus.js";
+import { RESCHEDULABLE_STATUSES, isCancelLockedForPatient } from "../../utils/appointmentStatus.js";
 
 const patientPortalController = {};
 
@@ -86,7 +86,7 @@ const isActiveToday = (issuedAt, duration) => {
 const fetchConsultations = (patientId) =>
     consultationsModel
         .find({ patient_id: patientId })
-        .select("date appointment_id referral follow_up_date")
+        .select("date appointment_id referral follow_up_date clinical_data physical_exam")
         .populate({ path: "appointment_id", populate: { path: "doctor_id", select: "name last_name" } })
         .sort({ date: -1 });
 
@@ -523,6 +523,16 @@ patientPortalController.cancelMyAppointment = async (req, res) => {
             return res.status(400).json({ message: "Esta cita ya no se puede cancelar." });
         }
 
+        // A menos de media hora del inicio (o ya empezada), la cita ya no se
+        // puede cancelar sola: el paciente debe coordinarlo con quien lo
+        // atenderá para no dejar plantado al proveedor a última hora.
+        if (isCancelLockedForPatient(appointment)) {
+            const conQuien = appointment.doctor_id ? "el doctor que te atenderá" : "la clínica";
+            return res.status(400).json({
+                message: `Tu cita está próxima a comenzar. Para cancelarla, comunícate con ${conQuien} y lleguen a un acuerdo.`,
+            });
+        }
+
         // El motivo real que escribió el paciente (mobile ya lo manda; el portal web manda
         // uno propio según si viene de "Cancelar cita" o de "Reagendar cita"). Antes esto
         // ignoraba por completo lo que llegara en el body y siempre guardaba el mismo texto
@@ -710,6 +720,19 @@ patientPortalController.getReferrals = async (req, res) => {
                 referred_to: c.referral.referred_to,
                 referred_date: c.referral.referred_date,
                 status: c.referral.status,
+                // Datos que la hoja de referencia pide y que el paciente ya no
+                // ve de otra forma: los tres del panel "Referencia" + los que se
+                // sacan del resto de la consulta (diagnóstico, PA, SPO2, examen
+                // físico). El nombre/edad/teléfono los pone el front con la sesión.
+                address: c.referral.address || "",
+                heart_rate: c.referral.heart_rate || "",
+                respiratory_rate: c.referral.respiratory_rate || "",
+                diagnosis: c.clinical_data?.diagnosis || "",
+                diagnosis_description: c.clinical_data?.diagnosis_description || "",
+                icd_diagnosis: c.clinical_data?.icd_diagnosis || "",
+                blood_pressure: c.clinical_data?.triage?.blood_pressure || "",
+                spo2: c.clinical_data?.triage?.oxygen_saturation ?? "",
+                physical_exam: c.physical_exam || null,
             }));
         return res.status(200).json(referrals);
     } catch (error) {

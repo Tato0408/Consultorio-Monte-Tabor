@@ -7,8 +7,9 @@ import { isNurseAvailable, isSlotFreeForNurse, anyNurseAvailable } from "../sche
 import { notifyAppointmentRecipients } from "../../services/notificationService.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import nursesModel from "../../models/nurses/nurses.js";
+import consultationsModel from "../../models/consultations/consultation.js";
 import { getNonNegativeError } from "../../utils/validators.js";
-import { RESCHEDULE_REASONS } from "../../utils/appointmentStatus.js";
+import { RESCHEDULE_REASONS, isCancelLockedForPatient } from "../../utils/appointmentStatus.js";
 import { buildActivePartiesAppointmentFilter, assertActiveParties } from "../../utils/activeScope.js";
 
 const appointmentsController = {};
@@ -356,8 +357,40 @@ appointmentsController.getAppointments = async (req, res) => {
             appointmentsModel.countDocuments(filters),
         ]);
 
+        // Para la enfermera: marca cada cita cuya consulta ya registrada le
+        // falta la nota de enfermería (procedimiento que exige enfermera y
+        // ella es la asignada). Alimenta el ícono de warning de la tabla de
+        // consultas.
+        let responseData = appointments;
+        if (req.user.role === "nurse") {
+            const noteCandidateIds = appointments
+                .filter((a) => a.nurse_id && a.procedure_id?.requires_nurse)
+                .map((a) => a._id);
+            const noteByAppointment = new Map();
+            if (noteCandidateIds.length > 0) {
+                const consultations = await consultationsModel
+                    .find({ appointment_id: { $in: noteCandidateIds } })
+                    .select("appointment_id nurse_note")
+                    .lean();
+                for (const consultation of consultations) {
+                    noteByAppointment.set(String(consultation.appointment_id), consultation.nurse_note);
+                }
+            }
+            responseData = appointments.map((appointment) => {
+                const plain = appointment.toObject();
+                const key = String(appointment._id);
+                const isCandidate = appointment.nurse_id && appointment.procedure_id?.requires_nurse;
+                plain.nurse_note_pending = Boolean(
+                    isCandidate
+                    && noteByAppointment.has(key)
+                    && !String(noteByAppointment.get(key) || "").trim()
+                );
+                return plain;
+            });
+        }
+
         return res.status(200).json({
-            data: appointments,
+            data: responseData,
             pagination: {
                 page: pageNumber,
                 limit: limitNumber,
@@ -951,12 +984,21 @@ appointmentsController.cancelPatientAppointment = async (req, res) => {
         if (!appointment) {
             return res.status(404).json({ message: "Cita no encontrada." });
         }
-        // Se puede cancelar en cualquier momento, incluso si la cita ya comenz\u00f3 o su fecha
-        // ya pas\u00f3, mientras no est\u00e9 ya completada/cancelada/no presentada/vencida (misma
-        // regla en las tres plataformas, ver patientPortalController.cancelMyAppointment
-        // para la web y AppointmentDetailScreen.jsx para el cliente m\u00f3vil).
+        // No se puede cancelar una cita ya cerrada (completada, cancelada, no
+        // presentada o vencida). Misma regla en las tres plataformas, ver
+        // patientPortalController.cancelMyAppointment para la web.
         if (["completed", "cancelled", "no_show", "expired"].includes(appointment.status)) {
             return res.status(400).json({ message: "Esta cita ya no puede cancelarse." });
+        }
+
+        // A menos de media hora del inicio (o ya empezada), la cita aceptada ya
+        // no se puede cancelar sola: el paciente debe coordinarlo con quien lo
+        // atender\u00e1.
+        if (isCancelLockedForPatient(appointment)) {
+            const conQuien = appointment.doctor_id ? "el doctor que te atender\u00e1" : "la cl\u00ednica";
+            return res.status(400).json({
+                message: `Tu cita est\u00e1 pr\u00f3xima a comenzar. Para cancelarla, comun\u00edcate con ${conQuien} y lleguen a un acuerdo.`,
+            });
         }
 
         appointment.status = "cancelled";

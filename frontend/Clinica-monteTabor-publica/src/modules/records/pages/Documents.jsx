@@ -15,8 +15,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { getPrescriptions, getSickLeaves, getReferrals, getLabOrders } from "@/services/patientPortalService";
 import { showError } from "@/lib/alerts";
-import { downloadTextFile } from "@/lib/downloadFile";
-import { descargarIncapacidadPdf, descargarRecetaPdf, descargarOrdenLaboratorioPdf } from "@/lib/pdf/patientDocuments";
+import { descargarIncapacidadPdf, descargarRecetaPdf, descargarOrdenLaboratorioPdf, descargarReferenciaPdf } from "@/lib/pdf/patientDocuments";
 import { countSelectedTests } from "@/lib/labOrderCatalog";
 
 const fmtFecha = (iso) =>
@@ -82,20 +81,6 @@ const isoDiaUTC = (iso) => {
   const d = new Date(iso);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 };
-
-const buildTextoReferencia = (r) =>
-  [
-    "CLÍNICA FAMILIAR MONTE TABOR",
-    "Referencia médica",
-    `Fecha: ${fmtFecha(r.date)}`,
-    r.doctor ? `Doctor: ${nombreDoctor(r.doctor)}` : "",
-    "",
-    `Motivo: ${r.reason || "—"}`,
-    `Referido a: ${r.referred_to || "—"}`,
-    `Estado: ${r.status || "—"}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
 
 const bodyValue = (tipo, doc) => {
   if (tipo === "incapacidad") return doc.diagnosis || "Sin diagnóstico registrado";
@@ -239,7 +224,7 @@ const Documents = () => {
       if (t === "receta") await descargarRecetaPdf(patient, doc);
       else if (t === "incapacidad") await descargarIncapacidadPdf(patient, doc);
       else if (t === "laboratorio") await descargarOrdenLaboratorioPdf(patient, doc);
-      else downloadTextFile(`referencia-${fmtFecha(doc.date)}.txt`, buildTextoReferencia(doc));
+      else await descargarReferenciaPdf(patient, doc);
     } catch (err) {
       showError(err.message || "No se pudo generar el documento.");
     } finally {

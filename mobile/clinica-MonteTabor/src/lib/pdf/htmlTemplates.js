@@ -57,7 +57,7 @@ const BASE_STYLES = `
 // Mismo formato que ya emite el panel privado (ver IncapacidadDocument.jsx de
 // clinica-monteTabor) y el portal web, para que la incapacidad que descarga el paciente
 // desde la app sea idéntica a la que emite la clínica en cualquier otro lugar.
-export function buildIncapacidadHtml({ logoDataUri, patientName, dui, age, diagnosis, restDays, doctorName, date }) {
+export function buildIncapacidadHtml({ logoDataUri, patientName, dui, age, diagnosis, restDays, doctorName, date, time }) {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8" />
 <style>
@@ -67,7 +67,7 @@ export function buildIncapacidadHtml({ logoDataUri, patientName, dui, age, diagn
 <body>
   ${letterhead(logoDataUri, false)}
   <div class="title">CONSTANCIA DE INCAPACIDAD MÉDICA</div>
-  <div class="row"><span>Fecha: ${escapeHtml(date)}</span>${dui ? `<span>DUI: ${escapeHtml(dui)}</span>` : ""}</div>
+  <div class="row"><span>Fecha: ${escapeHtml(date)}${time ? `&nbsp;&nbsp;&nbsp;Hora: ${escapeHtml(time)}` : ""}</span>${dui ? `<span>DUI: ${escapeHtml(dui)}</span>` : ""}</div>
   <p class="paragraph">Por este medio se hace constar que <span class="label">${escapeHtml(patientName)}</span>, de ${age ?? "—"} años de edad, fue atendido(a) en esta clínica y presenta:</p>
   <p class="diagnosis">${escapeHtml(diagnosis || "Sin diagnóstico registrado")}</p>
   <p class="paragraph">Por lo anterior, se indica reposo médico por <span class="label">${escapeHtml(restDays)}</span> día(s) a partir de la fecha.</p>
@@ -78,7 +78,7 @@ export function buildIncapacidadHtml({ logoDataUri, patientName, dui, age, diagn
 
 // Media carta (612 x 396pt, la mitad de una hoja LETTER), igual que la receta que ya
 // genera el portal web (ver RecetaDocument.jsx).
-export function buildRecetaHtml({ logoDataUri, patientName, dui, age, doctorName, date, medications = [], instructions }) {
+export function buildRecetaHtml({ logoDataUri, patientName, dui, age, doctorName, date, time, medications = [], instructions }) {
   const filasMedicamentos = medications
     .map(
       (m) => `
@@ -108,7 +108,7 @@ export function buildRecetaHtml({ logoDataUri, patientName, dui, age, doctorName
 <body>
   ${letterhead(logoDataUri, true)}
   <div class="title">RECETA MÉDICA</div>
-  <div class="row"><span>Paciente: <span class="label">${escapeHtml(patientName)}</span></span><span>Fecha: ${escapeHtml(date)}</span></div>
+  <div class="row"><span>Paciente: <span class="label">${escapeHtml(patientName)}</span></span><span>Fecha: ${escapeHtml(date)}${time ? `&nbsp;&nbsp;&nbsp;Hora: ${escapeHtml(time)}` : ""}</span></div>
   <div class="row"><span>Edad: ${age ?? "—"}</span>${dui ? `<span>DUI: ${escapeHtml(dui)}</span>` : ""}</div>
   ${medications.length ? `
   <div class="sectionTitle">Medicamentos</div>
@@ -134,6 +134,7 @@ export function buildLabOrderHtml({
   gender,
   doctorName,
   date,
+  time,
   weight,
   height,
   pregnancy,
@@ -177,6 +178,7 @@ export function buildLabOrderHtml({
   <div class="title">ORDEN DE LABORATORIO</div>
   <div class="labHeader">
     <div class="labHeaderItem"><div class="labHeaderLabel">Fecha</div><div class="labHeaderValue">${escapeHtml(date || "—")}</div></div>
+    ${time ? `<div class="labHeaderItem"><div class="labHeaderLabel">Hora</div><div class="labHeaderValue">${escapeHtml(time)}</div></div>` : ""}
     <div class="labHeaderItem"><div class="labHeaderLabel">Paciente</div><div class="labHeaderValue">${escapeHtml(patientName || "—")}</div></div>
     <div class="labHeaderItem"><div class="labHeaderLabel">Edad</div><div class="labHeaderValue">${age != null ? `${age} años` : "—"}</div></div>
     <div class="labHeaderItem"><div class="labHeaderLabel">Sexo</div><div class="labHeaderValue">${escapeHtml(gender || "—")}</div></div>
@@ -190,5 +192,216 @@ export function buildLabOrderHtml({
   <div class="labCols">${columnas}</div>
   <div class="otros"><span class="label">OTROS: </span>${otherTests ? escapeHtml(otherTests) : "________________________________________________"}</div>
   ${signature(doctorName, false)}
+</body></html>`;
+}
+
+// Referencia médica: reproduce el formato de la hoja del consultorio (campos
+// estructurados) con el membrete y la firma de Clínica Monte Tabor. Misma
+// plantilla que ve el personal (ReferenciaDocument.jsx).
+const refVal = (v) => (v !== undefined && v !== null && String(v).trim() !== "" ? escapeHtml(v) : "—");
+
+export function buildReferenciaHtml({
+  logoDataUri,
+  patientName,
+  age,
+  phone,
+  address,
+  date,
+  time,
+  referredTo,
+  reason,
+  bloodPressure,
+  heartRate,
+  respiratoryRate,
+  spo2,
+  physicalExam,
+  icdCode,
+  diagnosis,
+  diagnosisDescription,
+  doctorName,
+}) {
+  const impresion = [icdCode, diagnosis].filter(Boolean).join(" - ")
+    + (diagnosisDescription ? `${icdCode || diagnosis ? ". " : ""}${diagnosisDescription}` : "");
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8" />
+<style>
+  @page { margin: 40pt; }
+  ${BASE_STYLES}
+  .refField { margin-bottom: 12px; line-height: 1.4; }
+  .refBlock { margin-bottom: 12px; line-height: 1.5; padding-left: 6px; }
+  .refVitals { margin-bottom: 8px; }
+  .refVitals span { margin-right: 22px; }
+</style></head>
+<body>
+  ${letterhead(logoDataUri, false)}
+  <div class="title">REFERENCIA</div>
+
+  <div class="refField"><span class="label">FECHA:</span> ${refVal(date)}${time ? `&nbsp;&nbsp;&nbsp;Hora: ${escapeHtml(time)}` : ""}</div>
+  <div class="refField"><span class="label">NOMBRE:</span> ${refVal(patientName)}&nbsp;&nbsp;&nbsp;&nbsp;<span class="label">EDAD:</span> ${age != null ? `${age} años` : "—"}</div>
+  <div class="refField"><span class="label">DIRECCIÓN:</span> ${refVal(address)}</div>
+  <div class="refField"><span class="label">TELÉFONO:</span> ${refVal(phone)}</div>
+  <div class="refField"><span class="label">REFERIDO A:</span> ${refVal(referredTo)}</div>
+
+  <div class="label">MOTIVO DE REFERENCIA:</div>
+  <div class="refBlock">${refVal(reason)}</div>
+
+  <div class="label">EXAMEN FÍSICO:</div>
+  <div class="refVitals">
+    <span><span class="label">PA:</span> ${refVal(bloodPressure)}</span>
+    <span><span class="label">FC:</span> ${refVal(heartRate)}</span>
+    <span><span class="label">FR:</span> ${refVal(respiratoryRate)}</span>
+    <span><span class="label">SPO2%:</span> ${refVal(spo2)}</span>
+  </div>
+  <div class="refBlock">${refVal(physicalExam)}</div>
+
+  <div class="label">IMPRESIÓN DIAGNOSTICADA:</div>
+  <div class="refBlock">${impresion.trim() ? escapeHtml(impresion.trim()) : "—"}</div>
+
+  ${signature(doctorName, false)}
+</body></html>`;
+}
+
+// Historial clínico del paciente: signos vitales de todas las fechas,
+// antecedentes de todo tipo y procedimientos realizados, en tablas tipo
+// registro. Mismo documento que descarga el paciente desde la web
+// (ClinicalHistoryDocument.jsx). Sin firma: es un extracto de datos ya
+// registrados, no una constancia que emita un medico.
+const histCell = (value) => {
+  const text = String(value ?? "").trim();
+  return text ? escapeHtml(text) : "—";
+};
+
+const HIST_STYLES = `
+  .histTitle { font-size: 13px; font-weight: 700; text-align: center; text-decoration: underline; letter-spacing: 0.5px; margin-bottom: 12px; }
+  .idBand { border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 8px 0; margin-bottom: 2px; }
+  .idRow { display: flex; margin-top: 6px; }
+  .idItem { flex: 1; padding-right: 6px; }
+  .idLabel { font-size: 6.5px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; }
+  .idValue { font-size: 9.5px; font-weight: 700; color: #1e293b; }
+  .secHead { border-bottom: 1px solid #2F6BFF; padding-bottom: 3px; margin-top: 16px; margin-bottom: 3px; }
+  .secTitle { font-size: 10px; font-weight: 700; color: #2F6BFF; text-transform: uppercase; letter-spacing: 0.5px; }
+  .secNote { font-size: 7px; color: #94a3b8; margin-bottom: 6px; line-height: 1.4; }
+  .subHead { font-size: 8px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; margin: 12px 0 4px; }
+  .histProse { font-size: 9px; line-height: 1.5; color: #334155; }
+  .ledger { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+  .ledger th { background: #f4f7fb; border-top: 1px solid #c9d8ea; border-bottom: 1px solid #c9d8ea; font-size: 6.5px; font-weight: 700; color: #5b6b7d; text-transform: uppercase; letter-spacing: 0.4px; padding: 5px; text-align: center; }
+  .ledger th:first-child { text-align: left; }
+  .ledger td { border-bottom: 1px solid #e8edf3; font-size: 8.5px; color: #334155; padding: 5px; text-align: center; }
+  .ledger td:first-child { text-align: left; font-weight: 700; color: #0f2942; }
+  .ledger tbody tr:nth-child(even) td { background: #fbfcfe; }
+  .histFooter { display: flex; justify-content: space-between; border-top: 1px solid #cbd5e1; padding-top: 6px; margin-top: 22px; font-size: 7px; color: #94a3b8; }
+`;
+
+export function buildClinicalHistoryHtml({
+  logoDataUri,
+  patientName,
+  age,
+  gender,
+  dui,
+  bloodType,
+  birthDate,
+  date,
+  time,
+  vitals = [],
+  hereditary = [],
+  pathological = [],
+  nonPathological,
+  ecologicalSocial,
+  procedures = [],
+}) {
+  const vitalsRows = vitals.length
+    ? vitals
+        .map(
+          (v) => `<tr><td>${histCell(v.fecha)}</td><td>${histCell(v.presion)}</td><td>${histCell(v.glucosa)}</td><td>${histCell(v.peso)}</td><td>${histCell(v.altura)}</td><td>${histCell(v.temp)}</td><td>${histCell(v.spo2)}</td></tr>`
+        )
+        .join("")
+    : `<tr><td colspan="7" style="text-align:left;">Sin tomas de signos vitales registradas.</td></tr>`;
+
+  const hereditaryRows = hereditary.length
+    ? hereditary
+        .map(
+          (h) => `<tr><td>${histCell(h.parentesco)}</td><td style="text-align:left;font-weight:400;color:#334155;">${histCell(h.condicion)}</td><td style="text-align:left;font-weight:400;color:#334155;">${histCell(h.tipo)}</td></tr>`
+        )
+        .join("")
+    : `<tr><td colspan="3" style="text-align:left;">—</td></tr>`;
+
+  const pathologicalRows = pathological.length
+    ? pathological
+        .map(
+          (p) => `<tr><td>${histCell(p.enfermedad)}</td><td style="text-align:left;font-weight:400;color:#334155;">${histCell(p.diagnostico)}</td><td style="text-align:left;font-weight:400;color:#334155;">${histCell(p.tipo)}</td></tr>`
+        )
+        .join("")
+    : `<tr><td colspan="3" style="text-align:left;">—</td></tr>`;
+
+  const proceduresRows = procedures.length
+    ? procedures
+        .map(
+          (proc) => `<tr><td>${histCell(proc.nombre)}</td><td style="text-align:right;font-weight:400;color:#334155;">${histCell(proc.fecha)}</td></tr>`
+        )
+        .join("")
+    : `<tr><td colspan="2" style="text-align:left;">—</td></tr>`;
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8" />
+<style>
+  @page { margin: 32pt; }
+  ${BASE_STYLES}
+  ${HIST_STYLES}
+</style></head>
+<body>
+  ${letterhead(logoDataUri, false)}
+  <div class="histTitle">HISTORIAL CLÍNICO DEL PACIENTE</div>
+
+  <div class="idBand">
+    <div class="idItem"><div class="idLabel">Paciente</div><div class="idValue">${histCell(patientName)}</div></div>
+    <div class="idRow">
+      <div class="idItem"><div class="idLabel">Edad</div><div class="idValue">${histCell(age)}</div></div>
+      <div class="idItem"><div class="idLabel">Sexo</div><div class="idValue">${histCell(gender)}</div></div>
+      <div class="idItem"><div class="idLabel">DUI</div><div class="idValue">${histCell(dui)}</div></div>
+      <div class="idItem"><div class="idLabel">Tipo de sangre</div><div class="idValue">${histCell(bloodType)}</div></div>
+      <div class="idItem"><div class="idLabel">Fecha de nacimiento</div><div class="idValue">${histCell(birthDate)}</div></div>
+    </div>
+  </div>
+
+  <div class="secHead"><span class="secTitle">1. Signos vitales</span></div>
+  <div class="secNote">Todas las tomas registradas, de la más reciente a la más antigua. El IMC y su categoría se consultan en tu perfil.</div>
+  <table class="ledger">
+    <thead><tr><th>Fecha</th><th>Presión (mmHg)</th><th>Glucosa (mg/dL)</th><th>Peso (kg)</th><th>Talla (m)</th><th>Temp. (°C)</th><th>SpO2 (%)</th></tr></thead>
+    <tbody>${vitalsRows}</tbody>
+  </table>
+
+  <div class="secHead"><span class="secTitle">2. Antecedentes</span></div>
+  <div class="secNote">Antecedentes registrados, de todos los tipos.</div>
+
+  <div class="subHead">Hereditarios</div>
+  <table class="ledger">
+    <thead><tr><th>Parentesco</th><th style="text-align:left;">Condición</th><th style="text-align:left;">Tipo</th></tr></thead>
+    <tbody>${hereditaryRows}</tbody>
+  </table>
+
+  <div class="subHead">Patológicos</div>
+  <table class="ledger">
+    <thead><tr><th>Enfermedad</th><th style="text-align:left;">Diagnóstico</th><th style="text-align:left;">Tipo</th></tr></thead>
+    <tbody>${pathologicalRows}</tbody>
+  </table>
+
+  <div class="subHead">No patológicos</div>
+  <div class="histProse">${histCell(nonPathological)}</div>
+
+  <div class="subHead">Ecológico-sociales</div>
+  <div class="histProse">${histCell(ecologicalSocial)}</div>
+
+  <div class="secHead"><span class="secTitle">3. Procedimientos realizados</span></div>
+  <div class="secNote">Procedimientos con respaldo en una consulta atendida.</div>
+  <table class="ledger">
+    <thead><tr><th>Procedimiento</th><th style="text-align:right;">Fecha</th></tr></thead>
+    <tbody>${proceduresRows}</tbody>
+  </table>
+
+  <div class="histFooter">
+    <span>Clínica Familiar Monte Tabor · Expediente clínico</span>
+    <span>Documento generado el ${histCell(date)}${time ? `, ${escapeHtml(time)}` : ""}</span>
+  </div>
 </body></html>`;
 }

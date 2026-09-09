@@ -70,6 +70,7 @@ const LabOrderDocument = ({
     dui,
     doctorName,
     date,
+    time,
     weight,
     height,
     pregnancy,
@@ -87,6 +88,7 @@ const LabOrderDocument = ({
 
                 <View style={styles.headerBox}>
                     <HeaderItem label="Fecha" value={date} />
+                    {time ? <HeaderItem label="Hora" value={time} /> : null}
                     <HeaderItem label="Paciente" value={patientName} />
                     <HeaderItem label="Edad" value={age != null ? `${age} años` : "—"} />
                     <HeaderItem label="Sexo" value={gender} />
