@@ -138,7 +138,16 @@ const consultationSchema = new Schema({
     // Campos que la hoja de referencia (CONSULTORIO MEDICO FAMILIAR) pide y
     // que no se capturan en el resto de la consulta: el doctor los llena en
     // el panel "Referencia". FC/FR van como texto libre (unidades incluidas).
+    // referred_doctor_address y referred_doctor_phone son los datos de
+    // contacto del medico al que se refiere. El telefono del paciente sale
+    // del propio paciente, no se guarda aqui.
     address: {
+      type: String,
+    },
+    referred_doctor_address: {
+      type: String,
+    },
+    referred_doctor_phone: {
       type: String,
     },
     heart_rate: {

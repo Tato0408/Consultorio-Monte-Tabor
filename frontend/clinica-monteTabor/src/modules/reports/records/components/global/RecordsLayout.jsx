@@ -110,14 +110,6 @@ function PatientBar({ patient, onPatientUpdated }) {
 
       <Field label="Última visita">
         <p className="text-xs text-slate-600">{patient.ultimaVisita?.fecha ?? "—"}</p>
-        <p className="text-xs text-slate-400">{patient.ultimaVisita?.hora ?? ""}</p>
-      </Field>
-
-      <Field label="Doctor">
-        <div className="flex items-center gap-2">
-          <span className="h-6 w-6 rounded-full bg-slate-200" />
-          <span className="text-xs text-slate-600">{patient.doctor?.nombre ?? "—"}</span>
-        </div>
       </Field>
 
       {/* Estado y acción */}

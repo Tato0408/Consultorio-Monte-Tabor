@@ -65,7 +65,9 @@ const HistorialSignosVitales = ({ patient = {}, onSaved }) => {
   const canUpdate = hasPermission("reports.records", "update");
   const canDelete = hasPermission("reports.records", "delete");
   const showRowActions = canUpdate || canDelete;
-  const [selectedMetric, setSelectedMetric] = useState("imc");
+  // Al entrar se muestra la gráfica de presión arterial (la primera tarjeta),
+  // no la última métrica de la lista.
+  const [selectedMetric, setSelectedMetric] = useState("presionArterial");
   const [modalOpen, setModalOpen] = useState(false);
   // Cuando editEntry es null, el modal de agregar o editar está en modo
   // agregar. Con una fila, edita esa toma puntual.

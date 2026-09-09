@@ -3,14 +3,15 @@ import { useForm } from "react-hook-form";
 import { X, Loader2, ArrowLeftRight } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
-import { maskAlnum, maskClinicalText } from "@/lib/inputMasks";
+import { maskAlnum, maskClinicalText, maskPhone } from "@/lib/inputMasks";
 
 const EMPTY = {
   referred_to: "",
   referred_date: "",
   reason: "",
   status: "Pendiente",
-  address: "",
+  referred_doctor_address: "",
+  referred_doctor_phone: "",
   heart_rate: "",
   respiratory_rate: "",
 };
@@ -45,7 +46,8 @@ const ReferralFormModal = ({ isOpen, onClose, entry, onSaved }) => {
       referred_date: entry?.referredDateRaw ? String(entry.referredDateRaw).split("T")[0] : "",
       reason: entry?.reasonRaw || "",
       status: entry?.statusRaw || "Pendiente",
-      address: entry?.addressRaw || "",
+      referred_doctor_address: entry?.referredDoctorAddressRaw || "",
+      referred_doctor_phone: entry?.referredDoctorPhoneRaw || "",
       heart_rate: entry?.heartRateRaw || "",
       respiratory_rate: entry?.respiratoryRateRaw || "",
     });
@@ -137,13 +139,26 @@ const ReferralFormModal = ({ isOpen, onClose, entry, onSaved }) => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500">Dirección del paciente</label>
+              <label className="text-xs font-semibold text-slate-500">Dirección del doctor referido</label>
               <input
                 type="text"
                 maxLength={200}
-                placeholder="Ej. Colonia Escalón calle El Mirador 12 San Salvador"
-                {...register("address")}
-                onChange={maskChange("address", maskAlnum, 200)}
+                placeholder="Ej. Hospital de Diagnóstico Colonia Médica San Salvador"
+                {...register("referred_doctor_address")}
+                onChange={maskChange("referred_doctor_address", maskAlnum, 200)}
+                className={inputClass(false)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500">Teléfono del doctor referido</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={9}
+                placeholder="Ej. 2222-3333"
+                {...register("referred_doctor_phone")}
+                onChange={maskChange("referred_doctor_phone", maskPhone)}
                 className={inputClass(false)}
               />
             </div>

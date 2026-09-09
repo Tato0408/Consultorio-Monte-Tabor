@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Pencil, Trash2, CheckCircle2, Plus } from "lucide-react";
 import { Badge, SectionCard } from "../global/ui";
 import AntecedentFormModal from "../global/AntecedentFormModal";
-import VitalSignsFormModal from "../global/VitalSignsFormModal";
 import TextFieldModal from "../global/TextFieldModal";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmDelete } from "@/lib/alerts";
@@ -123,7 +122,6 @@ export default function HistoriaClinicaTab({ patient = {}, onSaved }) {
 
   const [hereditaryModalOpen, setHereditaryModalOpen] = useState(false);
   const [pathologicalModalOpen, setPathologicalModalOpen] = useState(false);
-  const [vitalsModalOpen, setVitalsModalOpen] = useState(false);
   const [nonPathologicalModalOpen, setNonPathologicalModalOpen] = useState(false);
   // Cuando hereditaryEditEntry o pathologicalEditEntry es null, el modal
   // de agregar o editar está en modo agregar. Con una fila, edita ese
@@ -213,20 +211,7 @@ export default function HistoriaClinicaTab({ patient = {}, onSaved }) {
 
       {/* Columna derecha */}
       <div className="space-y-6">
-        <SectionCard
-          title="Signos vitales - Última toma"
-          action={
-            canCreate ? (
-              <button
-                type="button"
-                onClick={() => setVitalsModalOpen(true)}
-                className="text-xs font-medium text-blue-600 hover:underline"
-              >
-                Actualizar
-              </button>
-            ) : null
-          }
-        >
+        <SectionCard title="Signos vitales - Última toma">
           <div className="grid grid-cols-2 gap-3">
             <VitalMini label="Presión arterial" value={v.presionArterial} unit="mmHg" />
             <VitalMini label="Glucosa" value={v.glucosa} unit="mg/dL" />
@@ -292,12 +277,6 @@ export default function HistoriaClinicaTab({ patient = {}, onSaved }) {
           { key: "type", label: "Tipo", placeholder: "Ej. Crónico" },
         ]}
         editEntry={pathologicalEditEntry}
-        onSaved={onSaved}
-      />
-      <VitalSignsFormModal
-        isOpen={vitalsModalOpen}
-        onClose={() => setVitalsModalOpen(false)}
-        patientId={patient.id}
         onSaved={onSaved}
       />
       <TextFieldModal

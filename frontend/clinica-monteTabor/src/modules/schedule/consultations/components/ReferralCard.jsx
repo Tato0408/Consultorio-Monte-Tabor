@@ -1,6 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import SectionCard from "./SectionCard";
-import { maskAlnum, maskClinicalText } from "@/lib/inputMasks";
+import { maskAlnum, maskClinicalText, maskPhone } from "@/lib/inputMasks";
 
 const ReferralCard = ({ readOnly }) => {
     const { register, setValue, watch } = useFormContext();
@@ -30,6 +30,32 @@ const ReferralCard = ({ readOnly }) => {
                 </span>
             </div>
 
+            {/* Datos de contacto del medico al que se refiere al paciente. Van
+                justo despues de "Referido a". Direccion solo letras y numeros
+                (maskAlnum), telefono con formato XXXX-XXXX (maskPhone). */}
+            <label className="text-xs text-slate-500 block mb-1">Dirección del doctor referido</label>
+            <input
+                type="text"
+                maxLength={200}
+                disabled={readOnly}
+                placeholder="Ej. Hospital de Diagnóstico Colonia Médica San Salvador"
+                {...register("referral.referred_doctor_address")}
+                onChange={maskChange("referral.referred_doctor_address", maskAlnum, 200)}
+                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mb-3 disabled:bg-slate-50"
+            />
+
+            <label className="text-xs text-slate-500 block mb-1">Teléfono del doctor referido</label>
+            <input
+                type="text"
+                inputMode="numeric"
+                maxLength={9}
+                disabled={readOnly}
+                placeholder="Ej. 2222-3333"
+                {...register("referral.referred_doctor_phone")}
+                onChange={maskChange("referral.referred_doctor_phone", maskPhone)}
+                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mb-3 disabled:bg-slate-50"
+            />
+
             <label className="text-xs text-slate-500 block mb-1">Fecha de referencia</label>
             <input
                 type="date"
@@ -41,20 +67,9 @@ const ReferralCard = ({ readOnly }) => {
                 className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mb-3 disabled:bg-slate-50"
             />
 
-            {/* Campos que la hoja de referencia pide y que no salen del resto de
-                la consulta (el domicilio, y FC/FR que no están en el triage).
-                Solo letras y números (maskAlnum). */}
-            <label className="text-xs text-slate-500 block mb-1">Dirección del paciente</label>
-            <input
-                type="text"
-                maxLength={200}
-                disabled={readOnly}
-                placeholder="Ej. Colonia Escalón calle El Mirador 12 San Salvador"
-                {...register("referral.address")}
-                onChange={maskChange("referral.address", maskAlnum, 200)}
-                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mb-3 disabled:bg-slate-50"
-            />
-
+            {/* El telefono del paciente no se pide aqui: sale del propio
+                paciente de la referencia. FC/FR van como texto libre porque
+                no estan en el triage. */}
             <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                     <label className="text-xs text-slate-500 block mb-1">Frec. cardíaca</label>

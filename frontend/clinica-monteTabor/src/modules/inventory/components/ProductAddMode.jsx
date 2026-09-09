@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Upload } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import InputField from "../../../components/ui/InputField";
 import useInsumos from "../hooks/useInsumos";
@@ -39,8 +38,6 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
   const isEdit = Boolean(item);
 
   const [form, setForm]       = useState(EMPTY);
-  const [imagen, setImagen]   = useState(null);
-  const [preview, setPreview] = useState(null);
   const [errors, setErrors]   = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -59,7 +56,6 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
           : "",
         price: String(item.price ?? ""),
       });
-      if (item.image) setPreview(item.image);
     }
   }, [item]);
 
@@ -85,10 +81,10 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
     if (Object.keys(ve).length) { setErrors(ve); return; }
     setLoading(true);
     try {
-      const data = new FormData();
-      Object.entries(form).forEach(([k, v]) => { if (v !== "") data.append(k, v); });
-      if (imagen) data.append("imagen", imagen);
-      isEdit ? await updateInsumo(item._id, data) : await createInsumo(data);
+      const payload = Object.fromEntries(
+        Object.entries(form).filter(([, v]) => v !== "")
+      );
+      isEdit ? await updateInsumo(item._id, payload) : await createInsumo(payload);
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -204,31 +200,6 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
               value={form.price} onChange={set("price")}
               onKeyDown={(e) => { if (["-", "e", "E", "+"].includes(e.key)) e.preventDefault(); }} />
           </div>
-        </section>
-
-        <section>
-          <SectionTitle>Imagen del producto (opcional)</SectionTitle>
-          <label className="cursor-pointer block">
-            <input type="file" accept="image/*" className="hidden"
-              onChange={(e) => {
-                const f = e.target.files[0];
-                if (f) { setImagen(f); setPreview(URL.createObjectURL(f)); }
-              }} />
-            {preview ? (
-              <div className="relative w-full h-36 rounded-xl overflow-hidden border border-gray-200">
-                <img src={preview} alt="preview" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                  <span className="text-white text-sm font-medium">Cambiar imagen</span>
-                </div>
-              </div>
-            ) : (
-              <div className="w-full h-36 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                <Upload className="w-6 h-6 text-gray-400" />
-                <span className="text-sm text-gray-500">Arrastrar una imagen o haz clic para seleccionar</span>
-                <span className="text-xs text-gray-400">Formato JPG, PNG. Máx 2MB</span>
-              </div>
-            )}
-          </label>
         </section>
       </fieldset>
       </form>

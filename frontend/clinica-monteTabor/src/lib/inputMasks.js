@@ -32,6 +32,14 @@ export const maskClinicalText = (raw, maxLength) => {
   return maxLength ? cleaned.slice(0, maxLength) : cleaned;
 };
 
+// Da formato de teléfono salvadoreño: solo dígitos, hasta 8, con un guion
+// después del cuarto (XXXX-XXXX). Misma lógica que las máscaras de teléfono
+// de Doctors, Nurses y Patients.
+export const maskPhone = (raw) => {
+  const digits = String(raw ?? "").replace(/\D/g, "").slice(0, 8);
+  return digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
+};
+
 // Permite dígitos y un único punto decimal. Se usa en precios, pesos y medidas.
 export const maskDecimalOnly = (raw, maxLength) => {
   const cleaned = raw.replace(/[^0-9.]/g, "");

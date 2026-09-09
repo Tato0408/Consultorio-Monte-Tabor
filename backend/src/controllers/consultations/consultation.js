@@ -724,7 +724,16 @@ consultationController.getConsultationByAppointmentId = async (req, res) => {
 // el cuerpo completo de la consulta.
 consultationController.updateReferral = async (req, res) => {
   try {
-    const { reason, referred_to, referred_date, status, address, heart_rate, respiratory_rate } = req.body;
+    const {
+      reason,
+      referred_to,
+      referred_date,
+      status,
+      referred_doctor_address,
+      referred_doctor_phone,
+      heart_rate,
+      respiratory_rate,
+    } = req.body;
 
     const consultation = await consultationsModel.findByIdAndUpdate(
       req.params.id,
@@ -734,7 +743,8 @@ consultationController.updateReferral = async (req, res) => {
           "referral.referred_to": referred_to,
           "referral.referred_date": referred_date,
           "referral.status": status,
-          "referral.address": address,
+          "referral.referred_doctor_address": referred_doctor_address,
+          "referral.referred_doctor_phone": referred_doctor_phone,
           "referral.heart_rate": heart_rate,
           "referral.respiratory_rate": respiratory_rate,
         },

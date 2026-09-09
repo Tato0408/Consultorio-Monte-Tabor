@@ -347,7 +347,6 @@ const ConsultationForm = () => {
         const manualChecks = [
             ["referral.referred_to", "Indica a quién se refiere al paciente"],
             ["referral.reason", "Escribe el motivo de la referencia"],
-            ["referral.address", "Falta la dirección del paciente"],
             ["referral.heart_rate", "Falta la frecuencia cardíaca"],
             ["referral.respiratory_rate", "Falta la frecuencia respiratoria"],
         ];
@@ -361,7 +360,7 @@ const ConsultationForm = () => {
         const diagOk = await methods.trigger([...DIAGNOSIS_FIELDS, "clinical_data.triage.blood_pressure"]);
         if (missing || !diagOk) {
             showError(
-                "Completa el destino, el motivo, la dirección, la FC/FR y el diagnóstico (con la presión arterial) antes de generar la referencia."
+                "Completa el destino, el motivo, la FC/FR y el diagnóstico (con la presión arterial) antes de generar la referencia."
             );
             return;
         }
@@ -372,8 +371,9 @@ const ConsultationForm = () => {
                     title={`Referencia de ${patientFullName} ${todayFileSafe}`}
                     patientName={patientFullName}
                     age={calculateAge(patient?.birth_date)}
-                    phone={patient?.phone}
-                    address={values?.referral?.address}
+                    patientPhone={patient?.phone}
+                    referredDoctorAddress={values?.referral?.referred_doctor_address}
+                    referredDoctorPhone={values?.referral?.referred_doctor_phone}
                     date={todayFormatted}
                     time={todayTime}
                     referredTo={values?.referral?.referred_to}

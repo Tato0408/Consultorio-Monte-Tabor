@@ -204,8 +204,10 @@ export function buildReferenciaHtml({
   logoDataUri,
   patientName,
   age,
+  patientPhone,
   phone,
-  address,
+  referredDoctorAddress,
+  referredDoctorPhone,
   date,
   time,
   referredTo,
@@ -239,9 +241,10 @@ export function buildReferenciaHtml({
 
   <div class="refField"><span class="label">FECHA:</span> ${refVal(date)}${time ? `&nbsp;&nbsp;&nbsp;Hora: ${escapeHtml(time)}` : ""}</div>
   <div class="refField"><span class="label">NOMBRE:</span> ${refVal(patientName)}&nbsp;&nbsp;&nbsp;&nbsp;<span class="label">EDAD:</span> ${age != null ? `${age} años` : "—"}</div>
-  <div class="refField"><span class="label">DIRECCIÓN:</span> ${refVal(address)}</div>
-  <div class="refField"><span class="label">TELÉFONO:</span> ${refVal(phone)}</div>
+  <div class="refField"><span class="label">TELÉFONO DEL PACIENTE:</span> ${refVal(patientPhone ?? phone)}</div>
   <div class="refField"><span class="label">REFERIDO A:</span> ${refVal(referredTo)}</div>
+  <div class="refField"><span class="label">DIRECCIÓN DEL DOCTOR REFERIDO:</span> ${refVal(referredDoctorAddress)}</div>
+  <div class="refField"><span class="label">TELÉFONO DEL DOCTOR REFERIDO:</span> ${refVal(referredDoctorPhone)}</div>
 
   <div class="label">MOTIVO DE REFERENCIA:</div>
   <div class="refBlock">${refVal(reason)}</div>

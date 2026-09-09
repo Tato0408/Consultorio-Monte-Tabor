@@ -248,6 +248,19 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
               // caeria en blanco y se perderia el nombre al guardar.
               const isOrphanedRealInsumo = rawInsumo && !isLegacySentinel && !insumos.some((i) => i._id === rawInsumo);
 
+              // Un mismo material no puede repetirse en dos filas: se excluye de
+              // las opciones el que ya se eligió en cualquier otra fila (la propia
+              // sigue disponible, para no perder la selección al reabrir el
+              // combobox). Para varias unidades del mismo insumo existe la
+              // cantidad, no una segunda fila.
+              const insumosElsewhere = new Set(
+                (watchedValues.materials || [])
+                  .filter((_, i) => i !== index)
+                  .map((m) => m.insumo)
+                  .filter(Boolean)
+              );
+              const availableInsumos = insumos.filter((i) => !insumosElsewhere.has(i._id));
+
               return (
                 <div key={item.id} className="space-y-1">
                   <div className="grid grid-cols-12 gap-2 md:gap-3 items-center">
@@ -255,7 +268,13 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
                       <Controller
                         control={control}
                         name={`materials.${index}.insumo`}
-                        rules={{ required: "Selecciona un material" }}
+                        rules={{
+                          required: "Selecciona un material",
+                          validate: (value) =>
+                            !value ||
+                            (watchedValues.materials || []).filter((m) => m.insumo === value).length <= 1 ||
+                            "Este material ya está en la lista, ajusta la cantidad",
+                        }}
                         render={({ field }) => (
                           <Combobox value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
                             <ComboboxTrigger
@@ -273,7 +292,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
                               {isOrphanedRealInsumo && (
                                 <ComboboxItem value={rawInsumo}>{item.name || "Material eliminado del inventario"} (ya no está en el inventario)</ComboboxItem>
                               )}
-                              {insumos.map((i) => (
+                              {availableInsumos.map((i) => (
                                 <ComboboxItem key={i._id} value={i._id}>{i.name}</ComboboxItem>
                               ))}
                             </ComboboxContent>
@@ -321,13 +340,22 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
             })}
           </div>
 
-          <button
-            type="button"
-            onClick={() => append({ insumo: "", quantity: 1, name: "" })}
-            className="w-full mt-2 py-2.5 border border-dashed border-gray-200 hover:border-blue-500 rounded-lg text-sm text-blue-600 font-medium flex items-center justify-center gap-2 hover:bg-blue-50/20 transition-all"
-          >
-            <Plus className="w-4 h-4" /> Agregar material
-          </button>
+          {/* No tiene sentido agregar más filas que insumos existen en el
+              catálogo: a partir de ahí, cualquier fila nueva forzosamente
+              repetiría uno ya elegido. */}
+          {insumos.length > 0 && fields.length >= insumos.length ? (
+            <p className="text-[11px] text-gray-400 text-center">
+              Ya agregaste todos los materiales disponibles ({insumos.length}).
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => append({ insumo: "", quantity: 1, name: "" })}
+              className="w-full mt-2 py-2.5 border border-dashed border-gray-200 hover:border-blue-500 rounded-lg text-sm text-blue-600 font-medium flex items-center justify-center gap-2 hover:bg-blue-50/20 transition-all"
+            >
+              <Plus className="w-4 h-4" /> Agregar material
+            </button>
+          )}
         </div>
 
         <div className="bg-white border border-gray-100 rounded-xl p-4 md:p-6 shadow-sm space-y-4">

@@ -81,6 +81,21 @@ const getProcedureError = ({ price, estimated_duration, materials }) => {
         if (quantity < 1) return "La cantidad de un material debe ser al menos 1"
     }
 
+    // Un mismo material no puede repetirse en la lista: para necesitar varias
+    // unidades del mismo insumo existe la cantidad. Se compara por insumo cuando
+    // viene del catálogo, o por nombre normalizado cuando es un material libre
+    // sin insumo vinculado.
+    const materialKeys = (materials || [])
+        .map((material) => {
+            if (material.insumo) return `insumo:${String(material.insumo)}`
+            const nombre = String(material.name || "").trim().toLowerCase()
+            return nombre ? `name:${nombre}` : null
+        })
+        .filter(Boolean)
+    if (new Set(materialKeys).size !== materialKeys.length) {
+        return "No puedes elegir el mismo material más de una vez, usa la cantidad."
+    }
+
     return null
 }
 

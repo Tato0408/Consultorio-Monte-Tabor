@@ -724,7 +724,8 @@ patientPortalController.getReferrals = async (req, res) => {
                 // ve de otra forma: los tres del panel "Referencia" + los que se
                 // sacan del resto de la consulta (diagnóstico, PA, SPO2, examen
                 // físico). El nombre/edad/teléfono los pone el front con la sesión.
-                address: c.referral.address || "",
+                referred_doctor_address: c.referral.referred_doctor_address || "",
+                referred_doctor_phone: c.referral.referred_doctor_phone || "",
                 heart_rate: c.referral.heart_rate || "",
                 respiratory_rate: c.referral.respiratory_rate || "",
                 diagnosis: c.clinical_data?.diagnosis || "",

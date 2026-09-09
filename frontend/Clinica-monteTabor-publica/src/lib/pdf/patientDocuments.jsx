@@ -119,8 +119,9 @@ export const descargarReferenciaPdf = (patient, referral) => {
       patientName={nombreCompleto(patient)}
       dui={patient?.dui}
       age={calcularEdad(patient?.birth_date)}
-      phone={patient?.phone}
-      address={referral.address}
+      patientPhone={patient?.phone}
+      referredDoctorAddress={referral.referred_doctor_address}
+      referredDoctorPhone={referral.referred_doctor_phone}
       date={fmtFechaLarga(referral.referred_date || referral.date)}
       time={fmtHoraLocal(referral.referred_date || referral.date)}
       referredTo={referral.referred_to}

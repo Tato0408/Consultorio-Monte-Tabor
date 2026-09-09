@@ -101,8 +101,8 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard title="Procedimientos recientes" action={<VerTodos onClick={() => onNavigateTab?.("Procedimientos")} />}>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-start">
+        <SectionCard collapsible title="Procedimientos recientes" action={<VerTodos onClick={() => onNavigateTab?.("Procedimientos")} />}>
           <div className="overflow-x-auto">
             <div className="grid grid-cols-[minmax(120px,1fr)_auto_auto] items-center gap-x-6 gap-y-4 text-sm min-w-[420px]">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Procedimiento</span>
@@ -124,7 +124,7 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
           </div>
         </SectionCard>
 
-        <SectionCard title="Antecedentes hereditarios" action={<VerTodos onClick={() => onNavigateTab?.("Historia clínica")} />}>
+        <SectionCard collapsible title="Antecedentes hereditarios" action={<VerTodos onClick={() => onNavigateTab?.("Historia clínica")} />}>
           <div className="space-y-3">
             {(patient.antecedentes ?? []).map((a, i) => (
               <div key={i} className="rounded-xl border-l-4 border-emerald-500 bg-slate-50 p-4">
@@ -145,8 +145,9 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
         </SectionCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">
         <SectionCard
+          collapsible
           title="Recetas"
           action={<VerTodos onClick={() => onNavigateTab?.("Documentos", "receta")}>Ver todas</VerTodos>}
         >
@@ -180,6 +181,7 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
         </SectionCard>
 
         <SectionCard
+          collapsible
           title="Incapacidades"
           action={<VerTodos onClick={() => onNavigateTab?.("Documentos", "incapacidad")}>Ver todas</VerTodos>}
         >
@@ -197,6 +199,7 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
         </SectionCard>
 
         <SectionCard
+          collapsible
           title="Referencias"
           action={<VerTodos onClick={() => onNavigateTab?.("Documentos", "referencia")}>Ver todas</VerTodos>}
         >
@@ -215,6 +218,7 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
       </div>
 
       <SectionCard
+        collapsible
         title="Resultados de laboratorio y exámenes"
         action={<VerTodos onClick={() => onNavigateTab?.("Documentos", "laboratorio")} />}
       >
@@ -252,37 +256,6 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
           ))}
         </div>
       </SectionCard>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard title="Notas de evolución" action={<VerTodos onClick={() => onNavigateTab?.("Consultas")}>Ver más</VerTodos>}>
-          <div className="rounded-xl border-l-4 border-blue-500 bg-slate-50 p-4">
-            <p className="text-sm leading-relaxed text-slate-600">
-              {patient.notasEvolucion?.texto ?? "—"}
-            </p>
-            {patient.notasEvolucion?.actualizado && (
-              <p className="mt-3 text-[11px] text-slate-400">
-                Actualizado: {patient.notasEvolucion.actualizado}
-              </p>
-            )}
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Impresión diagnóstica">
-          <div className="flex items-center gap-4 rounded-xl bg-slate-50 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-[11px] font-bold text-blue-600">
-              {patient.impresionDiagnostica?.codigo ?? "CIE"}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-800">
-                {patient.impresionDiagnostica?.descripcion ?? "—"}
-              </p>
-              <p className="text-[11px] text-slate-400">
-                {patient.impresionDiagnostica?.tipo ?? ""}
-              </p>
-            </div>
-          </div>
-        </SectionCard>
-      </div>
     </div>
   );
 }

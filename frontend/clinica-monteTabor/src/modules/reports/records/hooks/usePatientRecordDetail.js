@@ -127,7 +127,8 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, labOrders, p
       referredToRaw: c.referral.referred_to || "",
       referredDateRaw: c.referral.referred_date || c.date,
       statusRaw: c.referral.status || "Pendiente",
-      addressRaw: c.referral.address || "",
+      referredDoctorAddressRaw: c.referral.referred_doctor_address || "",
+      referredDoctorPhoneRaw: c.referral.referred_doctor_phone || "",
       heartRateRaw: c.referral.heart_rate || "",
       respiratoryRateRaw: c.referral.respiratory_rate || "",
       // Datos de la consulta que van en la hoja de referencia (para regenerar

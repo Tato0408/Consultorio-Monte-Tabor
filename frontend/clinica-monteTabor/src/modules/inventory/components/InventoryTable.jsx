@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Clock, Package, MoreVertical, Edit2, Trash2, Pencil } from "lucide-react";
+import { MoreVertical, Edit2, Trash2, Pencil } from "lucide-react";
 import useInsumos from "../hooks/useInsumos";
 import GenericTable from "@/components/ui/GenericTable";
 import { showError } from "@/lib/alerts";
@@ -69,18 +69,9 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
     {
       header: "Producto",
       render: (item) => (
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-xs overflow-hidden flex-shrink-0">
-            {item.image ? (
-              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-            ) : (
-              "📦"
-            )}
-          </div>
-          <div>
-            <p className="font-medium text-slate-900 leading-tight">{item.name}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{item.description || item.supplier || "Sin descripción"}</p>
-          </div>
+        <div>
+          <p className="font-medium text-slate-900 leading-tight">{item.name}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{item.description || item.supplier || "Sin descripción"}</p>
         </div>
       ),
     },

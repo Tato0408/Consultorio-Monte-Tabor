@@ -12,10 +12,6 @@ const InventorySchema = new Schema(
 
     expiration_date: { type: Date },
     supplier:     { type: String },
-    // URL de la imagen almacenada en Cloudinary.
-    image:        { type: String },
-    // Identificador público de la imagen en Cloudinary, usado para eliminarla.
-    image_public_id: { type: String },
     last_used:    { type: Date },
   },
   {

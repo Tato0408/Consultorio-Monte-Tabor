@@ -35,8 +35,10 @@ const ReferenciaDocument = ({
     title,
     patientName,
     age,
+    patientPhone,
     phone,
-    address,
+    referredDoctorAddress,
+    referredDoctorPhone,
     date,
     time,
     referredTo,
@@ -51,6 +53,9 @@ const ReferenciaDocument = ({
     diagnosisDescription,
     doctorName,
 }) => {
+    // phone se mantiene por compatibilidad con llamadores viejos que pasaban
+    // el teléfono del paciente con ese nombre.
+    const patientPhoneValue = patientPhone ?? phone;
     // La hoja de referencia no incluye DUI; si algún llamador lo pasa, React lo
     // ignora sin problema.
     const impresion = [icdCode, diagnosis].filter(Boolean).join(" - ")
@@ -79,18 +84,23 @@ const ReferenciaDocument = ({
                 </View>
 
                 <View style={styles.field}>
-                    <Text style={styles.fieldLabel}>DIRECCIÓN:</Text>
-                    <Text style={styles.fieldValue}>{val(address)}</Text>
-                </View>
-
-                <View style={styles.field}>
-                    <Text style={styles.fieldLabel}>TELÉFONO:</Text>
-                    <Text style={styles.fieldValue}>{val(phone)}</Text>
+                    <Text style={styles.fieldLabel}>TELÉFONO DEL PACIENTE:</Text>
+                    <Text style={styles.fieldValue}>{val(patientPhoneValue)}</Text>
                 </View>
 
                 <View style={styles.field}>
                     <Text style={styles.fieldLabel}>REFERIDO A:</Text>
                     <Text style={styles.fieldValue}>{val(referredTo)}</Text>
+                </View>
+
+                <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>DIRECCIÓN DEL DOCTOR REFERIDO:</Text>
+                    <Text style={styles.fieldValue}>{val(referredDoctorAddress)}</Text>
+                </View>
+
+                <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>TELÉFONO DEL DOCTOR REFERIDO:</Text>
+                    <Text style={styles.fieldValue}>{val(referredDoctorPhone)}</Text>
                 </View>
 
                 <Text style={styles.sectionLabel}>MOTIVO DE REFERENCIA:</Text>

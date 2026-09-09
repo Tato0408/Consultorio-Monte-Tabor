@@ -1,6 +1,5 @@
 import inventoryModel from "../../models/inventory/inventory.js";
 import movementModel from "../../models/inventory/movements.js";
-import { v2 as cloudinary } from "cloudinary";
 import { notifyLowStockAdmins } from "../../services/notificationService.js";
 import { getNonNegativeError, escapeRegex } from "../../utils/validators.js";
 
@@ -79,11 +78,6 @@ inventoryController.create = async (req, res) => {
       supplier,
     });
 
-    if (req.file) {
-      newItem.image           = req.file.path;
-      newItem.image_public_id = req.file.filename;
-    }
-
     await newItem.save();
     await notifyLowStockAdmins(newItem).catch((error) => console.log("Error notificando inventario:", error));
 
@@ -124,15 +118,6 @@ inventoryController.update = async (req, res) => {
     if (updateData.expiration_date) updateData.expiration_date = new Date(updateData.expiration_date);
     else if (updateData.expiration_date === "") updateData.expiration_date = null;
 
-    // Si llega imagen nueva, eliminar la anterior de Cloudinary
-    if (req.file) {
-      if (item.image_public_id) {
-        await cloudinary.uploader.destroy(item.image_public_id);
-      }
-      updateData.image           = req.file.path;
-      updateData.image_public_id = req.file.filename;
-    }
-
     const updatedItem = await inventoryModel.findByIdAndUpdate(id, updateData, { new: true });
     await notifyLowStockAdmins(updatedItem).catch((error) => console.log("Error notificando inventario:", error));
     return res.status(200).json({ message: "Insumo actualizado", item: updatedItem });
@@ -146,10 +131,6 @@ inventoryController.remove = async (req, res) => {
   try {
     const item = await inventoryModel.findById(req.params.id);
     if (!item) return res.status(404).json({ message: "Insumo no encontrado" });
-
-    if (item.image_public_id) {
-      await cloudinary.uploader.destroy(item.image_public_id);
-    }
 
     await inventoryModel.findByIdAndDelete(req.params.id);
     // Eliminar también sus movimientos
@@ -185,35 +166,21 @@ inventoryController.getStats = async (req, res) => {
       date: { $gte: startOfDay },
     });
 
-    // Próximos a vencer en 60 días (maneja fechas como string o como Date)
-    const today    = new Date();
-    const in60Days = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
-
-    // Debug: ver todos los productos que tienen expiration_date
-    const allWithDate = await inventoryModel
-      .find({ expiration_date: { $ne: null, $exists: true } })
-      .select("name expiration_date");
-    console.log("[stats] productos con fecha:", allWithDate.map(p => ({
-      name: p.name,
-      expiration_date: p.expiration_date,
-      type: typeof p.expiration_date,
-    })));
-    console.log("[stats] today:", today, "| in60Days:", in60Days);
-
-    const todayStr    = today.toISOString().split("T")[0];
-    const in60DaysStr = in60Days.toISOString().split("T")[0];
+    // Próximos a vencer: los que vencen dentro de los próximos 60 días y
+    // también los que ya vencieron (esos son los más urgentes, por eso el
+    // orden ascendente los deja primero). expiration_date se guarda siempre
+    // como Date (ver el modelo), así que basta comparar contra el límite
+    // superior.
+    const in60Days = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
 
     const expiringSoon = await inventoryModel.find({
-      $or: [
-        { expiration_date: { $gte: today,     $lte: in60Days    } },
-        { expiration_date: { $gte: todayStr,  $lte: in60DaysStr } },
-      ],
+      expiration_date: { $ne: null, $lte: in60Days },
     })
     .sort({ expiration_date: 1 })
     .limit(5)
     .select("name expiration_date unit_measure");
 
-    // Alertas de stock bajo o crítico
+    // Alertas de stock bajo o crítico (stock en cero o por debajo del mínimo).
     const alerts = await inventoryModel
       .find({
         $or: [
@@ -224,8 +191,6 @@ inventoryController.getStats = async (req, res) => {
       .sort({ stock: 1 })
       .limit(5)
       .select("name stock min_stock unit_measure");
-
-    console.log("[stats] proximosAVencer:", expiringSoon);
 
     // Tendencias reales de los últimos 7 días para las mini gráficas
     // (sparklines) de las tarjetas KPI de InventoryStats.jsx. No
@@ -384,14 +349,21 @@ inventoryController.adjustStock = async (req, res) => {
 // POST, entrada de stock.
 inventoryController.stockEntry = async (req, res) => {
   try {
-    const { name, category, unit_measure, supplier, quantity, unit_cost, detalle } = req.body;
+    const { name, category, unit_measure, supplier, quantity, unit_cost, min_stock, detalle } = req.body;
+
+    const hasMinStock = min_stock !== undefined && min_stock !== null && String(min_stock).trim() !== "";
 
     const numberError = getNonNegativeError(quantity, "La cantidad")
-      || getNonNegativeError(unit_cost, "El costo unitario");
+      || getNonNegativeError(unit_cost, "El costo unitario")
+      || (hasMinStock ? getNonNegativeError(min_stock, "El stock mínimo") : null);
     if (numberError) return res.status(400).json({ message: numberError });
 
     const qty  = Number(quantity);
     const cost = Number(unit_cost) || 0;
+    // Cantidad mínima a partir de la cual el producto se considera en "stock
+    // bajo". Si no llega, se mantiene la que ya tenía el producto (o 5 para
+    // uno nuevo).
+    const minStock = hasMinStock ? Number(min_stock) : null;
 
     // Busca si ya existe por nombre, comparación insensible a
     // mayúsculas y a espacios extra (Guantes y guantes con espacio
@@ -411,12 +383,13 @@ inventoryController.stockEntry = async (req, res) => {
     if (item) {
       item.stock += qty;
       item.price  = cost;
+      if (minStock !== null) item.min_stock = minStock;
       await item.save();
       await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
     } else {
       item = await new inventoryModel({
         name: normalizedName, category, unit_measure,
-        stock: qty, min_stock: 5, price: cost, supplier,
+        stock: qty, min_stock: minStock !== null ? minStock : 5, price: cost, supplier,
       }).save();
       await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
     }

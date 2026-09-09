@@ -1,97 +1,13 @@
-import { useState, useRef, useEffect } from "react";
-import { ChevronDown, ArrowUp, ArrowDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowUp, ArrowDown } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import InputField from "../../../components/ui/InputField";
+import { Combobox, ComboboxTrigger, ComboboxContent, ComboboxItem } from "@/components/ui/combobox";
 import useInsumos from "../hooks/useInsumos";
 
 const SectionTitle = ({ children }) => (
   <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">{children}</h3>
 );
-
-
-const ProductCombobox = ({ value, onSelect, error }) => {
-  const { getInsumos } = useInsumos();
-  const [query, setQuery]           = useState(value?.name || "");
-  const [suggestions, setSuggestions] = useState([]);
-  const [open, setOpen]             = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const wrapRef = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const search = async (val) => {
-    setQuery(val);
-    // Limpia la selección mientras el usuario escribe.
-    onSelect(null);
-    if (val.length < 1) { setSuggestions([]); setOpen(false); return; }
-    setLoading(true);
-    try {
-      const data = await getInsumos({ search: val, limit: 8 });
-      setSuggestions(data.insumos || []);
-      setOpen(true);
-    } catch { setSuggestions([]); }
-    finally { setLoading(false); }
-  };
-
-  const pick = (insumo) => {
-    setQuery(insumo.name);
-    setSuggestions([]);
-    setOpen(false);
-    onSelect(insumo);
-  };
-
-  return (
-    <div className="flex flex-col gap-1" ref={wrapRef}>
-      <label className="text-xs font-medium text-gray-600">
-        Producto <span className="text-red-500">*</span>
-      </label>
-
-      <div className="relative">
-        <input
-          className={`w-full border rounded-lg px-3 py-2.5 pr-9 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500
-            ${error ? "border-red-400" : "border-gray-200"}`}
-          placeholder="Buscar producto registrado..."
-          maxLength={100}
-          value={query}
-          onChange={(e) => search(e.target.value)}
-          autoComplete="off"
-        />
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-
-        {open && (
-          <div className="absolute top-full left-0 right-0 z-40 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
-            {loading ? (
-              <p className="px-4 py-3 text-sm text-gray-400">Buscando...</p>
-            ) : suggestions.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-gray-400">No se encontraron productos</p>
-            ) : (
-              suggestions.map((s) => (
-                <button key={s._id} type="button" onClick={() => pick(s)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 text-left">
-                  {s.image
-                    ? <img src={s.image} alt={s.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-                    : <div className="w-8 h-8 rounded-lg bg-slate-100 flex-shrink-0" />}
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
-                    <p className="text-xs text-gray-400">{s.category} · {s.stock} {s.unit_measure} en stock</p>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-
-      {error && <p className="text-xs text-red-500">{error}</p>}
-    </div>
-  );
-};
 
 const InfoField = ({ label, value }) => (
   <div className="flex flex-col gap-1">
@@ -103,8 +19,12 @@ const InfoField = ({ label, value }) => (
 );
 
 const ModalAdjustStock = ({ onClose, onSuccess }) => {
-  const { adjustStock } = useInsumos();
-  const [product, setProduct]       = useState(null);
+  const { adjustStock, getInsumos } = useInsumos();
+  // El catálogo se carga una vez y el <Combobox> (mismo que en citas) filtra
+  // en el cliente mientras se escribe.
+  const [insumos, setInsumos]       = useState([]);
+  const [productId, setProductId]   = useState("");
+  const product = insumos.find((i) => i._id === productId) || null;
   // Puede ser aumentar o disminuir.
   const [adjustType, setAdjustType] = useState("aumentar");
   const [quantity, setQuantity]     = useState("");
@@ -112,6 +32,13 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
   const [reason, setReason]         = useState("");
   const [errors, setErrors]         = useState({});
   const [loading, setLoading]       = useState(false);
+
+  useEffect(() => {
+    getInsumos({ limit: 500 })
+      .then((data) => setInsumos(data.insumos || []))
+      .catch(() => setInsumos([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const validate = () => {
     const e = {};
@@ -187,16 +114,31 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
         <section>
           <SectionTitle>Producto</SectionTitle>
 
-          <ProductCombobox
-            value={product}
-            onSelect={(insumo) => {
-              setProduct(insumo);
-              setErrors((p) => ({ ...p, product: "" }));
-            }}
-            error={errors.product}
-          />
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-600">
+              Producto <span className="text-red-500">*</span>
+            </label>
+            <Combobox
+              value={productId}
+              onValueChange={(value) => {
+                setProductId(value ?? "");
+                setErrors((p) => ({ ...p, product: "" }));
+              }}
+            >
+              <ComboboxTrigger
+                placeholder="Buscar producto registrado..."
+                className={errors.product ? "border-red-400" : "border-gray-200"}
+              />
+              <ComboboxContent>
+                {insumos.map((i) => (
+                  <ComboboxItem key={i._id} value={i._id}>{i.name}</ComboboxItem>
+                ))}
+              </ComboboxContent>
+            </Combobox>
+            {errors.product && <p className="text-xs text-red-500">{errors.product}</p>}
+          </div>
 
-         
+
           {product && (
             <div className="grid grid-cols-3 gap-3 mt-3">
               <InfoField label="Categoría"      value={product.category} />
