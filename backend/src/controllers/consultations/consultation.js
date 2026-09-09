@@ -10,6 +10,11 @@ import { getVitalSignsError, getRequiredConsultationFieldsError } from "../../ut
 import appointmentsModel from "../../models/appointments/appointments.js";
 import { assertActiveParties, isPatientInactive } from "../../utils/activeScope.js";
 import { refreshNurseNotePendingNotification } from "../../services/notificationService.js";
+import {
+  sync_treatment_from_consultation,
+  detach_treatment_from_consultation,
+} from "../../services/treatmentSync.js";
+import { resolve_actor } from "../../utils/resolveActor.js";
 const consultationController = {};
 
 // Refresca la notificación de notas de enfermería pendientes cuando la cita
@@ -269,10 +274,11 @@ consultationController.insertConsultation = async (req, res) => {
       referral,
       antecedents,
       prescription,
+      treatment_plan,
     } = req.body;
 
     // Síntomas, triage básico y diagnóstico completo son los datos mínimos para registrar una
-    // consulta (ver ConsultationForm.jsx) — el resto del formulario queda opcional.
+    // consulta (ver ConsultationForm.jsx). El resto del formulario queda opcional.
     const requiredFieldsError = getRequiredConsultationFieldsError(clinical_data);
     if (requiredFieldsError) {
       await session.abortTransaction();
@@ -390,6 +396,19 @@ consultationController.insertConsultation = async (req, res) => {
       });
     }
 
+    // Sincroniza el plan de tratamiento del paciente: crea uno nuevo si el
+    // médico marcó "inicia un plan de tratamiento", o agrega la evolución
+    // de esta consulta al tratamiento que ya tenga abierto.
+    await sync_treatment_from_consultation({
+      consultation_id: savedConsultation._id,
+      patient_id,
+      clinical_data,
+      treatment_plan,
+      next_control: prescription?.next_appointment_suggested || follow_up_date || null,
+      actor: await resolve_actor(req),
+      session,
+    });
+
     // Descuenta del inventario real los materiales que el doctor marcó como usados en cada
     // procedimiento de esta consulta (antes se guardaban en material_used pero nunca tocaban
     // el stock). Como es una consulta nueva, "lo anterior" está vacío: se descuenta todo.
@@ -452,6 +471,10 @@ consultationController.deleteConsultation = async (req, res) => {
     }
     await labOrdersModel.deleteOne({ $or: labOrderOr });
 
+    // Si esta consulta originó un plan de tratamiento, el plan no se borra:
+    // se desvincula y queda una nota del sistema en su línea de tiempo.
+    await detach_treatment_from_consultation(consultationDeleted._id);
+
     return res.status(200).json({ message: "Consulta eliminada" });
   } catch (error) {
     console.log("error" + error);
@@ -477,6 +500,7 @@ consultationController.updateConsultation = async (req, res) => {
       referral,
       antecedents,
       prescription,
+      treatment_plan,
     } = req.body;
 
     const requiredFieldsError = getRequiredConsultationFieldsError(clinical_data);
@@ -606,6 +630,19 @@ consultationController.updateConsultation = async (req, res) => {
         session,
       });
     }
+
+    // Mantiene al día el plan de tratamiento del paciente al editar la
+    // consulta: actualiza la entrada de evolución de esta consulta en el
+    // tratamiento abierto o en el que originó, sin duplicarla.
+    await sync_treatment_from_consultation({
+      consultation_id: consultationUpdated._id,
+      patient_id,
+      clinical_data,
+      treatment_plan,
+      next_control: prescription?.next_appointment_suggested || follow_up_date || null,
+      actor: await resolve_actor(req),
+      session,
+    });
 
     // Solo mueve la DIFERENCIA entre lo que la consulta usaba antes de esta edición y lo que
     // usa ahora si no cambió nada en material_used, no se genera ningún movimiento.

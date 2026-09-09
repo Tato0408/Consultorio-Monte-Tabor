@@ -20,16 +20,19 @@ const SECTION_ICONS = {
   plusCircle:      PlusCircle,
 };
 
-const VariacionCell = ({ value }) => {
+// Color de la celda de variación según el tono que manda el backend:
+// "buena" cuando el cambio favorece a la clínica, "mala" cuando la
+// perjudica, cualquier otra cosa en gris. Ya no se infiere del signo,
+// porque para métricas como cancelaciones una baja es algo bueno.
+const TONE_CLASSES = {
+  buena: "text-emerald-600",
+  mala: "text-red-500",
+};
+
+const VariacionCell = ({ value, tone }) => {
   if (!value || value === "—") return <span className="text-slate-300">—</span>;
-  const isPositive = value.startsWith("+");
-  const isNegative = value.startsWith("-");
   return (
-    <span
-      className={`font-semibold text-sm ${
-        isPositive ? "text-emerald-600" : isNegative ? "text-red-500" : "text-slate-500"
-      }`}
-    >
+    <span className={`font-semibold text-sm ${TONE_CLASSES[tone] || "text-slate-500"}`}>
       {value}
     </span>
   );
@@ -78,10 +81,10 @@ const ReportSection = ({ section, defaultOpen = false }) => {
                   Proceso a comparar
                 </span>
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
-                  Actual
+                  {section.col2Label || "Actual"}
                 </span>
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
-                  Período anterior
+                  {section.comparisonLabel || "Comparación"}
                 </span>
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
                   Variación
@@ -103,7 +106,7 @@ const ReportSection = ({ section, defaultOpen = false }) => {
                   <span className="text-sm font-semibold text-slate-800 text-center">{row.actual}</span>
                   <span className="text-sm text-slate-400 text-center">{row.anterior}</span>
                   <div className="text-center">
-                    <VariacionCell value={row.variacion} />
+                    <VariacionCell value={row.variacion} tone={row.tone} />
                   </div>
                 </div>
               ))}

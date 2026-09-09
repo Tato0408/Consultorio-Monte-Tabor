@@ -1,0 +1,13 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 1160, "title": "Módulo de Tratamientos", "is_interactive": true },
+    { "file": "Consulta.dc.html", "x": 1560, "y": 0, "w": 1180, "h": 1380, "title": "Consulta — aquí nace el tratamiento" },
+    { "file": "EstadosCerrados.dc.html", "x": 0, "y": 1300, "w": 720, "h": 680, "title": "Estados y motivos de cierre" }
+  ],
+  "annotations": [
+    { "id": "n-main", "x": 0, "y": -104, "w": 520, "text": "Módulo de Tratamientos (prototipo navegable). Haz clic en cualquier paciente de la tabla para abrir su panel. Dentro puedes probar Pausar, Derivar y Finalizar tratamiento, y ver cómo queda etiquetado \"Cerrado — <motivo>\" en la pestaña Cerrados." },
+    { "id": "n-consulta", "x": 1560, "y": -104, "w": 480, "text": "Un tratamiento no se crea en la pantalla de Tratamientos: nace cuando el médico marca \"inicia un plan de tratamiento\" al final de una consulta. El diagnóstico y la medicación se copian solos." },
+    { "id": "n-estados", "x": 0, "y": 1236, "w": 460, "text": "Referencia rápida: qué significa cada estado y por qué un cierre siempre lleva su motivo (finalizado / abandono / derivación)." }
+  ],
+  "launch": { "view": "canvas" }
+}

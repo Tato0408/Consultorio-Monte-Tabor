@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; color: #334155; -webkit-font-smoothing: antialiased; }
+    a { color: #0b66d6; } a:hover { color: #084a9c; }
+  </style>
+</helmet>
+
+<div style="width: 720px; background: #f8fafc; padding: 28px;">
+  <div style="background: #fff; border: 1px solid #f1f5f9; border-radius: 18px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); padding: 24px;">
+
+    <h2 style="margin: 0; font-size: 17px; font-weight: 700; color: #0f172a;">Estados de un tratamiento</h2>
+    <p style="margin: 6px 0 20px; font-size: 13px; color: #94a3b8;">Cómo se etiqueta cada plan en la lista y qué significa.</p>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+
+      <div style="display: flex; gap: 14px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 9999px; white-space: nowrap; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; flex-shrink: 0; margin-top: 1px;">Activo</span>
+        <p style="margin: 0; font-size: 12.5px; color: #475569; line-height: 1.55;">En curso. Cada consulta de control alimenta sola la línea de tiempo del tratamiento.</p>
+      </div>
+
+      <div style="display: flex; gap: 14px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 9999px; white-space: nowrap; background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; flex-shrink: 0; margin-top: 1px;">En pausa</span>
+        <p style="margin: 0; font-size: 12.5px; color: #475569; line-height: 1.55;">Detenido temporalmente (embarazo, espera de exámenes, viaje del paciente). Se reanuda con un botón; no cuenta como activo ni como cerrado.</p>
+      </div>
+
+      <div style="display: flex; gap: 14px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: #ea580c; flex-shrink: 0; margin-top: 1px; white-space: nowrap;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></svg>
+          Control vencido
+        </span>
+        <p style="margin: 0; font-size: 12.5px; color: #475569; line-height: 1.55;"><strong>No es un estado.</strong> Es un aviso sobre un tratamiento <em>activo</em> cuyo control ya pasó de fecha y el paciente aún no ha vuelto. Aparece en la pestaña “Requieren control”.</p>
+      </div>
+
+      <div style="height: 1px; background: #f1f5f9; margin: 4px 0;"></div>
+      <p style="margin: 0 0 2px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Cerrado — siempre con el motivo</p>
+
+      <div style="display: flex; gap: 14px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 9999px; white-space: nowrap; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; flex-shrink: 0; margin-top: 1px;">Cerrado — finalizado</span>
+        <p style="margin: 0; font-size: 12.5px; color: #475569; line-height: 1.55;">El paciente completó el tratamiento (alta médica). Botón <strong>“Finalizar tratamiento”</strong>.</p>
+      </div>
+
+      <div style="display: flex; gap: 14px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 9999px; white-space: nowrap; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; flex-shrink: 0; margin-top: 1px;">Cerrado — abandono</span>
+        <p style="margin: 0; font-size: 12.5px; color: #475569; line-height: 1.55;">El paciente dejó de asistir. Se distingue del alta a propósito, para tener la estadística real de abandono.</p>
+      </div>
+
+      <div style="display: flex; gap: 14px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 9999px; white-space: nowrap; background: #faf5ff; color: #9333ea; border: 1px solid #e9d5ff; flex-shrink: 0; margin-top: 1px;">Cerrado — derivación</span>
+        <p style="margin: 0; font-size: 12.5px; color: #475569; line-height: 1.55;">Se remitió a otro especialista u hospital. Se enlaza con la hoja de referencia de la consulta.</p>
+      </div>
+
+      <div style="margin-top: 6px; display: flex; align-items: flex-start; gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 11px 13px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <p style="margin: 0; font-size: 11.5px; color: #475569; line-height: 1.55;">Un tratamiento cerrado se puede <strong>reabrir</strong> si el paciente recae; queda registrado en la línea de tiempo.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

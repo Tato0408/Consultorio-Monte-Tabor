@@ -11,6 +11,7 @@ import TriageCard from "../components/TriageCard";
 import PhysicalExamCard from "../components/PhysicalExamCard";
 import DiagnosisCard from "../components/DiagnosisCard";
 import ProceduresCard from "../components/ProceduresCard";
+import TreatmentPlanCard from "../components/TreatmentPlanCard";
 import PrescriptionCard from "../components/PrescriptionCard";
 import ReferralCard from "../components/ReferralCard";
 import AntecedentsCard from "../components/AntecedentsCard";
@@ -111,7 +112,7 @@ const ConsultationForm = () => {
         }
     };
 
-    const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord, consultationId } =
+    const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord, consultationId, activeTreatment } =
         useConsultation(appointmentId);
 
     // El formulario queda en solo lectura si se pidió explícitamente
@@ -550,6 +551,8 @@ const ConsultationForm = () => {
                             savingNurseNote={savingNurseNote}
                         />
                         <ProceduresCard readOnly={readOnly} />
+
+                        <TreatmentPlanCard readOnly={readOnly} activeTreatment={activeTreatment} />
 
                         <AntecedentsCard
                             title="Paso 6 - Antecedentes heredofamiliarios - opcional"

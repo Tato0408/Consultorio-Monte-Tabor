@@ -1,626 +1,473 @@
 import { v2 as cloudinary } from "cloudinary";
+import treatmentModel from "../../models/treatments/treatment.js";
 import patientsModel from "../../models/patients/patients.js";
-import consultationModel from "../../models/consultations/consultation.js";
 import prescriptionModel from "../../models/consultations/prescription.js";
-import adminModel from "../../models/admin/admins.js";
-import doctorsModel from "../../models/doctors/doctors.js";
-import nursesModel from "../../models/nurses/nurses.js";
-import receptionistModel from "../../models/receptionist/receptionist.js";
+import { resolve_actor } from "../../utils/resolveActor.js";
 
-//array de funciones: aqui se agregan los métodos del controller y al final se exporta este objeto
+// Milisegundos de un día, base de todos los cálculos de fechas.
+const ms_day = 24 * 60 * 60 * 1000;
+
 const treatmentsController = {};
 
-// Cantidad de milisegundos que tiene un día, se usa para todos los
-// cálculos de fechas (restar días, sumar semanas, etc.) sin tener que
-// repetir la operación cada vez.
-const MS_DAY = 24 * 60 * 60 * 1000;
-
-// Abreviaturas de los meses en español, en el mismo orden que
-// Date.getMonth() (0 es enero). Se usan para armar las tarjetas de
-// próximos controles (día y mes, por ejemplo 05 AGO).
-const MONTHS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
-
-//Calcula la edad en años a partir de la fecha de nacimiento del paciente.
-//Devuelve null si no hay fecha de nacimiento registrada, para no mostrar una edad falsa.
-const calcAge = (birthDate) => {
-  if (!birthDate) return null;
-  return Math.floor((Date.now() - new Date(birthDate).getTime()) / (MS_DAY * 365.25));
+// Calcula la edad en años a partir de la fecha de nacimiento. Devuelve
+// null si no hay fecha registrada, para no mostrar una edad falsa.
+const calc_age = (birth_date) => {
+  if (!birth_date) return null;
+  return Math.floor((Date.now() - new Date(birth_date).getTime()) / (ms_day * 365.25));
 };
 
-// Da formato de fecha legible en español (dd/mm/aaaa) a cualquier
-// valor Date o ISO string. Devuelve el símbolo de guion largo cuando
-// no hay fecha, para que la interfaz nunca muestre Invalid Date.
-const formatDate = (date) => {
+// Formatea una fecha como dd/mm/aaaa en español. Devuelve un guion largo
+// cuando no hay fecha, para que la interfaz nunca muestre Invalid Date.
+const format_date = (date) => {
   if (!date) return "—";
-  return new Date(date).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(date).toLocaleDateString("es-SV", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 };
 
-// Calcula cuántos días faltan (positivo) o han pasado (negativo)
-// entre hoy y una fecha dada, ignorando la hora exacta (ambas fechas
-// se normalizan a medianoche). Se usa para el texto de días
-// restantes o vencidos del próximo control de cada paciente.
-const daysUntil = (date) => {
+// Días que faltan (positivo) o que ya pasaron (negativo) entre hoy y una
+// fecha dada, ignorando la hora exacta. Se usa para el texto de días
+// restantes o vencidos del próximo control.
+const days_until = (date) => {
   if (!date) return null;
   const target = new Date(date);
   target.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return Math.round((target - today) / MS_DAY);
+  return Math.round((target - today) / ms_day);
 };
 
-// Modelo y prefijo de nombre según el rol de quien hace la acción
-// (req.user.role, puesto por authenticate.js a partir del JWT). Se
-// usa para dejar registrado quién actualizó la evolución o escribió
-// una nota (ver addNote más abajo).
-const ACTOR_MODELS = { admin: adminModel, doctor: doctorsModel, nurse: nursesModel, receptionist: receptionistModel };
-const ACTOR_PREFIX = { doctor: "Dr.", nurse: "Enf." };
-
-// Busca el nombre real de quien hizo la petición para firmar una nota/evolución con su nombre en
-// vez de dejarlo anónimo. Si por algún motivo no se encuentra (usuario borrado, rol desconocido),
-// devuelve una etiqueta genérica en vez de fallar toda la operación.
-const resolveActorName = async (req) => {
-  const role = req.user?.role;
-  const Model = ACTOR_MODELS[role];
-  if (!Model) return "Sistema";
-
-  const actor = await Model.findById(req.user.id).select("name last_name").lean();
-  const fullName = actor ? `${actor.name || ""} ${actor.last_name || ""}`.trim() : "";
-  if (!fullName) return ACTOR_PREFIX[role] ? `${ACTOR_PREFIX[role]} (sin nombre)` : "Administrador";
-
-  return ACTOR_PREFIX[role] ? `${ACTOR_PREFIX[role]} ${fullName}` : fullName;
+// Hoy a medianoche, para comparar fechas por día sin la parte horaria.
+const today_at_midnight = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
 };
 
-// Trae al paciente completo (documento de Mongoose, no .lean(), para
-// poder mutar y guardar) y localiza su procedimiento o tratamiento
-// más reciente por fecha. Lo reutilizan las 4 acciones de abajo
-// (evolución, nota, programar control, dar de alta): todas operan
-// sobre ese mismo procedimiento, el que getFollowUp usa como el
-// tratamiento actual del paciente.
-const loadPatientWithLatestProcedure = async (patientId) => {
-  const patient = await patientsModel.findById(patientId);
-  // Un paciente inactivo se trata como inexistente para el seguimiento de
-  // tratamientos: no se listan ni se editan sus datos hasta reactivarlo.
-  if (!patient || patient.is_active === false) return { patient: null, latest: null };
-
-  const procedures = patient.clinical_history?.procedures || [];
-  if (!procedures.length) return { patient, latest: null };
-
-  // .sort() se aplica sobre una copia del array, no muta el orden
-  // real guardado en el documento. Los elementos siguen siendo los
-  // mismos subdocumentos de Mongoose, así que modificar latest y
-  // luego hacer patient.save() sí persiste el cambio.
-  const latest = [...procedures].sort((a, b) => new Date(a.date) - new Date(b.date)).pop();
-  return { patient, latest };
+// Estado válido de cada transición desde la pantalla de detalle. Fuera de
+// este mapa la transición se rechaza con 400.
+const allowed_transitions = {
+  activo: ["en_pausa", "cerrado"],
+  en_pausa: ["activo", "cerrado"],
+  cerrado: ["activo"],
 };
 
-// GET /api/treatments/follow-up
-// Reemplaza los datos quemados que antes mostraba la pantalla de
-// tratamientos (mock en modules/treatments/data/treatmentsData.js).
-// No existe una colección de tratamientos propia en el sistema, así
-// que se arma el seguimiento de cada paciente a partir de lo más
-// cercano que sí existe: su historial real de procedimientos
-// (Patients.clinical_history.procedures), que ya trae diagnóstico,
-// doctor y fecha de control (follow_up_date), más la consulta y
-// receta asociadas a cada procedimiento (para la observación más
-// reciente y los medicamentos).
-treatmentsController.getFollowUp = async (req, res) => {
+const close_reasons = ["finalizado", "abandono", "derivacion", "otro"];
+
+// Etiqueta y color del estado para la insignia de la lista y el detalle.
+// Los colores coinciden con las claves de StatusBadge en el frontend.
+const derive_badge = (treatment) => {
+  if (treatment.status === "activo") return { label: "Activo", tone: "green" };
+  if (treatment.status === "en_pausa") return { label: "En pausa", tone: "gray" };
+  const reason_label = {
+    finalizado: "Cerrado — finalizado",
+    abandono: "Cerrado — abandono",
+    derivacion: "Cerrado — derivación",
+    otro: "Cerrado — otro motivo",
+  };
+  const reason_tone = {
+    finalizado: "blue",
+    abandono: "red",
+    derivacion: "purple",
+    otro: "gray",
+  };
+  const reason = treatment.closed_reason || "otro";
+  return { label: reason_label[reason], tone: reason_tone[reason] };
+};
+
+// Cuenta las entradas de la línea de tiempo que representan una visita
+// real del paciente (una evolución registrada en consulta o un control
+// hecho), para el texto de progreso.
+const count_sessions = (timeline = []) =>
+  timeline.filter((entry) => entry.entry_type === "evolucion" || entry.entry_type === "control").length;
+
+// Texto y porcentaje de avance del tratamiento. Prioriza el número de
+// sesiones planificadas; si no hay, usa el tiempo transcurrido hasta la
+// fecha estimada de alta; si tampoco hay, solo cuenta las visitas.
+const derive_progress = (treatment) => {
+  const done = count_sessions(treatment.timeline);
+  if (treatment.total_sessions) {
+    const pct = Math.min(100, Math.round((done / treatment.total_sessions) * 100));
+    return { label: `${done} de ~${treatment.total_sessions} sesiones`, pct };
+  }
+  if (treatment.estimated_end_date && treatment.opened_at) {
+    const total = new Date(treatment.estimated_end_date) - new Date(treatment.opened_at);
+    const elapsed = Date.now() - new Date(treatment.opened_at).getTime();
+    const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((elapsed / total) * 100))) : 0;
+    return { label: `${done} visita(s) registradas`, pct };
+  }
+  return { label: done ? `${done} visita(s) registradas` : "Sin visitas todavía", pct: 0 };
+};
+
+// Nombre completo del paciente a partir del documento poblado.
+const patient_full_name = (patient) =>
+  patient ? `${patient.name || ""} ${patient.last_name || ""}`.trim() : "—";
+
+// Iniciales del paciente para el avatar de la lista.
+const patient_initials = (patient) => {
+  if (!patient) return "?";
+  const first = (patient.name || "").trim()[0] || "";
+  const last = (patient.last_name || "").trim()[0] || "";
+  return (first + last).toUpperCase() || "?";
+};
+
+// Convierte un tratamiento poblado en el objeto plano que consume la
+// tabla de la pantalla. alert marca un tratamiento activo cuyo control ya
+// venció y el paciente no ha vuelto.
+const to_list_row = (treatment, today) => {
+  const patient = treatment.patient_id;
+  const badge = derive_badge(treatment);
+  const progress = derive_progress(treatment);
+  const remaining = days_until(treatment.next_control_date);
+  const alert = treatment.status === "activo" && !!treatment.next_control_date && new Date(treatment.next_control_date) < today;
+  const age = calc_age(patient?.birth_date);
+  return {
+    id: String(treatment._id),
+    patient_id: patient ? String(patient._id) : null,
+    patient_name: patient_full_name(patient),
+    patient_initials: patient_initials(patient),
+    patient_age_label: age != null ? `${age} años · ${patient?.gender || "—"}` : patient?.gender || "—",
+    diagnosis: treatment.diagnosis || "Sin diagnóstico registrado",
+    objective: treatment.objective || "Sin objetivo registrado",
+    doctor: treatment.opened_by_name || "—",
+    start_date: format_date(treatment.opened_at),
+    progress_label: progress.label,
+    progress_pct: progress.pct,
+    next_control: treatment.next_control_date ? format_date(treatment.next_control_date) : "—",
+    next_control_in:
+      remaining === null
+        ? ""
+        : remaining >= 0
+        ? `en ${remaining} día(s)`
+        : `vencido hace ${Math.abs(remaining)} día(s)`,
+    status: treatment.status,
+    closed_reason: treatment.closed_reason || null,
+    badge_label: badge.label,
+    badge_tone: badge.tone,
+    alert,
+  };
+};
+
+// Trae la medicación de la consulta más reciente ligada al tratamiento
+// (la de origen o la última evolución con consultation_id), para mostrar
+// la "medicación vigente" en el resumen del detalle.
+const load_current_medications = async (treatment) => {
+  const consultation_ids = [
+    ...new Set(
+      (treatment.timeline || [])
+        .filter((entry) => entry.consultation_id)
+        .map((entry) => String(entry.consultation_id))
+    ),
+  ];
+  if (treatment.opened_by_consultation_id) {
+    consultation_ids.push(String(treatment.opened_by_consultation_id));
+  }
+  if (!consultation_ids.length) return [];
+
+  const prescriptions = await prescriptionModel
+    .find({ consultation_id: { $in: consultation_ids } })
+    .sort({ issued_at: -1, createdAt: -1 })
+    .lean();
+  const latest = prescriptions[0];
+  if (!latest?.medications?.length) return [];
+
+  return latest.medications
+    .filter((med) => med?.name)
+    .map((med) => [med.name, [med.dose, med.frequency].filter(Boolean).join(" · ")].filter(Boolean).join(" — "));
+};
+
+// GET /api/treatments
+// Lista los planes de tratamiento con la forma que consume la pantalla
+// (tabla y tarjetas de estadísticas). Acepta filtros opcionales por
+// paciente, estado y motivo de cierre.
+treatmentsController.list = async (req, res) => {
   try {
-    // Solo interesan los pacientes que tienen al menos un
-    // procedimiento en su historial clínico, sin eso no hay ningún
-    // tratamiento real que mostrar. Se traen solo los campos que se
-    // van a usar (name, last_name, birth_date, gender, procedures)
-    // para no cargar todo el documento del paciente, y .lean() porque
-    // esta respuesta es de solo lectura.
-    const patients = await patientsModel
-      .find({ "clinical_history.procedures.0": { $exists: true }, is_active: { $ne: false } })
-      .select("name last_name birth_date gender clinical_history.procedures")
+    const { patient_id, status, closed_reason } = req.query;
+
+    const filters = { is_active: { $ne: false } };
+    if (patient_id) filters.patient_id = patient_id;
+    if (status) filters.status = status;
+    if (closed_reason) filters.closed_reason = closed_reason;
+
+    const treatments = await treatmentModel
+      .find(filters)
+      .populate("patient_id", "name last_name birth_date gender is_active")
+      .sort({ opened_at: -1 })
       .lean();
 
-    // Si ningún paciente tiene procedimientos todavía, se responde con listas vacías en vez de
-    // seguir armando el resto del cálculo (que no tendría nada sobre lo que trabajar).
-    if (!patients.length) {
-      return res.status(200).json({
-        stats: { activeTreatments: 0, upcomingControls: 0, patientsInFollowUp: 0, finishedTreatments: 0 },
-        patients: [],
-        chartData: [],
-        upcomingControls: [],
-      });
+    // Se descartan los tratamientos de pacientes inactivos, igual que en
+    // el resto del sistema.
+    const visible = treatments.filter((treatment) => treatment.patient_id?.is_active !== false);
+
+    const today = today_at_midnight();
+    const rows = visible.map((treatment) => to_list_row(treatment, today));
+
+    const in_7_days = new Date(today.getTime() + 7 * ms_day);
+    const start_of_month = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const stats = {
+      activos: rows.filter((row) => row.status === "activo").length,
+      controlesSemana: visible.filter((treatment) => {
+        if (treatment.status === "cerrado" || !treatment.next_control_date) return false;
+        const control = new Date(treatment.next_control_date);
+        return control >= today && control <= in_7_days;
+      }).length,
+      requierenControl: rows.filter((row) => row.alert).length,
+      cerradosMes: visible.filter(
+        (treatment) => treatment.status === "cerrado" && treatment.closed_at && new Date(treatment.closed_at) >= start_of_month
+      ).length,
+    };
+
+    return res.status(200).json({ stats, treatments: rows });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// GET /api/treatments/active?patient_id=
+// Devuelve el tratamiento activo o en pausa más reciente del paciente, o
+// null. Lo usa el formulario de consulta para avisar que el paciente ya
+// tiene un tratamiento en curso.
+treatmentsController.getActiveByPatient = async (req, res) => {
+  try {
+    const { patient_id } = req.query;
+    if (!patient_id) {
+      return res.status(400).json({ message: "Falta el paciente" });
     }
 
-    // Recolecta, sin duplicados, los ids de todas las consultas ligadas a algún procedimiento de
-    // cualquier paciente, para poder traer esas consultas y sus recetas en un solo query cada
-    // una (en vez de una consulta a la base de datos por cada procedimiento de cada paciente).
-    const consultationIds = [
-      ...new Set(
-        patients.flatMap((p) => (p.clinical_history?.procedures || []).map((pr) => pr.consultation_id).filter(Boolean))
-      ),
-    ];
-    const [consultations, prescriptions] = await Promise.all([
-      // Solo se trae lo necesario para la última observación: la
-      // evolución o diagnóstico registrado en esa consulta y su fecha.
-      consultationModel
-        .find({ _id: { $in: consultationIds } })
-        .select("clinical_data.evolution clinical_data.diagnosis_description date")
-        .lean(),
-      // El schema declara el campo consultations_id, pero todo el
-      // sistema realmente guarda y consulta por consultation_id (ver
-      // consultationController.js), se sigue esa convención real.
-      prescriptionModel.find({ consultation_id: { $in: consultationIds } }).lean(),
-    ]);
-    // Mapas por id (en vez de arrays) para poder buscar la consulta/receta de un procedimiento
-    // en O(1) más abajo, sin tener que recorrer el array completo cada vez.
-    const consultationById = new Map(consultations.map((c) => [String(c._id), c]));
-    const prescriptionByConsultationId = new Map(prescriptions.map((p) => [String(p.consultation_id), p]));
+    const treatment = await treatmentModel
+      .findOne({ patient_id, is_active: { $ne: false }, status: { $in: ["activo", "en_pausa"] } })
+      .sort({ opened_at: -1 })
+      .lean();
 
-    // Hoy, normalizado a medianoche: se reutiliza en todas las
-    // comparaciones de fecha de esta función (status, próximos
-    // controles, gráfica) para que todas usen el mismo corte de día.
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Arma, por cada paciente, el objeto de seguimiento con la misma forma que antes tenían los
-    // datos quemados (treatmentsPatients en treatmentsData.js), pero calculado a partir de su
-    // historial real de procedimientos.
-    const followUpPatients = patients.map((p) => {
-      // Se ordenan los procedimientos del paciente del más antiguo al
-      // más reciente: el último del array pasa a ser el tratamiento
-      // actual (latest) y el primero da la fecha de inicio.
-      const procedures = [...(p.clinical_history?.procedures || [])].sort(
-        (a, b) => new Date(a.date) - new Date(b.date)
-      );
-      const latest = procedures[procedures.length - 1];
-      const followUpDate = latest?.follow_up_date ? new Date(latest.follow_up_date) : null;
-
-      // El estado se deriva de la fecha de control: sin control programado
-      // se asume finalizado, con control futuro sigue activo, y si el
-      // control ya pasó y no hay un procedimiento más nuevo, requiere
-      // revisión. status_override, fijado desde el selector de estado del
-      // panel del paciente (PATCH /treatments/:id/status), reemplaza este
-      // cálculo cuando alguien lo fija a mano.
-      let status;
-      if (!followUpDate) status = "Finalizado";
-      else if (followUpDate >= today) status = "En tratamiento";
-      else status = "Requiere revisión";
-      const statusIsManual = !!latest?.status_override;
-      if (statusIsManual) status = latest.status_override;
-
-      // Receta y consulta asociadas al procedimiento más reciente (si
-      // tiene consultation_id), de ahí salen los medicamentos y la
-      // última observación clínica del paciente.
-      const latestPrescription = latest?.consultation_id
-        ? prescriptionByConsultationId.get(String(latest.consultation_id))
-        : null;
-      const latestConsultation = latest?.consultation_id
-        ? consultationById.get(String(latest.consultation_id))
-        : null;
-
-      // Convierte los medicamentos de la receta (campos name, dose,
-      // frequency, instructions) al formato name, detail que espera
-      // la tarjeta de tratamiento actual del panel del paciente.
-      const treatmentItems = (latestPrescription?.medications || [])
-        .filter((m) => m?.name)
-        .map((m) => ({
-          name: m.name,
-          detail: [m.dose, m.frequency].filter(Boolean).join(" · ") || m.instructions || "",
-        }));
-
-      // Convierte cada procedimiento del historial en un paso del
-      // seguimiento del tratamiento: completado si ya pasó su fecha,
-      // pendiente si es futuro.
-      const followUpSteps = procedures.map((pr) => ({
-        label: `${pr.procedure_name || "Procedimiento"} — ${formatDate(pr.date)}`,
-        detail: pr.diagnosis || "Sin diagnóstico registrado",
-        status: new Date(pr.date) <= today ? "Completado" : "Pendiente",
-      }));
-      // Si el procedimiento más reciente tiene un control futuro
-      // programado, se agrega como un paso extra pendiente al final
-      // de la línea de tiempo (no es un procedimiento ya realizado,
-      // es la próxima cita de seguimiento).
-      if (followUpDate && followUpDate > today) {
-        followUpSteps.push({
-          label: `Control de seguimiento — ${formatDate(followUpDate)}`,
-          detail: "Próximo control programado",
-          status: "Pendiente",
-        });
-      }
-
-      // Días que faltan (o que ya pasaron) para el próximo control,
-      // usado para el texto de días restantes o vencidos que se
-      // muestra junto a la fecha.
-      const remaining = followUpDate ? daysUntil(followUpDate) : null;
-
-      // Objeto final de este paciente, con exactamente la misma forma
-      // que usaba el mock (treatmentsPatients), para que ningún
-      // componente del frontend tuviera que cambiar.
-      return {
-        id: String(p._id),
-        name: `${p.name || ""} ${p.last_name || ""}`.trim(),
-        age: calcAge(p.birth_date),
-        gender: p.gender || "—",
-        diagnosis: latest?.diagnosis || "Sin diagnóstico registrado",
-        diagnosisDetail: "",
-        currentTreatment: latest?.procedure_name || "Sin tratamiento activo",
-        currentTreatmentDetail: treatmentItems.length ? `${treatmentItems.length} medicamento(s) recetados` : "",
-        doctor: latest?.doctor_name || "—",
-        startDate: formatDate(procedures[0]?.date),
-        nextControl: followUpDate ? formatDate(followUpDate) : "—",
-        nextControlIn:
-          remaining === null
-            ? ""
-            : remaining >= 0
-            ? `En ${remaining} día(s)`
-            : `Vencido hace ${Math.abs(remaining)} día(s)`,
-        status,
-        // Indica al frontend si el estado de arriba viene del selector
-        // manual o del cálculo automático, para poder preseleccionar la
-        // opción correcta en el selector de estado del panel del paciente.
-        statusIsManual,
-        clinicalInfo: {
-          diagnostico: latest?.diagnosis || "Sin diagnóstico registrado",
-          medicoResponsable: latest?.doctor_name || "—",
-          fechaInicio: formatDate(procedures[0]?.date),
-          fechaEstimadaAlta: followUpDate ? formatDate(followUpDate) : "—",
-        },
-        treatmentItems: treatmentItems.length
-          ? treatmentItems
-          : [{ name: "Sin medicamentos recetados", detail: "" }],
-        followUpSteps,
-        lastObservation: {
-          text:
-            latestConsultation?.clinical_data?.evolution ||
-            latestConsultation?.clinical_data?.diagnosis_description ||
-            "Sin observaciones registradas en la última consulta.",
-          date: formatDate(latestConsultation?.date || latest?.date),
-          author: latest?.doctor_name || "—",
-        },
-        // Pestaña evolución del panel del paciente, mismo formato que
-        // una nota (texto, quién la escribió, cuándo). Se actualiza
-        // con el botón actualizar evolución (PATCH
-        // /treatments/:id/evolution). El texto queda vacío hasta la
-        // primera vez que alguien lo llene, no hay evolución
-        // inventada por defecto.
-        evolution: {
-          text: latest?.result || "",
-          author: latest?.resultAuthor || "—",
-          date: latest?.resultUpdatedAt ? formatDate(latest.resultUpdatedAt) : "",
-        },
-        // Pestaña notas del panel del paciente, bitácora que se llena
-        // con el botón agregar nota (POST /treatments/:id/notes). Se
-        // muestra la más reciente primero. El id es el _id real del
-        // subdocumento (Mongoose lo autogenera en cada elemento del
-        // array), lo necesita el frontend para poder editar o
-        // eliminar una nota puntual sin afectar las demás.
-        notes: [...(latest?.notes || [])]
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
-          .map((n) => ({ id: String(n._id), text: n.text, author: n.author || "—", date: formatDate(n.date) })),
-        // Pestaña documentos del panel del paciente, archivos subidos
-        // con el botón subir documento (POST
-        // /treatments/:id/documents), guardados en Cloudinary. Más
-        // reciente primero.
-        documents: [...(latest?.documents || [])]
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
-          .map((d) => ({
-            id: String(d._id),
-            name: d.name,
-            url: d.url,
-            uploadedBy: d.uploadedBy || "—",
-            date: formatDate(d.date),
-          })),
-        // Fecha del próximo control en formato yyyy-mm-dd (a
-        // diferencia de nextControl, que ya viene formateada
-        // dd/mm/aaaa), la necesita el input de tipo date del modal
-        // programar control para precargar el valor actual.
-        nextControlISO: followUpDate ? followUpDate.toISOString().slice(0, 10) : "",
-        // Campo interno, con guion bajo al inicio, no se manda al
-        // frontend: se necesita como objeto Date real (no como string
-        // ya formateado) para las comparaciones y el orden de más
-        // abajo (stats, próximos controles). Se descarta justo antes
-        // de responder (ver patientsResponse).
-        _followUpDate: followUpDate,
-      };
-    });
-
-    // Tarjetas de estadísticas (TreatmentsStats).
-    // Cuenta cuántos pacientes cayeron en cada status calculado arriba.
-    const activeTreatments = followUpPatients.filter((p) => p.status === "En tratamiento").length;
-    const finishedTreatments = followUpPatients.filter((p) => p.status === "Finalizado").length;
-
-    // Cuántos pacientes tienen su próximo control dentro de los
-    // siguientes 7 días (ventana que usa la tarjeta de próximos
-    // controles de las estadísticas).
-    const in7Days = new Date(today.getTime() + 7 * MS_DAY);
-    const upcomingControlsCount = followUpPatients.filter(
-      (p) => p._followUpDate && p._followUpDate >= today && p._followUpDate <= in7Days
-    ).length;
-
-    // Panel de próximos controles (UpcomingControls).
-    // Toma los pacientes con control programado dentro de los
-    // próximos 30 días, los ordena por fecha más próxima primero y se
-    // queda solo con los 5 primeros para no saturar el panel.
-    const in30Days = new Date(today.getTime() + 30 * MS_DAY);
-    const upcomingControlsList = followUpPatients
-      .filter((p) => p._followUpDate && p._followUpDate >= today && p._followUpDate <= in30Days)
-      .sort((a, b) => a._followUpDate - b._followUpDate)
-      .slice(0, 5)
-      .map((p) => ({
-        day: String(p._followUpDate.getDate()).padStart(2, "0"),
-        month: MONTHS[p._followUpDate.getMonth()],
-        name: p.name,
-        time: "Todo el día",
-        detail: `Control de seguimiento — ${p.diagnosis}`,
-        doctor: p.doctor,
-      }));
-
-    // Gráfica de tratamientos iniciados por semana (EvolutionChart).
-    // No existe ningún campo que clasifique la evolución clínica de
-    // un paciente (mejorando, sin cambios, empeorando), esa parte del
-    // mock era pura decoración. La única métrica que se puede sacar
-    // honestamente de datos reales es cuántos tratamientos nuevos
-    // empezaron cada semana, así que la gráfica se redujo a esa única
-    // serie real en vez de inventar categorías.
-    // Arma las últimas 6 semanas (cada una de 7 días), de la más
-    // antigua a la más reciente.
-    const weeks = Array.from({ length: 6 }, (_, i) => {
-      const end = new Date(today.getTime() - (5 - i) * 7 * MS_DAY);
-      const start = new Date(end.getTime() - 6 * MS_DAY);
-      return { start, end, label: formatDate(end).slice(0, 5) };
-    });
-    // Junta en un solo array las fechas de TODOS los procedimientos de TODOS los pacientes, para
-    // luego contar cuántas cayeron dentro de cada semana.
-    const allProcedureDates = patients.flatMap((p) =>
-      (p.clinical_history?.procedures || []).map((pr) => pr.date).filter(Boolean)
-    );
-    const chartData = weeks.map(({ start, end, label }) => ({
-      label,
-      iniciados: allProcedureDates.filter((d) => {
-        const date = new Date(d);
-        return date >= start && date <= end;
-      }).length,
-    }));
-
-    // Quita el campo interno _followUpDate (solo era necesario para
-    // los cálculos de arriba) antes de mandar la lista de pacientes
-    // al frontend.
-    const patientsResponse = followUpPatients.map(({ _followUpDate, ...rest }) => rest);
+    if (!treatment) return res.status(200).json({ treatment: null });
 
     return res.status(200).json({
-      stats: {
-        activeTreatments,
-        upcomingControls: upcomingControlsCount,
-        patientsInFollowUp: followUpPatients.length,
-        finishedTreatments,
+      treatment: {
+        id: String(treatment._id),
+        objective: treatment.objective,
+        diagnosis: treatment.diagnosis,
+        status: treatment.status,
+        start_date: format_date(treatment.opened_at),
       },
-      patients: patientsResponse,
-      chartData,
-      upcomingControls: upcomingControlsList,
     });
   } catch (error) {
-    // Si ocurre cualquier error durante la consulta o el armado de la
-    // respuesta, se registra en consola y se responde con un 500
-    // genérico, igual que el resto de los controllers.
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// PATCH /api/treatments/:patientId/evolution, botón para actualizar
-// la evolución.
-// Sobrescribe el campo result del tratamiento o procedimiento más
-// reciente del paciente (se pisa el valor anterior a propósito: es
-// el estado actual de la evolución, no un historial) y deja
-// registrado quién lo actualizó y cuándo, para mostrarlo con el
-// mismo formato que una nota.
-treatmentsController.updateEvolution = async (req, res) => {
+// GET /api/treatments/:id
+// Detalle completo de un tratamiento: resumen del plan, línea de tiempo
+// (más reciente primero), documentos y medicación vigente.
+treatmentsController.getById = async (req, res) => {
   try {
-    const { result } = req.body;
-    if (!result || !result.trim()) {
-      return res.status(400).json({ message: "La evolución no puede estar vacía." });
+    const treatment = await treatmentModel
+      .findById(req.params.id)
+      .populate("patient_id", "name last_name birth_date gender is_active")
+      .lean();
+
+    if (!treatment || treatment.is_active === false) {
+      return res.status(404).json({ message: "Tratamiento no encontrado" });
     }
 
-    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
-    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
+    const patient = treatment.patient_id;
+    const badge = derive_badge(treatment);
+    const progress = derive_progress(treatment);
+    const age = calc_age(patient?.birth_date);
+    const medications = await load_current_medications(treatment);
 
-    latest.result = result.trim();
-    latest.resultAuthor = await resolveActorName(req);
-    latest.resultUpdatedAt = new Date();
-    await patient.save();
+    const timeline = [...(treatment.timeline || [])]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map((entry) => ({
+        id: String(entry._id),
+        entry_type: entry.entry_type,
+        text: entry.text,
+        author: entry.author_name || "—",
+        date: format_date(entry.date),
+        from_consultation: !!entry.consultation_id,
+        consultation_id: entry.consultation_id ? String(entry.consultation_id) : null,
+        editable: entry.entry_type === "nota",
+      }));
 
-    return res.status(200).json({ message: "Evolución actualizada" });
+    const documents = [...(treatment.documents || [])]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map((doc) => ({
+        id: String(doc._id),
+        name: doc.name,
+        url: doc.url,
+        uploaded_by: doc.uploaded_by_name || "—",
+        date: format_date(doc.date),
+      }));
+
+    return res.status(200).json({
+      id: String(treatment._id),
+      patient_id: patient ? String(patient._id) : null,
+      patient_name: patient_full_name(patient),
+      patient_initials: patient_initials(patient),
+      patient_age_label: age != null ? `${age} años · ${patient?.gender || "—"}` : patient?.gender || "—",
+      status: treatment.status,
+      closed_reason: treatment.closed_reason || null,
+      closed_at: treatment.closed_at ? format_date(treatment.closed_at) : "",
+      closure_note: treatment.closure_note || "",
+      pause_note: treatment.pause_note || "",
+      badge_label: badge.label,
+      badge_tone: badge.tone,
+      diagnosis: treatment.diagnosis || "Sin diagnóstico registrado",
+      objective: treatment.objective || "Sin objetivo registrado",
+      plan_description: treatment.plan_description || "Sin plan registrado",
+      doctor: treatment.opened_by_name || "—",
+      start_date: format_date(treatment.opened_at),
+      estimated_end_date: treatment.estimated_end_date ? format_date(treatment.estimated_end_date) : "—",
+      estimated_end_date_iso: treatment.estimated_end_date
+        ? new Date(treatment.estimated_end_date).toISOString().slice(0, 10)
+        : "",
+      total_sessions: treatment.total_sessions ?? null,
+      next_control: treatment.next_control_date ? format_date(treatment.next_control_date) : "—",
+      next_control_iso: treatment.next_control_date
+        ? new Date(treatment.next_control_date).toISOString().slice(0, 10)
+        : "",
+      progress_label: progress.label,
+      progress_pct: progress.pct,
+      alert:
+        treatment.status === "activo" &&
+        !!treatment.next_control_date &&
+        new Date(treatment.next_control_date) < today_at_midnight(),
+      current_medications: medications.length ? medications : ["Sin medicamentos registrados"],
+      opened_by_consultation_id: treatment.opened_by_consultation_id
+        ? String(treatment.opened_by_consultation_id)
+        : null,
+      timeline,
+      documents,
+    });
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// DELETE /api/treatments/:patientId/evolution, botón eliminar de la
-// pestaña evolución.
-// Vacía el campo result (y quién y cuándo lo escribió) del
-// tratamiento actual, volviendo al estado sin evolución registrada.
-treatmentsController.deleteEvolution = async (req, res) => {
+// POST /api/treatments
+// Alta manual de un tratamiento desde la pantalla, sin pasar por una
+// consulta. objective y plan_description son obligatorios.
+treatmentsController.create = async (req, res) => {
   try {
-    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
-    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
+    const { patient_id, objective, plan_description, diagnosis, total_sessions, estimated_end_date, next_control_date } =
+      req.body;
 
-    latest.result = undefined;
-    latest.resultAuthor = undefined;
-    latest.resultUpdatedAt = undefined;
-    await patient.save();
-
-    return res.status(200).json({ message: "Evolución eliminada" });
-  } catch (error) {
-    console.log("error " + error);
-    return res.status(500).json({ message: "Error interno del servidor" });
-  }
-};
-
-// POST /api/treatments/:patientId/notes, botón agregar nota.
-// A diferencia de la evolución, las notas se acumulan (cada clic
-// agrega una entrada nueva a la bitácora, nunca reemplaza una
-// anterior), firmada con el nombre de quien la escribió.
-treatmentsController.addNote = async (req, res) => {
-  try {
-    const { text } = req.body;
-    if (!text || !text.trim()) {
-      return res.status(400).json({ message: "La nota no puede estar vacía." });
+    if (!patient_id) {
+      return res.status(400).json({ message: "Falta el paciente" });
+    }
+    if (!objective || !objective.trim() || !plan_description || !plan_description.trim()) {
+      return res.status(400).json({ message: "El objetivo y el plan son obligatorios." });
     }
 
-    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
-    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
-
-    const author = await resolveActorName(req);
-    latest.notes = latest.notes || [];
-    latest.notes.push({ text: text.trim(), author, date: new Date() });
-    await patient.save();
-
-    return res.status(200).json({ message: "Nota agregada" });
-  } catch (error) {
-    console.log("error " + error);
-    return res.status(500).json({ message: "Error interno del servidor" });
-  }
-};
-
-// PATCH /api/treatments/:patientId/notes/:noteId, botón editar de
-// una nota puntual.
-// Cambia el texto de una nota ya existente sin tocar las demás
-// (busca el subdocumento por su propio _id dentro de latest.notes
-// con .id(), el helper que Mongoose da a todo DocumentArray).
-treatmentsController.updateNote = async (req, res) => {
-  try {
-    const { text } = req.body;
-    if (!text || !text.trim()) {
-      return res.status(400).json({ message: "La nota no puede estar vacía." });
+    const patient = await patientsModel.findById(patient_id).select("is_active").lean();
+    if (!patient || patient.is_active === false) {
+      return res.status(404).json({ message: "Paciente no encontrado" });
     }
 
-    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
-    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
+    const actor = await resolve_actor(req);
+    const now = new Date();
 
-    const note = latest.notes?.id(req.params.noteId);
-    if (!note) return res.status(404).json({ message: "Nota no encontrada" });
+    const treatment = new treatmentModel({
+      patient_id,
+      status: "activo",
+      opened_by_id: actor.id,
+      opened_by_name: actor.name,
+      opened_at: now,
+      diagnosis: (diagnosis || "").trim(),
+      objective: objective.trim(),
+      plan_description: plan_description.trim(),
+      total_sessions: total_sessions ? Number(total_sessions) : null,
+      estimated_end_date: estimated_end_date || null,
+      next_control_date: next_control_date || null,
+      timeline: [
+        {
+          entry_type: "inicio",
+          text: "Plan de tratamiento creado.",
+          author_id: actor.id,
+          author_name: actor.name,
+          date: now,
+        },
+      ],
+    });
+    await treatment.save();
 
-    note.text = text.trim();
-    await patient.save();
-
-    return res.status(200).json({ message: "Nota actualizada" });
+    return res.status(200).json({ message: "Tratamiento creado", id: String(treatment._id) });
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// DELETE /api/treatments/:patientId/notes/:noteId, botón eliminar de
-// una nota puntual.
-treatmentsController.deleteNote = async (req, res) => {
+// PATCH /api/treatments/:id
+// Edita la definición del plan (objetivo, plan, sesiones, fechas). Cada
+// edición deja una entrada "cambio_plan" en la línea de tiempo.
+treatmentsController.updatePlan = async (req, res) => {
   try {
-    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
-    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
+    const { objective, plan_description, total_sessions, estimated_end_date, next_control_date } = req.body;
 
-    const note = latest.notes?.id(req.params.noteId);
-    if (!note) return res.status(404).json({ message: "Nota no encontrada" });
-
-    // .pull() es el método que Mongoose da a los DocumentArray para
-    // quitar un subdocumento por su _id, sin afectar la posición ni
-    // el orden de los demás.
-    latest.notes.pull(req.params.noteId);
-    await patient.save();
-
-    return res.status(200).json({ message: "Nota eliminada" });
-  } catch (error) {
-    console.log("error " + error);
-    return res.status(500).json({ message: "Error interno del servidor" });
-  }
-};
-
-// POST /api/treatments/:patientId/documents, botón subir documento
-// de la pestaña documentos.
-// El archivo ya está en Cloudinary cuando este código corre (lo sube
-// el middleware de multer, uploadDocument, antes de llegar aquí, ver
-// routes/treatments/treatments.js). req.file trae la URL pública
-// (path) y el public_id que hace falta para poder borrarlo después.
-treatmentsController.uploadDocument = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: "Selecciona un archivo para subir." });
+    const treatment = await treatmentModel.findById(req.params.id);
+    if (!treatment || treatment.is_active === false) {
+      return res.status(404).json({ message: "Tratamiento no encontrado" });
     }
 
-    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
-    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
+    if (objective !== undefined) {
+      if (!objective.trim()) return res.status(400).json({ message: "El objetivo no puede quedar vacío." });
+      treatment.objective = objective.trim();
+    }
+    if (plan_description !== undefined) {
+      if (!plan_description.trim()) return res.status(400).json({ message: "El plan no puede quedar vacío." });
+      treatment.plan_description = plan_description.trim();
+    }
+    if (total_sessions !== undefined) treatment.total_sessions = total_sessions ? Number(total_sessions) : null;
+    if (estimated_end_date !== undefined) treatment.estimated_end_date = estimated_end_date || null;
+    if (next_control_date !== undefined) treatment.next_control_date = next_control_date || null;
 
-    const uploadedBy = await resolveActorName(req);
-    latest.documents = latest.documents || [];
-    latest.documents.push({
-      name: req.file.originalname,
-      url: req.file.path,
-      public_id: req.file.filename,
-      uploadedBy,
+    const actor = await resolve_actor(req);
+    treatment.timeline.push({
+      entry_type: "cambio_plan",
+      text: "Se actualizó la definición del plan.",
+      author_id: actor.id,
+      author_name: actor.name,
       date: new Date(),
     });
-    await patient.save();
+    await treatment.save();
 
-    return res.status(200).json({ message: "Documento subido" });
+    return res.status(200).json({ message: "Plan actualizado" });
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// DELETE /api/treatments/:patientId/documents/:documentId, botón
-// eliminar de un documento.
-treatmentsController.deleteDocument = async (req, res) => {
-  try {
-    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
-    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
-
-    const document = latest.documents?.id(req.params.documentId);
-    if (!document) return res.status(404).json({ message: "Documento no encontrado" });
-
-    // Se borra primero de Cloudinary (resource_type auto también
-    // aplica a la eliminación, por eso se prueba primero como raw,
-    // el tipo real que usan los PDF y Word ahí, y si no existe con
-    // ese tipo, se prueba como imagen) y luego el registro en el
-    // paciente.
-    if (document.public_id) {
-      await cloudinary.uploader.destroy(document.public_id, { resource_type: "raw" }).catch(() =>
-        cloudinary.uploader.destroy(document.public_id, { resource_type: "image" }).catch(() => {})
-      );
-    }
-
-    latest.documents.pull(req.params.documentId);
-    await patient.save();
-
-    return res.status(200).json({ message: "Documento eliminado" });
-  } catch (error) {
-    console.log("error " + error);
-    return res.status(500).json({ message: "Error interno del servidor" });
-  }
-};
-
-// PATCH /api/treatments/:patientId/follow-up, botón programar
-// control.
-// Establece (o reprograma) la fecha de control del tratamiento
-// actual. Esto es lo único que getFollowUp lee para decidir el
-// status del paciente y su próximo control, así que este botón es lo
-// que realmente mueve a un paciente entre en tratamiento y requiere
-// revisión.
+// PATCH /api/treatments/:id/control
+// Fija o reprograma la fecha del próximo control a mano.
 treatmentsController.scheduleControl = async (req, res) => {
   try {
-    const { follow_up_date } = req.body;
-    if (!follow_up_date || isNaN(new Date(follow_up_date).getTime())) {
+    const { next_control_date } = req.body;
+    if (!next_control_date || isNaN(new Date(next_control_date).getTime())) {
       return res.status(400).json({ message: "Selecciona una fecha de control válida." });
     }
 
-    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
-    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
+    const treatment = await treatmentModel.findById(req.params.id);
+    if (!treatment || treatment.is_active === false) {
+      return res.status(404).json({ message: "Tratamiento no encontrado" });
+    }
 
-    latest.follow_up_date = new Date(follow_up_date);
-    await patient.save();
+    treatment.next_control_date = new Date(next_control_date);
+    const actor = await resolve_actor(req);
+    treatment.timeline.push({
+      entry_type: "control",
+      text: `Próximo control programado para el ${format_date(treatment.next_control_date)}.`,
+      author_id: actor.id,
+      author_name: actor.name,
+      date: new Date(),
+    });
+    await treatment.save();
 
     return res.status(200).json({ message: "Control programado" });
   } catch (error) {
@@ -629,32 +476,64 @@ treatmentsController.scheduleControl = async (req, res) => {
   }
 };
 
-// Valores válidos para el selector de estado del panel del paciente.
-// "auto" no se guarda tal cual: significa borrar status_override y volver
-// a dejar que getFollowUp calcule el estado a partir de follow_up_date.
-const MANUAL_STATUS_VALUES = ["En tratamiento", "Requiere revisión", "Finalizado"];
-
-// PATCH /api/treatments/:patientId/status, selector de estado del panel
-// del paciente.
-// No existía ningún lugar en el sistema donde el estado de un tratamiento
-// (En tratamiento, Requiere revisión, Finalizado) se pudiera configurar:
-// getFollowUp lo calculaba siempre a partir de follow_up_date, sin
-// excepción. Este endpoint agrega status_override al procedimiento o
-// tratamiento actual del paciente, para poder fijar el estado a mano
-// cuando el cálculo automático no aplica a un caso puntual.
+// PATCH /api/treatments/:id/status
+// Aplica una transición de estado explícita: pausar, reanudar, cerrar o
+// reabrir. Cada transición valida los datos que necesita y deja su
+// entrada en la línea de tiempo.
 treatmentsController.setStatus = async (req, res) => {
   try {
-    const { status } = req.body;
-    if (status !== "auto" && !MANUAL_STATUS_VALUES.includes(status)) {
-      return res.status(400).json({ message: "Selecciona un estado válido." });
+    const { status, closed_reason, closure_note, pause_note } = req.body;
+
+    const treatment = await treatmentModel.findById(req.params.id);
+    if (!treatment || treatment.is_active === false) {
+      return res.status(404).json({ message: "Tratamiento no encontrado" });
     }
 
-    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
-    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
+    if (!allowed_transitions[treatment.status]?.includes(status)) {
+      return res.status(400).json({ message: "Esa transición de estado no es válida." });
+    }
 
-    latest.status_override = status === "auto" ? null : status;
-    await patient.save();
+    const actor = await resolve_actor(req);
+    const now = new Date();
+    let entry;
+
+    if (status === "en_pausa") {
+      if (!pause_note || !pause_note.trim()) {
+        return res.status(400).json({ message: "Indica el motivo de la pausa." });
+      }
+      treatment.pause_note = pause_note.trim();
+      entry = { entry_type: "pausa", text: `Tratamiento pausado. ${pause_note.trim()}` };
+    } else if (status === "cerrado") {
+      if (!close_reasons.includes(closed_reason)) {
+        return res.status(400).json({ message: "Selecciona un motivo de cierre válido." });
+      }
+      if (!closure_note || !closure_note.trim()) {
+        return res.status(400).json({ message: "La nota de cierre es obligatoria." });
+      }
+      treatment.closed_reason = closed_reason;
+      treatment.closed_at = now;
+      treatment.closure_note = closure_note.trim();
+      entry = { entry_type: "cierre", text: closure_note.trim() };
+    } else if (status === "activo") {
+      const was_closed = treatment.status === "cerrado";
+      treatment.closed_reason = null;
+      treatment.closed_at = null;
+      treatment.closure_note = null;
+      treatment.pause_note = null;
+      entry = {
+        entry_type: "reapertura",
+        text: was_closed ? "Tratamiento reabierto." : "Tratamiento reanudado.",
+      };
+    }
+
+    treatment.status = status;
+    treatment.timeline.push({
+      ...entry,
+      author_id: actor.id,
+      author_name: actor.name,
+      date: now,
+    });
+    await treatment.save();
 
     return res.status(200).json({ message: "Estado actualizado" });
   } catch (error) {
@@ -663,22 +542,161 @@ treatmentsController.setStatus = async (req, res) => {
   }
 };
 
-// PATCH /api/treatments/:patientId/discharge, botón dar de alta.
-// Limpia la fecha de control pendiente del tratamiento actual. No
-// borra ni desactiva al paciente (is_active es para el login, no
-// para esto), solo cierra este tratamiento: al no quedar ningún
-// control programado, getFollowUp lo reclasifica automáticamente
-// como finalizado la próxima vez que se cargue la pantalla.
-treatmentsController.discharge = async (req, res) => {
+// POST /api/treatments/:id/notes
+// Agrega una nota manual a la línea de tiempo (algo que pasó fuera de una
+// consulta: una llamada, un resultado de laboratorio, una observación de
+// enfermería).
+treatmentsController.addNote = async (req, res) => {
   try {
-    const { patient, latest } = await loadPatientWithLatestProcedure(req.params.patientId);
-    if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-    if (!latest) return res.status(404).json({ message: "El paciente no tiene tratamientos registrados" });
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ message: "La nota no puede estar vacía." });
+    }
 
-    latest.follow_up_date = undefined;
-    await patient.save();
+    const treatment = await treatmentModel.findById(req.params.id);
+    if (!treatment || treatment.is_active === false) {
+      return res.status(404).json({ message: "Tratamiento no encontrado" });
+    }
 
-    return res.status(200).json({ message: "Paciente dado de alta" });
+    const actor = await resolve_actor(req);
+    treatment.timeline.push({
+      entry_type: "nota",
+      text: text.trim(),
+      author_id: actor.id,
+      author_name: actor.name,
+      date: new Date(),
+    });
+    await treatment.save();
+
+    return res.status(200).json({ message: "Nota agregada" });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// PATCH /api/treatments/:id/timeline/:entryId
+// Edita el texto de una nota manual. No se permite editar entradas que
+// vinieron de una consulta ni las de inicio, cierre o cambios de estado.
+treatmentsController.updateNote = async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ message: "La nota no puede estar vacía." });
+    }
+
+    const treatment = await treatmentModel.findById(req.params.id);
+    if (!treatment || treatment.is_active === false) {
+      return res.status(404).json({ message: "Tratamiento no encontrado" });
+    }
+
+    const entry = treatment.timeline.id(req.params.entryId);
+    if (!entry || entry.entry_type !== "nota") {
+      return res.status(404).json({ message: "Nota no encontrada" });
+    }
+
+    entry.text = text.trim();
+    await treatment.save();
+
+    return res.status(200).json({ message: "Nota actualizada" });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE /api/treatments/:id/timeline/:entryId
+// Borra una nota manual de la línea de tiempo.
+treatmentsController.deleteNote = async (req, res) => {
+  try {
+    const treatment = await treatmentModel.findById(req.params.id);
+    if (!treatment || treatment.is_active === false) {
+      return res.status(404).json({ message: "Tratamiento no encontrado" });
+    }
+
+    const entry = treatment.timeline.id(req.params.entryId);
+    if (!entry || entry.entry_type !== "nota") {
+      return res.status(404).json({ message: "Nota no encontrada" });
+    }
+
+    treatment.timeline.pull(req.params.entryId);
+    await treatment.save();
+
+    return res.status(200).json({ message: "Nota eliminada" });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// POST /api/treatments/:id/documents
+// El archivo ya está en Cloudinary cuando corre este código (lo sube el
+// middleware de multer). req.file trae la URL pública y el public_id que
+// hace falta para poder borrarlo después.
+treatmentsController.uploadDocument = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Selecciona un archivo para subir." });
+    }
+
+    const treatment = await treatmentModel.findById(req.params.id);
+    if (!treatment || treatment.is_active === false) {
+      return res.status(404).json({ message: "Tratamiento no encontrado" });
+    }
+
+    const actor = await resolve_actor(req);
+    const now = new Date();
+    treatment.documents.push({
+      name: req.file.originalname,
+      url: req.file.path,
+      public_id: req.file.filename,
+      uploaded_by_name: actor.name,
+      date: now,
+    });
+    treatment.timeline.push({
+      entry_type: "documento",
+      text: `Se adjuntó el documento ${req.file.originalname}.`,
+      author_id: actor.id,
+      author_name: actor.name,
+      date: now,
+    });
+    await treatment.save();
+
+    return res.status(200).json({ message: "Documento subido" });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE /api/treatments/:id/documents/:documentId
+// Borra el archivo de Cloudinary y luego el registro del tratamiento. Se
+// prueba primero como "raw" (el tipo real de los PDF y Word) y si no
+// existe con ese tipo, como "image".
+treatmentsController.deleteDocument = async (req, res) => {
+  try {
+    const treatment = await treatmentModel.findById(req.params.id);
+    if (!treatment || treatment.is_active === false) {
+      return res.status(404).json({ message: "Tratamiento no encontrado" });
+    }
+
+    const document = treatment.documents.id(req.params.documentId);
+    if (!document) {
+      return res.status(404).json({ message: "Documento no encontrado" });
+    }
+
+    if (document.public_id) {
+      await cloudinary.uploader
+        .destroy(document.public_id, { resource_type: "raw" })
+        .catch(() =>
+          cloudinary.uploader.destroy(document.public_id, { resource_type: "image" }).catch(() => {})
+        );
+    }
+
+    treatment.documents.pull(req.params.documentId);
+    await treatment.save();
+
+    return res.status(200).json({ message: "Documento eliminado" });
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });

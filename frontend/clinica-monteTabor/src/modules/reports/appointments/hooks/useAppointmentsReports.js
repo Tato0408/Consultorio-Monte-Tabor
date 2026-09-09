@@ -1,66 +1,58 @@
 import { useCallback, useEffect, useState } from "react";
 import apiClient from "../../../../lib/apiClient";
 
-// Devuelve la fecha de hoy en formato YYYY-MM-DD, en hora local. El
-// método toISOString convierte primero a UTC, lo que en zonas horarias
-// detrás de UTC retrocede la fecha un día cerca de la medianoche (mismo
-// motivo documentado en backend/src/utils/reportDateRange.js, función
-// parseDateOnly).
-const todayISO = () => {
+// Mes de hoy en formato YYYY-MM, en hora local.
+const currentMonthISO = () => {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
-// Trae el reporte de citas (tarjetas, secciones y datos del PDF) según el
-// rango de fechas elegido, o el histórico completo si isGeneral está activo.
+// Mes calendario anterior a un "YYYY-MM" dado.
+const previousMonthISO = (monthValue) => {
+  const [year, month] = monthValue.split("-").map(Number);
+  const d = new Date(year, month - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+// Trae el reporte de citas (tarjetas, secciones y datos del PDF). El
+// filtro trabaja por mes: general (histórico), dos meses o un mes contra
+// un promedio. Misma lógica que useReportData; citas conserva su copia
+// porque siempre tuvo su propio hook.
 const useAppointmentsReports = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [topCards, setTopCards] = useState([]);
   const [sections, setSections] = useState([]);
   const [pdfData, setPdfData] = useState(null);
-  // Vacíos por defecto, el usuario elige el inicio, el final o ambos. Si
-  // solo llena el inicio, el backend interpreta el rango desde ahí hasta
-  // hoy. Si solo llena el final, interpreta desde el inicio del histórico
-  // hasta ahí (ver resolveRange en el backend).
-  const [dateFrom, setDateFromRaw] = useState("");
-  const [dateTo, setDateToRaw] = useState("");
-  // Arranca en modo General (todo el histórico). El rango de fechas queda
-  // disponible desde el principio, nunca deshabilitado, para poder pasar a
-  // modo parametrizado con solo elegir una fecha, en vez de tener que
-  // desactivar General primero con un clic aparte.
+
+  const [monthA, setMonthAState] = useState("");
+  const [monthB, setMonthBState] = useState("");
+  const [avgMode, setAvgModeState] = useState(null);
   const [isGeneral, setIsGeneral] = useState(true);
 
-  // Se valida antes de pedir el reporte. En modo general no aplica.
   const fetchReport = useCallback(async () => {
-    const today = todayISO();
-    // No tiene sentido pedir datos de una fecha que todavía no ha pasado. El
-    // input ya lo bloquea con el atributo max (ver ReportHeader.jsx), pero se
-    // valida también aquí por si acaso.
-    if (!isGeneral && dateFrom && dateFrom > today) {
-      setError("La fecha inicial no puede ser posterior a hoy.");
+    const thisMonth = currentMonthISO();
+    if (!isGeneral && monthA && monthA > thisMonth) {
+      setError("El mes elegido no puede ser posterior al mes actual.");
       setLoading(false);
       return;
     }
-    if (!isGeneral && dateTo && dateTo > today) {
-      setError("La fecha final no puede ser posterior a hoy.");
+    if (!isGeneral && !avgMode && monthB && monthB === monthA) {
+      setError("Elige dos meses distintos para compararlos.");
       setLoading(false);
       return;
     }
-    if (!isGeneral && dateFrom && dateTo && dateFrom > dateTo) {
-      setError("La fecha inicial no puede ser posterior a la fecha final.");
-      setLoading(false);
-      return;
+
+    let params = { general: true };
+    if (!isGeneral && monthA) {
+      if (avgMode) params = { monthA, avg: avgMode };
+      else if (monthB) params = { monthA, monthB };
     }
 
     setLoading(true);
     setError(null);
-
     try {
-      const data = await apiClient("/reports/appointments", {
-        params: isGeneral ? { general: true } : { dateFrom, dateTo },
-      });
-
+      const data = await apiClient("/reports/appointments", { params });
       setTopCards(Array.isArray(data.topCards) ? data.topCards : []);
       setSections(Array.isArray(data.sections) ? data.sections : []);
       setPdfData(data.pdf || null);
@@ -72,25 +64,31 @@ const useAppointmentsReports = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, isGeneral]);
+  }, [monthA, monthB, avgMode, isGeneral]);
 
   useEffect(() => {
     fetchReport();
   }, [fetchReport]);
 
-  // Elegir una fecha activa el modo parametrizado. No hace falta desactivar
-  // General aparte: el rango de fechas ya está siempre disponible para
-  // usarse.
-  const setDateFrom = (value) => { setIsGeneral(false); setDateFromRaw(value); };
-  const setDateTo   = (value) => { setIsGeneral(false); setDateToRaw(value); };
-  // No es un interruptor: siempre activa el modo General. El rango de
-  // fechas se desactiva solo al elegir una fecha (ver el comentario
-  // anterior) y nunca vuelve a alternar hacia el modo parametrizado.
-  // También limpia los campos de fecha a su estado vacío por defecto.
+  const setMonthA = (value) => {
+    setIsGeneral(false);
+    setMonthAState(value);
+    if (value && !avgMode && !monthB) setMonthBState(previousMonthISO(value));
+  };
+  const setMonthB = (value) => {
+    setIsGeneral(false);
+    setAvgModeState(null);
+    setMonthBState(value);
+  };
+  const setAvgMode = (value) => {
+    setIsGeneral(false);
+    setAvgModeState(value || null);
+  };
   const activateGeneral = () => {
     setIsGeneral(true);
-    setDateFromRaw("");
-    setDateToRaw("");
+    setMonthAState("");
+    setMonthBState("");
+    setAvgModeState(null);
   };
 
   return {
@@ -99,11 +97,13 @@ const useAppointmentsReports = () => {
     topCards,
     sections,
     pdfData,
-    dateFrom,
-    dateTo,
+    monthA,
+    monthB,
+    avgMode,
     isGeneral,
-    setDateFrom,
-    setDateTo,
+    setMonthA,
+    setMonthB,
+    setAvgMode,
     activateGeneral,
     refetch: fetchReport,
   };

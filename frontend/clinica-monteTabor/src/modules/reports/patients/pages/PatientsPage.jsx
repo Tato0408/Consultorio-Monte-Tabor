@@ -28,8 +28,8 @@ const SkeletonSection = () => (
 const PacientesPage = () => {
   const {
     loading, error, topCards, sections, pdfData,
-    dateFrom, dateTo, isGeneral,
-    setDateFrom, setDateTo, activateGeneral, refetch,
+    monthA, monthB, avgMode, isGeneral,
+    setMonthA, setMonthB, setAvgMode, activateGeneral, refetch,
   } = usePacientesReport();
 
   const [exporting, setExporting] = useState(false);
@@ -53,11 +53,13 @@ const PacientesPage = () => {
         title="Reportes"
         subtitle="Consulta y analiza el rendimiento de la clínica"
         breadcrumb="Pacientes"
-        dateFrom={dateFrom}
-        dateTo={dateTo}
+        monthA={monthA}
+        monthB={monthB}
+        avgMode={avgMode}
         isGeneral={isGeneral}
-        onChangeFrom={setDateFrom}
-        onChangeTo={setDateTo}
+        onChangeMonthA={setMonthA}
+        onChangeMonthB={setMonthB}
+        onChangeAvgMode={setAvgMode}
         onSelectGeneral={activateGeneral}
         onExport={handleExport}
         exporting={exporting}
