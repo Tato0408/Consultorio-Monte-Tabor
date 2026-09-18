@@ -50,6 +50,7 @@ const ConsultasDelDia = ({
   onEliminar,
   canAttend = false,
   canDelete = false,
+  deletingId = null,
 }) => {
   const consultas = patient.consultas ?? [];
   const enEspera = consultas.filter((c) => c.estado === "scheduled").length;
@@ -201,7 +202,19 @@ const ConsultasDelDia = ({
                           Ver
                         </button>
                       ) : noDisponible ? (
-                        <span className="text-xs text-slate-400 italic">No disponible</span>
+                        <>
+                          <span className="text-xs text-slate-400 italic">No disponible</span>
+                          {canDelete && (
+                            <button
+                              onClick={() => onEliminar?.(c)}
+                              disabled={deletingId === c.id}
+                              title="Eliminar cita"
+                              className="text-slate-400 hover:text-red-600 p-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </>
                       ) : canAttend ? (
                         <button
                           onClick={() => onContinuar?.(c)}
@@ -213,8 +226,9 @@ const ConsultasDelDia = ({
                       {atendido && canDelete && (
                         <button
                           onClick={() => onEliminar?.(c)}
+                          disabled={deletingId === c.id}
                           title="Eliminar consulta"
-                          className="text-slate-400 hover:text-red-600 p-1.5"
+                          className="text-slate-400 hover:text-red-600 p-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

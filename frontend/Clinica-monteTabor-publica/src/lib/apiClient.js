@@ -2,7 +2,7 @@
 // (proxy inverso) al backend de Render. Es mismo-origen a propósito: así la cookie de
 // sesión queda de primera parte y Safari/iOS la acepta (cross-site la bloquea el ITP).
 // En desarrollo se apunta directo al backend de Render (incluye el prefijo /api).
-const API_URL = import.meta.env.DEV ? "https://clinica-monte-tabor.onrender.com/api" : "/api";
+const API_URL = import.meta.env.DEV ? "http://localhost:4000/api" : "/api";
 
 // URL del WebSocket de tiempo real (mismo canal que usa el panel privado,
 // ver AuthContext.jsx allá y roleSocket.js en el backend). A diferencia de
