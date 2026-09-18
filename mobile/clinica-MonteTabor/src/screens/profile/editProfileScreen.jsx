@@ -7,6 +7,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Modal,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -77,6 +79,12 @@ const EditProfileScreen = ({ navigation, route }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(!cached);
   const [saving, setSaving] = useState(false);
+  // Se muestra cuando updateMe responde pendingEmailVerification: el correo
+  // nuevo todavía no se aplicó, hace falta el código que se mandó a esa
+  // bandeja (ver patientSelfController.updateMe/verifyEmailChange).
+  const [emailCodeModal, setEmailCodeModal] = useState(false);
+  const [emailCode, setEmailCode] = useState("");
+  const [verifyingCode, setVerifyingCode] = useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -126,7 +134,15 @@ const EditProfileScreen = ({ navigation, route }) => {
       });
 
       // updateMe responde { message, user } con el paciente ya actualizado
+      // (el correo, si cambió, sigue siendo el anterior hasta confirmarlo).
       if (response?.user) setForm(fromApi(response.user));
+
+      if (response?.pendingEmailVerification) {
+        showSuccess("Tus datos se guardaron. Revisa tu nuevo correo para confirmar el cambio.");
+        setEmailCode("");
+        setEmailCodeModal(true);
+        return; // no cierra la pantalla todavía: falta confirmar el código
+      }
 
       showSuccess(response?.message || "Tus cambios se guardaron.");
       navigation.goBack(); // ProfileScreen recarga sola al tomar foco
@@ -135,6 +151,25 @@ const EditProfileScreen = ({ navigation, route }) => {
       showError(error.message || "No se pudieron guardar los cambios.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
+    if (verifyingCode || !emailCode.trim()) return;
+    setVerifyingCode(true);
+    try {
+      const response = await apiClient("/patientAccount/verifyEmailChange", {
+        method: "PUT",
+        body: { verificationCodeRequest: emailCode.trim() },
+      });
+      if (response?.user) setForm(fromApi(response.user));
+      showSuccess(response?.message || "Correo actualizado y verificado.");
+      setEmailCodeModal(false);
+      navigation.goBack();
+    } catch (error) {
+      showError(error.message || "No se pudo confirmar el código.");
+    } finally {
+      setVerifyingCode(false);
     }
   };
 
@@ -235,6 +270,64 @@ const EditProfileScreen = ({ navigation, route }) => {
           />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={emailCodeModal} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Confirma tu nuevo correo</Text>
+            <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 14 }}>
+              Te enviamos un código a {form.correo}. Ingrésalo para terminar de aplicar el cambio.
+            </Text>
+            <TextInput
+              value={emailCode}
+              onChangeText={setEmailCode}
+              placeholder="Código de verificación"
+              placeholderTextColor={colors.muted}
+              autoCapitalize="none"
+              autoFocus
+              style={{
+                borderWidth: 1,
+                borderColor: colors.border || "#e2e8f0",
+                borderRadius: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                fontSize: 16,
+                textAlign: "center",
+                letterSpacing: 2,
+                color: colors.text,
+                marginBottom: 16,
+              }}
+            />
+            <TouchableOpacity
+              style={styles.modalOption}
+              activeOpacity={0.7}
+              onPress={handleVerifyEmailCode}
+              disabled={verifyingCode || !emailCode.trim()}
+            >
+              {verifyingCode ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <Text style={[styles.modalOptionText, { color: colors.primary, fontWeight: "600" }]}>
+                  Confirmar correo
+                </Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalOption}
+              activeOpacity={0.7}
+              onPress={() => {
+                setEmailCodeModal(false);
+                navigation.goBack();
+              }}
+            >
+              <Text style={[styles.modalOptionText, { color: colors.muted }]}>
+                Confirmar después
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };

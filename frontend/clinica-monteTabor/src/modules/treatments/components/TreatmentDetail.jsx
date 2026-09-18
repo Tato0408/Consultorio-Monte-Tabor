@@ -92,6 +92,22 @@ const TreatmentDetail = ({
     run(actions.delete_note(detail.id, entry.id), "Nota eliminada");
   };
 
+  const handleDeleteTreatment = async () => {
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar este tratamiento?",
+      text: "Se eliminará el plan, la línea de tiempo y los documentos adjuntos. Todos los datos se perderán y la acción es irreversible.",
+    });
+    if (!confirmed) return;
+    try {
+      await actions.delete_treatment(detail.id);
+      showSuccess("Tratamiento eliminado");
+      onRefetchList();
+      onBack();
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar el tratamiento");
+    }
+  };
+
   const handleDeleteDocument = async (doc) => {
     const confirmed = await confirmDelete({
       title: "¿Eliminar este documento?",
@@ -208,6 +224,16 @@ const TreatmentDetail = ({
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 Reabrir tratamiento
+              </button>
+            )}
+            {canDelete && (
+              <button
+                type="button"
+                onClick={handleDeleteTreatment}
+                className="h-9 px-3.5 rounded-lg border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 inline-flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Eliminar tratamiento
               </button>
             )}
           </div>

@@ -1,7 +1,7 @@
 import nurseScheduleModel from "../../models/schedule/nurseSchedule.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
-import { toMins, minsToStr, tileFreeSlots, resolveDurationMinutes } from "./scheduleController.js";
+import { toMins, minsToStr, tileFreeSlots, resolveDurationMinutes, getSpecialHoursRange } from "./scheduleController.js";
 import { OCCUPYING_STATUSES } from "../../utils/appointmentStatus.js";
 
 const nurseScheduleController = {};
@@ -72,13 +72,33 @@ export const isNurseAvailable = async (nurseId, date, start_time, end_time, appo
     const [yr, mo, dy] = date.split("-").map(Number);
     const dayOfWeek = new Date(yr, mo - 1, dy).getDay();
 
+    // Antes esta función nunca consultaba schedule.exceptions (a diferencia de
+    // isSlotFreeForNurse, ver comentario de esa función): una enfermera con vacaciones o
+    // un día no laborable registrado para hoy podía igual aparecer como "disponible" en
+    // el catálogo de enfermera de apoyo, y anyNurseAvailable podía reportar "sí hay
+    // alguna libre" contando a alguien que en realidad no está disponible ese día.
+    const toDateStr = (d) => {
+        if (!d) return "";
+        if (typeof d === "string") return d.split("T")[0];
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+    };
+    const exception = (schedule.exceptions || []).find((ex) => {
+        if (ex.end_date) return date >= toDateStr(ex.date) && date <= toDateStr(ex.end_date);
+        return toDateStr(ex.date) === date;
+    });
+    if (exception && exception.type !== "special_hours") return false;
+
     const dayConfig = schedule.weekly_availability?.find((d) => d.day === dayOfWeek);
     if (!dayConfig?.is_available) return false;
 
     const start = toMins(start_time);
     const end = toMins(end_time);
 
-    const coversRange = (dayConfig.time_blocks || []).some((b) => toMins(b.start_time) <= start && toMins(b.end_time) >= end);
+    // Un horario especial con rango propio reemplaza los bloques normales del día.
+    const specialRange = getSpecialHoursRange(exception);
+    const timeBlocks = specialRange ? [specialRange] : (dayConfig.time_blocks || []);
+
+    const coversRange = timeBlocks.some((b) => toMins(b.start_time) <= start && toMins(b.end_time) >= end);
     if (!coversRange) return false;
 
     const onBreak = (schedule.breaks || []).some((br) =>
@@ -119,7 +139,8 @@ export const anyNurseAvailable = async (date, start_time, end_time, excludeAppoi
 
 // Revalida si un horario puntual sigue libre para una enfermera: mismo criterio que
 // isSlotFreeForDoctor (scheduleController.js), incluyendo excepciones (vacaciones, día no
-// laborable) y el buffer_time entre citas, que isNurseAvailable (arriba) no evalúa. Se usa
+// laborable) y el buffer_time entre citas — este último es lo único que isNurseAvailable
+// (arriba, que ya comparte el chequeo de excepciones con esta función) no evalúa. Se usa
 // al aceptar/asignar una cita a una enfermera como proveedora principal (procedimiento sin
 // doctor), no para el catálogo de "enfermera de apoyo" que sigue usando isNurseAvailable.
 export const isSlotFreeForNurse = async (nurseId, date, start_time, end_time, appointmentsModel, excludeAppointmentId) => {
@@ -149,6 +170,20 @@ export const isSlotFreeForNurse = async (nurseId, date, start_time, end_time, ap
 
     const start = toMins(start_time);
     const end = toMins(end_time);
+
+    // Si ese día tiene declarado un horario especial con rango propio, el
+    // horario solicitado debe caer completo dentro de ese rango.
+    const specialRange = getSpecialHoursRange(exception);
+    if (specialRange) {
+        const rangeStart = toMins(specialRange.start_time);
+        const rangeEnd = toMins(specialRange.end_time);
+        if (start < rangeStart || end > rangeEnd) {
+            return {
+                free: false,
+                reason: `Ese día el horario especial es de ${specialRange.start_time} a ${specialRange.end_time}.`,
+            };
+        }
+    }
 
     const inBreak = (schedule.breaks || []).some((br) => {
         if (br.day !== dayOfWeek) return false;
@@ -222,6 +257,11 @@ nurseScheduleController.getAvailableSlotsForNurse = async (req, res) => {
             return res.status(200).json({ slots: [], message: "Día no disponible" });
         }
 
+        // Con un horario especial de rango propio, ese rango reemplaza los
+        // bloques normales del día en vez de ofrecer el día completo.
+        const specialRange = getSpecialHoursRange(exception);
+        const timeBlocksForDay = specialRange ? [specialRange] : dayConfig.time_blocks;
+
         const durationMin = Number(duration);
         const bufferMin = schedule.buffer_time || 0;
 
@@ -254,7 +294,7 @@ nurseScheduleController.getAvailableSlotsForNurse = async (req, res) => {
             ...bookedRanges.map((r) => ({ start: r.start, end: r.end, gapAfter: bufferMin })),
         ];
 
-        for (const free of tileFreeSlots(dayConfig.time_blocks, obstacles, durationMin, bufferMin)) {
+        for (const free of tileFreeSlots(timeBlocksForDay, obstacles, durationMin, bufferMin)) {
             const startStr = minsToStr(free.start);
             slotsByStart.set(startStr, {
                 start_time: startStr,
@@ -358,6 +398,11 @@ export const getAggregateNurseSlots = async (date, minutes) => {
         const bufferMin = schedule.buffer_time || 0;
         const nurseKey = String(schedule.nurse_id);
 
+        // Con un horario especial de rango propio, ese rango reemplaza los
+        // bloques normales del día en vez de sumarse a ellos.
+        const specialRange = getSpecialHoursRange(exception);
+        const timeBlocks = specialRange ? [specialRange] : dayConfig.time_blocks;
+
         const obstacles = [
             ...(schedule.breaks || [])
                 .filter((br) => br.day === dayOfWeek)
@@ -366,7 +411,7 @@ export const getAggregateNurseSlots = async (date, minutes) => {
                 .map((r) => ({ start: r.start, end: r.end, gapAfter: bufferMin })),
         ];
 
-        for (const free of tileFreeSlots(dayConfig.time_blocks, obstacles, minutes, bufferMin)) {
+        for (const free of tileFreeSlots(timeBlocks, obstacles, minutes, bufferMin)) {
             if (isToday && free.start <= currentMinutes) continue;
             const start_time = minsToStr(free.start);
             if (!candidateSlots.has(start_time)) {
@@ -399,13 +444,33 @@ export const getPatientNursesForSlot = async (req, res) => {
 
         const [year, month, day] = date.split("-").map(Number);
         const dayOfWeek = new Date(year, month - 1, day).getDay();
-        const schedules = await nurseScheduleModel.find({}).select("nurse_id weekly_availability").lean();
+        const schedules = await nurseScheduleModel.find({}).select("nurse_id weekly_availability exceptions").lean();
+
+        const toDateStr = (d) => {
+            if (!d) return "";
+            if (typeof d === "string") return d.split("T")[0];
+            return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+        };
 
         const matchingNurseIds = [];
         for (const schedule of schedules) {
             const dayConfig = schedule.weekly_availability?.find((entry) => entry.day === dayOfWeek && entry.is_available);
             if (!dayConfig) continue;
-            const cubreElHorario = (dayConfig.time_blocks || []).some(
+
+            // Mismo fix que getPatientDoctorsForSlot (scheduleController.js): antes este
+            // filtro previo solo miraba el horario normal semanal, ignorando un
+            // "Horario especial" de ese día, así que rechazaba a la enfermera antes de
+            // llegar a isSlotFreeForNurse (que sí maneja excepciones).
+            const exception = (schedule.exceptions || []).find((ex) => {
+                if (ex.end_date) return date >= toDateStr(ex.date) && date <= toDateStr(ex.end_date);
+                return toDateStr(ex.date) === date;
+            });
+            if (exception && exception.type !== "special_hours") continue;
+
+            const specialRange = getSpecialHoursRange(exception);
+            const timeBlocks = specialRange ? [specialRange] : dayConfig.time_blocks;
+
+            const cubreElHorario = (timeBlocks || []).some(
                 (block) => toMins(start_time) >= toMins(block.start_time) && toMins(end_time) <= toMins(block.end_time)
             );
             if (!cubreElHorario) continue;

@@ -1,4 +1,5 @@
 import { User, Gift, CreditCard, Phone, Mail, Clock, Loader2, Edit2, Trash2 } from "lucide-react";
+import { formatTime12h } from "@/lib/timeFormat";
 
 const NurseProfileCard = ({ nurse, nextProcedure, loadingDetail, onEdit, onDelete, canUpdate = true, canDelete = true }) => {
   if (!nurse) {
@@ -87,7 +88,7 @@ const NurseProfileCard = ({ nurse, nextProcedure, loadingDetail, onEdit, onDelet
                 })}
               </p>
               <p className="text-[13px] text-blue-600 font-medium">
-                {nextProcedure.start_time} - {nextProcedure.end_time} — {nextProcedure.description || "Sin descripción"}
+                {formatTime12h(nextProcedure.start_time)} - {formatTime12h(nextProcedure.end_time)} — {nextProcedure.description || "Sin descripción"}
               </p>
             </>
           ) : (
@@ -96,9 +97,9 @@ const NurseProfileCard = ({ nurse, nextProcedure, loadingDetail, onEdit, onDelet
         </div>
 
         <div className="mt-2 border border-blue-100 rounded-[20px] p-3 flex items-center justify-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${nurse.is_active ? "bg-green-500" : "bg-red-500"}`} />
-          <span className={`text-xs font-semibold ${nurse.is_active ? "text-green-700" : "text-red-700"}`}>
-            {nurse.is_active ? "Activo" : "Inactivo"}
+          <span className={`w-2 h-2 rounded-full ${nurse.is_active !== false ? "bg-green-500" : "bg-red-500"}`} />
+          <span className={`text-xs font-semibold ${nurse.is_active !== false ? "text-green-700" : "text-red-700"}`}>
+            {nurse.is_active !== false ? "Activo" : "Inactivo"}
           </span>
         </div>
       </div>

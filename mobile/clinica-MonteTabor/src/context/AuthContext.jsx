@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import * as SecureStore from "expo-secure-store";
 import apiClient, { tokenStorage, setOnUnauthorized } from "../lib/apiClient";
+import { WS_URL } from "../config/api";
+import { emitNotificationPushed } from "../lib/notificationEvents";
 
 // Ajustar según cómo esté montado el router en el backend
 const LOGIN_PATH = "/loginPatient/login";
@@ -18,13 +20,17 @@ const CHANGE_PASSWORD_PATH = "/patientAccount/changePassword";
 
 const USER_KEY = "patient_user";
 
-// Traducción de los mensajes que devuelve el backend
+// Traducción de los mensajes que devuelve el backend. El backend ya responde en español
+// (ver loginPatientController.js), así que las claves tienen que ser el texto real que
+// manda, no una frase en inglés que nunca vuelve: con eso, ningún mapeo hacía match nunca
+// y siempre se caía al mensaje crudo de fallback (no se veía roto, pero la traducción más
+// útil, la de cuenta bloqueada, nunca se mostraba).
 const ERROR_MESSAGES = {
-    "Email and password are required.": "Ingresa tu correo y tu contraseña.",
-    "Invalid email or password.": "Correo o contraseña incorrectos.",
-    "Wrong password": "Correo o contraseña incorrectos.",
-    "User is locked": "Cuenta bloqueada por múltiples intentos fallidos. Espera 15 minutos.",
-    "Internal server error": "Error en el servidor. Intenta más tarde.",
+    "El correo y la contraseña son requeridos.": "Ingresa tu correo y tu contraseña.",
+    "Correo o contraseña inválidos.": "Correo o contraseña incorrectos.",
+    "Contraseña incorrecta": "Correo o contraseña incorrectos.",
+    "Usuario bloqueado": "Cuenta bloqueada por múltiples intentos fallidos. Espera 15 minutos.",
+    "Error interno del servidor": "Error en el servidor. Intenta más tarde.",
     "Ya existe un paciente registrado con ese correo": "Ese correo ya tiene una cuenta registrada.",
     "Ya existe un paciente registrado con ese DUI": "Ese DUI ya tiene una cuenta registrada.",
 };
@@ -114,6 +120,60 @@ export const AuthProvider = ({ children }) => {
         };
         initSystem();
     }, [checkSession]);
+
+    // WebSocket de tiempo real, mismo canal /ws/roles que ya usan el panel privado y el
+    // portal público (roleSocket.js hace broadcast a cualquier rol, incluido "patient").
+    // Antes el móvil no tenía ni WebSocket ni polling por intervalo: el badge de
+    // notificaciones solo se refrescaba con useFocusEffect (al ganar foco la pantalla),
+    // así que quedaba desactualizado si el usuario se quedaba parado en una pantalla. La
+    // web autentica el handshake con cookie; el móvil no tiene cookie jar, así que el
+    // mismo token se manda como query param (ver roleSocket.js, que acepta ambos).
+    useEffect(() => {
+        if (!isLoggedIn) return;
+
+        let socket = null;
+        let reconnectTimer = null;
+        let cerradoPorNosotros = false;
+
+        const conectar = async () => {
+            const token = await tokenStorage.get();
+            if (!token || cerradoPorNosotros) return;
+
+            socket = new WebSocket(`${WS_URL}?token=${encodeURIComponent(token)}`);
+
+            socket.onmessage = (event) => {
+                let data;
+                try {
+                    data = JSON.parse(event.data);
+                } catch {
+                    return;
+                }
+                if (data.type === "notification" && data.notification) {
+                    // Se reemite a quien esté escuchando (NotificationBell, NotificationsScreen);
+                    // nunca recarga ni reinicia nada, solo llega al instante como cualquier app.
+                    emitNotificationPushed(data.notification);
+                }
+            };
+
+            socket.onclose = () => {
+                if (cerradoPorNosotros) return;
+                // El backend (Render) corta conexiones ociosas: se reintenta con espera.
+                reconnectTimer = setTimeout(conectar, 3000);
+            };
+
+            socket.onerror = () => {
+                socket?.close();
+            };
+        };
+
+        conectar();
+
+        return () => {
+            cerradoPorNosotros = true;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            if (socket) socket.close();
+        };
+    }, [isLoggedIn]);
 
     // Guarda token + usuario (dispositivo y memoria) — lo comparten login() y register(),
     // ya que registrarse deja al paciente autenticado exactamente igual que iniciar sesión

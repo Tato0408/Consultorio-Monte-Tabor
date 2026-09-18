@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { User, ChevronRight } from "lucide-react";
+import { formatTime12h } from "@/lib/timeFormat";
 
 const Avatar = ({ src, name }) => (
     src
@@ -80,7 +81,7 @@ const DoctorStatusSection = ({ data }) => {
                                         En consulta
                                     </span>
                                     <span className="text-xs text-slate-400 flex-shrink-0 whitespace-nowrap">
-                                        {appt.start_time} - {appt.end_time}
+                                        {formatTime12h(appt.start_time)} - {formatTime12h(appt.end_time)}
                                     </span>
                                 </div>
                             ))}
@@ -112,7 +113,7 @@ const DoctorStatusSection = ({ data }) => {
                             {upcoming.map((appt) => (
                                 <div key={appt._id} className="flex items-center gap-3 py-3">
                                     <span className="text-sm font-bold text-slate-700 w-24 flex-shrink-0 tabular-nums">
-                                        {appt.start_time} - {appt.end_time}
+                                        {formatTime12h(appt.start_time)} - {formatTime12h(appt.end_time)}
                                     </span>
                                     <Avatar src={appt.doctor?.img_url} name={doctorName(appt.doctor)} />
                                     <div className="flex-1 min-w-0">

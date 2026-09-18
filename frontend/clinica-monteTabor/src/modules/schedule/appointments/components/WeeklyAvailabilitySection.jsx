@@ -13,6 +13,12 @@ import {
 // Nombres de dias en español para las etiquetas del modo Lista.
 const DAYS = DAY_NAMES_FULL;
 
+const toMinutes = (t) => {
+    if (!t) return 0;
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+};
+
 // Input de hora con el estilo de la pantalla.
 const TimeInput = ({ value, onChange }) => (
     <input
@@ -176,28 +182,40 @@ const WeeklyAvailabilitySection = ({ availability, onChange, breaks = [], onBrea
 
                                 {dayConfig.is_available ? (
                                     <div className="flex-1 flex flex-col gap-2">
-                                        {(dayConfig.time_blocks || []).map((block, bi) => (
-                                            <div key={bi} className="flex items-center gap-2 flex-wrap">
-                                                <TimeInput
-                                                    value={block.start_time}
-                                                    onChange={(v) => updateBlock(dayConfig.day, bi, "start_time", v)}
-                                                />
-                                                <span className="text-slate-400 text-sm">a</span>
-                                                <TimeInput
-                                                    value={block.end_time}
-                                                    onChange={(v) => updateBlock(dayConfig.day, bi, "end_time", v)}
-                                                />
-                                                {editing && dayConfig.time_blocks.length > 1 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeBlock(dayConfig.day, bi)}
-                                                        className="p-1 text-slate-300 hover:text-red-400 transition-colors"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))}
+                                        {(dayConfig.time_blocks || []).map((block, bi) => {
+                                            // A diferencia de Excepciones, este bloque no validaba el rango: uno
+                                            // invertido se guardaba sin aviso y simplemente no generaba slots
+                                            // ese bloque.
+                                            const rangoInvalido = block.start_time && block.end_time
+                                                && toMinutes(block.end_time) <= toMinutes(block.start_time);
+                                            return (
+                                                <div key={bi} className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <TimeInput
+                                                            value={block.start_time}
+                                                            onChange={(v) => updateBlock(dayConfig.day, bi, "start_time", v)}
+                                                        />
+                                                        <span className="text-slate-400 text-sm">a</span>
+                                                        <TimeInput
+                                                            value={block.end_time}
+                                                            onChange={(v) => updateBlock(dayConfig.day, bi, "end_time", v)}
+                                                        />
+                                                        {editing && dayConfig.time_blocks.length > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeBlock(dayConfig.day, bi)}
+                                                                className="p-1 text-slate-300 hover:text-red-400 transition-colors"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    {rangoInvalido && (
+                                                        <p className="text-xs text-red-500">La hora de fin debe ser posterior a la de inicio.</p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                         {editing && (
                                             <button
                                                 type="button"

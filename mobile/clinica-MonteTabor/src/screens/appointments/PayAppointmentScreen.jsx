@@ -20,7 +20,7 @@ import {
 import { formatTime12h } from "../../utils/date";
 import styles from "../../styles/appointments/payAppointmentStyle";
 
-const longDate = (iso) => new Date(iso).toLocaleDateString("es-GT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const longDate = (iso) => new Date(iso).toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 
 // Reintenta confirmar el pago varias veces antes de rendirse: confirm-payment nunca

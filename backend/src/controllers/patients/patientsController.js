@@ -23,6 +23,29 @@ const CLINICAL_HISTORY_FIELDS = [
   "blood_type",
 ];
 
+// El resto de los campos que acepta esta ruta son datos personales/de cuenta
+// del paciente (incluye is_active, password e is_verified), pensados para
+// gestion de pacientes (users.patients), no para el expediente clinico. La
+// ruta acepta el request con cualquiera de los dos permisos en update (ver
+// patients.js), asi que sin este chequeo alguien con SOLO reports.records
+// en update (ej. un doctor, pensado para antecedentes/signos vitales) podria
+// tocar estos campos sensibles sin que se revalide users.patients.
+const PATIENT_MANAGEMENT_FIELDS = [
+  "name",
+  "last_name",
+  "dui",
+  "birth_date",
+  "gender",
+  "phone",
+  "email",
+  "password",
+  "referred_by",
+  "is_active",
+  "is_verified",
+  "loginAttemps",
+  "timeOut",
+];
+
 //Get de todos los pacientes
 // Con scope=active solo devuelve pacientes activos (is_active distinto de
 // false), para las vistas clinicas como el expediente y el catalogo de
@@ -32,7 +55,10 @@ const CLINICAL_HISTORY_FIELDS = [
 patientsController.getAllPatients = async (req, res) => {
   try {
     const query = req.query.scope === "active" ? { is_active: { $ne: false } } : {};
-    const patients = await patientsModel.find(query).lean();
+    // Nunca se envía el hash de la contraseña al cliente (mismo criterio que
+    // doctorsController/receptionistController). Antes cualquier rol con
+    // users.patients:view recibía el hash bcrypt de todos los pacientes.
+    const patients = await patientsModel.find(query).select("-password").lean();
 
     // La duración de un procedimiento no se guarda en clinical_history.procedures
     // (a diferencia de procedure_name/doctor_name, que sí se congelan al momento
@@ -255,6 +281,17 @@ patientsController.updatePatient = async (req, res) => {
       }
     }
 
+    // Simetrico al chequeo de arriba: si el cuerpo toca datos personales o de
+    // cuenta, se exige el permiso de gestion de pacientes sin importar que la
+    // ruta haya dejado pasar el request solo por reports.records.
+    const touchesPatientManagement = PATIENT_MANAGEMENT_FIELDS.some((field) => req.body[field] !== undefined);
+    if (touchesPatientManagement) {
+      const patientsPermission = getModulePermission(req.user.role, "users.patients");
+      if (!patientsPermission || !patientsPermission.update) {
+        return res.status(403).json({ message: "No tienes permiso para modificar los datos del paciente." });
+      }
+    }
+
     //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
     //romper actualizaciones parciales como agregar solo un signo vital o un procedimiento)
     const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date });
@@ -374,6 +411,10 @@ patientsController.updatePatient = async (req, res) => {
     //Envia el tipo de sangre, los prepara usando comillas y puntos para que MongoDB actualice solo esa casilla interna y no borre los demás datos médicos, si no los mandó, los ignora por completo
     if (req.body.blood_type !== undefined) {
       fieldsToSet["clinical_history.blood_type"] = req.body.blood_type;
+      // Esta ruta la usa el personal clínico (BloodTypeCard.jsx, durante una consulta), a
+      // diferencia de PUT /patientAccount/me/blood-type que usa el propio paciente desde el
+      // portal (patientSelfController.updateBloodType, que lo marca como no verificado).
+      fieldsToSet["clinical_history.blood_type_verified"] = true;
     }
 
     //Envia los signos vitales, los prepara usando comillas y puntos para que MongoDB actualice solo esa casilla interna y no borre los demás datos médicos, si no los mandó, los ignora por completo

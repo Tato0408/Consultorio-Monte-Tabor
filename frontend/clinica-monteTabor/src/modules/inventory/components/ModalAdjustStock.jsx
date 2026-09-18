@@ -4,6 +4,7 @@ import Modal from "../../../components/ui/Modal";
 import InputField from "../../../components/ui/InputField";
 import { Combobox, ComboboxTrigger, ComboboxContent, ComboboxItem } from "@/components/ui/combobox";
 import useInsumos from "../hooks/useInsumos";
+import { showWarning } from "@/lib/alerts";
 
 const SectionTitle = ({ children }) => (
   <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">{children}</h3>
@@ -56,12 +57,16 @@ const ModalAdjustStock = ({ onClose, onSuccess }) => {
     if (Object.keys(ve).length) { setErrors(ve); return; }
     setLoading(true);
     try {
-      await adjustStock(product._id, {
+      const response = await adjustStock(product._id, {
         quantity:    Number(quantity),
         adjustType,
         reason,
         responsible,
       });
+      // Si se pidió disminuir más de lo que había en stock, el backend solo
+      // descuenta lo disponible y lo avisa aquí (antes no había ningún
+      // aviso: el stock quedaba en 0 sin que quien hizo el ajuste lo supiera).
+      if (response?.capped) showWarning(response.message);
       onSuccess?.();
       onClose();
     } catch (err) {

@@ -215,7 +215,7 @@ const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }
             <View key={i} style={styles.statCard}>
               <Text style={styles.statLabel}>{s.label}</Text>
               <Text style={styles.statValue}>{s.value}</Text>
-              {s.diff && <Text style={[styles.statDiff, { color: variationColor(s.diff) }]}>{s.diff}</Text>}
+              {s.diff && <Text style={[styles.statDiff, { color: variationColor(s.diff, s.tone) }]}>{s.diff}</Text>}
             </View>
           ))}
         </View>

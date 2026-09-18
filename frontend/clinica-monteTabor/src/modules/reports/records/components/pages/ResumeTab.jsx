@@ -124,7 +124,11 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
           </div>
         </SectionCard>
 
-        <SectionCard collapsible title="Antecedentes hereditarios" action={<VerTodos onClick={() => onNavigateTab?.("Historia clínica")} />}>
+        {/* El arreglo antecedentes mezcla hereditary y pathological (ver useRecords.js), cada
+            uno con su propio badge (a.tipo): el título debe reflejar ambos, no solo
+            "hereditarios", o un antecedente patológico personal aparece bajo un encabezado
+            clínicamente engañoso. */}
+        <SectionCard collapsible title="Antecedentes hereditarios y patológicos" action={<VerTodos onClick={() => onNavigateTab?.("Historia clínica")} />}>
           <div className="space-y-3">
             {(patient.antecedentes ?? []).map((a, i) => (
               <div key={i} className="rounded-xl border-l-4 border-emerald-500 bg-slate-50 p-4">

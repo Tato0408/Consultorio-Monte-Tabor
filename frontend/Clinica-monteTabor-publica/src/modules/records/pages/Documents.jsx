@@ -18,8 +18,15 @@ import { showError } from "@/lib/alerts";
 import { descargarIncapacidadPdf, descargarRecetaPdf, descargarOrdenLaboratorioPdf, descargarReferenciaPdf } from "@/lib/pdf/patientDocuments";
 import { countSelectedTests } from "@/lib/labOrderCatalog";
 
-const fmtFecha = (iso) =>
-  iso ? new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric" }) : "—";
+// utc=true para los campos "solo fecha" (incapacidad, laboratorio, referencia), que el
+// backend guarda como medianoche UTC del día real (mismo criterio que isoDiaUTC más
+// abajo): sin timeZone:"UTC" el día se corre uno atrás en El Salvador. La receta usa
+// issued_at, un timestamp real, y debe seguir leyéndose en hora local o el corrimiento
+// pasaría al día siguiente en vez de al anterior.
+const fmtFecha = (iso, utc) =>
+  iso
+    ? new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric", ...(utc ? { timeZone: "UTC" } : {}) })
+    : "—";
 
 // Config por tipo. Mismos dos colores que la app móvil (incapacidad = azul de marca,
 // receta = verde); referencia lleva violeta porque solo existe en la web.
@@ -31,6 +38,7 @@ const TIPOS = {
     accent: "#3B6FCA",
     iconBg: "bg-[#EEF3FF]",
     dateField: "start_date",
+    dateIsUTC: true,
     bodyLabel: "Diagnóstico",
   },
   receta: {
@@ -49,6 +57,7 @@ const TIPOS = {
     accent: "#0D9488",
     iconBg: "bg-[#E6F5F3]",
     dateField: "date",
+    dateIsUTC: true,
     bodyLabel: "Exámenes solicitados",
   },
   referencia: {
@@ -58,6 +67,7 @@ const TIPOS = {
     accent: "#7C4FD1",
     iconBg: "bg-[#F1EBFB]",
     dateField: "date",
+    dateIsUTC: true,
     bodyLabel: "Motivo",
   },
 };
@@ -109,7 +119,7 @@ const DocCard = ({ tipo, doc, descargando, onDownload }) => {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[13px] font-bold text-gray-900 lg:text-[15px]">{fmtFecha(doc[cfg.dateField])}</p>
+            <p className="text-[13px] font-bold text-gray-900 lg:text-[15px]">{fmtFecha(doc[cfg.dateField], cfg.dateIsUTC)}</p>
             {tipo === "incapacidad" && (
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${

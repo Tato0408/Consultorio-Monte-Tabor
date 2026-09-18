@@ -4,14 +4,22 @@ import InputField from "@/components/ui/InputField";
 import { changeMyPassword } from "@/services/profileService";
 import { showSuccess, showError } from "@/lib/alerts";
 
-// Misma regla de contraseña que el backend (getPasswordError): 8+ caracteres, una
-// mayúscula, un número y un carácter especial. Se valida también acá para no gastar
-// un viaje si el formato ya viene mal.
+// Misma regla de contraseña que el backend (getPasswordError) y que Register.jsx en este
+// mismo portal: 8+ caracteres, una mayúscula, una minúscula, un número y un carácter
+// especial. Antes faltaba la minúscula acá: una contraseña como "PASSWORD1!" pasaba este
+// formulario pero el servidor la rechazaba, con un error que el usuario no esperaba tras
+// "validar" en el cliente. Se valida también acá para no gastar un viaje si el formato ya
+// viene mal.
 const passwordError = (pw) => {
   if (pw.length < 8) return "La contraseña debe tener al menos 8 caracteres";
   if (!/[A-Z]/.test(pw)) return "Incluye al menos una letra mayúscula";
+  if (!/[a-z]/.test(pw)) return "Incluye al menos una letra minúscula";
   if (!/\d/.test(pw)) return "Incluye al menos un número";
-  if (!/[^A-Za-z0-9]/.test(pw)) return "Incluye al menos un carácter especial";
+  // Antes aceptaba CUALQUIER carácter no alfanumérico (espacios, acentos, ñ...) como
+  // "especial". El backend exige uno de esta lista cerrada específica (getPasswordError);
+  // una contraseña con solo un espacio o una ñ como "especial" pasaba aquí pero el
+  // servidor la rechazaba igual.
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(pw)) return "Incluye al menos un carácter especial";
   return null;
 };
 
@@ -84,7 +92,7 @@ const ChangePasswordForm = ({ onDone }) => {
               placeholder="Ingresa tu nueva contraseña"
               error={errors.newPassword}
             />
-            <p className="text-xs text-gray-400 mt-1.5">Mínimo 8 caracteres, con una mayúscula, un número y un carácter especial.</p>
+            <p className="text-xs text-gray-400 mt-1.5">Mínimo 8 caracteres, con una mayúscula, una minúscula, un número y un carácter especial.</p>
           </div>
           <InputField
             label="Confirmar nueva contraseña"

@@ -10,8 +10,9 @@ const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 // integrada entre las demás secciones de la consulta. El encabezado
 // (PatientHeader.jsx) solo muestra el valor, la edición se hace aquí,
 // contra PUT /patients/:id (blood_type).
-const BloodTypeCard = ({ patientId, currentValue, onSaved, readOnly }) => {
+const BloodTypeCard = ({ patientId, currentValue, currentVerified, onSaved, readOnly }) => {
     const [selected, setSelected] = useState(currentValue || null);
+    const [verified, setVerified] = useState(!!currentVerified);
     const [loading, setLoading] = useState(false);
 
     const handleSelect = async (bt) => {
@@ -24,6 +25,10 @@ const BloodTypeCard = ({ patientId, currentValue, onSaved, readOnly }) => {
                 body: { blood_type: bt },
             });
             showSuccess("Tipo de sangre actualizado correctamente");
+            // PUT /patients/:id siempre marca blood_type_verified en true cuando lo
+            // guarda personal clínico (a diferencia del autoreporte del paciente,
+            // ver blood_type_verified en patientsController.js).
+            setVerified(true);
             onSaved?.(bt);
         } catch (err) {
             showError(err.message || "No se pudo actualizar el tipo de sangre");
@@ -63,6 +68,11 @@ const BloodTypeCard = ({ patientId, currentValue, onSaved, readOnly }) => {
                     );
                 })}
             </div>
+            {selected && !verified && (
+                <p className="mt-2.5 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5">
+                    Autoreportado por el paciente desde el portal, sin confirmar por personal clínico. Verifícalo con un examen de laboratorio antes de confiar en él para una emergencia.
+                </p>
+            )}
         </SectionCard>
     );
 };

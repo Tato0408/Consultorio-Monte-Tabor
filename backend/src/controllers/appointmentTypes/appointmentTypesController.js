@@ -1,4 +1,5 @@
 import appointmentTypeModel from "../../models/appointmentTypes/appointmentType.js";
+import proceduresModel from "../../models/procedures/procedures.js";
 import { escapeRegex } from "../../utils/validators.js";
 
 const appointmentTypesController = {};
@@ -81,6 +82,17 @@ appointmentTypesController.update = async (req, res) => {
 
 appointmentTypesController.remove = async (req, res) => {
     try {
+        // Un procedimiento siempre necesita al menos un tipo de cita elegible
+        // (ver la validación en el modelo de Procedure). Sin este chequeo se
+        // podía borrar un tipo que algún procedimiento todavía tiene en
+        // appointment_type_ids, dejando una referencia fantasma.
+        const inUse = await proceduresModel.exists({ appointment_type_ids: req.params.id });
+        if (inUse) {
+            return res.status(400).json({
+                message: "No se puede eliminar: hay procedimientos que usan este tipo de cita.",
+            });
+        }
+
         const deleted = await appointmentTypeModel.findByIdAndDelete(req.params.id);
         if (!deleted) return res.status(404).json({ message: "Tipo de cita no encontrado" });
 

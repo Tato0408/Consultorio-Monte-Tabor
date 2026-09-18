@@ -32,11 +32,9 @@ const RecoveryScreen = ({ navigation }) => {
 
     try {
       const data = await requestCode(email.trim());
-      console.log("[Recovery] Código solicitado:", data);
       showSuccess("Se ha enviado un código de verificación a tu correo.");
       navigation.navigate("VerifyCode", { email: email.trim(), recoveryToken: data.recoveryToken });
     } catch (err) {
-      console.log("[Recovery] Falló requestCode:", err.message);
       showError(err.message || "No se pudo enviar el código.");
     }
   };

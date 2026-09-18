@@ -25,7 +25,7 @@ const EMPTY = "Sin registrar";
 // El backend guarda fechas ISO; se formatea en UTC para que no se corra un día
 const dateLabel = (value) =>
   value
-    ? new Date(value).toLocaleDateString("es-GT", {
+    ? new Date(value).toLocaleDateString("es-SV", {
         day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
       })
     : EMPTY;

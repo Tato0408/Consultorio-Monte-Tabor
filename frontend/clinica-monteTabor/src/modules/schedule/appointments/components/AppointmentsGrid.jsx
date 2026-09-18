@@ -28,6 +28,7 @@ import {
 } from "@/lib/alerts";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
+import { formatTime12h } from "@/lib/timeFormat";
 
 // Pantalla principal del módulo: lista de citas en tarjetas, con búsqueda,
 // filtros, orden, paginación y acciones (ver, editar, cancelar, eliminar).
@@ -664,7 +665,7 @@ export default function AppointmentsGrid() {
                                         <span className="text-slate-400">
                                             Hora:
                                         </span>{" "}
-                                        {cita.start_time} - {cita.end_time}
+                                        {formatTime12h(cita.start_time)} - {formatTime12h(cita.end_time)}
                                     </p>
 
                                     <p>
@@ -1031,7 +1032,7 @@ export default function AppointmentsGrid() {
                             <p><span className="font-semibold text-slate-500">Paciente: </span>{pendingAppointmentDetails.patient_id ? `${pendingAppointmentDetails.patient_id.name} ${pendingAppointmentDetails.patient_id.last_name}` : "—"}</p>
                             <p><span className="font-semibold text-slate-500">Servicio: </span>{pendingAppointmentDetails.procedure_id?.name || pendingAppointmentDetails.type}</p>
                             <p><span className="font-semibold text-slate-500">Fecha: </span>{new Date(pendingAppointmentDetails.date).toLocaleDateString()}</p>
-                            <p><span className="font-semibold text-slate-500">Horario: </span>{pendingAppointmentDetails.start_time} - {pendingAppointmentDetails.end_time}</p>
+                            <p><span className="font-semibold text-slate-500">Horario: </span>{formatTime12h(pendingAppointmentDetails.start_time)} - {formatTime12h(pendingAppointmentDetails.end_time)}</p>
                             <p><span className="font-semibold text-slate-500">Duración: </span>{pendingAppointmentDetails.duration_minutes || 30} min</p>
                             <p>
                                 <span className="font-semibold text-slate-500">Total: </span>

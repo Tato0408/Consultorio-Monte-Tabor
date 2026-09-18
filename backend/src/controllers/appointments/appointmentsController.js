@@ -8,9 +8,10 @@ import { notifyAppointmentRecipients } from "../../services/notificationService.
 import proceduresModel from "../../models/procedures/procedures.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import consultationsModel from "../../models/consultations/consultation.js";
-import { getNonNegativeError } from "../../utils/validators.js";
+import { getNonNegativeError, escapeRegex } from "../../utils/validators.js";
 import { RESCHEDULE_REASONS, isCancelLockedForPatient } from "../../utils/appointmentStatus.js";
 import { buildActivePartiesAppointmentFilter, assertActiveParties } from "../../utils/activeScope.js";
+import { deleteAppointmentCascade } from "../../services/consultationCascade.js";
 
 const appointmentsController = {};
 
@@ -154,7 +155,9 @@ export async function runAppointmentAutoTransitions() {
             type: "appointment_reschedule_needed",
             message: "Ningún doctor aceptó tu cita a tiempo. Puedes reagendarla para otra fecha y horario.",
             appointment_id: a._id,
-            action_url: `/appointments/${a._id}/edit`,
+            // El portal público no tiene /appointments/:id/edit; la pantalla real es
+            // /mis-citas (ver patientPortalController.js y notificationService.js).
+            action_url: "/mis-citas",
         })));
     }
 }
@@ -198,7 +201,7 @@ async function bumpCompetingRequests(accepted) {
         type: "appointment_reschedule_needed",
         message: "El horario que solicitaste ya fue asignado a otro paciente. Reagenda tu cita para otra fecha y horario.",
         appointment_id: c._id,
-        action_url: `/appointments/${c._id}/edit`,
+        action_url: "/mis-citas",
     })));
 }
 
@@ -270,7 +273,11 @@ appointmentsController.getAppointments = async (req, res) => {
         // Búsqueda libre por paciente, doctor, tipo o descripción; primero se
         // resuelven los ids de paciente/doctor que coinciden con el texto.
         if (search) {
-            const regex = new RegExp(search, "i");
+            // escapeRegex evita un patrón con backtracking catastrófico (ReDoS): antes se
+            // pasaba el texto del usuario directo a RegExp, a diferencia de los otros 3
+            // usos de RegExp en el backend (tipos de cita, inventario, procedimientos),
+            // que ya escapaban.
+            const regex = new RegExp(escapeRegex(search), "i");
             const [matchingPatients, matchingDoctors] = await Promise.all([
                 patientsModel.find({ $or: [{ name: regex }, { last_name: regex }] }).select("_id"),
                 doctorsModel.find({ $or: [{ name: regex }, { last_name: regex }] }).select("_id"),
@@ -508,7 +515,7 @@ appointmentsController.getAppointmentById = async (req, res) => {
         await runAppointmentAutoTransitions();
 
         const appointment = await appointmentsModel.findById(id)
-            .populate({ path: "patient_id", model: "Patients", select: "name last_name phone gender birth_date dui clinical_history.blood_type email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social is_active" })
+            .populate({ path: "patient_id", model: "Patients", select: "name last_name phone gender birth_date dui clinical_history.blood_type clinical_history.blood_type_verified email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social is_active" })
             .populate("doctor_id", "name last_name is_active")
             .populate("nurse_id", "name last_name");
 
@@ -1022,10 +1029,14 @@ appointmentsController.cancelPatientAppointment = async (req, res) => {
     }
 };
 
-// Elimina una cita.
+// Elimina una cita. Si ya tiene una consulta registrada (una cita
+// "completed" borrada desde aquí en vez de desde la tabla de Consultas), se
+// borra también con toda su cascada (receta, orden de laboratorio,
+// expediente, tratamiento) — antes esto solo borraba el documento de la
+// cita y dejaba esos registros huérfanos, apuntando a una cita inexistente.
 appointmentsController.deleteAppointment = async (req, res) => {
     try {
-        const appointment = await appointmentsModel.findByIdAndDelete(req.params.id);
+        const appointment = await deleteAppointmentCascade(req.params.id);
         if (!appointment) {
             return res.status(404).json({ message: "Cita no encontrada" });
         }

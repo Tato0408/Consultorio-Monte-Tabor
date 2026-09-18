@@ -58,12 +58,10 @@ const NewPasswordScreen = ({ navigation, route }) => {
     }
 
     try {
-      const data = await newPassword(password.trim(), confirmPassword.trim(), recoveryToken);
-      console.log("[NewPassword] Contraseña actualizada:", data);
+      await newPassword(password.trim(), confirmPassword.trim(), recoveryToken);
       showSuccess("Contraseña actualizada correctamente.");
       navigation.navigate("PasswordUpdated");
     } catch (err) {
-      console.log("[NewPassword] Falló newPassword:", err.message);
       showError(err.message || "No se pudo cambiar la contraseña.");
     }
   };

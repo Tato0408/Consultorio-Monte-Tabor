@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../lib/apiClient";
+import { onNotificationPushed } from "../lib/notificationEvents";
 
 export default function NotificationBell({ navigation, color = "#111827" }) {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -14,6 +15,14 @@ export default function NotificationBell({ navigation, color = "#111827" }) {
       .catch(() => {});
     return () => { active = false; };
   }, []));
+
+  // Notificación empujada por WebSocket (ver AuthContext.jsx): el badge sube al instante
+  // sin esperar a que la pantalla vuelva a ganar foco.
+  useEffect(() => {
+    return onNotificationPushed((notification) => {
+      if (!notification?.read) setUnreadCount((prev) => prev + 1);
+    });
+  }, []);
 
   return (
     <TouchableOpacity

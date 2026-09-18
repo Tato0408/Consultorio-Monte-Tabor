@@ -157,7 +157,6 @@ function useConsultation(appointmentId) {
     try {
       // Obtiene los datos de la cita a partir de su id.
       const apptRes = await apiClient(`/appointments/${appointmentId}`);
-      console.log(" Appointment response:", apptRes);
       setAppointment(apptRes);
 
       // Consulta si el paciente ya tiene un tratamiento abierto, para que
@@ -179,14 +178,12 @@ function useConsultation(appointmentId) {
       // asociado a la cita.
       const clinicalHistory = apptRes.patient_id?.clinical_history || {};
       const patientAntecedents = getPatientAntecedents(clinicalHistory);
-      console.log(" Patient antecedents:", patientAntecedents);
 
       try {
         // Busca una consulta médica ya guardada para esta cita.
         const consultRes = await apiClient(
           `/consultations/by-appointment/${appointmentId}`
         );
-        console.log(" Consultation response:", consultRes);
 
         if (consultRes && Object.keys(consultRes).length > 0) {
           const consultationAntecedents = consultRes.antecedents || {};

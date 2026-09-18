@@ -9,10 +9,7 @@ import SecondaryButton from "../../components/SecondaryButton";
 import InputField from "../../../../components/ui/InputField";
 import FooterLogin from "../../components/Footer";
 
-import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
-import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
-import { useRecoveryAdmin } from "../../hooks/useRecoveryAdmin";
-import { useRecoveryNurse } from "../../hooks/useRecoveryNurse";
+import { useStaffRecovery } from "../../hooks/useStaffRecovery";
 import { showSuccess } from "@/lib/alerts";
 
 const NewPassword = () => {
@@ -22,26 +19,9 @@ const NewPassword = () => {
 
   const navigate = useNavigate();
 
-  //Saca del localStorage el rol que inicio el proceso de recuperacion
-  const recoveryType = localStorage.getItem("recoveryType");
-
-  //Inicializa todos los hooks de recuperacion segun los diferentes roles
-  const doctorRecovery = useRecoveryDoctor();
-  const receptionistRecovery = useRecoveryReceptionist();
-  const adminRecovery = useRecoveryAdmin();
-  const nurseRecovery = useRecoveryNurse();
-
-  //Evalua cual hook usar de acuerdo al tipo de usuario guardado en el local
-  let recovery;
-  switch (recoveryType) {
-    case "doctor":       recovery = doctorRecovery;       break;
-    case "receptionist": recovery = receptionistRecovery; break;
-    case "admin":        recovery = adminRecovery;        break;
-    case "nurse":        recovery = nurseRecovery;        break;
-    default:             recovery = doctorRecovery;       break;
-  }
-
-  //Extrae el estado de carga del hook correspondiente seleccionado en el switch
+  // Un solo endpoint atiende a los 4 roles de staff (el backend ya sabe cuál es, guardado
+  // en la cookie de recuperación) — ver staffRecoveryController.js.
+  const recovery = useStaffRecovery();
   const loading = recovery.loading;
 
   //Arreglo de objetos para validar la seguridad de la contraseña con regex
@@ -64,7 +44,7 @@ const NewPassword = () => {
     {
       id: "special",
       label: "La contraseña incluye caracteres especiales",
-      test: (p) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p),
+      test: (p) => /[!@#$%^&*(),.?":{}|<>]/.test(p),
     },
     {
       id: "match",
@@ -92,19 +72,16 @@ const NewPassword = () => {
 
     try {
       //Llama al metodo del hook correspondiente pasando los estados de las contraseñas
-      const response = await recovery.newPassword(password, confirmPassword);
-      console.log("RESPUESTA CAMBIO PASSWORD:", response);
+      await recovery.newPassword(password, confirmPassword);
 
       //Limpia los datos temporales del localStorage para cerrar el flujo de recuperacion
-      localStorage.removeItem("recoveryType");
       localStorage.removeItem("recoveryEmail");
-      
+
       showSuccess("Contraseña actualizada correctamente");
       //Manda al usuario a la pantalla de confirmacion de exito
       navigate("/password-updated");
     } catch (error) {
-      console.log("Error cambiando contraseña:", error);
-      setError("No se pudo cambiar la contraseña");
+      setError(error.message || "No se pudo cambiar la contraseña");
     }
   };
 

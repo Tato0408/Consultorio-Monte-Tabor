@@ -31,6 +31,7 @@ const TreatmentsPage = () => {
     delete_note,
     upload_document,
     delete_document,
+    delete_treatment,
   } = useTreatmentsFollowUp();
 
   const [selectedId, setSelectedId] = useState(null);
@@ -44,6 +45,7 @@ const TreatmentsPage = () => {
     delete_note,
     upload_document,
     delete_document,
+    delete_treatment,
   };
 
   return (

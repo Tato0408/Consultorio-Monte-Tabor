@@ -78,10 +78,17 @@ export default function ExpedienteLayout({ patient = {}, tabs = [], activeTab, o
 function PatientBar({ patient, onPatientUpdated }) {
   const [editOpen, setEditOpen] = useState(false);
   const female = (patient.sexo || patient.sexoCorto || "").toLowerCase().startsWith("f");
-  // Editar los datos del paciente desde el expediente depende del permiso de
-  // actualizacion del modulo "Expediente" (reports.records).
+  // EditPatientModal manda en un solo PUT /patients/:id tanto campos personales (name,
+  // last_name, dui, phone, email, birth_date, gender) como clínicos (blood_type). El
+  // backend exige users.patients:update para los primeros y reports.records
+  // create-o-update para el segundo (ver patientsController.updatePatient) — antes este
+  // botón solo revisaba reports.records:update, así que un rol con ESE permiso pero sin
+  // users.patients:update veía "Editar expediente" y el guardado fallaba con 403 sin
+  // aviso, el mismo bug que ya se corrigió para BloodTypeCard pero al revés.
   const { hasPermission } = useAuth();
-  const canEditPatient = hasPermission("reports.records", "update");
+  const canEditPatient =
+    hasPermission("users.patients", "update") &&
+    (hasPermission("reports.records", "update") || hasPermission("reports.records", "create"));
 
   return (
     <div className="flex flex-wrap items-center gap-x-6 sm:gap-x-8 gap-y-4 border-b border-slate-100 pb-6">
@@ -115,7 +122,7 @@ function PatientBar({ patient, onPatientUpdated }) {
       {/* Estado y acción */}
       <div className="ml-auto flex items-center gap-3">
         <div className="flex flex-col items-center gap-1">
-          {patient.estado && <Badge tone="green">{patient.estado}</Badge>}
+          {patient.estado && <Badge tone={patient.estado === "Activo" ? "green" : "gray"}>{patient.estado}</Badge>}
           {patient.tipoSangre && <Badge tone="red">{patient.tipoSangre}</Badge>}
         </div>
         {canEditPatient && (

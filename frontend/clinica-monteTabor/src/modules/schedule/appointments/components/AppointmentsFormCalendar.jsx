@@ -15,16 +15,12 @@ import useNurseSchedule from "../hooks/useNurseSchedule";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import ProcedureModal from "./ProcedureModal.jsx";
+import { formatTime12h as fmt12 } from "@/lib/timeFormat";
 
 // Formulario único para crear, ver y editar una cita. Se usa tanto
 // desde la pestaña Calendario como desde la pestaña Citas, e incluye
 // la selección de tipo de procedimiento.
 
-const fmt12 = (t) => {
-  if (!t) return t;
-  const [h, m] = t.split(":").map(Number);
-  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
-};
 const timeToMins = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 
 const STATUS_CONFIG = {

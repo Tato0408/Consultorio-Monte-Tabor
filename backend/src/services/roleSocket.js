@@ -1,6 +1,7 @@
 import { WebSocketServer } from "ws";
 import jsonwebToken from "jsonwebtoken";
 import { config } from "../../config.js";
+import { ALLOWED_ORIGINS } from "../config/allowedOrigins.js";
 
 // Canal WebSocket de tiempo real del panel privado. Atiende dos usos sobre
 // la misma conexion autenticada por cookie de sesion:
@@ -42,13 +43,31 @@ export function initRoleSocket(server) {
     server.on("upgrade", (req, socket, head) => {
         // Cualquier upgrade que no sea el de este servicio se descarta, para
         // no quedarnos con sockets colgados de rutas que no atendemos.
-        const requestPath = (req.url || "").split("?")[0];
-        if (requestPath !== WS_PATH) {
+        const requestUrl = new URL(req.url || "", "http://internal");
+        if (requestUrl.pathname !== WS_PATH) {
             socket.destroy();
             return;
         }
 
-        const token = parseCookies(req.headers.cookie).authCookie;
+        // Antes solo se validaban la ruta del upgrade y la cookie de sesión, nunca el
+        // origen de la petición. Con la cookie en sameSite:"none", el navegador la
+        // adjunta al handshake sin importar qué página lo inició, así que técnicamente
+        // cualquier origen con la cookie válida del usuario podía abrir el socket. Un
+        // navegador SIEMPRE manda el header Origin en un handshake de WebSocket; los
+        // clientes nativos (la app móvil) normalmente no lo mandan, así que solo se
+        // rechaza cuando el header está presente y no calza con la lista blanca — no
+        // castiga al móvil por no mandarlo.
+        const origin = req.headers.origin;
+        if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+            socket.destroy();
+            return;
+        }
+
+        // La web (privada y pública) autentica con la cookie de sesión, que el navegador
+        // reenvía solo en el handshake. La app móvil no tiene cookie jar (usa
+        // Authorization: Bearer guardado en SecureStore, ver apiClient.js del móvil), así
+        // que ahí el mismo token viaja como query param. Se prueba la cookie primero.
+        const token = parseCookies(req.headers.cookie).authCookie || requestUrl.searchParams.get("token");
         if (!token) {
             socket.destroy();
             return;

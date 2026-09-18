@@ -92,9 +92,22 @@ const ConsultationForm = () => {
     const canUpdateConsult = hasPermission("calendar.consultations", "update");
     const canCreateRecords = hasPermission("reports.records", "create");
     const canUpdateRecords = hasPermission("reports.records", "update");
+    // Controla si la tarjeta "Plan de tratamiento" aparece en el
+    // formulario: sin permiso de Ingreso en Tratamientos, el médico/enfermera
+    // no debe poder abrir un plan nuevo desde acá.
+    const canCreateTreatment = hasPermission("inventory.treatments", "create");
     const canRegisterConsultation = canCreateConsult && (!fromRecords || canCreateRecords);
     const canEditExistingConsultation =
         canRegisterConsultation && canUpdateConsult && (!fromRecords || canUpdateRecords);
+
+    // BloodTypeCard guarda aparte, contra PUT /patients/:id (blood_type es un campo del
+    // historial clínico): ese endpoint exige reports.records en update, o users.patients en
+    // update además de reports.records en create (ver patients.js/patientsController.js). No
+    // es lo mismo que "puede editar la consulta" (canEditExistingConsultation, arriba): con
+    // los permisos por defecto una enfermera puede editar la consulta pero solo tiene lectura
+    // en ambos módulos de paciente, así que sin este chequeo la tarjeta se mostraba editable y
+    // el guardado fallaba con 403 sin ningún aviso previo.
+    const canSaveBloodType = canUpdateRecords || (canCreateRecords && hasPermission("users.patients", "update"));
 
     // Esta pantalla se abre desde dos lugares distintos: el listado de
     // Consultas (por defecto) o la pestaña Consultas del expediente de un
@@ -552,7 +565,7 @@ const ConsultationForm = () => {
                         />
                         <ProceduresCard readOnly={readOnly} />
 
-                        <TreatmentPlanCard readOnly={readOnly} activeTreatment={activeTreatment} />
+                        {canCreateTreatment && <TreatmentPlanCard readOnly={readOnly} activeTreatment={activeTreatment} />}
 
                         <AntecedentsCard
                             title="Paso 6 - Antecedentes heredofamiliarios - opcional"
@@ -580,8 +593,9 @@ const ConsultationForm = () => {
                         <BloodTypeCard
                             patientId={appointment?.patient_id?._id}
                             currentValue={bloodTypeOverride ?? appointment?.patient_id?.clinical_history?.blood_type}
+                            currentVerified={!!appointment?.patient_id?.clinical_history?.blood_type_verified}
                             onSaved={setBloodTypeOverride}
-                            readOnly={readOnly}
+                            readOnly={readOnly || !canSaveBloodType}
                         />
 
                         <PrescriptionCard readOnly={readOnly} />

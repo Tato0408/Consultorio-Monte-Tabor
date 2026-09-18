@@ -1,24 +1,23 @@
 import { useState } from "react";
 import apiClient from "@/lib/apiClient";
 
-export const useRecoveryDoctor = () => {
+// Reemplaza a los 4 hooks por rol (useRecoveryAdmin/Doctor/Nurse/Receptionist): el
+// backend ahora es un único endpoint que revisa las 4 colecciones de staff internamente
+// y nunca revela si el correo existe (ver staffRecoveryController.js). El formulario de
+// "Olvidé mi contraseña" ya no necesita saber ni recordar el rol.
+export const useStaffRecovery = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Solicita el envío del código de recuperación al correo indicado.
   const requestCode = async (email) => {
     try {
       setLoading(true);
       setError(null);
-
-      const data = await apiClient("/recoveryDoctor/requestCode", {
+      return await apiClient("/staffRecovery/requestCode", {
         method: "POST",
         body: { email },
       });
-
-      return data;
     } catch (error) {
-      console.error("Error enviando código:", error);
       setError(error.message);
       throw error;
     } finally {
@@ -26,20 +25,15 @@ export const useRecoveryDoctor = () => {
     }
   };
 
-  // Verifica el código de recuperación ingresado por el usuario.
   const verifyCode = async (code) => {
     try {
       setLoading(true);
       setError(null);
-
-      const data = await apiClient("/recoveryDoctor/verifyCode", {
+      return await apiClient("/staffRecovery/verifyCode", {
         method: "POST",
         body: { code },
       });
-
-      return data;
     } catch (error) {
-      console.error("Error verificando código:", error);
       setError(error.message);
       throw error;
     } finally {
@@ -47,19 +41,12 @@ export const useRecoveryDoctor = () => {
     }
   };
 
-  // Reenvía el código de recuperación al mismo correo de la solicitud.
   const resendCode = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      const data = await apiClient("/recoveryDoctor/resendCode", {
-        method: "POST",
-      });
-
-      return data;
+      return await apiClient("/staffRecovery/resendCode", { method: "POST" });
     } catch (error) {
-      console.error("Error reenviando código:", error);
       setError(error.message);
       throw error;
     } finally {
@@ -67,34 +54,21 @@ export const useRecoveryDoctor = () => {
     }
   };
 
-  // Envía la nueva contraseña junto con su confirmación para
-  // completar el cambio de contraseña.
   const newPassword = async (newPassword, confirmNewPassword) => {
     try {
       setLoading(true);
       setError(null);
-
-      const data = await apiClient("/recoveryDoctor/newPassword", {
+      return await apiClient("/staffRecovery/newPassword", {
         method: "POST",
         body: { newPassword, confirmNewPassword },
       });
-
-      return data;
     } catch (error) {
-      console.error("Error cambiando contraseña:", error);
       setError(error.message);
       throw error;
     } finally {
       setLoading(false);
     }
-    };
-
-  return {
-    loading,
-    error,
-    requestCode,
-    verifyCode,
-    newPassword,
-    resendCode
   };
+
+  return { loading, error, requestCode, verifyCode, resendCode, newPassword };
 };

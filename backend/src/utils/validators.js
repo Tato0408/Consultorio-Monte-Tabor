@@ -116,6 +116,10 @@ const FIELD_LABELS = {
     gender: "Género",
     license_number: "Número de licencia",
     password: "Contraseña",
+    patient_id: "Paciente",
+    diagnosis: "Diagnóstico",
+    start_date: "Fecha de inicio",
+    end_date: "Fecha de fin",
 };
 
 // Para endpoints de creación, confirma que cada campo de requiredKeys

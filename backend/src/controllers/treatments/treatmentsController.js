@@ -9,6 +9,17 @@ const ms_day = 24 * 60 * 60 * 1000;
 
 const treatmentsController = {};
 
+// Mismo chequeo que ya hacía scheduleControl (más abajo) para next_control_date, pero
+// faltaba en create/updatePlan para estimated_end_date y next_control_date: un string no
+// parseable llegaba directo al campo Date del schema, Mongoose lanzaba un CastError al
+// guardar, y el catch genérico lo convertía en un 500 en vez de un 400 explicando qué
+// campo está mal.
+const getDateFieldError = (value, label) => {
+  if (!value) return null;
+  if (Number.isNaN(new Date(value).getTime())) return `La fecha de ${label} no es válida.`;
+  return null;
+};
+
 // Calcula la edad en años a partir de la fecha de nacimiento. Devuelve
 // null si no hay fecha registrada, para no mostrar una edad falsa.
 const calc_age = (birth_date) => {
@@ -364,6 +375,11 @@ treatmentsController.create = async (req, res) => {
       return res.status(400).json({ message: "El objetivo y el plan son obligatorios." });
     }
 
+    const dateError = getDateFieldError(estimated_end_date, "fin estimado") || getDateFieldError(next_control_date, "próximo control");
+    if (dateError) {
+      return res.status(400).json({ message: dateError });
+    }
+
     const patient = await patientsModel.findById(patient_id).select("is_active").lean();
     if (!patient || patient.is_active === false) {
       return res.status(404).json({ message: "Paciente no encontrado" });
@@ -422,6 +438,14 @@ treatmentsController.updatePlan = async (req, res) => {
     if (plan_description !== undefined) {
       if (!plan_description.trim()) return res.status(400).json({ message: "El plan no puede quedar vacío." });
       treatment.plan_description = plan_description.trim();
+    }
+    if (estimated_end_date !== undefined) {
+      const dateError = getDateFieldError(estimated_end_date, "fin estimado");
+      if (dateError) return res.status(400).json({ message: dateError });
+    }
+    if (next_control_date !== undefined) {
+      const dateError = getDateFieldError(next_control_date, "próximo control");
+      if (dateError) return res.status(400).json({ message: dateError });
     }
     if (total_sessions !== undefined) treatment.total_sessions = total_sessions ? Number(total_sessions) : null;
     if (estimated_end_date !== undefined) treatment.estimated_end_date = estimated_end_date || null;
@@ -697,6 +721,37 @@ treatmentsController.deleteDocument = async (req, res) => {
     await treatment.save();
 
     return res.status(200).json({ message: "Documento eliminado" });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE /api/treatments/:id
+// Borra el tratamiento por completo: plan, línea de tiempo y documentos
+// (incluidos sus archivos en Cloudinary). A diferencia de cerrarlo, esto no
+// es una transición de estado reversible: el registro desaparece del todo,
+// tal como advierte la confirmación del botón "Eliminar tratamiento" en el
+// detalle.
+treatmentsController.remove = async (req, res) => {
+  try {
+    const treatment = await treatmentModel.findById(req.params.id);
+    if (!treatment || treatment.is_active === false) {
+      return res.status(404).json({ message: "Tratamiento no encontrado" });
+    }
+
+    for (const document of treatment.documents) {
+      if (!document.public_id) continue;
+      await cloudinary.uploader
+        .destroy(document.public_id, { resource_type: "raw" })
+        .catch(() =>
+          cloudinary.uploader.destroy(document.public_id, { resource_type: "image" }).catch(() => {})
+        );
+    }
+
+    await treatmentModel.findByIdAndDelete(req.params.id);
+
+    return res.status(200).json({ message: "Tratamiento eliminado" });
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });

@@ -14,6 +14,7 @@ router.get("/active", authorize("inventory.treatments", "view"), treatmentsContr
 router.get("/:id", authorize("inventory.treatments", "view"), treatmentsController.getById);
 
 router.post("/", authorize("inventory.treatments", "create"), treatmentsController.create);
+router.delete("/:id", authorize("inventory.treatments", "delete"), treatmentsController.remove);
 router.patch("/:id", authorize("inventory.treatments", "update"), treatmentsController.updatePlan);
 router.patch("/:id/control", authorize("inventory.treatments", "update"), treatmentsController.scheduleControl);
 router.patch("/:id/status", authorize("inventory.treatments", "update"), treatmentsController.setStatus);

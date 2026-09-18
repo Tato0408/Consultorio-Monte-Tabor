@@ -151,7 +151,21 @@ registerAdminController.verifyCode =
                     timeOut,
                 });
 
-            await newAdmin.save();
+            try {
+                await newAdmin.save();
+            } catch (saveError) {
+                // El countDocuments() de arriba no es atómico: dos verificaciones
+                // concurrentes podían pasarlo antes de que ninguna hubiera guardado
+                // todavía. El índice único de "singleton" (ver el modelo) es la
+                // garantía real — si otra petición ya ganó la carrera, este .save()
+                // revienta con un error de llave duplicada (E11000) en vez de crear
+                // un segundo administrador.
+                if (saveError?.code === 11000) {
+                    await cloudinary.uploader.destroy(public_id);
+                    return res.status(400).json({ message: "Ya existe un administrador en el sistema" });
+                }
+                throw saveError;
+            }
 
             res.clearCookie("registrationCookie");
             return res.status(200).json({ message: "Administrador registrado" });

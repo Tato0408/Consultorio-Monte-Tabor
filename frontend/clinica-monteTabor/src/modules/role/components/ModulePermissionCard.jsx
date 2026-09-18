@@ -72,6 +72,10 @@ const ModulePermissionCard = ({
   // este rol y que este módulo necesita para funcionar sin errores,
   // ver MODULE_VIEW_DEPENDENCIES en rolesConfig.js.
   missingDependencies = [],
+  // Mismo mecanismo, pero para el permiso de Editar: módulos a los que les falta
+  // Editar y que este módulo necesita para poder guardar sin un 403, ver
+  // MODULE_UPDATE_DEPENDENCIES en rolesConfig.js.
+  missingUpdateDependencies = [],
 }) => {
   const handleToggle = (permKey) => {
     if (readOnly) return;
@@ -140,6 +144,20 @@ const ModulePermissionCard = ({
             Si activas la visualización de {moduleLabel}, también hay que activar &quot;Ver&quot; en:{" "}
             <span className="font-semibold">{missingDependencies.map((d) => d.label).join(", ")}</span>
             . Si no, esta pantalla va a cargar incompleta o con errores para este rol.
+          </p>
+        </div>
+      )}
+
+      {/* Mismo aviso, pero para Editar: aparece solo si este módulo ya tiene Editar
+          activado y le falta Editar en alguno de los módulos de los que depende para
+          guardar sin un 403 (ver MODULE_UPDATE_DEPENDENCIES en rolesConfig.js). */}
+      {permissions.update && missingUpdateDependencies.length > 0 && (
+        <div className="mt-3 md:mt-4 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5">
+          <TriangleAlert className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" strokeWidth={2.2} />
+          <p className="text-[11px] leading-relaxed text-amber-700">
+            Si activas Editar en {moduleLabel}, también hay que activar &quot;Editar&quot; en:{" "}
+            <span className="font-semibold">{missingUpdateDependencies.map((d) => d.label).join(", ")}</span>
+            . Si no, guardar cambios va a fallar para este rol.
           </p>
         </div>
       )}

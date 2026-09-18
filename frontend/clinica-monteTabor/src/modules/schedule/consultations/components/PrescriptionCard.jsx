@@ -154,9 +154,22 @@ const PrescriptionCard = ({ readOnly }) => {
                 min={new Date().toISOString().split("T")[0]}
                 max={`${new Date().getFullYear() + 2}-12-31`}
                 disabled={readOnly}
-                {...register("prescription.next_appointment_suggested")}
-                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
+                {...register("prescription.next_appointment_suggested", {
+                    // El atributo HTML min de arriba no basta: no bloquea el envío ni todos
+                    // los navegadores lo respetan. Mismo criterio que follow_up_date en
+                    // ProceduresCard.jsx — ambos campos alimentan el mismo
+                    // treatment.next_control_date en el backend, así que una fecha pasada acá
+                    // generaba una alerta de "control vencido" incorrecta desde que se guardaba.
+                    validate: (value) =>
+                        !value ||
+                        value >= new Date().toISOString().split("T")[0] ||
+                        "La fecha no puede ser anterior a hoy",
+                })}
+                className={`w-full border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.next_appointment_suggested)}`}
             />
+            {errors?.prescription?.next_appointment_suggested && (
+                <p className="text-[11px] text-red-500 mt-0.5">{errors.prescription.next_appointment_suggested.message}</p>
+            )}
         </SectionCard>
     );
 };

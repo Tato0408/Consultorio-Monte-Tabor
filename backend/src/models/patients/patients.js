@@ -7,8 +7,14 @@ const patientSchema = new Schema({
     last_name: {
         type: String
     },
+    // sparse:true para no chocar entre sí los pacientes que legítimamente no tienen DUI
+    // (menores de edad, ver registerPatientsController.js): sin sparse, un índice único
+    // trata "campo ausente" como null en todos los documentos por igual, y solo dejaría
+    // existir UN paciente sin DUI en todo el sistema.
     dui: {
-        type: String
+        type: String,
+        unique: true,
+        sparse: true
     },
     birth_date: {
         type: Date
@@ -19,8 +25,16 @@ const patientSchema = new Schema({
     phone: {
         type: String
     },
+    // Antes la unicidad del correo dependía solo del findOne() en register()/verifyCode()
+    // del portal público, pero el paciente no se crea hasta verifyCode() (hasta 15 min
+    // después de ese findOne). Dos registros con el mismo correo dentro de esa ventana
+    // podían terminar creando cada uno su propio documento con el mismo email, sin
+    // ningún error. NOTA DE DESPLIEGUE: si ya existen correos o DUI duplicados en la base
+    // de datos actual, Mongo no podrá construir este índice hasta que se limpien esos
+    // duplicados a mano.
     email: {
-        type: String
+        type: String,
+        unique: true
     },
     password: {
         type: String
@@ -56,6 +70,15 @@ const patientSchema = new Schema({
         },
         blood_type: {
             type: String
+        },
+        // true cuando lo registró personal clínico (consulta, BloodTypeCard.jsx en el panel
+        // privado); false/ausente cuando lo autoreportó el paciente desde el portal
+        // (BloodTypeSection.jsx). Antes ambos guardaban en el mismo campo sin distinción: un
+        // dato usado en emergencias médicas no diferenciaba uno confirmado por laboratorio de
+        // uno que el paciente simplemente recordaba o adivinaba.
+        blood_type_verified: {
+            type: Boolean,
+            default: false
         },
         vital_signs: [{
             blood_pressure: {

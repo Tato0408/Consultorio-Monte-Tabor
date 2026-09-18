@@ -68,8 +68,6 @@ const Login = () => {
 
 
     try {
-      console.log("Login admin:", formData);
-
       // llama al método global de login y evalúa si fue exitoso
       const succes = await login(formData.email, formData.password);
 

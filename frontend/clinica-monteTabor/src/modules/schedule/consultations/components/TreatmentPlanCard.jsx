@@ -20,8 +20,12 @@ const todayISO = () => new Date().toISOString().split("T")[0];
 //
 // Todos los campos viven en react-hook-form bajo treatment_plan y viajan
 // con el resto del formulario de consulta.
+// Clase del borde de un campo: rojo cuando el campo tiene un error de
+// validación pendiente, gris en cualquier otro caso.
+const borderClass = (hasError) => (hasError ? "border-red-400" : "border-slate-200");
+
 const TreatmentPlanCard = ({ readOnly, activeTreatment }) => {
-  const { register, watch, setValue } = useFormContext();
+  const { register, watch, setValue, formState: { errors } } = useFormContext();
   const wants_create = watch("treatment_plan.create");
 
   // Aplica la máscara de texto clínico (sin símbolos ajenos a la
@@ -76,30 +80,53 @@ const TreatmentPlanCard = ({ readOnly, activeTreatment }) => {
       {wants_create && (
         <div className="mt-4 flex flex-col gap-3">
           <div>
-            <label className="text-xs text-slate-500 block mb-1">Objetivo del tratamiento</label>
+            <label className="text-xs text-slate-500 block mb-1">
+              Objetivo del tratamiento <span className="text-red-500">*</span>
+            </label>
             <textarea
               rows={2}
               maxLength={OBJECTIVE_MAX}
               disabled={readOnly}
               placeholder="Ej. Cicatrización completa de la úlcera venosa"
-              {...register("treatment_plan.objective")}
+              {...register("treatment_plan.objective", {
+                // Antes ningún campo de esta tarjeta era obligatorio: si quedaban vacíos,
+                // la consulta se guardaba con éxito pero sync_treatment_from_consultation
+                // callaba en silencio sin crear el tratamiento (ver treatmentSync.js) — el
+                // médico creía que el plan había quedado registrado y no aparecía en
+                // ningún lado.
+                required: "El objetivo es obligatorio para iniciar un plan de tratamiento.",
+              })}
               onChange={maskChange("treatment_plan.objective", OBJECTIVE_MAX)}
-              className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
+              className={`w-full border rounded-lg p-2 text-sm disabled:bg-slate-50 ${borderClass(errors?.treatment_plan?.objective)}`}
             />
-            <p className="text-[11px] text-gray-400 text-right mt-0.5">{objectiveLen}/{OBJECTIVE_MAX}</p>
+            <div className="flex items-start justify-between gap-2 mt-0.5">
+              {errors?.treatment_plan?.objective
+                ? <p className="text-[11px] text-red-500">{errors.treatment_plan.objective.message}</p>
+                : <span />}
+              <p className="text-[11px] text-gray-400 flex-shrink-0 ml-auto">{objectiveLen}/{OBJECTIVE_MAX}</p>
+            </div>
           </div>
           <div>
-            <label className="text-xs text-slate-500 block mb-1">Plan</label>
+            <label className="text-xs text-slate-500 block mb-1">
+              Plan <span className="text-red-500">*</span>
+            </label>
             <textarea
               rows={2}
               maxLength={PLAN_MAX}
               disabled={readOnly}
               placeholder="Ej. Curación avanzada cada 3 días + terapia compresiva"
-              {...register("treatment_plan.plan_description")}
+              {...register("treatment_plan.plan_description", {
+                required: "El plan es obligatorio para iniciar un plan de tratamiento.",
+              })}
               onChange={maskChange("treatment_plan.plan_description", PLAN_MAX)}
-              className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
+              className={`w-full border rounded-lg p-2 text-sm disabled:bg-slate-50 ${borderClass(errors?.treatment_plan?.plan_description)}`}
             />
-            <p className="text-[11px] text-gray-400 text-right mt-0.5">{planLen}/{PLAN_MAX}</p>
+            <div className="flex items-start justify-between gap-2 mt-0.5">
+              {errors?.treatment_plan?.plan_description
+                ? <p className="text-[11px] text-red-500">{errors.treatment_plan.plan_description.message}</p>
+                : <span />}
+              <p className="text-[11px] text-gray-400 flex-shrink-0 ml-auto">{planLen}/{PLAN_MAX}</p>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

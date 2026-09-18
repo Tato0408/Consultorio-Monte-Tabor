@@ -499,6 +499,7 @@ patientPortalController.getMyAppointments = async (req, res) => {
         const appointments = await appointmentsModel
             .find({ patient_id: req.user.id })
             .populate("doctor_id", "name last_name img_url")
+            .populate("nurse_id", "name last_name img_url")
             .populate({ path: "procedure_id", model: "procedure", select: "name" })
             .sort({ date: -1, start_time: -1 });
         return res.status(200).json(appointments);
@@ -781,7 +782,11 @@ patientPortalController.getDashboardSummary = async (req, res) => {
     try {
         const patientId = req.user.id;
         const hoy = new Date();
-        const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+        // Construido explícitamente en UTC (Date.UTC + getters UTC), no con getters locales
+        // del proceso: se compara contra appointment.date, que se guarda como medianoche UTC
+        // real. Antes funcionaba solo porque Render corre el proceso en UTC, una dependencia
+        // implícita de la zona horaria del entorno en vez de una construcción explícita.
+        const inicioHoy = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate()));
 
         // Mismas transiciones perezosas que corren al listar las citas: así el aviso de
         // "citas por reagendar" del dashboard aparece aunque el paciente entre directo aquí.
@@ -867,6 +872,7 @@ patientPortalController.confirmAppointmentPayment = async (req, res) => {
         const appointment = await appointmentsModel
             .findById(req.params.id)
             .populate("doctor_id", "name last_name img_url")
+            .populate("nurse_id", "name last_name img_url")
             .populate({ path: "procedure_id", model: "procedure", select: "name" });
 
         if (!appointment) {

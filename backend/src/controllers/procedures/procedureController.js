@@ -1,5 +1,7 @@
 import proceduresModel from '../../models/procedures/procedures.js'
 import appointmentTypeModel from '../../models/appointmentTypes/appointmentType.js'
+import appointmentsModel from '../../models/appointments/appointments.js'
+import consultationModel from '../../models/consultations/consultation.js'
 import { getNonNegativeError, escapeRegex } from '../../utils/validators.js'
 
 const proceduresController = {}
@@ -248,6 +250,20 @@ proceduresController.updateProcedure = async (req, res) => {
 // DELETE
 proceduresController.deleteProcedure = async (req, res) => {
     try {
+        // Antes se borraba sin comprobar si alguna cita o consulta histórica
+        // todavía lo referencia (misma clase de bug ya resuelta para
+        // pacientes y consultas): quedaban referencias fantasma a un
+        // procedimiento que ya no existe.
+        const [hasAppointments, hasConsultations] = await Promise.all([
+            appointmentsModel.exists({ procedure_id: req.params.id }),
+            consultationModel.exists({ "procedure.procedure_id": req.params.id }),
+        ]);
+        if (hasAppointments || hasConsultations) {
+            return res.status(400).json({
+                message: "No se puede eliminar: hay citas o consultas que usan este procedimiento.",
+            });
+        }
+
         const response = await proceduresModel.findByIdAndDelete(req.params.id)
         if (!response) return res.status(400).json({ message: "Dato no encontrado" })
         return res.status(200).json({ message: "Dato eliminado" })

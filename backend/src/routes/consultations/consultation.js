@@ -5,7 +5,8 @@ import { authorize, authorizeAll } from "../../middlewares/authorizeMiddleware.j
 const router = express.Router();
 
 router.route("/by-appointment/:appointmentId")
-    .get(authorize("calendar.consultations", "view"), consultationController.getConsultationByAppointmentId);
+    .get(authorize("calendar.consultations", "view"), consultationController.getConsultationByAppointmentId)
+    .delete(authorize("calendar.consultations", "delete"), consultationController.deleteConsultationByAppointment);
 
 router.route("/")
     .get(authorize("calendar.consultations", "view"), consultationController.getConsultations)

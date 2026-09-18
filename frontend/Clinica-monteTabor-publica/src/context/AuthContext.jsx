@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
-import apiClient from "../lib/apiClient";
+import apiClient, { WS_URL } from "../lib/apiClient";
 import { showWarning } from "../lib/alerts";
 
 const AuthContext = createContext();
@@ -80,6 +80,56 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         isLoggedInRef.current = isLoggedIn;
+    }, [isLoggedIn]);
+
+    // WebSocket de tiempo real, mismo canal que ya usa el panel privado
+    // (roleSocket.js en el backend hace broadcast a cualquier rol, incluido
+    // "patient": ver broadcastNotification). Antes el portal público solo
+    // hacía polling cada 30s (NotificationsMenu.jsx), hasta 30s de atraso
+    // para algo que el backend ya empuja al instante. No se maneja
+    // "role-updated" acá: un paciente no tiene permisos configurables.
+    useEffect(() => {
+        if (!isLoggedIn) return;
+
+        let socket = null;
+        let reconnectTimer = null;
+        let cerradoPorNosotros = false;
+
+        const conectar = () => {
+            socket = new WebSocket(WS_URL);
+
+            socket.onmessage = (event) => {
+                let data;
+                try {
+                    data = JSON.parse(event.data);
+                } catch {
+                    return;
+                }
+                if (data.type === "notification" && data.notification) {
+                    window.dispatchEvent(
+                        new CustomEvent("app:notification", { detail: data.notification })
+                    );
+                }
+            };
+
+            socket.onclose = () => {
+                if (cerradoPorNosotros) return;
+                // Render corta conexiones ociosas: se reintenta con espera.
+                reconnectTimer = setTimeout(conectar, 3000);
+            };
+
+            socket.onerror = () => {
+                socket.close();
+            };
+        };
+
+        conectar();
+
+        return () => {
+            cerradoPorNosotros = true;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            if (socket) socket.close();
+        };
     }, [isLoggedIn]);
 
     // apiClient dispara "session-expired" ante cualquier 401. Solo se actúa si había

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Plus, Users, Lock, ClipboardList } from "lucide-react";
+import { formatTime12h } from "@/lib/timeFormat";
 
 const STATUS_STYLES = {
     scheduled: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", dot: "bg-blue-500" },
@@ -163,7 +164,7 @@ const DoctorsAgendaSection = ({ agenda, date, onDateChange, onSlotClick, loading
                                                             : `${style.bg} ${style.border} cursor-default`
                                                     }`}
                                                 >
-                                                    <span className="text-[10px] font-semibold text-slate-400 block">{slot.start_time} - {slot.end_time}</span>
+                                                    <span className="text-[10px] font-semibold text-slate-400 block">{formatTime12h(slot.start_time)} - {formatTime12h(slot.end_time)}</span>
                                                     {isAvailable ? (
                                                         <span className="flex items-center gap-1 text-[11px] text-slate-400">
                                                             <Plus className="w-3 h-3" /> Disponible

@@ -2,13 +2,20 @@ import { useState, useEffect, useCallback } from "react";
 import { MoreVertical, Edit2, Trash2, Pencil } from "lucide-react";
 import useInsumos from "../hooks/useInsumos";
 import GenericTable from "@/components/ui/GenericTable";
-import { showError } from "@/lib/alerts";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { showError, confirmDelete } from "@/lib/alerts";
 
 const statusStyle = {
   Disponible: "bg-green-50 text-green-700",
   Bajo:       "bg-orange-50 text-orange-600",
   Crítico:    "bg-red-50 text-red-700",
 };
+
+// Mismo catálogo que ProductAddMode.jsx (no se comparte en un módulo aparte, sigue el
+// mismo criterio que ese archivo: es una lista corta y fija, no vale la pena una fuente
+// de verdad compartida para esto).
+const CATEGORIAS = ["Curación", "Protección", "Desinfección", "Procedimiento", "EPI", "Limpieza"];
+const ESTADOS = ["Disponible", "Bajo", "Crítico"];
 
 // Determina el estado del insumo según su stock actual comparado
 // con el stock mínimo definido.
@@ -33,12 +40,21 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
+  // GET /inventory ya soporta category y status como query params (ver
+  // inventoryController.getAll), pero antes esta tabla nunca los mandaba: eran
+  // filtros del backend sin ninguna forma de usarlos desde la interfaz.
+  const [category, setCategory] = useState("Todas");
+  const [status, setStatus] = useState("Todos");
 
- 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { page: 1, limit: 100 }; 
+      const params = {
+        page: 1,
+        limit: 100,
+        category: category !== "Todas" ? category : undefined,
+        status: status !== "Todos" ? status : undefined,
+      };
       const data = await getInsumos(params);
       setItems(data.insumos || []);
     } catch {
@@ -46,14 +62,21 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
     } finally {
       setLoading(false);
     }
-  }, [refreshTrigger]); 
+  }, [refreshTrigger, category, status]);
 
-  useEffect(() => { 
-    load(); 
+  useEffect(() => {
+    load();
   }, [load]);
 
-  const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar este producto?")) return;
+  const handleDelete = async (id, name) => {
+    // Era el único botón de eliminar de Inventario sin el aviso estándar de "acción
+    // irreversible" (confirm() nativo del navegador, sin poder personalizar el mensaje
+    // con el nombre del producto).
+    const confirmed = await confirmDelete({
+      title: "¿Eliminar este producto?",
+      text: name ? `Se eliminará "${name}". Esta acción no se puede deshacer.` : "Esta acción no se puede deshacer.",
+    });
+    if (!confirmed) return;
     try {
       await deleteInsumo(id);
       onRefresh?.();
@@ -176,7 +199,7 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
                             onClick={(e) => {
                               e.stopPropagation();
                               setActiveMenuId(null);
-                              handleDelete(item._id);
+                              handleDelete(item._id, item.name);
                             }}
                             className="w-full px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50/60 flex items-center gap-2 transition-colors"
                           >
@@ -205,9 +228,35 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
       searchFields={["name", "category", "description"]}
       onTableOffsetChange={onTableOffsetChange}
       headerLeft={
-        <h2 className="text-base font-semibold text-slate-800 whitespace-nowrap flex-shrink-0">
-          Productos / Insumos
-        </h2>
+        <>
+          <h2 className="text-base font-semibold text-slate-800 whitespace-nowrap flex-shrink-0">
+            Productos / Insumos
+          </h2>
+          <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-3 h-[38px]">
+            <span className="text-xs text-gray-400 font-normal whitespace-nowrap">Categoría</span>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="h-7 border-none bg-transparent p-0 shadow-none focus:ring-0 gap-1 text-gray-800 font-semibold text-xs min-w-[80px]">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent sideOffset={6}>
+                <SelectItem value="Todas">Todas</SelectItem>
+                {CATEGORIAS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-3 h-[38px]">
+            <span className="text-xs text-gray-400 font-normal whitespace-nowrap">Estado</span>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="h-7 border-none bg-transparent p-0 shadow-none focus:ring-0 gap-1 text-gray-800 font-semibold text-xs min-w-[70px]">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent sideOffset={6}>
+                <SelectItem value="Todos">Todos</SelectItem>
+                {ESTADOS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
       }
     />
   );

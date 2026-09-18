@@ -1,10 +1,11 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../lib/apiClient";
 import { confirmDelete, showError, showSuccess } from "../../lib/toast";
+import { onNotificationPushed } from "../../lib/notificationEvents";
 import styles from "../../styles/notifications/notificationsStyle";
 
 const relativeDate = (value) => {
@@ -14,7 +15,7 @@ const relativeDate = (value) => {
   if (minutes < 60) return `Hace ${minutes} min`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `Hace ${hours} h`;
-  return date.toLocaleDateString("es-GT", { day: "numeric", month: "short", year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined });
+  return date.toLocaleDateString("es-SV", { day: "numeric", month: "short", year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined });
 };
 
 export default function NotificationsScreen({ navigation }) {
@@ -41,6 +42,20 @@ export default function NotificationsScreen({ navigation }) {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // Notificación empujada por WebSocket (ver AuthContext.jsx): se agrega al principio de
+  // la lista sin esperar a que la pantalla vuelva a ganar foco. Se ignora si ya está en
+  // la lista (el load() de arriba pudo haberla traído antes).
+  useEffect(() => {
+    return onNotificationPushed((incoming) => {
+      if (!incoming?._id) return;
+      setNotifications((current) => {
+        if (current.some((n) => n._id === incoming._id)) return current;
+        return [incoming, ...current];
+      });
+      if (!incoming.read) setUnreadCount((current) => current + 1);
+    });
+  }, []);
 
   const groups = useMemo(() => notifications.reduce((result, item) => {
     const label = new Date(item.createdAt).toDateString() === new Date().toDateString() ? "Hoy" : "Anteriores";

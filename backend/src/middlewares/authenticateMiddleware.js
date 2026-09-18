@@ -49,8 +49,15 @@ export const authenticate = (allowedTypes = []) => {
             }
 
             // Sesión deslizante del portal público: cada request de un paciente con sesión
-            // activa renueva su ventana de 2 h. No afecta a las sesiones de staff.
-            renewPatientSessionIfStale(res, decoded);
+            // activa renueva su ventana de 2 h. No afecta a las sesiones de staff. La web
+            // se beneficia solo con la cookie (el navegador la reenvía sola), pero la app
+            // móvil no tiene cookie jar (usa Authorization: Bearer guardado en
+            // SecureStore) y nunca tenía forma de enterarse del token renovado — su sesión
+            // expiraba siempre a las 2h exactas del login sin importar la actividad. Se
+            // expone también en un header propio para que cualquier cliente sin cookie
+            // jar (el móvil) pueda leerlo y actualizar lo que tenga guardado.
+            const renewedToken = renewPatientSessionIfStale(res, decoded);
+            if (renewedToken) res.set("X-Renewed-Token", renewedToken);
 
             req.user = { ...decoded, id: decoded.id, role: decoded.userType, userType: decoded.userType };
 

@@ -1,4 +1,5 @@
 import { Calendar, Droplet, IdCard, Phone, Mail, Clock, Stethoscope } from "lucide-react";
+import { formatTime12h } from "@/lib/timeFormat";
 
 // bloodTypeOverride lo pasa ConsultationForm.jsx para reflejar al
 // instante lo que se guarda en BloodTypeCard.jsx (la tarjeta de la
@@ -13,6 +14,11 @@ const PatientHeader = ({ appointment, bloodTypeOverride }) => {
     // atiende, en vez de un doctor.
     const nurse = appointment.nurse_id;
     const bloodType = bloodTypeOverride ?? patient?.clinical_history?.blood_type ?? null;
+    // bloodTypeOverride solo se llena al guardar desde BloodTypeCard.jsx (personal clínico),
+    // que siempre deja blood_type_verified en true; sin override, se usa el valor real del
+    // paciente, que puede venir autoreportado desde el portal (ver blood_type_verified en el
+    // modelo de pacientes).
+    const bloodTypeVerified = bloodTypeOverride ? true : !!patient?.clinical_history?.blood_type_verified;
 
     // Calcula edad aproximada a partir de la fecha de nacimiento del paciente,
     // si el backend la provee como birth_date.
@@ -40,7 +46,7 @@ const PatientHeader = ({ appointment, bloodTypeOverride }) => {
 
     const visitDate = formatVisitDate(appointment.date);
     const visitRange = appointment.start_time && appointment.end_time
-        ? `${appointment.start_time} - ${appointment.end_time}`
+        ? `${formatTime12h(appointment.start_time)} - ${formatTime12h(appointment.end_time)}`
         : "";
 
     const doctorName = doctor
@@ -54,7 +60,7 @@ const PatientHeader = ({ appointment, bloodTypeOverride }) => {
     // parte dentro de su celda en vez de desbordar el recuadro azul.
     const fields = [
         { icon: Calendar, label: "Edad", value: `${getAge(patient?.birth_date)} años` },
-        { icon: Droplet, label: "Tipo de sangre", value: bloodType ?? "—" },
+        { icon: Droplet, label: "Tipo de sangre", value: bloodType ? `${bloodType}${bloodTypeVerified ? "" : " (autoreportado)"}` : "—" },
         { icon: IdCard, label: "DUI", value: patient?.dui ?? "—" },
         { icon: Phone, label: "Teléfono", value: patient?.phone ?? "—" },
         { icon: Mail, label: "Correo", value: patient?.email ?? "—", breakAll: true },

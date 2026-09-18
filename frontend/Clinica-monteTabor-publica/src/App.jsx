@@ -10,7 +10,6 @@ import Home from './modules/home/pages/Home';
 import NewAppointment from './modules/appointments/pages/NewAppointment';
 import MyAppointments from './modules/appointments/pages/MyAppointments';
 import PayAppointment from './modules/appointments/pages/PayAppointment';
-import Prescriptions from './modules/records/pages/Prescriptions';
 import Documents from './modules/records/pages/Documents';
 import Medications from './modules/records/pages/Medications';
 import MyProfile from './modules/profile/pages/MyProfile';
@@ -59,15 +58,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <MyAppointments />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/mis-recetas"
-            element={
-              <ProtectedRoute>
-                <Prescriptions />
               </ProtectedRoute>
             }
           />

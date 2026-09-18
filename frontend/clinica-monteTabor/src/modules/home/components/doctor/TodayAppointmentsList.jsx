@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Plus, ChevronRight, User } from "lucide-react";
+import { formatTime12h } from "@/lib/timeFormat";
 
 const STATUS_STYLES = {
     confirmada:   { label: "Confirmada",  cls: "bg-green-100 text-green-700" },
@@ -64,8 +65,8 @@ const TodayAppointmentsList = ({ appointments = [], onAddAppointment, canCreate 
                             >
                                 {/* Hora */}
                                 <div className="flex-shrink-0 text-right w-12">
-                                    <p className="text-xs font-bold text-blue-600 leading-tight">{appt.start_time}</p>
-                                    <p className="text-xs text-slate-400 leading-tight">{appt.end_time}</p>
+                                    <p className="text-xs font-bold text-blue-600 leading-tight">{formatTime12h(appt.start_time)}</p>
+                                    <p className="text-xs text-slate-400 leading-tight">{formatTime12h(appt.end_time)}</p>
                                 </div>
 
                                 {/* Foto del paciente */}

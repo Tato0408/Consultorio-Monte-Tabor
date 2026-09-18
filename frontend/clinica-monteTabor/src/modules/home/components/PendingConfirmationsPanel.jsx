@@ -3,6 +3,7 @@ import { Check, X, ChevronRight } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmCancelAppointment } from "@/lib/alerts";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
+import { formatTime12h } from "@/lib/timeFormat";
 
 // Panel de confirmación y cancelación de citas: pestañas de pendientes
 // y confirmadas, con acciones reales contra el endpoint
@@ -69,7 +70,7 @@ const PendingConfirmationsPanel = ({ data, onChanged, onViewAll }) => {
                     {list.map((a) => (
                         <div key={a._id} className="flex items-center justify-between py-2.5 gap-3">
                             <div className="flex items-center gap-3 min-w-0">
-                                <span className="text-xs font-bold text-slate-700 w-24 flex-shrink-0">{a.start_time} - {a.end_time}</span>
+                                <span className="text-xs font-bold text-slate-700 w-24 flex-shrink-0">{formatTime12h(a.start_time)} - {formatTime12h(a.end_time)}</span>
                                 <div className="min-w-0">
                                     <p className="text-xs font-semibold text-slate-700 truncate">
                                         {a.patient ? `${a.patient.name} ${a.patient.last_name}` : "Paciente"}

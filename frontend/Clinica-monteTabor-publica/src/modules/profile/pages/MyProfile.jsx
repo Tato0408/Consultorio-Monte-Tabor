@@ -202,7 +202,11 @@ const MyProfile = () => {
 
               <nav className="bg-white border border-gray-100 rounded-2xl p-2 flex lg:flex-col gap-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
                 {NAV.map(({ key, label, icon: Icon }) => {
-                  const active = vista === key;
+                  // "datos" (Editar perfil) siempre se entra desde Resumen (botón del
+                  // encabezado, accesos rápidos o cualquier fila de "Información
+                  // personal") y no tiene su propio ítem en NAV a propósito. Sin este
+                  // caso, ningún botón del riel quedaba marcado como activo al editar.
+                  const active = vista === key || (key === "resumen" && vista === "datos");
                   return (
                     <button
                       key={key}

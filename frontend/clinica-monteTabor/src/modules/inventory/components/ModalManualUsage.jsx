@@ -3,6 +3,7 @@ import { Plus, Trash2, Minus } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import InputField from "../../../components/ui/InputField";
 import useInsumos from "../hooks/useInsumos";
+import { showWarning } from "@/lib/alerts";
 
 const newRow = () => ({
   insumoId: "", name: "", unit_measure: "",
@@ -58,12 +59,16 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
 
     setLoading(true);
     try {
-      await manualUsage({
+      const response = await manualUsage({
         responsible,
         reason,
         patient,
         items: items.map(({ insumoId, quantity }) => ({ insumoId, quantity: Number(quantity) })),
       });
+      // Si se pidió más de lo que había en stock para algún insumo, el
+      // backend solo descuenta lo disponible y lo avisa aquí (antes no
+      // había ningún aviso: el stock quedaba en 0 sin que se supiera).
+      if (response?.capped) showWarning(response.message);
       onSuccess?.();
       onClose();
     } catch (err) {

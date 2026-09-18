@@ -81,7 +81,24 @@ const buildComparisonHelpers = (range, divisor) => {
         return `${change.variacion} vs. ${otherLabel}`;
     };
 
-    return { compareReady, base, cmpRow, cmpRowFmt, rateRow, statDiff, col2Label: range.col2Label, col3Label: range.col3Label };
+    // Igual que statDiff, pero además expone el tono real (buena/mala) en
+    // vez de que el PDF exportado (ReportPDFDocument.jsx) tenga que
+    // adivinarlo por el signo del texto. statDiff() siempre asume
+    // polarity "buena", lo que funciona por casualidad para casi todas las
+    // tarjetas (más ingresos/pacientes/citas completadas sí es bueno),
+    // pero pintaba en VERDE un aumento de "Citas canceladas" en el PDF,
+    // como si fuera una mejora. Se usa solo donde la polaridad real no es
+    // "buena"; statDiff() se deja intacta para no tocar los demás usos.
+    const statDiffWithTone = (current, compareRaw, polarity) => {
+        const b = base(compareRaw);
+        if (b === null) return { diff: null, tone: null };
+        const change = describeChange(current, b, { tipo: "flujo", polarity });
+        if (change.variacion === "—") return { diff: null, tone: null };
+        const otherLabel = range.mode === "meses" ? range.col2Label : range.col3Label;
+        return { diff: `${change.variacion} vs. ${otherLabel}`, tone: change.tone };
+    };
+
+    return { compareReady, base, cmpRow, cmpRowFmt, rateRow, statDiff, statDiffWithTone, col2Label: range.col2Label, col3Label: range.col3Label };
 };
 
 const reportsController = {};
@@ -105,7 +122,7 @@ reportsController.getAppointmentsReport = async (req, res) => {
         const divisor = range.mode === "promedio"
             ? averageMonthCount(range, await earliestDate(appointmentsModel, "date"))
             : 1;
-        const { base, cmpRow, cmpRowFmt, statDiff, col2Label, col3Label } = buildComparisonHelpers(range, divisor);
+        const { base, cmpRow, cmpRowFmt, statDiff, statDiffWithTone, col2Label, col3Label } = buildComparisonHelpers(range, divisor);
 
         const curFilter = dateFilter("date", start, end);
         const prevFilter = isGeneral ? {} : dateFilter("date", compareStart, compareEnd);
@@ -277,7 +294,7 @@ reportsController.getAppointmentsReport = async (req, res) => {
             stats: [
                 { label: "Total de citas", value: String(totalCur), diff: statDiff(totalCur, totalPrev) },
                 { label: "Citas completadas", value: String(completedCur), diff: statDiff(completedCur, completedPrev) },
-                { label: "Citas canceladas", value: String(cancelledCur), diff: statDiff(cancelledCur, cancelledPrev) },
+                { label: "Citas canceladas", value: String(cancelledCur), ...statDiffWithTone(cancelledCur, cancelledPrev, "mala") },
                 { label: "Ingresos totales", value: formatCurrency(revenueCur), diff: statDiff(revenueCur, revenuePrev) },
             ],
             dailySeries,
@@ -315,7 +332,7 @@ reportsController.getPatientsReport = async (req, res) => {
         const divisor = range.mode === "promedio"
             ? averageMonthCount(range, await earliestDate(appointmentsModel, "date"))
             : 1;
-        const { base, cmpRow, rateRow, statDiff, col2Label, col3Label } = buildComparisonHelpers(range, divisor);
+        const { base, cmpRow, rateRow, statDiff, statDiffWithTone, col2Label, col3Label } = buildComparisonHelpers(range, divisor);
 
         const curFilter = dateFilter("date", start, end);
         const prevFilter = isGeneral ? {} : dateFilter("date", compareStart, compareEnd);
@@ -689,7 +706,7 @@ reportsController.getDoctorsReport = async (req, res) => {
             stats: [
                 { label: "Doctores activos", value: String(activeDoctors), diff: null },
                 { label: "Citas atendidas", value: String(completedCur), diff: statDiff(completedCur, completedPrev) },
-                { label: "Citas canceladas", value: String(cancelledCur), diff: statDiff(cancelledCur, cancelledPrev) },
+                { label: "Citas canceladas", value: String(cancelledCur), ...statDiffWithTone(cancelledCur, cancelledPrev, "mala") },
                 { label: "Promedio por doctor", value: promedioPorDoctor, diff: null },
             ],
             dailySeries: completedSeries,

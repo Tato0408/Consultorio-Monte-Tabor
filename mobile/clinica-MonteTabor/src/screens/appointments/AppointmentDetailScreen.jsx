@@ -21,7 +21,8 @@ import { formatTime12h } from "../../utils/date";
 import styles from "../../styles/appointments/appointmentDetailStyle";
 
 const STATUS = {
-  pending: { label: "Pendiente de asignación", color: "#A16207", bg: "#FFF7D6" },
+  // Mismo texto que AppointmentsScreen.jsx (el listado) para el mismo estado.
+  pending: { label: "Pendiente", color: "#A16207", bg: "#FFF7D6" },
   scheduled: { label: "Programada", color: "#245CE0", bg: "#E8EFFF" },
   needs_reschedule: { label: "Por reagendar", color: "#C2410C", bg: "#FFEDD5" },
   expired: { label: "Por reagendar", color: "#C2410C", bg: "#FFEDD5" },
@@ -34,7 +35,7 @@ const RESCHEDULE_REASON_TEXT = {
   cupo_asignado: "El horario que solicitaste se le asignó a otro paciente. Elige una nueva fecha y hora.",
 };
 
-const longDate = (value) => new Date(value).toLocaleDateString("es-GT", {
+const longDate = (value) => new Date(value).toLocaleDateString("es-SV", {
   weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
 });
 

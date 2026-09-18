@@ -185,6 +185,15 @@ export const AuthProvider = ({ children }) => {
             // la cuenta existe pero fue desactivada por un administrador.
             if (error.status === 403) {
                 toast.error("Cuenta desactivada. Si considera que es un error, comuníquese con el administrador.");
+            } else if (error.message === "Usuario bloqueado") {
+                // Bloqueo de 5 intentos fallidos (15 min, ver loginController.js).
+                // A diferencia de "usuario no encontrado" vs "contraseña
+                // incorrecta" (que sí se ocultan detrás del mensaje genérico de
+                // abajo para no ayudar a adivinar cuál de las dos falló), decirle
+                // al usuario que su cuenta está bloqueada no revela nada que un
+                // atacante no supiera ya. Antes esto cambiaba de vuelta al genérico
+                // y el usuario no se enteraba de que debía esperar.
+                toast.error("Cuenta bloqueada temporalmente por varios intentos fallidos. Espera 15 minutos e inténtalo de nuevo.");
             } else {
                 // Muestra siempre el mismo mensaje genérico y amigable en vez
                 // del texto crudo que envía el backend (error.message), sin

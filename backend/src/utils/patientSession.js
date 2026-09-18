@@ -26,10 +26,18 @@ export const setPatientSessionCookie = (res, token) => {
 };
 
 // Renueva la ventana de 2 h si el token del paciente ya tiene rato. decoded.iat viene en
-// segundos (estándar JWT). No hace nada para tokens de staff.
+// segundos (estándar JWT). No hace nada para tokens de staff. Devuelve el token nuevo (o
+// null si no renovó), además de dejarlo en la cookie: la web lo aprovecha solo con la
+// cookie porque el navegador la reenvía sola, pero la app móvil no tiene cookie jar (usa
+// Authorization: Bearer guardado en SecureStore) y nunca leía ni actualizaba ese token
+// tras el login inicial — sin el valor de vuelta en algún lado que el móvil pueda leer,
+// su sesión expiraba siempre a las 2h exactas del login sin importar qué tan activo
+// estuviera usando la app, mientras la web se mantenía indefinidamente con uso continuo.
 export const renewPatientSessionIfStale = (res, decoded) => {
-    if (decoded?.userType !== "patient" || !decoded.iat || !decoded.id) return;
+    if (decoded?.userType !== "patient" || !decoded.iat || !decoded.id) return null;
     const ageMs = Date.now() - decoded.iat * 1000;
-    if (ageMs < RENEW_AFTER_MS) return;
-    setPatientSessionCookie(res, signPatientSessionToken(decoded.id));
+    if (ageMs < RENEW_AFTER_MS) return null;
+    const newToken = signPatientSessionToken(decoded.id);
+    setPatientSessionCookie(res, newToken);
+    return newToken;
 };

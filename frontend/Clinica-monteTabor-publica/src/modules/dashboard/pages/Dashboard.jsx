@@ -25,8 +25,13 @@ const fmt12 = (t) => {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 };
 
+// El backend guarda "date" como medianoche UTC del día real (no le mete
+// zona horaria), así que hay que leerla con timeZone:"UTC"/getters UTC o
+// el día se corre uno atrás en cualquier huso detrás de UTC (todo
+// Latinoamérica, incluido El Salvador). Mismo criterio que ya usa
+// inicioDeCita en MyAppointments.jsx para el cálculo de reagendar.
 const fmtFechaCorta = (iso) =>
-  new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "short", year: "numeric" });
+  new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -36,9 +41,9 @@ const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "s
 const partesFecha = (iso) => {
   const d = new Date(iso);
   return {
-    diaSemana: DIAS_SEMANA[d.getDay()],
-    diaNumero: d.getDate(),
-    mesAnio: `${MESES_CORTOS[d.getMonth()]} ${d.getFullYear()}`,
+    diaSemana: DIAS_SEMANA[d.getUTCDay()],
+    diaNumero: d.getUTCDate(),
+    mesAnio: `${MESES_CORTOS[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
   };
 };
 

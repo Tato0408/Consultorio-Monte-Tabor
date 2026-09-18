@@ -321,10 +321,15 @@ inventoryController.adjustStock = async (req, res) => {
     if (!item) return res.status(404).json({ message: "Insumo no encontrado" });
 
     const qty = Number(quantity);
+    // Con "disminuir", si se pide más de lo que hay, solo se puede descontar lo
+    // que existe: el stock nunca debe quedar negativo. La bitácora antes
+    // igual registraba la cantidad PEDIDA (qty), no la aplicada, dejando un
+    // movimiento que no correspondía a ningún cambio real de stock.
+    const appliedQty = adjustType === "aumentar" ? qty : Math.min(qty, item.stock);
     if (adjustType === "aumentar") {
-      item.stock += qty;
+      item.stock += appliedQty;
     } else {
-      item.stock = Math.max(0, item.stock - qty);
+      item.stock -= appliedQty;
     }
 
     await item.save();
@@ -334,13 +339,20 @@ inventoryController.adjustStock = async (req, res) => {
       type:     "Inventory adjustment",
       item:     item._id,
       itemName: item.name,
-      quantity: adjustType === "aumentar" ? qty : -qty,
+      quantity: adjustType === "aumentar" ? appliedQty : -appliedQty,
       detail:   reason,
       user:     responsible,
       patient:  notes || null,
     }).save();
 
-    return res.status(200).json({ message: "Ajuste realizado", item });
+    const capped = adjustType !== "aumentar" && appliedQty < qty;
+    return res.status(200).json({
+      message: capped
+        ? `Ajuste realizado. Solo había ${appliedQty} en stock: se descontó esa cantidad, no las ${qty} solicitadas.`
+        : "Ajuste realizado",
+      item,
+      capped,
+    });
   } catch (error) {
     return res.status(500).json({ message: "Error al realizar ajuste", error: error.message });
   }
@@ -418,11 +430,20 @@ inventoryController.manualUsage = async (req, res) => {
     const quantityError = (items || []).map((entry) => getNonNegativeError(entry.quantity, "La cantidad")).find(Boolean);
     if (quantityError) return res.status(400).json({ message: quantityError });
 
+    const cappedItems = [];
     for (const entry of items) {
       const item = await inventoryModel.findById(entry.insumoId);
       if (!item) continue;
 
-      item.stock     = Math.max(0, item.stock - Number(entry.quantity));
+      // Si se pide más de lo que hay, solo se puede descontar lo que existe.
+      // Antes la bitácora igual registraba la cantidad PEDIDA, no la
+      // aplicada: con 3 en stock y un uso de 10, el stock quedaba en 0 pero
+      // el historial decía "-10 uds", una cantidad que nunca existió.
+      const requested = Number(entry.quantity);
+      const applied = Math.min(requested, item.stock);
+      if (applied < requested) cappedItems.push({ name: item.name, requested, applied });
+
+      item.stock     = item.stock - applied;
       item.last_used = new Date();
       await item.save();
       await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
@@ -431,14 +452,17 @@ inventoryController.manualUsage = async (req, res) => {
         type:     "Manual use",
         item:     item._id,
         itemName: item.name,
-        quantity: -Number(entry.quantity),
+        quantity: -applied,
         detail:   reason,
         user:     responsible,
         patient:  patient || null,
       }).save();
     }
 
-    return res.status(200).json({ message: "Uso manual registrado" });
+    const message = cappedItems.length
+      ? `Uso manual registrado. Stock insuficiente para ${cappedItems.map((c) => `${c.name} (se descontaron ${c.applied} de ${c.requested} pedidas)`).join(", ")}.`
+      : "Uso manual registrado";
+    return res.status(200).json({ message, capped: cappedItems.length > 0 });
   } catch (error) {
     return res.status(500).json({ message: "Error al registrar uso manual", error: error.message });
   }
@@ -453,11 +477,19 @@ inventoryController.discountFromProcedure = async (req, res) => {
     const quantityError = (items || []).map((entry) => getNonNegativeError(entry.quantity, "La cantidad")).find(Boolean);
     if (quantityError) return res.status(400).json({ message: quantityError });
 
+    const cappedItems = [];
     for (const entry of items) {
       const item = await inventoryModel.findById(entry.insumoId);
       if (!item) continue;
 
-      item.stock     = Math.max(0, item.stock - Number(entry.quantity));
+      // Mismo criterio que manualUsage: si se pide más de lo que hay, solo se
+      // descuenta lo que existe, y la bitácora debe reflejar esa cantidad
+      // real, no la pedida.
+      const requested = Number(entry.quantity);
+      const applied = Math.min(requested, item.stock);
+      if (applied < requested) cappedItems.push({ name: item.name, requested, applied });
+
+      item.stock     = item.stock - applied;
       item.last_used = new Date();
       await item.save();
       await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
@@ -466,14 +498,17 @@ inventoryController.discountFromProcedure = async (req, res) => {
         type:     "Treatment use",
         item:     item._id,
         itemName: item.name,
-        quantity: -Number(entry.quantity),
+        quantity: -applied,
         detail:   `Procedimiento: ${procedureType}`,
         user:     responsible,
         patient:  patientName || null,
       }).save();
     }
 
-    return res.status(200).json({ message: "Inventario descontado del procedimiento" });
+    const message = cappedItems.length
+      ? `Inventario descontado. Stock insuficiente para ${cappedItems.map((c) => `${c.name} (se descontaron ${c.applied} de ${c.requested} pedidas)`).join(", ")}.`
+      : "Inventario descontado del procedimiento";
+    return res.status(200).json({ message, capped: cappedItems.length > 0 });
   } catch (error) {
     return res.status(500).json({ message: "Error al descontar inventario", error: error.message });
   }
@@ -497,7 +532,16 @@ inventoryController.discountMaterialsForProcedure = async ({ materials, patientN
     const item = await inventoryModel.findById(material.insumo);
     if (!item) continue;
 
-    item.stock = Math.max(0, item.stock - quantity);
+    // Si se pide más de lo que hay, solo se descuenta lo que existe. La
+    // bitácora debe registrar esa cantidad real, no la pedida por el
+    // catálogo del procedimiento (antes quedaba, por ejemplo, "-10 uds" con
+    // solo 3 en stock, una cantidad que nunca existió).
+    const applied = Math.min(quantity, item.stock);
+    if (applied < quantity) {
+      console.log(`Inventario insuficiente para "${item.name}": se pidieron ${quantity}, solo había ${item.stock}.`);
+    }
+
+    item.stock = item.stock - applied;
     item.last_used = new Date();
     await item.save();
     notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
@@ -506,7 +550,7 @@ inventoryController.discountMaterialsForProcedure = async ({ materials, patientN
       type: "Treatment use",
       item: item._id,
       itemName: item.name,
-      quantity: -quantity,
+      quantity: -applied,
       detail: `Procedimiento: ${procedureType || "Procedimiento"}`,
       user: responsible || "Sistema",
       patient: patientName || null,
@@ -556,7 +600,16 @@ inventoryController.applyMaterialUsageDelta = async ({
     const item = await inventoryModel.findById(inventoryId).session(session);
     if (!item) continue;
 
-    item.stock = Math.max(0, item.stock - delta);
+    // Solo el sentido "se usó más material" (delta > 0) puede toparse con el
+    // stock disponible; el sentido contrario (se redujo el material usado)
+    // repone y nunca necesita recortarse. Antes la bitácora registraba
+    // siempre el delta PEDIDO, no el aplicado.
+    const appliedDelta = delta > 0 ? Math.min(delta, item.stock) : delta;
+    if (appliedDelta !== delta) {
+      console.log(`Inventario insuficiente para "${item.name}": se pidieron ${delta}, solo había ${item.stock}.`);
+    }
+
+    item.stock = item.stock - appliedDelta;
     if (delta > 0) item.last_used = new Date();
     await item.save({ session });
 
@@ -564,7 +617,7 @@ inventoryController.applyMaterialUsageDelta = async ({
       type:     delta > 0 ? "Treatment use" : "Inventory adjustment",
       item:     item._id,
       itemName: item.name,
-      quantity: -delta,
+      quantity: -appliedDelta,
       detail:   delta > 0
         ? `Procedimiento: ${procedureType || "Consulta médica"}`
         : `Ajuste por edición de consulta (se redujo el material usado): ${procedureType || "Consulta médica"}`,

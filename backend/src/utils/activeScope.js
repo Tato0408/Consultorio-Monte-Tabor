@@ -52,13 +52,25 @@ export const buildActivePartiesAppointmentFilter = async () => {
 export const assertActiveParties = async ({ patientId, doctorId } = {}) => {
   if (patientId) {
     const patient = await patientsModel.findById(patientId).select("is_active").lean();
-    if (patient && patient.is_active === false) {
+    // Antes, un patient_id que no correspondía a ningún paciente (borrado,
+    // mal enviado desde un cliente que no pasa por el formulario) pasaba
+    // esta validación sin error: patient quedaba null y la condición de
+    // abajo solo miraba is_active, nunca si el documento existía. Eso dejaba
+    // crear una cita o consulta sin paciente real (la vista la mostraba
+    // luego con todos los campos de paciente vacíos).
+    if (!patient) {
+      return "El paciente seleccionado no existe.";
+    }
+    if (patient.is_active === false) {
       return "El paciente está inactivo. Reactívalo para poder asignarlo o registrar información suya.";
     }
   }
   if (doctorId) {
     const doctor = await doctorsModel.findById(doctorId).select("is_active").lean();
-    if (doctor && doctor.is_active === false) {
+    if (!doctor) {
+      return "El doctor seleccionado no existe.";
+    }
+    if (doctor.is_active === false) {
       return "El doctor está inactivo. Reactívalo para poder asignarle citas o consultas.";
     }
   }

@@ -2,7 +2,9 @@ import { Users, UserCheck, UserX, UserPlus } from "lucide-react";
 
 const PatientStatCards = ({ patients, loading }) => {
   const total = patients.length;
-  const active = patients.filter((p) => p.is_active).length;
+  // is_active === undefined cuenta como activo en el resto del sistema
+  // (default:true del schema), no como inactivo.
+  const active = patients.filter((p) => p.is_active !== false).length;
   const inactive = total - active;
 
   const now = new Date();

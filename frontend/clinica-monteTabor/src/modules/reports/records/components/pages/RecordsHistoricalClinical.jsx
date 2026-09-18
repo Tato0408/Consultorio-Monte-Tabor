@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2, CheckCircle2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus } from "lucide-react";
 import { Badge, SectionCard } from "../global/ui";
 import AntecedentFormModal from "../global/AntecedentFormModal";
 import TextFieldModal from "../global/TextFieldModal";
@@ -87,20 +87,11 @@ function AntecedentesTable({ headers, rows, onEdit, onDelete, canUpdate, canDele
   );
 }
 
-// Tarjeta de un signo vital, con variantes normal, blue y green.
-function VitalMini({ label, value, unit, variant }) {
-  if (variant === "green") {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-xl bg-emerald-400 p-4 text-center text-white">
-        <p className="text-[9px] font-semibold uppercase tracking-wide opacity-90">{label}</p>
-        <p className="mt-1 text-lg font-bold">{value ?? "—"}</p>
-        <CheckCircle2 className="mt-1 h-4 w-4" />
-      </div>
-    );
-  }
-  const tint = variant === "blue" ? "border-blue-200 bg-blue-50/40" : "border-slate-100 bg-white";
+// Tarjeta de un signo vital. Las seis usan el mismo estilo neutro para que
+// la cuadrícula se vea uniforme, ninguna resaltada sobre las demás.
+function VitalMini({ label, value, unit }) {
   return (
-    <div className={`flex flex-col items-center justify-center rounded-xl border ${tint} p-4 text-center`}>
+    <div className="flex flex-col items-center justify-center rounded-xl border border-blue-200 bg-blue-50/40 p-4 text-center">
       <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
       <p className="mt-1 text-xl font-bold text-slate-800">{value ?? "—"}</p>
       {unit && <p className="text-[10px] text-slate-400">{unit}</p>}
@@ -217,8 +208,8 @@ export default function HistoriaClinicaTab({ patient = {}, onSaved }) {
             <VitalMini label="Glucosa" value={v.glucosa} unit="mg/dL" />
             <VitalMini label="Peso" value={v.peso} unit="kg" />
             <VitalMini label="Altura" value={v.altura} unit="m" />
-            <VitalMini label="IMC" value={v.imc} unit={v.imcCategoria?.toLowerCase()} variant="blue" />
-            <VitalMini label="Estado general" value={v.estadoGeneral} variant="green" />
+            <VitalMini label="IMC" value={v.imc} unit={v.imcCategoria?.toLowerCase()} />
+            <VitalMini label="Temperatura" value={v.temperatura} unit="°C" />
           </div>
         </SectionCard>
 

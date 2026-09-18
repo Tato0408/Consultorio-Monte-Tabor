@@ -630,7 +630,7 @@ doctorController.updateOwnProfile = async (req, res) => {
       return res.status(404).json({ message: "Perfil del doctor no encontrado" });
     }
 
-    const { name, last_name, dui, birth_date, phone, email, password } = req.body;
+    const { name, last_name, dui, birth_date, phone, email, password, current_password } = req.body;
 
     const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
     if (formatError) {
@@ -642,6 +642,16 @@ doctorController.updateOwnProfile = async (req, res) => {
     // Si viene una nueva contraseña, la validamos y encriptamos (mismo criterio que
     // doctorController.updateDoctors / adminController.updateAdmin)
     if (password && password.trim() !== "") {
+      // Antes no se pedía la contraseña actual: una sesión comprometida
+      // bastaba para tomar la cuenta cambiando la contraseña sin fricción.
+      if (!current_password || !current_password.trim()) {
+        return res.status(400).json({ message: "Debes ingresar tu contraseña actual." });
+      }
+      const currentMatches = await bcryptjs.compare(current_password, doctorFound.password);
+      if (!currentMatches) {
+        return res.status(400).json({ message: "La contraseña actual no es correcta." });
+      }
+
       const passwordError = getPasswordError(password);
       if (passwordError) {
         return res.status(400).json({ message: passwordError });

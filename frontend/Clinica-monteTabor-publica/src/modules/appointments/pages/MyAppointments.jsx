@@ -29,8 +29,10 @@ const fmt12 = (t) => {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 };
 
+// "date" llega como medianoche UTC del día real (mismo criterio que inicioDeCita más
+// abajo): sin timeZone:"UTC" el día se corre uno atrás en El Salvador.
 const fmtFecha = (iso) =>
-  new Date(iso).toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  new Date(iso).toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 const esCancelable = (status) => ["pending", "scheduled"].includes(status);
 

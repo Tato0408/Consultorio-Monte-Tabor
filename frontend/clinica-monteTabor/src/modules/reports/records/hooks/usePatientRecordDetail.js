@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "../../../../lib/apiClient";
 import { formatFecha } from "./useRecords";
+import { formatTime12h } from "@/lib/timeFormat";
 
 // nurse: procedimiento sin doctor (requires_doctor false), la enfermera asignada es quien
 // atendió en su lugar.
@@ -34,11 +35,11 @@ const getLatestByDate = (items = [], dateField) =>
     return latest;
   }, null);
 
-// Arma, a partir de las consultas, las citas pendientes y las
+// Arma, a partir de las consultas, las citas (en cualquier estado) y las
 // incapacidades reales de un paciente, el mismo conjunto de campos que
 // usa el expediente: consultas, recetas, laboratorios, referencias,
 // incapacidades, notasEvolucion e impresionDiagnostica.
-const buildExtra = (consultations, pendingAppointments, sickLeaves, labOrders, patientName) => {
+const buildExtra = (consultations, appointments, sickLeaves, labOrders, patientName) => {
   const atendidas = consultations.map((c, i) => ({
     id: c._id || `c-${i}`,
     // El id de la consulta no sirve para navegar al formulario, que siempre
@@ -47,24 +48,36 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, labOrders, p
     appointmentId: c.appointment_id?._id || c.appointment_id || null,
     _fecha: c.date,
     hora: c.appointment_id?.start_time && c.appointment_id?.end_time
-      ? `${c.appointment_id.start_time} - ${c.appointment_id.end_time}`
-      : c.appointment_id?.start_time || "—",
+      ? `${formatTime12h(c.appointment_id.start_time)} - ${formatTime12h(c.appointment_id.end_time)}`
+      : formatTime12h(c.appointment_id?.start_time) || "—",
     paciente: patientName || "—",
     medico: getDoctorName(c.appointment_id?.doctor_id, c.appointment_id?.nurse_id),
     estado: "atendido",
   }));
 
-  const enEspera = pendingAppointments.map((a, i) => ({
-    id: a._id || `a-${i}`,
-    appointmentId: a._id || null,
-    _fecha: a.date,
-    hora: a.start_time && a.end_time ? `${a.start_time} - ${a.end_time}` : a.start_time || "—",
-    paciente: patientName || "—",
-    medico: getDoctorName(a.doctor_id, a.nurse_id),
-    estado: "en_espera",
-  }));
+  // Citas ya representadas arriba por su consulta real: se excluyen para no
+  // duplicar la fila (una cita "completed" siempre tiene una consulta).
+  const consultedAppointmentIds = new Set(
+    atendidas.map((a) => a.appointmentId && String(a.appointmentId)).filter(Boolean)
+  );
 
-  const consultas = [...atendidas, ...enEspera].sort(
+  // El resto de las citas se muestra con su estado real (pendiente,
+  // programada, cancelada, no presentada, etc.), no todas aplastadas a un
+  // único "en espera" como antes: eso es lo que permite separarlas por tabs
+  // igual que en la tabla de Consultas.
+  const otras = appointments
+    .filter((a) => !consultedAppointmentIds.has(String(a._id)))
+    .map((a) => ({
+      id: a._id,
+      appointmentId: a._id || null,
+      _fecha: a.date,
+      hora: a.start_time && a.end_time ? `${formatTime12h(a.start_time)} - ${formatTime12h(a.end_time)}` : formatTime12h(a.start_time) || "—",
+      paciente: patientName || "—",
+      medico: getDoctorName(a.doctor_id, a.nurse_id),
+      estado: a.status,
+    }));
+
+  const consultas = [...atendidas, ...otras].sort(
     (a, b) => new Date(b._fecha || 0) - new Date(a._fecha || 0)
   );
 
@@ -195,9 +208,6 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, labOrders, p
     laboratorios,
     referencias,
     incapacidades,
-    // La lista de citas pendientes ya viene ordenada ascendente por fecha
-    // desde el backend, así que la primera es la próxima cita del paciente.
-    nextPendingAppointmentId: pendingAppointments[0]?._id || null,
   };
 
   const latestConsultation = getLatestByDate(consultations, "date");
@@ -220,8 +230,8 @@ const buildExtra = (consultations, pendingAppointments, sickLeaves, labOrders, p
     extra.ultimaVisitaOverride = {
       fecha: formatFecha(latestConsultation.date) || "—",
       hora: latestConsultation.appointment_id?.start_time && latestConsultation.appointment_id?.end_time
-        ? `${latestConsultation.appointment_id.start_time} - ${latestConsultation.appointment_id.end_time}`
-        : latestConsultation.appointment_id?.start_time || "—",
+        ? `${formatTime12h(latestConsultation.appointment_id.start_time)} - ${formatTime12h(latestConsultation.appointment_id.end_time)}`
+        : formatTime12h(latestConsultation.appointment_id?.start_time) || "—",
       _fecha: latestConsultation.date,
     };
   }
@@ -249,8 +259,17 @@ const usePatientRecordDetail = (patientId, patientName) => {
 
       const [consultations, appointmentsRes, sickLeaves, labOrders] = await Promise.all([
         apiClient("/consultations", { params: { patient_id: patientId } }),
+        // Todos los estados salvo "completed" (esas ya vienen representadas
+        // arriba por su consulta real, con datos clínicos completos). Sin
+        // esto, la pestaña Consultas del expediente nunca mostraba las citas
+        // canceladas o no presentadas del paciente, aunque sí quedaban
+        // guardadas en la base de datos.
         apiClient("/appointments", {
-          params: { patient_id: patientId, status: "pending,scheduled,confirmed", limit: 50 },
+          params: {
+            patient_id: patientId,
+            status: "pending,scheduled,cancelled,no_show,needs_reschedule,expired",
+            limit: 500,
+          },
         }),
         apiClient("/sick-leaves", { params: { patient_id: patientId } }),
         apiClient("/lab-orders", { params: { patient_id: patientId } }).catch(() => []),

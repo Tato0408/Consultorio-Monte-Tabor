@@ -9,6 +9,7 @@ import { confirmDelete, confirmNoShow, showError, showSuccess } from "@/lib/aler
 import apiClient from "@/lib/apiClient";
 import DataCombobox from "@/components/ui/DataCombobox";
 import { doctorLabel, nurseLabel } from "../lib/personLabels";
+import { formatTime12h as fmt12 } from "@/lib/timeFormat";
 
 
 const HOUR_HEIGHT = 64;
@@ -54,12 +55,6 @@ const timeToMins = (t) => {
     if (!t) return 0;
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
-};
-
-const fmt12 = (t) => {
-    if (!t) return "";
-    const [h, m] = t.split(":").map(Number);
-    return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 };
 
 const getWeekStart = (date) => {
@@ -248,7 +243,7 @@ const ApptCard = ({ appt, col = 0, totalCols = 1, colIdx = 0, isSelected, onSele
                 className={`w-full h-full rounded-md px-1.5 py-0.5 cursor-pointer overflow-hidden text-xs transition-shadow text-slate-800 ${colors.cancelled ? "opacity-60" : ""} ${isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:shadow-sm"}`}
                 style={{ backgroundColor: `${colors.color}1A`, borderLeft: `3px solid ${colors.color}` }}
             >
-                <p className="font-semibold leading-tight truncate">{appt.start_time} – {appt.end_time}</p>
+                <p className="font-semibold leading-tight truncate">{fmt12(appt.start_time)} – {fmt12(appt.end_time)}</p>
                 {heightPx > 28 && <p className="text-[10px] leading-tight truncate">{appt.appointment_type || appt.type}</p>}
                 {heightPx > 44 && (
                     <p className="text-[10px] leading-tight truncate opacity-75">

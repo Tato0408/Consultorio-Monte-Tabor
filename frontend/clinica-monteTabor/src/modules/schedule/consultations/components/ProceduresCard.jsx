@@ -1,7 +1,11 @@
+import { useEffect, useState } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus } from "lucide-react";
 import SectionCard from "./SectionCard";
 import ProcedureRow from "./ProcedureRow";
+import useInventory from "@/modules/inventory/hooks/useInventory";
+import useProcedures from "@/modules/procedures/hooks/useProcedures";
+import apiClient from "@/lib/apiClient";
 
 // Orquesta la lista de procedimientos, cada fila (con su propio
 // manejo de materiales) vive en ProcedureRow.
@@ -12,6 +16,22 @@ const ProceduresCard = ({ readOnly }) => {
         name: "procedure",
     });
 
+    // Antes cada ProcedureRow traía su propio inventario, catálogo de procedimientos y
+    // catálogo de doctores por separado: una consulta con 4 procedimientos disparaba 4
+    // peticiones idénticas a cada endpoint (hasta 1000 insumos cada vez). Se traen una
+    // sola vez acá y se pasan como props a cada fila.
+    const { inventory, isLoading: isLoadingInventory } = useInventory();
+    const { procedures, loading: isLoadingProcedures, getProcedureById } = useProcedures();
+    const [doctors, setDoctors] = useState([]);
+    const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+
+    useEffect(() => {
+        apiClient("/doctors/catalog")
+            .then(setDoctors)
+            .catch(() => setDoctors([]))
+            .finally(() => setIsLoadingDoctors(false));
+    }, []);
+
     return (
         <SectionCard title="Paso 5 - Procedimientos realizados - opcional">
             <div className="space-y-4 mb-3">
@@ -21,6 +41,13 @@ const ProceduresCard = ({ readOnly }) => {
                         index={index}
                         onRemove={() => remove(index)}
                         readOnly={readOnly}
+                        inventory={inventory}
+                        isLoadingInventory={isLoadingInventory}
+                        procedures={procedures}
+                        isLoadingProcedures={isLoadingProcedures}
+                        getProcedureById={getProcedureById}
+                        doctors={doctors}
+                        isLoadingDoctors={isLoadingDoctors}
                     />
                 ))}
 
@@ -43,8 +70,9 @@ const ProceduresCard = ({ readOnly }) => {
                 </button>
             )}
 
-            {rows.length > 0 && (
-                <div className="mt-4 pt-3 border-t border-slate-100 max-w-xs">
+            {/* No depende de rows.length: un médico que abre un plan de tratamiento sin
+                procedimientos también debe poder fijar la próxima fecha de control. */}
+            <div className="mt-4 pt-3 border-t border-slate-100 max-w-xs">
                     <label className="text-xs text-slate-500 block mb-1">
                         Fecha del próximo control
                     </label>
@@ -68,7 +96,6 @@ const ProceduresCard = ({ readOnly }) => {
                         Si se define, el paciente queda en seguimiento hasta esa fecha.
                     </p>
                 </div>
-            )}
         </SectionCard>
     );
 };

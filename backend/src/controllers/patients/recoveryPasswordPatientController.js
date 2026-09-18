@@ -7,6 +7,7 @@ import { sendEmail } from "../../utils/sendMailMailjet.js";
 import HTMLRecoveryEmail from "../../utils/HTMLsendRecoveryPassword.js";
 
 import { config } from "../../../config.js";
+import { getPasswordError } from "../../utils/validators.js";
 
 import patientModel from "../../models/patients/patients.js";
 
@@ -48,7 +49,7 @@ recoveryPasswordController.requestCode = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: 15 * 60 * 1000
     });
 
     const htmlContent = HTMLRecoveryEmail(randomCode);
@@ -91,7 +92,7 @@ recoveryPasswordController.verifyCode = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: 15 * 60 * 1000
     });
 
     return res.status(200).json({ message: "Código verificado correctamente", recoveryToken: newToken });
@@ -113,6 +114,13 @@ recoveryPasswordController.newPassword = async (req, res) => {
 
     if (newPassword !== confirmNewPassword) {
       return res.status(400).json({ message: "Las contraseñas no coinciden" });
+    }
+
+    // Antes este paso no exigía la misma complejidad que el registro: se podía
+    // recuperar una cuenta y dejarla con una contraseña de un solo carácter.
+    const passwordError = getPasswordError(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     // Verifica que el token tenga verified en true, es decir, que ya
@@ -179,7 +187,7 @@ recoveryPasswordController.resendCode = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: 15 * 60 * 1000
     });
 
     const htmlContent = HTMLRecoveryEmail(randomCode);

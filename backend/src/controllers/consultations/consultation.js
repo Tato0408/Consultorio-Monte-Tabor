@@ -9,13 +9,40 @@ import inventoryController from "../inventory/inventoryController.js";
 import { getVitalSignsError, getRequiredConsultationFieldsError } from "../../utils/validators.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import { assertActiveParties, isPatientInactive } from "../../utils/activeScope.js";
+import { getModulePermission } from "../../services/roleCache.js";
 import { refreshNurseNotePendingNotification } from "../../services/notificationService.js";
-import {
-  sync_treatment_from_consultation,
-  detach_treatment_from_consultation,
-} from "../../services/treatmentSync.js";
+import { sync_treatment_from_consultation } from "../../services/treatmentSync.js";
 import { resolve_actor } from "../../utils/resolveActor.js";
+import { cascadeDeleteConsultation, deleteAppointmentCascade } from "../../services/consultationCascade.js";
 const consultationController = {};
+
+// follow_up_date (Procedimientos) y prescription.next_appointment_suggested (Receta)
+// alimentan el mismo treatment.next_control_date (ver sync_treatment_from_consultation
+// más abajo, en createConsultation y updateConsultation). El frontend ya valida ambos
+// campos, pero ninguno se revalidaba en el backend: una fecha pasada se guardaba sin
+// aviso y generaba una alerta de "control vencido" incorrecta desde el momento mismo de
+// guardarse.
+const getNextControlDateError = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "La fecha de próximo control no es válida.";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (parsed < today) return "La fecha de próximo control no puede ser anterior a hoy.";
+  return null;
+};
+
+// Igual que la tarjeta "Plan de tratamiento" del formulario (oculta sin
+// permiso de Ingreso en Tratamientos), el backend tampoco confía solo en lo
+// que mande el cliente: sin ese permiso, un intento de abrir un plan nuevo
+// se ignora en silencio, como si nunca se hubiera marcado la casilla.
+// Registrar la evolución en un tratamiento ya abierto (treatment_plan.link)
+// no depende de esto, esa parte sigue con la validación normal.
+const sanitizeTreatmentPlanForActor = (treatment_plan, req) => {
+  if (!treatment_plan?.create) return treatment_plan;
+  const canCreateTreatment = !!getModulePermission(req.user?.role, "inventory.treatments")?.create;
+  return canCreateTreatment ? treatment_plan : { ...treatment_plan, create: false };
+};
 
 // Refresca la notificación de notas de enfermería pendientes cuando la cita
 // de una consulta exige nota: tiene enfermera asignada y su procedimiento
@@ -91,6 +118,20 @@ const sanitizeProcedureRows = (procedure) =>
     material_used: (Array.isArray(p?.material_used) ? p.material_used : [])
       .filter((m) => m?.inventory_id && Number(m.quantity) > 0),
   }));
+
+// La receta y la orden de laboratorio siempre guardan su propia fecha de
+// emisión sin depender de que el doctor la escriba (issued_at: new Date(),
+// ver insertConsultation/buildLabOrderLink). La referencia en cambio expone
+// "Fecha de referencia" como un input de fecha suelto, opcional, dentro de
+// una tarjeta ya marcada "opcional": el doctor puede llenar el motivo y
+// olvidar la fecha, y la referencia se guarda sin ninguna (lo que el
+// paciente ve luego en su portal). Si hay motivo (o sea, la referencia
+// realmente se está usando) pero no fecha, se completa sola con la fecha
+// de la consulta, igual que los otros tres tipos de documento.
+const normalizeReferral = (referral, consultationDate) => {
+  if (!referral?.reason || referral.referred_date) return referral;
+  return { ...referral, referred_date: consultationDate };
+};
 
 // Arma el update ($set + $push) de Patients.clinical_history a partir de lo que el doctor cargó
 // en esta consulta. hereditary/pathological/antecedentes de texto se REEMPLAZAN por completo: el
@@ -286,6 +327,13 @@ consultationController.insertConsultation = async (req, res) => {
       return res.status(400).json({ message: requiredFieldsError });
     }
 
+    const nextControlError = getNextControlDateError(prescription?.next_appointment_suggested || follow_up_date);
+    if (nextControlError) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: nextControlError });
+    }
+
     // No se registra una consulta de un paciente inactivo ni de una cita
     // asignada a un doctor inactivo: esa consulta no seria visible despues.
     const consultationAppointment = appointment_id
@@ -316,6 +364,12 @@ consultationController.insertConsultation = async (req, res) => {
     }
 
     const sanitizedProcedure = sanitizeProcedureRows(procedure);
+    // La consulta nunca traía su propio "date" (el campo quedaba undefined
+    // para siempre; todo lo que lo usaba como fuente terminaba cayendo en el
+    // "|| new Date()" de respaldo). Se fija aquí, al momento real de
+    // guardarla, para que sea una fecha real y no un campo fantasma —de
+    // paso, es la fecha de referencia que usa normalizeReferral más abajo.
+    const consultationDate = new Date();
 
     const newConsultation = new consultationsModel({
       appointment_id,
@@ -324,7 +378,8 @@ consultationController.insertConsultation = async (req, res) => {
       physical_exam,
       procedure: sanitizedProcedure,
       follow_up_date,
-      referral,
+      referral: normalizeReferral(referral, consultationDate),
+      date: consultationDate,
     });
 
     //Guardamos de manera temporal la consulta en el session
@@ -403,7 +458,7 @@ consultationController.insertConsultation = async (req, res) => {
       consultation_id: savedConsultation._id,
       patient_id,
       clinical_data,
-      treatment_plan,
+      treatment_plan: sanitizeTreatmentPlanForActor(treatment_plan, req),
       next_control: prescription?.next_appointment_suggested || follow_up_date || null,
       actor: await resolve_actor(req),
       session,
@@ -452,32 +507,38 @@ consultationController.deleteConsultation = async (req, res) => {
       return res.status(404).json({ message: "Consulta no encontrada" });
     }
 
-    // Si esta consulta había empujado algún procedimiento al expediente del paciente (ver
-    // syncProcedureHistory), se limpia también si no, queda un "tratamiento fantasma" en
-    // Tratamientos (/inventory/treatments) apuntando a una consulta que ya no existe.
-    if (consultationDeleted.patient_id) {
-      await patientsModel.updateOne(
-        { _id: consultationDeleted.patient_id },
-        { $pull: { "clinical_history.procedures": { consultation_id: consultationDeleted._id } } }
-      );
-    }
-
-    // La orden de laboratorio pertenece a esta consulta: si la consulta se
-    // borra, la orden también (si no, queda una orden huérfana visible en el
-    // expediente y el portal).
-    const labOrderOr = [{ consultation_id: consultationDeleted._id }];
-    if (consultationDeleted.appointment_id) {
-      labOrderOr.push({ appointment_id: consultationDeleted.appointment_id });
-    }
-    await labOrdersModel.deleteOne({ $or: labOrderOr });
-
-    // Si esta consulta originó un plan de tratamiento, el plan no se borra:
-    // se desvincula y queda una nota del sistema en su línea de tiempo.
-    await detach_treatment_from_consultation(consultationDeleted._id);
+    await cascadeDeleteConsultation(consultationDeleted);
 
     return res.status(200).json({ message: "Consulta eliminada" });
   } catch (error) {
     console.log("error" + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// DELETE /consultations/by-appointment/:appointmentId — usado por la tabla
+// de Consultas (AppointmentTable.jsx), que solo conoce el id de la cita, no
+// el de la consulta. deleteAppointmentCascade resuelve los dos casos: si la
+// cita ya tiene una consulta registrada, la borra con toda su cascada
+// (incluida la cita); si no la tiene (una cita "completed" cuyo registro
+// clínico nunca se guardó, o una cancelada/no presentada que nunca llegó a
+// tener una), borra la cita directamente para que no quede fantasma en la
+// tabla.
+consultationController.deleteConsultationByAppointment = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      return res.status(400).json({ message: "El ID de la cita provisto no es válido." });
+    }
+
+    const appointment = await deleteAppointmentCascade(appointmentId);
+    if (!appointment) {
+      return res.status(404).json({ message: "Cita no encontrada" });
+    }
+
+    return res.status(200).json({ message: "Consulta eliminada" });
+  } catch (error) {
+    console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
@@ -510,6 +571,13 @@ consultationController.updateConsultation = async (req, res) => {
       return res.status(400).json({ message: requiredFieldsError });
     }
 
+    const nextControlError = getNextControlDateError(prescription?.next_appointment_suggested || follow_up_date);
+    if (nextControlError) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: nextControlError });
+    }
+
     // No se edita una consulta de un paciente inactivo ni de una cita
     // asignada a un doctor inactivo.
     const consultationAppointment = appointment_id
@@ -539,7 +607,7 @@ consultationController.updateConsultation = async (req, res) => {
     // de material_used (ver applyMaterialUsageDelta) y no el total de nuevo en cada edición.
     const previousConsultation = await consultationsModel
       .findById(req.params.id)
-      .select("procedure")
+      .select("procedure date")
       .session(session)
       .lean();
 
@@ -554,7 +622,7 @@ consultationController.updateConsultation = async (req, res) => {
         physical_exam,
         procedure: sanitizedProcedure,
         follow_up_date,
-        referral,
+        referral: normalizeReferral(referral, previousConsultation?.date || new Date()),
       },
       {
         new: true,
@@ -638,7 +706,7 @@ consultationController.updateConsultation = async (req, res) => {
       consultation_id: consultationUpdated._id,
       patient_id,
       clinical_data,
-      treatment_plan,
+      treatment_plan: sanitizeTreatmentPlanForActor(treatment_plan, req),
       next_control: prescription?.next_appointment_suggested || follow_up_date || null,
       actor: await resolve_actor(req),
       session,
@@ -772,13 +840,18 @@ consultationController.updateReferral = async (req, res) => {
       respiratory_rate,
     } = req.body;
 
+    // Mismo respaldo que insertConsultation/updateConsultation: con motivo
+    // pero sin fecha (el modal de edición también la deja opcional), se
+    // completa sola en vez de guardar la referencia sin fecha.
+    const resolvedReferredDate = !referred_date && reason ? new Date() : referred_date;
+
     const consultation = await consultationsModel.findByIdAndUpdate(
       req.params.id,
       {
         $set: {
           "referral.reason": reason,
           "referral.referred_to": referred_to,
-          "referral.referred_date": referred_date,
+          "referral.referred_date": resolvedReferredDate,
           "referral.status": status,
           "referral.referred_doctor_address": referred_doctor_address,
           "referral.referred_doctor_phone": referred_doctor_phone,

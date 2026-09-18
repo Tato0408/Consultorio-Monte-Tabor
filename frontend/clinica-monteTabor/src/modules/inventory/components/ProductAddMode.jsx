@@ -12,6 +12,14 @@ const EMPTY = {
   supplier: "", expiration_date: "", price: "",
 };
 
+// Campos opcionales de texto/fecha donde "" es un valor real (vaciar el
+// campo), a diferencia de los numéricos (stock, min_stock, price), donde un
+// "" vacío nunca debe llegar al backend (Number("") revienta el cast de
+// Mongoose). El backend ya soporta vaciar expiration_date (ver
+// inventoryController.update), pero esa rama era código muerto porque el
+// filtro de abajo nunca dejaba pasar un "" para editar.
+const CLEARABLE_FIELDS = ["description", "supplier", "expiration_date"];
+
 const SelectField = ({ label, required, value, onChange, options, placeholder, error }) => (
   <div className="flex flex-col gap-1">
     <label className="text-xs font-medium text-gray-600">
@@ -82,7 +90,7 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
     setLoading(true);
     try {
       const payload = Object.fromEntries(
-        Object.entries(form).filter(([, v]) => v !== "")
+        Object.entries(form).filter(([k, v]) => v !== "" || (isEdit && CLEARABLE_FIELDS.includes(k)))
       );
       isEdit ? await updateInsumo(item._id, payload) : await createInsumo(payload);
       onSuccess?.();

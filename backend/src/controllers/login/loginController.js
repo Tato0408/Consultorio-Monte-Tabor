@@ -53,8 +53,11 @@ loginController.loginCommonRole = async (req, res) => {
 
     // Si no se encontró el correo en ninguna de las colecciones, se
     // rechaza la petición.
+    // Mismo mensaje genérico que una contraseña incorrecta (más abajo): un mensaje
+    // específico de "usuario no encontrado" permite enumerar por API directa qué
+    // correos existen en el sistema, aunque la interfaz ya oculte la diferencia.
     if (matchIndex === -1) {
-      return res.status(400).json({ message: "Usuario no encontrado" });
+      return res.status(400).json({ message: "Correo o contraseña incorrectos." });
     }
 
     // Obtiene el rol (doctor, nurse, admin o receptionist) a partir de
@@ -95,7 +98,7 @@ loginController.loginCommonRole = async (req, res) => {
       // Si falló pero el contador aún no llega a 5, solo se guarda el
       // contador de intentos.
       await userFound.save();
-      return res.status(400).json({ message: "Contraseña incorrecta" });
+      return res.status(400).json({ message: "Correo o contraseña incorrectos." });
     }
 
     // 6. Login correcto: reinicia los intentos fallidos y el bloqueo.

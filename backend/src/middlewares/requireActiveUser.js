@@ -26,7 +26,11 @@ export const requireActiveUser = async (req, res, next) => {
     if (!Model) return next();
 
     const account = await Model.findById(req.user.id).select("is_active").lean();
-    if (account && account.is_active === false) {
+    // account === null significa que la cuenta fue eliminada por completo, no solo
+    // desactivada. Antes solo se revisaba is_active === false, así que un usuario
+    // borrado del sistema seguía autenticado con su token vigente (hasta 30 días en
+    // staff) hasta que expirara por su cuenta.
+    if (!account || account.is_active === false) {
       return res.status(401).json({
         message: "Su cuenta ha sido desactivada. Si cree que esto es un error, comuníquese con el administrador.",
       });

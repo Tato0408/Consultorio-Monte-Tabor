@@ -26,6 +26,10 @@ const Chips = ({ label, values }) => (
 const BloodTypeSection = ({ patient, onSaved }) => {
   const actual = patient?.clinical_history?.blood_type || "";
   const registrado = fmtFecha(patient?.clinical_history?.blood_type_date);
+  // true solo cuando lo confirmó personal clínico en una consulta (ver
+  // BloodTypeCard.jsx en el panel privado). Guardarlo desde aquí siempre lo
+  // deja en false: es un dato autoreportado, no confirmado por laboratorio.
+  const verificado = !!patient?.clinical_history?.blood_type_verified;
 
   const [modo, setModo] = useState(actual ? "detalle" : "form");
   const [seleccion, setSeleccion] = useState(actual);
@@ -127,6 +131,11 @@ const BloodTypeSection = ({ patient, onSaved }) => {
         </div>
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mt-3">Tu tipo de sangre</p>
         <p className="text-4xl font-extrabold text-red-600 mt-1">{actual}</p>
+        <span className={`inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-semibold ${
+          verificado ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+        }`}>
+          {verificado ? "Confirmado por personal clínico" : "Autoreportado, sin confirmar"}
+        </span>
       </div>
 
       <div className="bg-white border border-gray-100 rounded-2xl p-6 mb-4">

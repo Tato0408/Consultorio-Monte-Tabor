@@ -110,7 +110,14 @@ export default function ConsultationDetailScreen({ navigation, route }) {
   const triage = clinicalData.triage || {};
   const hasVitals = VITALS.some((v) => triage[v.key] !== undefined && triage[v.key] !== null && triage[v.key] !== "");
 
-  const physicalExam = consultation.physical_exam || {};
+  // El panel privado (PhysicalExamCard.jsx) guarda este campo bajo la clave
+  // mal escrita "neorulogical". Los otros 7 lugares que lo leen (PDFs y
+  // expediente web) ya hacen este mismo respaldo; sin él, la fila
+  // "Neurológico" nunca aparecía aquí aunque el doctor sí lo hubiera escrito.
+  const physicalExam = { ...(consultation.physical_exam || {}) };
+  if (!physicalExam.neurological && physicalExam.neorulogical) {
+    physicalExam.neurological = physicalExam.neorulogical;
+  }
   const examRows = EXAM_FIELDS.filter((f) => String(physicalExam[f.key] || "").trim() !== "");
 
   const procedures = (consultation.procedure || []).filter((p) => p.procedure_name);

@@ -13,7 +13,10 @@ const adminController = {};
 //Get
 adminController.getAdmins = async (req, res) => {
     try {
-        const admins = await adminModel.find();
+        // Nunca se envía el hash de la contraseña al cliente (mismo criterio que
+    // doctorsController/receptionistController). Antes exponía el hash bcrypt de
+    // cada administrador a cualquier otro admin que abriera este listado.
+    const admins = await adminModel.find().select("-password");
         const adminCount = await adminModel.countDocuments();
         if (adminCount === 0) {
             return res.status(404).json({ message: "No se encontraron administradores" });
@@ -29,6 +32,16 @@ adminController.getAdmins = async (req, res) => {
 //UPDATE
 adminController.updateAdmin = async (req, res) => {
     try {
+        // Solo el propio admin puede editar su cuenta. Antes cualquier admin
+        // autenticado podía editar (o, peor, borrar) la cuenta de otro admin
+        // con solo conocer su _id. Como el sistema solo permite un
+        // administrador a la vez (ver registerAdminController), esto es hoy
+        // una defensa en profundidad, no un caso que se pueda dar sin editar
+        // la base de datos a mano.
+        if (String(req.params.id) !== String(req.user.id)) {
+            return res.status(403).json({ message: "Solo puedes editar tu propia cuenta." });
+        }
+
         const {
             name,
             last_name,
@@ -37,6 +50,7 @@ adminController.updateAdmin = async (req, res) => {
             gender,
             email,
             password,
+            current_password,
             is_active,
             is_verified,
         } = req.body;
@@ -70,6 +84,17 @@ adminController.updateAdmin = async (req, res) => {
         // nombre) terminaría hasheando undefined y dejaría al admin
         // sin poder volver a iniciar sesión.
         if (password && password.trim() !== "") {
+            // Antes no se pedía la contraseña actual: una sesión comprometida
+            // (XSS, computadora sin bloquear, cookie robada) bastaba para
+            // tomar la cuenta cambiando la contraseña sin ninguna fricción.
+            if (!current_password || !current_password.trim()) {
+                return res.status(400).json({ message: "Debes ingresar tu contraseña actual." });
+            }
+            const currentMatches = await bcrypt.compare(current_password, adminFound.password);
+            if (!currentMatches) {
+                return res.status(400).json({ message: "La contraseña actual no es correcta." });
+            }
+
             const passwordError = getPasswordError(password);
             if (passwordError) {
                 return res.status(400).json({ message: passwordError });
@@ -202,6 +227,11 @@ adminController.verifyEmailChange = async (req, res) => {
 
 adminController.deleteAdmin = async (req, res) => {
     try {
+        // Mismo criterio que updateAdmin: solo el propio admin puede
+        // eliminar su cuenta, nunca la de otro.
+        if (String(req.params.id) !== String(req.user.id)) {
+            return res.status(403).json({ message: "Solo puedes eliminar tu propia cuenta." });
+        }
 
         const adminFound =
             await adminModel.findById(req.params.id);

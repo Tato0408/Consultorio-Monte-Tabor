@@ -73,7 +73,10 @@ export async function notifyAppointmentRecipients(appointment, {
             type,
             message: `${patientMessage} Médico: ${doctorName}. Fecha: ${scheduleText}.`,
             appointment_id: appointment._id,
-            action_url: navigable ? `/appointments/${appointment._id}/edit` : null,
+            // El portal público no tiene una ruta por id (/appointments/:id/edit no
+            // existe ahí); la pantalla real es /mis-citas, igual que ya usa
+            // patientPortalController.js para "Cita reagendada".
+            action_url: navigable ? "/mis-citas" : null,
         });
     }
 

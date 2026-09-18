@@ -109,10 +109,8 @@ const RegisterScreen = ({ navigation }) => {
     });
 
     if (result.ok) {
-      console.log("[Register] Éxito. Usuario autenticado:", result.user);
       await showSuccess("¡Cuenta creada! Bienvenido.");
     } else {
-      console.log("[Register] Falló:", result.message);
       showError(result.message);
       setLoading(false);
     }

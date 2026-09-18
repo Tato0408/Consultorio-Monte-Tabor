@@ -29,7 +29,7 @@ const Register = () => {
     { id: "length", label: "La contraseña tiene al menos 8 caracteres", test: (p) => p.length >= 8 },
     { id: "upper", label: "La contraseña contiene mayúsculas y minúsculas", test: (p) => /[A-Z]/.test(p) && /[a-z]/.test(p) },
     { id: "number", label: "La contraseña incluye números", test: (p) => /[0-9]/.test(p) },
-    { id: "special", label: "La contraseña incluye caracteres especiales", test: (p) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
+    { id: "special", label: "La contraseña incluye caracteres especiales", test: (p) => /[!@#$%^&*(),.?":{}|<>]/.test(p) },
     { id: "match", label: "Las contraseñas coinciden", test: (p, c) => p.length > 0 && p === c },
   ];
 
@@ -87,7 +87,7 @@ const Register = () => {
       !/[A-Z]/.test(formData.contrasena) ||
       !/[a-z]/.test(formData.contrasena) ||
       !/[0-9]/.test(formData.contrasena) ||
-      !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(formData.contrasena)
+      !/[!@#$%^&*(),.?":{}|<>]/.test(formData.contrasena)
     ) e.contrasena = "La contraseña no cumple con los requisitos indicados";
 
     if (formData.contrasena !== formData.confirmContrasena)

@@ -29,10 +29,8 @@ const LoginScreen = ({ navigation }) => {
     const result = await login(email, password);
 
     if (result.ok) {
-      console.log("[Login] Éxito. Usuario autenticado:", result.user);
       await showSuccess("¡Bienvenido de nuevo!");
     } else {
-      console.log("[Login] Falló:", result.message);
       showError(result.message);
       setLoading(false);
     }

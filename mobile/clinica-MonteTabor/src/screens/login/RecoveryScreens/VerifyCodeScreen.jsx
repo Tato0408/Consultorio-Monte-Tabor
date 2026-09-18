@@ -57,11 +57,9 @@ const VerifyCodeScreen = ({ navigation, route }) => {
 
     try {
       const data = await verifyCode(codeString, recoveryToken);
-      console.log("[VerifyCode] Código verificado:", data);
       showSuccess("Código verificado correctamente.");
       navigation.navigate("NewPassword", { email, recoveryToken: data.recoveryToken });
     } catch (err) {
-      console.log("[VerifyCode] Falló verifyCode:", err.message);
       setError(err.message || "Código incorrecto o expirado.");
     }
   };
@@ -76,7 +74,6 @@ const VerifyCodeScreen = ({ navigation, route }) => {
       setCode(["", "", "", "", "", ""]);
       showSuccess("Código reenviado correctamente.");
     } catch (err) {
-      console.log("[VerifyCode] Falló resend:", err.message);
       showError(err.message || "No se pudo reenviar el código.");
     }
   };

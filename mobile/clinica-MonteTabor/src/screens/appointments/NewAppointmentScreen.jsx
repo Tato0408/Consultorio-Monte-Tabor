@@ -34,7 +34,7 @@ const stepLabelsByMode = (requiresDoctor) => ({
 
 const toDateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
-const longDate = (value) => new Date(`${value}T12:00:00`).toLocaleDateString("es-GT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const longDate = (value) => new Date(`${value}T12:00:00`).toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 // Igual que en la web (StepFechaHora.jsx): si el horario elegible ya pasó, no tiene
 // sentido seguir mostrándolo entre los disponibles del día de hoy.
@@ -529,7 +529,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
                     {upcomingDays.map((day) => {
                       const key = toDateKey(day); const active = key === date; const disabled = diaDeshabilitado(day, key);
                       return <TouchableOpacity key={key} disabled={disabled} style={[styles.day, active && styles.dayActive, disabled && styles.dayDisabled]} onPress={() => setDate(key)}>
-                        <Text style={[styles.dayName, active && styles.dayTextActive]}>{day.toLocaleDateString("es-GT", { weekday: "short" }).replace(".", "")}</Text>
+                        <Text style={[styles.dayName, active && styles.dayTextActive]}>{day.toLocaleDateString("es-SV", { weekday: "short" }).replace(".", "")}</Text>
                         <Text style={[styles.dayNumber, active && styles.dayTextActive]}>{day.getDate()}</Text>
                       </TouchableOpacity>;
                     })}
@@ -590,7 +590,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
                 {upcomingDays.map((day) => {
                   const key = toDateKey(day); const active = key === date; const disabled = diaDeshabilitado(day, key);
                   return <TouchableOpacity key={key} disabled={disabled} style={[styles.day, active && styles.dayActive, disabled && styles.dayDisabled]} onPress={() => setDate(key)}>
-                    <Text style={[styles.dayName, active && styles.dayTextActive]}>{day.toLocaleDateString("es-GT", { weekday: "short" }).replace(".", "")}</Text>
+                    <Text style={[styles.dayName, active && styles.dayTextActive]}>{day.toLocaleDateString("es-SV", { weekday: "short" }).replace(".", "")}</Text>
                     <Text style={[styles.dayNumber, active && styles.dayTextActive]}>{day.getDate()}</Text>
                   </TouchableOpacity>;
                 })}

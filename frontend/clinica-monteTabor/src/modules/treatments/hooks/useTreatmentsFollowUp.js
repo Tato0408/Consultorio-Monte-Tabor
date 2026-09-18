@@ -113,6 +113,17 @@ const useTreatmentsFollowUp = () => {
     [load]
   );
 
+  // Borra el tratamiento completo (no solo un documento o una nota). Quien
+  // llame debe salir de la vista de detalle después, ya que el id deja de
+  // existir.
+  const delete_treatment = useCallback(
+    async (id) => {
+      await apiClient(`/treatments/${id}`, { method: "DELETE" });
+      await load(false);
+    },
+    [load]
+  );
+
   return {
     loading,
     error,
@@ -130,6 +141,7 @@ const useTreatmentsFollowUp = () => {
     delete_note,
     upload_document,
     delete_document,
+    delete_treatment,
   };
 };
 

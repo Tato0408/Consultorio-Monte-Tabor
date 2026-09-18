@@ -21,7 +21,18 @@ const nurseScheduleSchema = new Schema({
             time_blocks: [
                 {
                     start_time: { type: String },
-                    end_time:   { type: String }
+                    // Comparación lexicográfica válida porque start_time/end_time
+                    // siempre son "HH:mm" con cero a la izquierda: no rechaza el
+                    // guardado de un bloque incompleto (sin end_time todavía).
+                    end_time:   {
+                        type: String,
+                        validate: {
+                            validator: function (value) {
+                                return !value || !this.start_time || value > this.start_time;
+                            },
+                            message: "La hora de fin debe ser posterior a la de inicio."
+                        }
+                    }
                 }
             ]
         }
@@ -31,7 +42,16 @@ const nurseScheduleSchema = new Schema({
         {
             day:        { type: Number, min: 0, max: 6, required: true },
             start_time: { type: String, required: true },
-            end_time:   { type: String, required: true }
+            end_time:   {
+                type: String,
+                required: true,
+                validate: {
+                    validator: function (value) {
+                        return !this.start_time || value > this.start_time;
+                    },
+                    message: "La hora de fin debe ser posterior a la de inicio."
+                }
+            }
         }
     ],
 

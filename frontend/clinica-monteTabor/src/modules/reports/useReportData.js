@@ -14,10 +14,9 @@ const previousMonthISO = (monthValue) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
-// Hook genérico que comparten los reportes de pacientes, doctores e
-// inventario (citas tiene su propia copia en
-// appointments/hooks/useAppointmentsReports.js). El filtro trabaja por
-// mes y tiene tres modos: general (histórico completo, sin comparación),
+// Hook genérico que comparten los reportes de pacientes, doctores, inventario y citas
+// (cada uno con su propio wrapper delgado, ver useAppointmentsReports.js). El filtro
+// trabaja por mes y tiene tres modos: general (histórico completo, sin comparación),
 // dos meses (monthA vs monthB) y un mes contra un promedio (monthA + avg).
 const useReportData = (endpointPath) => {
   const [loading, setLoading] = useState(true);
