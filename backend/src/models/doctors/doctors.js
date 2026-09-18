@@ -83,6 +83,28 @@ const doctorSchema = new Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Admin",
     },
+    // Firma y sello propios del doctor, guardados una sola vez desde su perfil (ver
+    // doctorsController.updateOwnSignature/updateOwnSeal) para estamparse automáticamente
+    // en cualquier PDF que él mismo genere (ver PdfSignature.jsx). Opcionales: un doctor
+    // que no los guarda sigue viendo el espacio en blanco de siempre. Nunca se exponen a
+    // otro usuario (ver getDoctors/getDoctorsCatalog/searchDoctors, que los reemplazan por
+    // los booleanos has_signature/has_seal antes de responder).
+    signature_url: {
+      type: String,
+      default: null,
+    },
+    signature_public_id: {
+      type: String,
+      default: null,
+    },
+    seal_url: {
+      type: String,
+      default: null,
+    },
+    seal_public_id: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

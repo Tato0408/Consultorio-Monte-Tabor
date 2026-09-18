@@ -17,6 +17,7 @@ import IncapacidadDocument from "@/modules/schedule/consultations/pdf/Incapacida
 import RecetaDocument from "@/modules/schedule/consultations/pdf/RecetaDocument";
 import LabOrderDocument from "@/modules/schedule/consultations/pdf/LabOrderDocument";
 import ReferenciaDocument from "@/modules/schedule/consultations/pdf/ReferenciaDocument";
+import { useMySignatureAssets } from "@/lib/useMySignatureAssets";
 
 // Configuración de cada tipo de documento: de dónde sale su lista dentro de
 // patient (armada por usePatientRecordDetail.js), su icono/color y cómo
@@ -65,6 +66,7 @@ const ORDEN = ["incapacidad", "receta", "laboratorio", "referencia"];
 // categoría elegida.
 export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControlado, onTipoChange }) {
   const { hasPermission, user, userType } = useAuth();
+  const { signatureUrl, sealUrl } = useMySignatureAssets();
   const canCreate = hasPermission("reports.records", "create");
   const canUpdate = hasPermission("reports.records", "update");
   const canDelete = hasPermission("reports.records", "delete");
@@ -163,6 +165,8 @@ export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControl
             diagnosis={row.diagnosisRaw}
             restDays={row.restDays}
             doctorName={signatureFor(row.doctorName)}
+            signatureUrl={signatureUrl}
+            sealUrl={sealUrl}
             date={dateFormatted}
             time={timeFormatted}
           />
@@ -176,6 +180,8 @@ export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControl
             dui={patient.dui}
             age={calculateAge(patient.birthDate)}
             doctorName={signatureFor(row.doctorName)}
+            signatureUrl={signatureUrl}
+            sealUrl={sealUrl}
             date={dateFormatted}
             time={timeFormatted}
             medications={row.medicationsRaw}
@@ -194,6 +200,8 @@ export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControl
             gender={patient.sexo}
             dui={patient.dui}
             doctorName={signatureFor(row.doctorName)}
+            signatureUrl={signatureUrl}
+            sealUrl={sealUrl}
             date={dateFormatted}
             time={timeFormatted}
             weight={o.weight}
@@ -226,6 +234,8 @@ export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControl
             diagnosis={row.diagnosisRaw}
             diagnosisDescription={row.diagnosisDescRaw}
             doctorName={signatureFor(row.doctorName)}
+            signatureUrl={signatureUrl}
+            sealUrl={sealUrl}
             date={dateFormatted}
             time={timeFormatted}
           />

@@ -24,6 +24,5 @@ router.route("/:id")
 router.post("/:id/adjust",         authorize("inventory.movements", "update"), inventoryController.adjustStock);
 router.post("/stock-entry",        authorize("inventory.movements", "create"), upload.single("documento"), inventoryController.stockEntry);
 router.post("/manual-usage",       authorize("inventory.movements", "create"), inventoryController.manualUsage);
-router.post("/procedure-discount", authorize("inventory.movements", "create"), inventoryController.discountFromProcedure);
 
 export default router;

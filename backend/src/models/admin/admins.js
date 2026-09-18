@@ -37,6 +37,26 @@ const adminSchema = new Schema({
     timeOut: {
         type: Date
     },
+    // Firma y sello propios del admin (que también puede actuar como "doctor espejo" para
+    // agendarse citas, ver is_admin_mirror en el modelo Doctors), guardados desde su propio
+    // perfil para estamparse en los PDFs que él mismo genere. Nunca se sincronizan hacia el
+    // doctor espejo: nada lee firma/sello desde ahí, solo desde la sesión activa.
+    signature_url: {
+        type: String,
+        default: null,
+    },
+    signature_public_id: {
+        type: String,
+        default: null,
+    },
+    seal_url: {
+        type: String,
+        default: null,
+    },
+    seal_public_id: {
+        type: String,
+        default: null,
+    },
     // Solo puede existir un admin a la vez en todo el sistema (no hay ningún flujo para
     // que un admin cree a otro, ver registerAdminController.js). El índice único de este
     // campo, siempre 1, es lo que hace atómico el bootstrap: si dos registros

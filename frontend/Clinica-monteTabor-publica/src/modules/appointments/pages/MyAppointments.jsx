@@ -273,6 +273,10 @@ const MyAppointments = () => {
           // para que se vuelva a elegir explícitamente en el paso 1.
           tipo: cita.procedure_id?._id || null,
           doctorId: cita.doctor_id?._id || null,
+          // Un procedimiento sin doctor lo atiende una enfermera como proveedora
+          // principal: sin esto, reagendar una cita así no restauraba ningún proveedor
+          // (NewAppointment.jsx solo intentaba restaurar cuando había doctorId).
+          nurseId: cita.nurse_id?._id || null,
           motivo: cita.description || "",
         },
       },
@@ -288,6 +292,7 @@ const MyAppointments = () => {
           appointmentId: cita._id,
           tipo: cita.procedure_id?._id || null,
           doctorId: cita.doctor_id?._id || null,
+          nurseId: cita.nurse_id?._id || null,
           motivo: cita.description || "",
         },
       },

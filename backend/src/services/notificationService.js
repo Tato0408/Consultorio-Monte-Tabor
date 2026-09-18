@@ -175,13 +175,20 @@ export async function notifyLowStockAdmins(item) {
     if (stock > minimum) return;
 
     const severity = stock <= 0 ? "agotado" : "bajo";
+    const title = severity === "agotado" ? "Insumo agotado" : "Inventario bajo";
     const message = severity === "agotado"
         ? `Inventario crítico: "${item.name}" está agotado.`
         : `Inventario bajo: "${item.name}" tiene ${stock} ${item.unit_measure || "unidades"} (mínimo: ${minimum}).`;
+    // La deduplicación es por insumo (related_id) y severidad (title), no por el mensaje
+    // completo: el mensaje embebe el stock actual, que cambia con cada movimiento, así que
+    // deduplicar por texto exacto casi nunca encontraba coincidencia y el límite de "una cada
+    // 24h" no se cumplía en la práctica.
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const alreadyNotified = await notificationModel.exists({
         recipient_role: "admin",
-        message,
+        type: "inventory_alert",
+        related_id: item._id,
+        title,
         createdAt: { $gte: since },
     });
     if (alreadyNotified) return;
@@ -191,8 +198,9 @@ export async function notifyLowStockAdmins(item) {
         await notificationModel.insertMany(admins.map((admin) => ({
             recipient_role: "admin",
             recipient_id: admin._id,
-            title: severity === "agotado" ? "Insumo agotado" : "Inventario bajo",
+            title,
             type: "inventory_alert",
+            related_id: item._id,
             message,
             action_url: "/inventory/products",
         })));

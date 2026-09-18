@@ -33,6 +33,10 @@ const notificationSchema = new Schema({
     },
     message: { type: String, required: true },
     appointment_id: { type: mongoose.Schema.Types.ObjectId, ref: "Appointments" },
+    // Id genérico del documento origen de la notificación cuando no es una cita (por ejemplo
+    // un insumo de inventario). Sin ref fijo porque el tipo de entidad varía según el type de
+    // la notificación. Se usa para deduplicar (ver notifyLowStockAdmins), no solo para mostrar.
+    related_id: { type: mongoose.Schema.Types.ObjectId, default: null },
     action_url: { type: String, default: null },
     read: { type: Boolean, default: false },
 }, {

@@ -16,6 +16,7 @@ import {
 import { showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
 import { maskClinicalText } from "@/lib/inputMasks";
+import { useMySignatureAssets } from "@/lib/useMySignatureAssets";
 
 const OTHER_TESTS_MAX = 300;
 
@@ -26,6 +27,7 @@ const LabOrderForm = () => {
     const location = useLocation();
 
     const readOnly = searchParams.get("mode") === "view";
+    const { signatureUrl, sealUrl } = useMySignatureAssets();
     // Reenvía el mismo location.state con el que se llegó acá (ver
     // ConsultationForm.jsx), así la consulta a la que se vuelve conserva de
     // dónde se abrió originalmente (lista de consultas o expediente del
@@ -104,6 +106,8 @@ const LabOrderForm = () => {
             gender={patient?.gender}
             dui={patient?.dui}
             doctorName={doctorFullName}
+            signatureUrl={signatureUrl}
+            sealUrl={sealUrl}
             date={todayFormatted}
             time={todayTime}
             weight={triageWeight}

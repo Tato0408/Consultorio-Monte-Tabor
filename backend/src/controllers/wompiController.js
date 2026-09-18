@@ -73,13 +73,22 @@ wompiController.paymentTest = async (req, res) => {
         const errorCobro = validarDatosCobro(formData || {});
         if (errorCobro) return res.status(400).json({ message: errorCobro });
 
+        // Se sobrescribe con el id de la sesión autenticada, nunca con lo que mande el
+        // cliente: datosAdicionales.appointment_id lo elige el paciente (a cuál de sus
+        // citas paga), pero de quién es el cobro no se puede confiar al formData, o
+        // cualquiera podría apuntar el pago a la cita de otro paciente. El webhook
+        // (wompiWebhookController.js) usa este mismo campo, tal como Wompi lo devuelve
+        // en el aviso, para verificar dueño antes de marcar el anticipo como pagado.
+        const datosAdicionales = { ...(formData?.datosAdicionales || {}), patient_id: req.user.id };
+        const body = { ...formData, datosAdicionales };
+
         const response = await fetch("https://api.wompi.sv/TransaccionCompra/TokenizadaSin3Ds", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(formData),
+            body: JSON.stringify(body),
         });
 
         const data = await response.json();
@@ -101,13 +110,18 @@ wompiController.payment3DS = async (req, res) => {
         const errorCobro = validarDatosCobro(formData || {});
         if (errorCobro) return res.status(400).json({ message: errorCobro });
 
+        // Mismo criterio que paymentTest: el dueño del cobro lo decide la sesión, no el
+        // formData del cliente.
+        const datosAdicionales = { ...(formData?.datosAdicionales || {}), patient_id: req.user.id };
+        const body = { ...formData, datosAdicionales };
+
         const response = await fetch("https://api.wompi.sv/TransaccionCompra/3DS", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(formData),
+            body: JSON.stringify(body),
         });
 
         const data = await response.json();

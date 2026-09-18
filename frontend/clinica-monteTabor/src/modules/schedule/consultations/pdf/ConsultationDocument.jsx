@@ -60,6 +60,8 @@ const ConsultationDocument = ({
     gender,
     dui,
     doctorName,
+    signatureUrl,
+    sealUrl,
     date,
     time,
     vitals,
@@ -204,7 +206,7 @@ const ConsultationDocument = ({
                     </>
                 )}
 
-                <PdfSignature doctorName={doctorName} />
+                <PdfSignature doctorName={doctorName} signatureUrl={signatureUrl} sealUrl={sealUrl} />
             </Page>
         </Document>
     );

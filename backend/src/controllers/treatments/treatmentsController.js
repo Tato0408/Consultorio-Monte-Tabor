@@ -208,9 +208,10 @@ treatmentsController.list = async (req, res) => {
       .sort({ opened_at: -1 })
       .lean();
 
-    // Se descartan los tratamientos de pacientes inactivos, igual que en
-    // el resto del sistema.
-    const visible = treatments.filter((treatment) => treatment.patient_id?.is_active !== false);
+    // Se descartan los tratamientos de pacientes inactivos, igual que en el resto del
+    // sistema, y los huérfanos (patient_id ya no existe, populate lo deja en null): antes
+    // "undefined !== false" daba true y un huérfano se colaba en el listado con nombre "—".
+    const visible = treatments.filter((treatment) => treatment.patient_id && treatment.patient_id.is_active !== false);
 
     const today = today_at_midnight();
     const rows = visible.map((treatment) => to_list_row(treatment, today));

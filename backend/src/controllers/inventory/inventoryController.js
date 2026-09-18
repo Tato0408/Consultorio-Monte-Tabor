@@ -8,11 +8,11 @@ const inventoryController = {};
 // GET todos, con paginación y filtros.
 inventoryController.getAll = async (req, res) => {
   try {
-    const { page = 1, limit = 8, category, status, search } = req.query;
+    const { page = 1, limit = 8, category, status, expiry, search } = req.query;
     const query = {};
 
     if (category && category !== "Todas") query.category = category;
-    if (search) query.name = { $regex: search, $options: "i" };
+    if (search) query.name = { $regex: escapeRegex(search), $options: "i" };
 
     if (status && status !== "Todos") {
       if (status === "Disponible") {
@@ -23,6 +23,21 @@ inventoryController.getAll = async (req, res) => {
         };
       } else if (status === "Crítico") {
         query.stock = { $lte: 0 };
+      }
+    }
+
+    // Caducidad: independiente del estado de stock de arriba. La ventana de
+    // "Próximo a vencer" es la misma que usa el virtual expiryStatus del
+    // modelo (30 días) y el widget de próximos a vencer del dashboard.
+    if (expiry && expiry !== "Todas") {
+      const now = new Date();
+      const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      if (expiry === "Caduco") {
+        query.expiration_date = { $ne: null, $lte: now };
+      } else if (expiry === "Próximo a vencer") {
+        query.expiration_date = { $gt: now, $lte: in30Days };
+      } else if (expiry === "Vigente") {
+        query.$or = [{ expiration_date: null }, { expiration_date: { $gt: in30Days } }];
       }
     }
 
@@ -166,15 +181,15 @@ inventoryController.getStats = async (req, res) => {
       date: { $gte: startOfDay },
     });
 
-    // Próximos a vencer: los que vencen dentro de los próximos 60 días y
-    // también los que ya vencieron (esos son los más urgentes, por eso el
-    // orden ascendente los deja primero). expiration_date se guarda siempre
-    // como Date (ver el modelo), así que basta comparar contra el límite
-    // superior.
-    const in60Days = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+    // Próximos a vencer: los que vencen dentro de los próximos 30 días (misma
+    // ventana que el virtual expiryStatus del modelo) y también los que ya
+    // vencieron (esos son los más urgentes, por eso el orden ascendente los
+    // deja primero). expiration_date se guarda siempre como Date (ver el
+    // modelo), así que basta comparar contra el límite superior.
+    const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     const expiringSoon = await inventoryModel.find({
-      expiration_date: { $ne: null, $lte: in60Days },
+      expiration_date: { $ne: null, $lte: in30Days },
     })
     .sort({ expiration_date: 1 })
     .limit(5)
@@ -465,52 +480,6 @@ inventoryController.manualUsage = async (req, res) => {
     return res.status(200).json({ message, capped: cappedItems.length > 0 });
   } catch (error) {
     return res.status(500).json({ message: "Error al registrar uso manual", error: error.message });
-  }
-};
-
-// POST, descuenta inventario desde un procedimiento.
-inventoryController.discountFromProcedure = async (req, res) => {
-  try {
-    const { patientName, responsible, procedureType, items } = req.body;
-    // items: [{ insumoId, quantity }]
-
-    const quantityError = (items || []).map((entry) => getNonNegativeError(entry.quantity, "La cantidad")).find(Boolean);
-    if (quantityError) return res.status(400).json({ message: quantityError });
-
-    const cappedItems = [];
-    for (const entry of items) {
-      const item = await inventoryModel.findById(entry.insumoId);
-      if (!item) continue;
-
-      // Mismo criterio que manualUsage: si se pide más de lo que hay, solo se
-      // descuenta lo que existe, y la bitácora debe reflejar esa cantidad
-      // real, no la pedida.
-      const requested = Number(entry.quantity);
-      const applied = Math.min(requested, item.stock);
-      if (applied < requested) cappedItems.push({ name: item.name, requested, applied });
-
-      item.stock     = item.stock - applied;
-      item.last_used = new Date();
-      await item.save();
-      await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
-
-      await new movementModel({
-        type:     "Treatment use",
-        item:     item._id,
-        itemName: item.name,
-        quantity: -applied,
-        detail:   `Procedimiento: ${procedureType}`,
-        user:     responsible,
-        patient:  patientName || null,
-      }).save();
-    }
-
-    const message = cappedItems.length
-      ? `Inventario descontado. Stock insuficiente para ${cappedItems.map((c) => `${c.name} (se descontaron ${c.applied} de ${c.requested} pedidas)`).join(", ")}.`
-      : "Inventario descontado del procedimiento";
-    return res.status(200).json({ message, capped: cappedItems.length > 0 });
-  } catch (error) {
-    return res.status(500).json({ message: "Error al descontar inventario", error: error.message });
   }
 };
 

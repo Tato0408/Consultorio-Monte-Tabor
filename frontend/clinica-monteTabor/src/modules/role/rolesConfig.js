@@ -131,11 +131,11 @@ export const VIEW_ONLY_MODULE_KEYS = ["reports.appointments", "reports.patients"
 // visibles.
 export const HIDDEN_PERMISSION_ACTIONS = {
   "calendar.schedule": ["create", "delete"],
-  // Movimientos de inventario: GET dan Ver, POST a /stock-entry,
-  // /manual-usage y /procedure-discount dan Crear, y POST a
-  // /:id/adjust da Editar. No existe ninguna ruta DELETE para
-  // movimientos (backend/src/routes/inventory/inventory.js), son un
-  // registro histórico y no se borran.
+  // Movimientos de inventario: GET dan Ver, POST a /stock-entry y
+  // /manual-usage dan Crear, y POST a /:id/adjust da Editar. No existe
+  // ninguna ruta DELETE para movimientos
+  // (backend/src/routes/inventory/inventory.js), son un registro
+  // histórico y no se borran.
   "inventory.movements": ["delete"],
 };
 

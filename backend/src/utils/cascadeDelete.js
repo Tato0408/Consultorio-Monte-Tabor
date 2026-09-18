@@ -13,6 +13,7 @@ import notificationModel from "../models/notifications/notification.js";
 import nurseNotesModel from "../models/nurse_notes/nurse_notes.js";
 import scheduleModel from "../models/schedule/schedule.js";
 import nurseScheduleModel from "../models/schedule/nurseSchedule.js";
+import treatmentsModel from "../models/treatments/treatment.js";
 
 // Borrado en cascada de un paciente o un doctor junto con todo lo que
 // depende de ellos: citas, consultas, recetas, ordenes de laboratorio,
@@ -26,11 +27,12 @@ import nurseScheduleModel from "../models/schedule/nurseSchedule.js";
 // administrador cuantos registros se llevaria por delante antes de que
 // confirme.
 export const countPatientRelatedRecords = async (patientId) => {
-  const [appointments, consultations] = await Promise.all([
+  const [appointments, consultations, treatments] = await Promise.all([
     appointmentsModel.countDocuments({ patient_id: patientId }),
     consultationsModel.countDocuments({ patient_id: patientId }),
+    treatmentsModel.countDocuments({ patient_id: patientId }),
   ]);
-  return { appointments, consultations };
+  return { appointments, consultations, treatments };
 };
 
 // Cuenta las citas y consultas ligadas a un doctor (las consultas incluyen
@@ -52,6 +54,17 @@ export const countDoctorRelatedRecords = async (doctorId) => {
 
 // Elimina al paciente y toda su informacion relacionada.
 export const deletePatientCascade = async (patientId) => {
+  // Se lee antes de la transaccion, solo para tener a mano los public_id de
+  // los documentos adjuntos y borrarlos de Cloudinary despues (igual que las
+  // fotos de doctor/enfermera): un fallo ahi no debe afectar a la base.
+  const treatmentDocs = await treatmentsModel
+    .find({ patient_id: patientId }, "documents.public_id")
+    .lean();
+  const treatmentDocumentPublicIds = treatmentDocs
+    .flatMap((t) => t.documents || [])
+    .map((d) => d.public_id)
+    .filter(Boolean);
+
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -61,6 +74,12 @@ export const deletePatientCascade = async (patientId) => {
       const consultationDocs = await consultationsModel
         .find({ patient_id: patientId }, "_id").session(session).lean();
       const consultationIds = consultationDocs.map((d) => d._id);
+
+      // Sin esto, los tratamientos del paciente sobrevivian con un
+      // patient_id que ya no existia: seguian apareciendo en el listado (ver
+      // el filtro de is_active en treatmentsController.list) y sus
+      // documentos adjuntos quedaban huerfanos en Cloudinary para siempre.
+      await treatmentsModel.deleteMany({ patient_id: patientId }, { session });
 
       await prescriptionsModel.deleteMany(
         { consultation_id: { $in: consultationIds } },
@@ -94,6 +113,14 @@ export const deletePatientCascade = async (patientId) => {
     });
   } finally {
     await session.endSession();
+  }
+
+  // Limpieza de Cloudinary fuera de la transaccion: un fallo aqui solo deja
+  // archivos huerfanos en el almacenamiento externo, no afecta la base.
+  for (const publicId of treatmentDocumentPublicIds) {
+    await cloudinary.uploader.destroy(publicId).catch((error) =>
+      console.log("Error eliminando documento de tratamiento en Cloudinary:", error)
+    );
   }
 };
 

@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
-import { X, Loader2, UserPen } from "lucide-react";
+import { X, Loader2, UserPen, PenLine } from "lucide-react";
 import { maskLettersOnly } from "@/lib/inputMasks";
 import { getMaxAdultBirthDate, validateAdultBirthDate } from "@/lib/validators";
+import useProfile from "../hooks/useProfile";
+import SignatureSealModal from "./SignatureSealModal";
+
+// Firma y sello: solo doctor y admin los pueden guardar (el admin también puede actuar como
+// "doctor espejo" para agendarse citas, ver is_admin_mirror en el modelo Doctors). Enfermería
+// y recepción nunca ven este botón.
+const CAN_SIGN_ROLES = ["doctor", "admin"];
 
 const maskDui = (raw) => {
     const digits = raw.replace(/\D/g, "").slice(0, 9);
@@ -33,6 +40,16 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
     const [form, setForm] = useState({});
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+    const canSign = CAN_SIGN_ROLES.includes(userType);
+    const {
+        submitting: signatureSubmitting,
+        saveSignatureFile,
+        saveSignatureDrawn,
+        removeSignature,
+        saveSeal,
+        removeSeal,
+    } = useProfile();
 
     // El componente se queda montado entre aperturas, ya que el padre
     // solo cambia isOpen. Sin este efecto, el formulario conservaría
@@ -114,7 +131,19 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
                     </div>
                     <h2 className="text-lg font-bold text-gray-900">Editar mi información</h2>
                 </div>
-                <p className="text-xs text-gray-500 mb-6 ml-[52px]">Actualiza tus datos personales.</p>
+                <p className="text-xs text-gray-500 mb-4 ml-[52px]">Actualiza tus datos personales.</p>
+
+                {canSign && (
+                    <button
+                        type="button"
+                        onClick={() => setIsSignatureModalOpen(true)}
+                        disabled={submitting}
+                        className="flex items-center gap-2 mb-6 ml-[52px] px-3.5 py-2 border border-blue-200 text-blue-600 text-xs font-semibold rounded-xl hover:bg-blue-50 transition-colors disabled:opacity-50"
+                    >
+                        <PenLine className="w-3.5 h-3.5" />
+                        Firma y sello
+                    </button>
+                )}
 
                 <fieldset disabled={submitting} className="flex flex-col gap-4">
                     {(fields.includes("name") || fields.includes("last_name")) && (
@@ -243,6 +272,21 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
                     </div>
                 </fieldset>
             </div>
+
+            {canSign && (
+                <SignatureSealModal
+                    isOpen={isSignatureModalOpen}
+                    onClose={() => setIsSignatureModalOpen(false)}
+                    signatureUrl={user?.signature_url}
+                    sealUrl={user?.seal_url}
+                    submitting={signatureSubmitting}
+                    onSaveSignatureFile={saveSignatureFile}
+                    onSaveSignatureDrawn={saveSignatureDrawn}
+                    onRemoveSignature={removeSignature}
+                    onSaveSeal={saveSeal}
+                    onRemoveSeal={removeSeal}
+                />
+            )}
         </div>
     );
 };

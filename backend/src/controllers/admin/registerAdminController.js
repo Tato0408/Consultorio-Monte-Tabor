@@ -5,6 +5,7 @@ import adminModel from "../../models/admin/admins.js";
 import { config } from "../../../config.js";
 import { v2 as cloudinary } from "cloudinary";
 import { findStaffDuplicate, getMissingRequiredField, validateUserFieldFormats } from "../../utils/validators.js";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
 
 const registerAdminController = {};
 
@@ -50,24 +51,50 @@ registerAdminController.register = async (req, res) => {
 
         const passwordHashed = await bcryptjs.hash(password, 10);
 
-        const newAdmin = new adminModel({
-            name,
-            last_name,
-            dui,
-            birth_date,
-            gender,
-            email,
-            password: passwordHashed,
-            image: req.file.path,
-            public_id: req.file.filename,
-            is_active: true,
-            is_verified: true,
-            loginAttempts: 0,
+        // Igual que el registro de doctor: no se crea la cuenta todavía, se manda un
+        // código de verificación al correo declarado y solo verifyCode (con el código
+        // correcto) la crea de verdad. Antes este endpoint activaba la cuenta de
+        // administrador (con acceso total al sistema) con un solo POST público, sin
+        // confirmar que quien lo llamó controla ese correo.
+        const randomCode = crypto.randomBytes(3).toString("hex");
+
+        const token = jsonwebtoken.sign(
+            {
+                randomCode,
+                image: req.file.path,
+                public_id: req.file.filename,
+                name,
+                last_name,
+                dui,
+                birth_date,
+                gender,
+                email,
+                password: passwordHashed,
+                is_active: true,
+                is_verified: true,
+                loginAttempts: 0,
+            },
+            config.JWT.secret,
+            { expiresIn: "15m" }
+        );
+
+        res.cookie("registrationCookie", token, {
+            maxAge: 15 * 60 * 1000,
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
         });
 
-        await newAdmin.save();
+        const htmlContent = "Para verificar tu cuenta utiliza este código: " + randomCode + ". Expira en 15 minutos.";
 
-        return res.status(201).json({ message: "Administrador registrado correctamente" });
+        try {
+            await sendEmail(email, "Verificación de cuenta", htmlContent);
+        } catch (error) {
+            console.log("error " + error);
+            return res.status(500).json({ message: "Error al enviar el correo" });
+        }
+
+        return res.status(200).json({ message: "Correo de verificación enviado" });
 
     } catch (error) {
         console.log("error " + error);

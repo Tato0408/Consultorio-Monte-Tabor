@@ -69,6 +69,8 @@ const LabOrderDocument = ({
     gender,
     dui,
     doctorName,
+    signatureUrl,
+    sealUrl,
     date,
     time,
     weight,
@@ -133,7 +135,7 @@ const LabOrderDocument = ({
                     </Text>
                 ) : null}
 
-                <PdfSignature doctorName={doctorName} />
+                <PdfSignature doctorName={doctorName} signatureUrl={signatureUrl} sealUrl={sealUrl} />
             </Page>
         </Document>
     );

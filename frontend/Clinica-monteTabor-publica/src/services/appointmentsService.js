@@ -22,13 +22,13 @@ export const getProcedures = () => apiClient("/patient-portal/procedures");
 // este doctor (marcados con available:false), para que el paciente los vea
 // bloqueados en el calendario en vez de que simplemente desaparezcan de la
 // lista sin explicación.
-export const getAvailableSlots = (doctorId, date, duration) =>
-  apiClient(`/patient-portal/schedule/${doctorId}/slots`, { params: { date, duration, includeBooked: true } });
+export const getAvailableSlots = (doctorId, date, duration, signal) =>
+  apiClient(`/patient-portal/schedule/${doctorId}/slots`, { params: { date, duration, includeBooked: true }, signal });
 
 // Mirror de getAvailableSlots para una enfermera proveedora principal (procedimiento
 // sin doctor, ver getSchedulableNurses).
-export const getNurseAvailableSlots = (nurseId, date, duration) =>
-  apiClient(`/patient-portal/nurse-schedule/${nurseId}/slots`, { params: { date, duration, includeBooked: true } });
+export const getNurseAvailableSlots = (nurseId, date, duration, signal) =>
+  apiClient(`/patient-portal/nurse-schedule/${nurseId}/slots`, { params: { date, duration, includeBooked: true }, signal });
 
 // Días de la semana (0 a 6) que el doctor atiende y sus excepciones de fecha
 // (vacaciones, días no laborables, horario especial), para bloquear en el
@@ -42,8 +42,8 @@ export const getNurseWorkingDays = (nurseId) =>
 
 // Horarios agregados entre todos los doctores para una fecha y tipo de
 // atención, sin revelar todavía qué doctor los cubre.
-export const getPatientAvailableSlots = (date, procedureId) =>
-  apiClient("/schedule/patient-available-slots", { params: { date, procedure_id: procedureId } });
+export const getPatientAvailableSlots = (date, procedureId, signal) =>
+  apiClient("/schedule/patient-available-slots", { params: { date, procedure_id: procedureId }, signal });
 
 // Doctores que pueden atender un horario ya elegido del listado anterior.
 export const getDoctorsForSlot = (date, startTime, procedureId) =>

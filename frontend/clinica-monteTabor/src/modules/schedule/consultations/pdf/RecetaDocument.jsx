@@ -32,6 +32,8 @@ const RecetaDocument = ({
   dui,
   age,
   doctorName,
+  signatureUrl,
+  sealUrl,
   date,
   time,
   medications = [],
@@ -81,7 +83,7 @@ const RecetaDocument = ({
         </>
       )}
 
-      <PdfSignature doctorName={doctorName} compact />
+      <PdfSignature doctorName={doctorName} signatureUrl={signatureUrl} sealUrl={sealUrl} compact />
     </Page>
   </Document>
 );

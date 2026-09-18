@@ -424,11 +424,14 @@ reportsController.getPatientsReport = async (req, res) => {
             ]),
         ]);
 
+        // Anclado al inicio: "femenino" también hacía match contra /masculino|m/i (contiene
+        // una "m"), así que según el orden en que Mongo devolviera los buckets del $group de
+        // arriba (no garantizado), el conteo de hombres y mujeres podía quedar cruzado.
         const genderCount = (agg, re) => agg.find((g) => re.test(g._id || ""))?.count || 0;
-        const maleCur = genderCount(genderCur, /masculino|m/i);
-        const femaleCur = genderCount(genderCur, /femenino|f/i);
-        const malePrev = genderCount(genderPrev, /masculino|m/i);
-        const femalePrev = genderCount(genderPrev, /femenino|f/i);
+        const maleCur = genderCount(genderCur, /^m/i);
+        const femaleCur = genderCount(genderCur, /^f/i);
+        const malePrev = genderCount(genderPrev, /^m/i);
+        const femalePrev = genderCount(genderPrev, /^f/i);
         const attendedTotal = maleCur + femaleCur;
 
         const attendanceRate = (c, ca, ns) => (c + ca + ns > 0 ? (c / (c + ca + ns)) * 100 : 0);

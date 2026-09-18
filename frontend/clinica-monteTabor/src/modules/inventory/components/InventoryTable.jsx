@@ -4,6 +4,7 @@ import useInsumos from "../hooks/useInsumos";
 import GenericTable from "@/components/ui/GenericTable";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { showError, confirmDelete } from "@/lib/alerts";
+import { getExpiryDays, getExpiryStatus } from "../utils/expiry";
 
 const statusStyle = {
   Disponible: "bg-green-50 text-green-700",
@@ -11,11 +12,22 @@ const statusStyle = {
   Crítico:    "bg-red-50 text-red-700",
 };
 
+const expiryStyle = {
+  Vigente:            "bg-green-50 text-green-700",
+  "Próximo a vencer":  "bg-orange-50 text-orange-600",
+  Caduco:             "bg-red-50 text-red-700",
+};
+
 // Mismo catálogo que ProductAddMode.jsx (no se comparte en un módulo aparte, sigue el
 // mismo criterio que ese archivo: es una lista corta y fija, no vale la pena una fuente
 // de verdad compartida para esto).
 const CATEGORIAS = ["Curación", "Protección", "Desinfección", "Procedimiento", "EPI", "Limpieza"];
 const ESTADOS = ["Disponible", "Bajo", "Crítico"];
+const CADUCIDADES = ["Vigente", "Próximo a vencer", "Caduco"];
+
+// El filtro por estado de stock vive como tabs sobre la tabla, mismo
+// criterio que Tratamientos y Consultas, en vez del dropdown que tenía antes.
+const ESTADO_TABS = [{ key: "Todos", label: "Todos" }, ...ESTADOS.map((e) => ({ key: e, label: e }))];
 
 // Determina el estado del insumo según su stock actual comparado
 // con el stock mínimo definido.
@@ -45,6 +57,7 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
   // filtros del backend sin ninguna forma de usarlos desde la interfaz.
   const [category, setCategory] = useState("Todas");
   const [status, setStatus] = useState("Todos");
+  const [expiry, setExpiry] = useState("Todas");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,6 +67,7 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
         limit: 100,
         category: category !== "Todas" ? category : undefined,
         status: status !== "Todos" ? status : undefined,
+        expiry: expiry !== "Todas" ? expiry : undefined,
       };
       const data = await getInsumos(params);
       setItems(data.insumos || []);
@@ -62,7 +76,7 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
     } finally {
       setLoading(false);
     }
-  }, [refreshTrigger, category, status]);
+  }, [refreshTrigger, category, status, expiry]);
 
   useEffect(() => {
     load();
@@ -121,6 +135,23 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
               st === "Disponible" ? "bg-green-500" : st === "Bajo" ? "bg-orange-500" : "bg-red-500"
             }`} />
             {st}
+          </span>
+        );
+      },
+    },
+    {
+      header: "Caducidad",
+      render: (item) => {
+        if (!item.expiration_date) return <span className="text-slate-400 text-xs">—</span>;
+        const days = getExpiryDays(item.expiration_date);
+        const est = getExpiryStatus(item.expiration_date);
+        const label = days <= 0 ? "Vencido" : est === "Próximo a vencer" ? `${days} días` : "Vigente";
+        return (
+          <span className={`inline-flex items-center gap-1.5 font-medium px-2.5 py-1 rounded-full text-xs ${expiryStyle[est]}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              est === "Vigente" ? "bg-green-500" : est === "Próximo a vencer" ? "bg-orange-500" : "bg-red-500"
+            }`} />
+            {label}
           </span>
         );
       },
@@ -218,6 +249,25 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
       : []),
   ];
 
+  const tabsRow = (
+    <div className="flex items-center gap-1 border-b border-slate-100 overflow-x-auto">
+      {ESTADO_TABS.map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => setStatus(t.key)}
+          className={`px-3 py-2 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+            status === t.key
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <GenericTable
       title="Inventario de insumos clínicos"
@@ -227,6 +277,7 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
       loading={loading}
       searchFields={["name", "category", "description"]}
       onTableOffsetChange={onTableOffsetChange}
+      tabsRow={tabsRow}
       headerLeft={
         <>
           <h2 className="text-base font-semibold text-slate-800 whitespace-nowrap flex-shrink-0">
@@ -245,14 +296,14 @@ const InventoryTable = ({ onEdit, onRefresh, refreshTrigger, canUpdate = true, c
             </Select>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-3 h-[38px]">
-            <span className="text-xs text-gray-400 font-normal whitespace-nowrap">Estado</span>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="h-7 border-none bg-transparent p-0 shadow-none focus:ring-0 gap-1 text-gray-800 font-semibold text-xs min-w-[70px]">
-                <SelectValue placeholder="Todos" />
+            <span className="text-xs text-gray-400 font-normal whitespace-nowrap">Caducidad</span>
+            <Select value={expiry} onValueChange={setExpiry}>
+              <SelectTrigger className="h-7 border-none bg-transparent p-0 shadow-none focus:ring-0 gap-1 text-gray-800 font-semibold text-xs min-w-[90px]">
+                <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent sideOffset={6}>
-                <SelectItem value="Todos">Todos</SelectItem>
-                {ESTADOS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                <SelectItem value="Todas">Todas</SelectItem>
+                {CADUCIDADES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

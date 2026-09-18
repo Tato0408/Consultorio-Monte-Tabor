@@ -167,12 +167,96 @@ const useProfile = () => {
     }
   };
 
+  // Firma y sello: solo doctor y admin los tienen (el admin también puede actuar como
+  // "doctor espejo", ver is_admin_mirror en el modelo Doctors). Cada uno se guarda y quita
+  // por separado — mismo criterio que uploadAvatar/deleteAvatar, pero contra las rutas
+  // dedicadas de autoservicio (nunca la genérica /admin/:id ni /doctors/:id, esas las usa
+  // la gestión de OTROS usuarios).
+  const SIGNATURE_ENDPOINTS = {
+    admin: "/admin/profile/signature",
+    doctor: "/doctors/profile/signature",
+  };
+  const SEAL_ENDPOINTS = {
+    admin: "/admin/profile/seal",
+    doctor: "/doctors/profile/seal",
+  };
+
+  const saveAsset = async (endpoint, fieldName, blob, successLabel, errorLabel) => {
+    try {
+      setSubmitting(true);
+      setError("");
+      const formData = new FormData();
+      formData.append(fieldName, blob, `${fieldName}.png`);
+      await apiClient(endpoint, { method: "PUT", body: formData });
+
+      await Swal.fire({
+        icon: "success",
+        title: "¡Guardada!",
+        text: successLabel,
+        confirmButtonColor: "#2563eb",
+        timer: 2000,
+        timerProgressBar: true,
+      });
+
+      await refetchUser();
+      return true;
+    } catch (err) {
+      setError(err.message || errorLabel);
+      Swal.fire({ icon: "error", title: "Error", text: err.message || errorLabel, confirmButtonColor: "#2563eb" });
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const removeAsset = async (endpoint, successLabel, errorLabel) => {
+    try {
+      setSubmitting(true);
+      setError("");
+      await apiClient(endpoint, { method: "PUT", body: { remove: "true" } });
+
+      await Swal.fire({
+        icon: "success",
+        title: "¡Eliminada!",
+        text: successLabel,
+        confirmButtonColor: "#2563eb",
+        timer: 2000,
+        timerProgressBar: true,
+      });
+
+      await refetchUser();
+      return true;
+    } catch (err) {
+      setError(err.message || errorLabel);
+      Swal.fire({ icon: "error", title: "Error", text: err.message || errorLabel, confirmButtonColor: "#2563eb" });
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const saveSignatureFile = (blob) =>
+    saveAsset(SIGNATURE_ENDPOINTS[userType], "signatureImage", blob, "Tu firma fue guardada correctamente.", "No se pudo guardar la firma.");
+  const saveSignatureDrawn = (blob) =>
+    saveAsset(SIGNATURE_ENDPOINTS[userType], "signatureImage", blob, "Tu firma fue guardada correctamente.", "No se pudo guardar la firma.");
+  const removeSignature = () =>
+    removeAsset(SIGNATURE_ENDPOINTS[userType], "Tu firma fue eliminada.", "No se pudo quitar la firma.");
+  const saveSeal = (blob) =>
+    saveAsset(SEAL_ENDPOINTS[userType], "sealImage", blob, "Tu sello fue guardado correctamente.", "No se pudo guardar el sello.");
+  const removeSeal = () =>
+    removeAsset(SEAL_ENDPOINTS[userType], "Tu sello fue eliminado.", "No se pudo quitar el sello.");
+
   return {
     error,
     submitting,
     uploadAvatar,
     deleteAvatar,
     updateProfile,
+    saveSignatureFile,
+    saveSignatureDrawn,
+    removeSignature,
+    saveSeal,
+    removeSeal,
     logout
   };
 };

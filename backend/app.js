@@ -171,7 +171,9 @@ app.use("/api/webhooks/wompi", wompiWebhookRoutes);
 
 // Proxy directo hacia la API de Wompi (token, tokenizar tarjeta, cobrar),
 // usado por la página de pago del paciente. Solo pacientes logueados
-// pueden llamarlo.
-app.use("/api/wompi", authenticate(["patient"]), wompiRoutes);
+// pueden llamarlo. requireActiveUser corta el acceso de inmediato si la
+// cuenta se desactiva mientras la sesión sigue viva (sin esto, un paciente
+// recién desactivado podía seguir tokenizando tarjetas y cobrando).
+app.use("/api/wompi", authenticate(["patient"]), requireActiveUser, wompiRoutes);
 
 export default app;

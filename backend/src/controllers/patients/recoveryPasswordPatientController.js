@@ -14,6 +14,11 @@ import patientModel from "../../models/patients/patients.js";
 //Array de funciones
 const recoveryPasswordController = {};
 
+// Mismo mensaje genérico que ya usa staffRecoveryController.js: sin esto,
+// requestCode devolvía 404 si el correo no existía y 200 si existía,
+// permitiendo enumerar qué correos son pacientes reales del sistema.
+const GENERIC_MESSAGE = "Si el correo está registrado, te enviaremos un código de verificación.";
+
 // La web guarda el token de recuperación en una cookie porque el
 // navegador la reenvía sola. La app móvil no tiene cookie jar, así
 // que además de la cookie se manda recoveryToken en el body de la
@@ -30,11 +35,12 @@ recoveryPasswordController.requestCode = async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Valida que el correo exista en la base de datos.
     const userFound = await patientModel.findOne({ email });
 
+    // Si no hay coincidencia, no se genera cookie ni se manda correo, pero la
+    // respuesta es idéntica a la de un correo que sí existe (ver GENERIC_MESSAGE).
     if (!userFound) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(200).json({ message: GENERIC_MESSAGE });
     }
 
     const randomCode = crypto.randomBytes(3).toString("hex");
@@ -57,10 +63,11 @@ recoveryPasswordController.requestCode = async (req, res) => {
     try {
       await sendEmail(email, "Recuperación de contraseña", htmlContent);
     } catch (error) {
+      // No se revela si el envío falló: mismo mensaje genérico. El intento
+      // queda en el log del servidor para diagnóstico.
       console.log("error" + error);
-      return res.status(500).json({ message: "Error al enviar el correo" });
     }
-    return res.status(200).json({ message: "Correo enviado", recoveryToken: token });
+    return res.status(200).json({ message: GENERIC_MESSAGE, recoveryToken: token });
   } catch (error) {
     console.log("error" + error);
     return res.status(500).json({ message: "Error interno del servidor" });

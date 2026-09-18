@@ -355,6 +355,20 @@ nursesController.updateOwnProfile = async (req, res) => {
             current_password
         } = req.body;
 
+        // Mismas dos validaciones que ya hace updateNurse (edición desde administración):
+        // sin ellas, esta ruta ni siquiera validaba el formato de correo/teléfono/DUI, y una
+        // enfermera podía cambiar su propio correo o DUI a uno ya usado por otro miembro del
+        // staff sin ningún aviso.
+        const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+        if (formatError) {
+            return res.status(400).json({ message: formatError });
+        }
+
+        const staffDuplicate = await findStaffDuplicate(email, dui, nurseId);
+        if (staffDuplicate) {
+            return res.status(400).json(staffDuplicate);
+        }
+
         const payload = {
             name,
             last_name,

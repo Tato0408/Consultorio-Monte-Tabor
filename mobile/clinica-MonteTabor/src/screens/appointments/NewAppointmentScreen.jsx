@@ -171,16 +171,23 @@ export default function NewAppointmentScreen({ navigation, route }) {
   // servicio y al confirmar llama a PATCH /patient-portal/appointments/:id/reschedule.
   const reschedule = route?.params?.reschedule || null;
   const [rescheduleId] = useState(reschedule?.appointmentId || null);
+  // Modo prellenado: llega desde "Reagendar cita" de una cita ya confirmada (scheduled),
+  // que el backend no permite reagendar reusando el registro (ver RESCHEDULABLE_STATUSES).
+  // AppointmentDetailScreen ya canceló esa cita antes de navegar aquí; esto solo precarga
+  // el mismo servicio y proveedor para que el paciente no tenga que elegirlos de nuevo,
+  // mismo criterio que irAAgendarConPrefill en el portal público. A diferencia de
+  // "reschedule", es una cita nueva de cero (rescheduleId se queda en null).
+  const prefill = route?.params?.prefill || null;
 
   const [step, setStep] = useState(1);
   const [services, setServices] = useState([]);
-  const [selectedId, setSelectedId] = useState(reschedule?.procedureId || null);
+  const [selectedId, setSelectedId] = useState(reschedule?.procedureId || prefill?.procedureId || null);
   // "rapido" (por defecto, sin doctor) o "doctor" (elige doctor antes que fecha/hora)
   const [modo, setModo] = useState("rapido");
   const [date, setDate] = useState(toDateKey(new Date()));
   const [slots, setSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState("");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(prefill?.motivo || "");
   const [metodoPago, setMetodoPago] = useState("reception");
   const [loading, setLoading] = useState(true);
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -229,11 +236,38 @@ export default function NewAppointmentScreen({ navigation, route }) {
         setServices(response.data || []);
         // Reagendar: el servicio ya viene fijado por la cita original, se salta directo
         // al paso de fecha y hora (en modo "rápido": lo acepta cualquier profesional
-        // disponible, mismo criterio que agendar sin elegir doctor).
-        if (reschedule?.procedureId) setStep(2);
+        // disponible, mismo criterio que agendar sin elegir doctor). En modo prellenado
+        // sin proveedor (procedimiento agregado) pasa lo mismo; con proveedor, el efecto
+        // de abajo avanza directo al paso 3 una vez que lo encuentra.
+        if ((reschedule?.procedureId || prefill?.procedureId) && !prefill?.doctorId && !prefill?.nurseId) setStep(2);
       })
       .catch((error) => showError(error.message || "No se pudieron cargar los servicios."))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Restaura el proveedor de la cita cancelada (ver prefill arriba). Corre una sola vez al
+  // montar, independiente de que ya haya cargado el catálogo de servicios.
+  useEffect(() => {
+    if (prefill?.doctorId) {
+      setModo("doctor");
+      apiClient("/patient-portal/doctors-schedulable")
+        .then((list) => {
+          const encontrado = (list || []).find((d) => d._id === prefill.doctorId);
+          if (encontrado) { setSelectedDoctor(encontrado); setStep(3); }
+          else { setModo("rapido"); setStep(2); }
+        })
+        .catch(() => { setModo("rapido"); setStep(2); });
+    } else if (prefill?.nurseId) {
+      setModo("doctor");
+      apiClient("/patient-portal/nurses-schedulable")
+        .then((list) => {
+          const encontrada = (list || []).find((n) => n._id === prefill.nurseId);
+          if (encontrada) { setSelectedNurse(encontrada); setStep(3); }
+          else { setModo("rapido"); setStep(2); }
+        })
+        .catch(() => { setModo("rapido"); setStep(2); });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Lista de doctores (o enfermeras, ver requiresDoctorForService) agendables al entrar
@@ -292,6 +326,10 @@ export default function NewAppointmentScreen({ navigation, route }) {
 
     setSlotsLoading(true);
     setSelectedTime("");
+    // Sin abortar la petición anterior, cambiar de fecha o de proveedor varias veces
+    // seguidas podía dejar que una respuesta tardía de una selección ya abandonada
+    // sobrescribiera "slots" con horarios de un día distinto al que se ve en pantalla.
+    const controller = new AbortController();
     // includeBooked: true trae también los horarios ya ocupados por otra cita de este
     // proveedor (marcados con available:false), para pintarlos bloqueados en vez de que
     // simplemente desaparezcan de la lista sin explicación.
@@ -300,14 +338,19 @@ export default function NewAppointmentScreen({ navigation, route }) {
           selectedDoctor
             ? `/patient-portal/schedule/${selectedDoctor._id}/slots`
             : `/patient-portal/nurse-schedule/${selectedNurse._id}/slots`,
-          { params: { date, duration: selectedService?.estimated_duration || 30, includeBooked: true } }
+          { params: { date, duration: selectedService?.estimated_duration || 30, includeBooked: true }, signal: controller.signal }
         )
-      : apiClient("/schedule/patient-available-slots", { params: { date, procedure_id: selectedId } });
+      : apiClient("/schedule/patient-available-slots", { params: { date, procedure_id: selectedId }, signal: controller.signal });
 
     solicitud
       .then((response) => setSlots(response.slots || []))
-      .catch((error) => { setSlots([]); showError(error.message || "No se pudo consultar la disponibilidad."); })
-      .finally(() => setSlotsLoading(false));
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        setSlots([]);
+        showError(error.message || "No se pudo consultar la disponibilidad.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setSlotsLoading(false); });
+    return () => controller.abort();
   }, [date, selectedId, step, modo, selectedDoctor, selectedNurse]);
 
   // Consulta los horarios de HOY (sin importar cuál día esté seleccionado) solo para
@@ -322,18 +365,23 @@ export default function NewAppointmentScreen({ navigation, route }) {
     if (enPasoDeHorarioProveedor && !provider) return;
 
     setTodayHasSlots(true);
+    // Mismo criterio que el efecto de arriba: se aborta la petición anterior para que una
+    // respuesta tardía no sobrescriba todayHasSlots con un resultado que ya no corresponde
+    // a la selección actual.
+    const controller = new AbortController();
     const solicitud = enPasoDeHorarioProveedor
       ? apiClient(
           selectedDoctor
             ? `/patient-portal/schedule/${selectedDoctor._id}/slots`
             : `/patient-portal/nurse-schedule/${selectedNurse._id}/slots`,
-          { params: { date: todayKey, duration: selectedService?.estimated_duration || 30, includeBooked: true } }
+          { params: { date: todayKey, duration: selectedService?.estimated_duration || 30, includeBooked: true }, signal: controller.signal }
         )
-      : apiClient("/schedule/patient-available-slots", { params: { date: todayKey, procedure_id: selectedId } });
+      : apiClient("/schedule/patient-available-slots", { params: { date: todayKey, procedure_id: selectedId }, signal: controller.signal });
 
     solicitud
       .then((response) => setTodayHasSlots((response.slots || []).some(isFutureSlot)))
-      .catch(() => setTodayHasSlots(true));
+      .catch((error) => { if (error.name !== "AbortError") setTodayHasSlots(true); });
+    return () => controller.abort();
   }, [selectedId, step, modo, selectedDoctor, selectedNurse]);
 
   // Un día cae dentro de una excepción bloqueante (vacaciones, día no laborable) si su
@@ -351,6 +399,19 @@ export default function NewAppointmentScreen({ navigation, route }) {
     if (workingDays === null) return false;
     if (!workingDays.includes(day.getDay())) return true;
     return fechaDentroDeExcepcionBloqueante(key);
+  };
+
+  // Elegir un nuevo servicio invalida el proveedor y el horario ya elegidos: si cambia si
+  // el servicio requiere doctor o enfermera (requiresDoctorForService), un proveedor de la
+  // selección anterior podía quedar "pegado" y mostrarse junto al nuevo en la confirmación
+  // y en la pantalla de éxito (mismo criterio que elegirTipo en el portal público).
+  const elegirServicio = (id) => {
+    setSelectedId(id);
+    setSelectedDoctor(null);
+    setSelectedNurse(null);
+    setDate(toDateKey(new Date()));
+    setSelectedTime("");
+    setSlots([]);
   };
 
   const cambiarModo = (nuevoModo) => {
@@ -503,7 +564,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
               <Ionicons name="search-outline" size={18} color="#94A3B8" />
             </View>
             {loading ? <ActivityIndicator color="#2F6BFF" style={styles.loader} /> : filteredServices.map((service, index) => (
-              <TouchableOpacity key={service._id} style={[styles.serviceCard, selectedId === service._id && styles.serviceCardSelected]} onPress={() => setSelectedId(service._id)}>
+              <TouchableOpacity key={service._id} style={[styles.serviceCard, selectedId === service._id && styles.serviceCardSelected]} onPress={() => elegirServicio(service._id)}>
                 <View style={styles.serviceIcon}><Ionicons name={SERVICE_ICONS[index % SERVICE_ICONS.length]} size={21} color="#5368D9" /></View>
                 <View style={styles.serviceText}>
                   <Text style={styles.serviceName}>{service.name}</Text>

@@ -27,6 +27,7 @@ import { showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
 import apiClient from "@/lib/apiClient";
 import { useAuth } from "@/context/AuthContext";
+import { useMySignatureAssets } from "@/lib/useMySignatureAssets";
 
 // Borrador de la consulta en curso, guardado en sessionStorage al salir a
 // "Generar orden de laboratorio" para no perder lo que el doctor llevaba
@@ -78,6 +79,7 @@ const ConsultationForm = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { hasPermission, userType } = useAuth();
+    const { signatureUrl, sealUrl } = useMySignatureAssets();
 
     // Esta consulta se abrió desde la pestaña Consultas del expediente de un
     // paciente (RecordDetailPage.jsx manda fromRecords en location.state).
@@ -270,6 +272,8 @@ const ConsultationForm = () => {
                     gender={patient?.gender}
                     dui={patient?.dui}
                     doctorName={doctorFullName}
+                    signatureUrl={signatureUrl}
+                    sealUrl={sealUrl}
                     date={todayFormatted}
                     time={todayTime}
                     vitals={{
@@ -339,6 +343,8 @@ const ConsultationForm = () => {
                     dui={patient?.dui}
                     age={calculateAge(patient?.birth_date)}
                     doctorName={doctorFullName}
+                    signatureUrl={signatureUrl}
+                    sealUrl={sealUrl}
                     date={todayFormatted}
                     time={todayTime}
                     medications={medications}
@@ -401,6 +407,8 @@ const ConsultationForm = () => {
                     diagnosis={values?.clinical_data?.diagnosis}
                     diagnosisDescription={values?.clinical_data?.diagnosis_description}
                     doctorName={doctorFullName}
+                    signatureUrl={signatureUrl}
+                    sealUrl={sealUrl}
                 />
             );
         } catch (err) {
@@ -482,6 +490,8 @@ const ConsultationForm = () => {
                 diagnosis={diagnosisText}
                 restDays={restDays}
                 doctorName={doctorFullName}
+                signatureUrl={signatureUrl}
+                sealUrl={sealUrl}
                 date={todayFormatted}
                 time={todayTime}
             />

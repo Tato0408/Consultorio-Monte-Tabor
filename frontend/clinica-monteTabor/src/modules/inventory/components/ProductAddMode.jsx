@@ -193,9 +193,9 @@ const ModalAgregarProducto = ({ onClose, onSuccess, item }) => {
               placeholder="Nombre del proveedor"
               maxLength={100}
               value={form.supplier} onChange={set("supplier")} />
-
+            {/* Fecha de vencimiento/vida útil opcional para productos que no cuentan con fecha de caducidad */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-600">Fecha de vencimiento (opcional)</label>
+              <label className="text-xs font-medium text-gray-600">Fecha de vencimiento/vida útil (opcional)</label>
               <input type="date"
                 min="2000-01-01"
                 max={`${new Date().getFullYear() + 20}-12-31`}

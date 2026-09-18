@@ -297,6 +297,20 @@ receptionistController.updateOwnProfile = async (req, res) => {
     //los datos vienen dentro del body de la peticion
     const { name, last_name, dui, birth_date, phone, email, password, current_password } = req.body;
 
+    // Mismas dos validaciones que ya hace updateReceptionist (edición desde administración):
+    // sin ellas, esta ruta ni siquiera validaba el formato de correo/teléfono/DUI, y un
+    // recepcionista podía cambiar su propio correo o DUI a uno ya usado por otro miembro del
+    // staff sin ningún aviso.
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+    if (formatError) {
+      return res.status(400).json({ message: formatError });
+    }
+
+    const staffDuplicate = await findStaffDuplicate(email, dui, receptionistId);
+    if (staffDuplicate) {
+      return res.status(400).json(staffDuplicate);
+    }
+
     //Crea una constante con el objeto de los datos del propio perfil que se van a actualizar
     const updatedData = {
       name,

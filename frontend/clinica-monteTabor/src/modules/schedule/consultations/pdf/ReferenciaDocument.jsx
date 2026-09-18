@@ -53,6 +53,8 @@ const ReferenciaDocument = ({
     diagnosis,
     diagnosisDescription,
     doctorName,
+    signatureUrl,
+    sealUrl,
 }) => {
     // phone se mantiene por compatibilidad con llamadores viejos que pasaban
     // el teléfono del paciente con ese nombre.
@@ -131,7 +133,7 @@ const ReferenciaDocument = ({
                 <Text style={styles.sectionLabel}>IMPRESIÓN DIAGNOSTICADA:</Text>
                 <Text style={styles.block}>{impresion.trim() || "—"}</Text>
 
-                <PdfSignature doctorName={doctorName} />
+                <PdfSignature doctorName={doctorName} signatureUrl={signatureUrl} sealUrl={sealUrl} />
             </Page>
         </Document>
     );

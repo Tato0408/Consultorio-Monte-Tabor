@@ -1,10 +1,6 @@
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
-
-const diffDays = (dateStr) => {
-  const diff = new Date(dateStr) - new Date();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-};
+import { getExpiryDays, getExpiryLabel } from "../utils/expiry";
 
 const fmtExpiry = (dateStr) => {
   if (!dateStr) return "";
@@ -62,8 +58,8 @@ const InventoryAlertsRow = ({ stats, defaultOpen = true, canView = true }) => {
             <p className="text-xs text-slate-400 text-center py-4">{emptyLabel || "Sin vencimientos próximos"}</p>
           )}
           {proximosAVencer.map((p) => {
-            const days = diffDays(p.expiration_date);
-            const color = days <= 15 ? "text-red-500" : days <= 30 ? "text-orange-500" : "text-yellow-500";
+            const days = getExpiryDays(p.expiration_date);
+            const color = days <= 0 ? "text-red-600" : days <= 15 ? "text-red-500" : "text-orange-500";
             return (
               <div key={p._id} className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs">💊</div>
@@ -71,7 +67,7 @@ const InventoryAlertsRow = ({ stats, defaultOpen = true, canView = true }) => {
                   <p className="text-sm font-medium text-slate-800 truncate">{p.name}</p>
                   <p className="text-xs text-slate-400">Vence el {fmtExpiry(p.expiration_date)}</p>
                 </div>
-                <span className={`text-xs font-semibold ${color} flex-shrink-0`}>{days} días</span>
+                <span className={`text-xs font-semibold ${color} flex-shrink-0`}>{getExpiryLabel(p.expiration_date)}</span>
               </div>
             );
           })}

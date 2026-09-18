@@ -208,7 +208,7 @@ patientsController.deletePatient = async (req, res) => {
     }
 
     const related = await countPatientRelatedRecords(req.params.id);
-    const hasRelated = related.appointments > 0 || related.consultations > 0;
+    const hasRelated = related.appointments > 0 || related.consultations > 0 || related.treatments > 0;
 
     // Sin registros relacionados: borrado directo del documento, igual que
     // siempre.

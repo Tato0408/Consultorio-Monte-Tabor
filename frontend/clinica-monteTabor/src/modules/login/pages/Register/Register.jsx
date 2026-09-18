@@ -7,9 +7,78 @@ import useRegisterAdmin from "../../hooks/useRegisterAdmin";
 import { getMaxAdultBirthDate, validateAdultBirthDate, calculateAge } from "../../../../lib/validators";
 import { maskLettersOnly } from "../../../../lib/inputMasks";
 
+// Segundo paso: pedir el código de 6 caracteres que llegó al correo, antes
+// de crear de verdad la cuenta de administrador (ver useRegisterAdmin).
+const VerifyStep = ({ loading, onVerify, onBack }) => {
+  const [code, setCode] = useState(Array(6).fill(""));
+  const [error, setError] = useState("");
+  const codeString = code.join("");
+  const isComplete = codeString.length === 6;
+
+  const handleChange = (value, index) => {
+    if (!/^[a-fA-F0-9]*$/.test(value)) return;
+    const newCode = [...code];
+    newCode[index] = value;
+    setCode(newCode);
+    if (value && index < 5) document.getElementById(`admin-code-${index + 1}`)?.focus();
+  };
+
+  const handleKeyDown = (e, index) => {
+    if (e.key === "Backspace" && !code[index] && index > 0) {
+      document.getElementById(`admin-code-${index - 1}`)?.focus();
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (loading) return;
+    setError("");
+    if (!isComplete) { setError("Ingresa el código completo"); return; }
+    const ok = await onVerify(codeString);
+    if (!ok) setError("Código incorrecto o expirado");
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full max-w-[420px]">
+      <div className="text-center mb-2">
+        <h2 className="text-xl font-bold text-gray-800">Verifica tu correo</h2>
+        <p className="text-gray-400 text-sm mt-2">Ingresa el código de 6 caracteres que enviamos a tu correo</p>
+      </div>
+      <fieldset disabled={loading} className="flex flex-col gap-5 border-0 p-0 m-0 min-w-0">
+        <div className="flex justify-center gap-3">
+          {code.map((digit, index) => (
+            <input
+              key={index}
+              id={`admin-code-${index}`}
+              maxLength={1}
+              value={digit}
+              onChange={(e) => handleChange(e.target.value, index)}
+              onKeyDown={(e) => handleKeyDown(e, index)}
+              className="w-12 h-12 border rounded-lg text-center text-xl outline-none focus:border-[#3B6FCA] transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-gray-50"
+            />
+          ))}
+        </div>
+        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+        <button
+          type="submit"
+          disabled={!isComplete || loading}
+          className="w-full py-3 rounded-lg bg-[#3B6FCA] hover:bg-[#2d5ab5] active:scale-[0.98] text-white font-semibold text-sm tracking-wide transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#3B6FCA]/25"
+        >
+          {loading ? "Verificando..." : "Verificar código"}
+        </button>
+        <button type="button" onClick={onBack} disabled={loading} className="text-sm text-gray-400 hover:text-gray-600 disabled:opacity-60">
+          Volver
+        </button>
+      </fieldset>
+    </form>
+  );
+};
+
 const Register = () => {
-  const { loading, error: apiError, register } = useRegisterAdmin();
+  const { loading, error: apiError, register, verifyCode } = useRegisterAdmin();
   const fileInputRef = useRef(null);
+  // form: completando datos. verify: esperando el código de verificación.
+  const [step, setStep] = useState("form");
 
   const [formData, setFormData] = useState({
     nombre: "", apellido: "", dui: "", birth_date: "",
@@ -124,7 +193,8 @@ const Register = () => {
       setErrors(validationErrors);
       return;
     }
-    await register(formData);
+    const ok = await register(formData);
+    if (ok) setStep("verify");
   };
 
   return (
@@ -174,6 +244,9 @@ const Register = () => {
               <h2 className="text-xl font-bold text-gray-800 tracking-tight">Crear cuenta</h2>
             </div>
 
+            {step === "verify" ? (
+              <VerifyStep loading={loading} onVerify={verifyCode} onBack={() => setStep("form")} />
+            ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
 
               {apiError && (
@@ -313,6 +386,7 @@ const Register = () => {
               </button>
 
             </form>
+            )}
           </div>
         </div>
 

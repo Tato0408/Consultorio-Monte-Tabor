@@ -13,6 +13,12 @@ router.route("/").get(adminController.getAdmins)
 
 router.route("/verifyEmailChange").post(adminController.verifyEmailChange);
 
+// Firma y sello propios, opcionales e independientes entre sí — ver
+// adminController.updateOwnSignature/updateOwnSeal. Van antes de "/:id" por claridad,
+// aunque al ser rutas de 2 segmentos Express nunca las confundiría con ese id de 1 segmento.
+router.route("/profile/signature").put(upload.single("signatureImage"), adminController.updateOwnSignature);
+router.route("/profile/seal").put(upload.single("sealImage"), adminController.updateOwnSeal);
+
 router.route("/:id").put(upload.single("image"), adminController.updateAdmin)
 .delete(authenticate(["admin"]),adminController.deleteAdmin);
 

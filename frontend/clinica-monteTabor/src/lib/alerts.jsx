@@ -115,18 +115,23 @@ export const confirmDelete = async ({
 // con el conteo de esos registros y la gestion de usuarios llama aqui antes
 // de reintentar el borrado con cascade. subject es "paciente" o "doctor",
 // name es el nombre completo para el mensaje, y related trae los conteos
-// { appointments, consultations }.
+// { appointments, consultations, treatments }. treatments solo lo manda el
+// borrado de paciente (un doctor/enfermera no tiene tratamientos propios),
+// por eso se muestra aparte y solo si viene informado.
 export const confirmCascadeDelete = async ({ subject, name, related = {} }) => {
   const appointments = related.appointments || 0;
   const consultations = related.consultations || 0;
+  const treatments = related.treatments || 0;
   const cita = appointments === 1 ? "cita" : "citas";
   const consulta = consultations === 1 ? "consulta" : "consultas";
+  const tratamiento = treatments === 1 ? "tratamiento" : "tratamientos";
 
   const result = await Swal.fire({
     title: `¿Eliminar a ${name} y todo lo relacionado?`,
     html:
-      `Este ${subject} tiene <b>${appointments}</b> ${cita} y <b>${consultations}</b> ${consulta} registradas. ` +
-      `Si continúas, también se eliminarán todas sus citas, consultas, recetas, órdenes de laboratorio, ` +
+      `Este ${subject} tiene <b>${appointments}</b> ${cita} y <b>${consultations}</b> ${consulta} registradas` +
+      (treatments > 0 ? ` y <b>${treatments}</b> ${tratamiento} de seguimiento` : "") +
+      `. Si continúas, también se eliminarán todas sus citas, consultas, recetas, órdenes de laboratorio, ` +
       `incapacidades y demás información relacionada. Esta acción no se puede deshacer.`,
     icon: "warning",
     iconColor: "#fbbf24",

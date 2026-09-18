@@ -441,9 +441,14 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         const { start, end } = getDayRange(date || new Date());
 
         const dayFilter = { date: { $gte: start, $lte: end } };
-        // El doctor solo ve estadísticas de sus propias citas.
+        // El doctor solo ve estadísticas de sus propias citas. La enfermera queda asignada a
+        // citas propias vía nurse_id (como proveedora principal de un procedimiento sin
+        // doctor, o de apoyo), así que aplica el mismo criterio; sin esto veía los números de
+        // toda la clínica en vez de los suyos.
         if (req.user.role === "doctor") {
             dayFilter.doctor_id = req.user.id;
+        } else if (req.user.role === "nurse") {
+            dayFilter.nurse_id = req.user.id;
         }
 
         // "Completados" cuenta las citas atendidas HOY (updatedAt), no las
@@ -453,6 +458,8 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         const completedFilter = { status: "completed", updatedAt: { $gte: start, $lte: end } };
         if (req.user.role === "doctor") {
             completedFilter.doctor_id = req.user.id;
+        } else if (req.user.role === "nurse") {
+            completedFilter.nurse_id = req.user.id;
         }
 
         const [scheduled, waiting, completed] = await Promise.all([
@@ -481,6 +488,7 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
                     date: { $gt: end },
                     status: "scheduled",
                     ...(req.user.role === "doctor" ? { doctor_id: req.user.id } : {}),
+                    ...(req.user.role === "nurse" ? { nurse_id: req.user.id } : {}),
                 })
                 .sort({ date: 1, start_time: 1 })
                 .populate("doctor_id", "name last_name specialty img_url")
@@ -1219,6 +1227,17 @@ appointmentsController.acceptAppointment = async (req, res) => {
             if (!assignedNurse) {
                 return res.status(400).json({ message: "La enfermera seleccionada no existe." });
             }
+            // Revalida contra la base de datos que la enfermera de apoyo siga libre en este
+            // horario, mismo criterio que ya se aplica al doctor arriba y al crear/editar una
+            // cita (insertAppointment/updateAppointment): el catálogo de enfermeras
+            // disponibles que vio el doctor pudo quedar desactualizado entre que se cargó y
+            // que se confirma la aceptación.
+            const { free: nurseFree, reason: nurseReason } = await isSlotFreeForNurse(
+                nurse_id, dateStr, appointment.start_time, appointment.end_time, appointmentsModel, appointment._id
+            );
+            if (!nurseFree) {
+                return res.status(409).json({ message: nurseReason || "Esa enfermera ya no está disponible en este horario." });
+            }
         }
 
         // La condición exige que siga sin asignar (o asignada a este mismo
@@ -1330,6 +1349,15 @@ appointmentsController.assignDoctor = async (req, res) => {
             assignedNurse = await nursesModel.findById(nurse_id).select("_id");
             if (!assignedNurse) {
                 return res.status(400).json({ message: "La enfermera seleccionada no existe." });
+            }
+            // Mismo criterio que acceptAppointment: revalida contra la base de datos que la
+            // enfermera de apoyo siga libre en este horario, en vez de confiar en el catálogo
+            // que vio el admin al armar la solicitud.
+            const { free: nurseFree, reason: nurseReason } = await isSlotFreeForNurse(
+                nurse_id, dateStr, appointment.start_time, appointment.end_time, appointmentsModel, appointment._id
+            );
+            if (!nurseFree) {
+                return res.status(409).json({ message: nurseReason || "Esa enfermera ya no está disponible en este horario." });
             }
         }
 

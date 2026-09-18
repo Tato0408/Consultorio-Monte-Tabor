@@ -21,7 +21,13 @@ const storage = new CloudinaryStorage({
 });
 
 // Middleware de multer que sube los archivos directamente a Cloudinary
-// usando el storage anterior.
-const upload = multer({ storage });
+// usando el storage anterior. Mismo límite que CloudinaryDocumentConfig.js:
+// sin esto, cualquier rol con permiso de creación/edición en usuarios,
+// doctores, enfermeras, recepcionistas o inventario podía subir una imagen
+// de tamaño arbitrario.
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 export default upload;
