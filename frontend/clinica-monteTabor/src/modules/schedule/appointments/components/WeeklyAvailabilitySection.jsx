@@ -165,20 +165,34 @@ const WeeklyAvailabilitySection = ({ availability, onChange, breaks = [], onBrea
             }
         >
             {weekMode === "lista" ? (
-                <div className="divide-y divide-slate-50">
+                // Dos columnas desde md: la tarjeta ocupa el mismo ancho que sus vecinas (Pausas,
+                // Excepciones, etc.), pero repartir los 7 días en 2 columnas usa ese ancho en vez
+                // de dejarlo en blanco a la derecha de una sola columna angosta, y de paso la
+                // tarjeta queda bastante más baja (7 filas pasan a ser 4). divide-y no funciona
+                // bien en una cuadrícula de 2 columnas (la línea quedaría a mitad de fila), así
+                // que cada celda lleva su propio borde inferior en su lugar.
+                <div className="grid grid-cols-1 md:grid-cols-2 md:gap-x-8">
                     {availability.map((dayConfig) => (
-                        <div key={dayConfig.day} className="py-3 first:pt-0 last:pb-0">
-                            <div className="flex items-start gap-3">
-                                <Toggle
-                                    checked={dayConfig.is_available}
-                                    onChange={() => toggleDay(dayConfig.day, !dayConfig.is_available)}
-                                />
-                                <span
-                                    className="text-sm font-medium w-24 flex-shrink-0 mt-0.5"
-                                    style={{ color: dayConfig.is_available ? "#1e293b" : "#cbd5e1" }}
-                                >
-                                    {DAYS[dayConfig.day]}
-                                </span>
+                        <div key={dayConfig.day} className="py-3 border-b border-slate-50 last:border-b-0">
+                            {/* flex-col en mobile: el toggle+día ocupaban tanto ancho junto a los
+                                selectores de hora, que a cada uno ya no le quedaba lugar en la misma
+                                línea que el "a" entre ambos, y terminaban apilados uno por fila. Al
+                                bajar los horarios a su propia fila (debajo, a todo el ancho) en vez
+                                de compartir fila con el toggle+día, "[hora] a [hora]" vuelve a caber
+                                en una sola línea. En sm+ se mantiene la fila horizontal de siempre. */}
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                                <div className="flex items-center gap-3 flex-shrink-0">
+                                    <Toggle
+                                        checked={dayConfig.is_available}
+                                        onChange={() => toggleDay(dayConfig.day, !dayConfig.is_available)}
+                                    />
+                                    <span
+                                        className="text-sm font-medium w-24 flex-shrink-0 sm:mt-0.5"
+                                        style={{ color: dayConfig.is_available ? "#1e293b" : "#cbd5e1" }}
+                                    >
+                                        {DAYS[dayConfig.day]}
+                                    </span>
+                                </div>
 
                                 {dayConfig.is_available ? (
                                     <div className="flex-1 flex flex-col gap-2">

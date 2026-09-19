@@ -31,24 +31,6 @@ const DoctorsTable = ({
       render: (doctor) => <span className="text-gray-500">{doctor.phone || "—"}</span>,
     },
     {
-      // Nunca la imagen real (es información sensible, solo el propio doctor puede verla y
-      // guardarla desde su perfil): el backend ya la reemplaza por este booleano antes de
-      // responder (ver withSignatureFlags en doctorsController.js), así que ni siquiera un
-      // admin gestionando la lista puede acceder a ella desde aquí.
-      header: "Firma",
-      align: "center",
-      render: (doctor) => (
-        <input type="checkbox" checked={Boolean(doctor.has_signature)} disabled className="w-4 h-4 accent-blue-600 cursor-not-allowed" />
-      ),
-    },
-    {
-      header: "Sello",
-      align: "center",
-      render: (doctor) => (
-        <input type="checkbox" checked={Boolean(doctor.has_seal)} disabled className="w-4 h-4 accent-blue-600 cursor-not-allowed" />
-      ),
-    },
-    {
       header: "Estado",
       align: "center",
       render: (doctor) => (
