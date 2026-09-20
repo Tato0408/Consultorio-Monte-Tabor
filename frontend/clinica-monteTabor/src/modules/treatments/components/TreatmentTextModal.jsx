@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/lib/alerts";
+import { maskClinicalText } from "@/lib/inputMasks";
 
-// Modal generico de un textarea con boton guardar, reutilizado por los
-// botones "Actualizar evolución" y "Agregar nota" del panel de tratamiento.
-// Ambos son texto libre: solo cambian el titulo, el icono, el placeholder y
-// que endpoint se llama al guardar (eso lo decide quien use este modal a
-// traves de onSubmit, que solo debe hacer la llamada a la API).
+const TEXT_MAX = 1000;
+
+// Modal generico de un textarea con boton guardar. Lo reutilizan varias
+// acciones de texto libre del detalle de tratamiento (registrar o editar
+// una nota, escribir el motivo de una pausa). Solo cambian el titulo, el
+// icono, el placeholder y que hace onSubmit, que se encarga de la llamada
+// a la API.
 const TreatmentTextModal = ({ isOpen, onClose, icon: Icon, iconBg, title, placeholder, initialValue = "", submitLabel, successMessage, onSubmit }) => {
   const [value, setValue] = useState(initialValue);
   const [loading, setLoading] = useState(false);
@@ -64,13 +67,13 @@ const TreatmentTextModal = ({ isOpen, onClose, icon: Icon, iconBg, title, placeh
           <textarea
             rows={5}
             autoFocus
-            maxLength={1000}
+            maxLength={TEXT_MAX}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => setValue(maskClinicalText(e.target.value, TEXT_MAX))}
             placeholder={placeholder}
             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors resize-none"
           />
-          <p className="text-[11px] text-slate-400 text-right mt-1">{value.length}/1000</p>
+          <p className="text-[11px] text-slate-400 text-right mt-1">{value.length}/{TEXT_MAX}</p>
 
           <button
             type="button"

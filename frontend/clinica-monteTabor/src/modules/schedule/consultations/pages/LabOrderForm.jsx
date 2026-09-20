@@ -5,6 +5,7 @@ import { ArrowLeft, Download, Eraser, Save } from "lucide-react";
 import useLabOrder from "../hooks/useLabOrder";
 import LabOrderDocument from "../pdf/LabOrderDocument";
 import { downloadPdf } from "../pdf/downloadPdf";
+import { pdfDateTime } from "../pdf/pdfDate";
 import {
     LAB_ORDER_CATALOG,
     testKey,
@@ -15,6 +16,7 @@ import {
 import { showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
 import { maskClinicalText } from "@/lib/inputMasks";
+import { useMySignatureAssets } from "@/lib/useMySignatureAssets";
 
 const OTHER_TESTS_MAX = 300;
 
@@ -25,6 +27,7 @@ const LabOrderForm = () => {
     const location = useLocation();
 
     const readOnly = searchParams.get("mode") === "view";
+    const { signatureUrl, sealUrl } = useMySignatureAssets();
     // Reenvía el mismo location.state con el que se llegó acá (ver
     // ConsultationForm.jsx), así la consulta a la que se vuelve conserva de
     // dónde se abrió originalmente (lista de consultas o expediente del
@@ -59,12 +62,9 @@ const LabOrderForm = () => {
         : nurse
             ? `${nurse.name || ""} ${nurse.last_name || ""}`.trim()
             : "";
-    const todayFormatted = new Date().toLocaleDateString("es-SV", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    });
-    const todayFileSafe = todayFormatted.replace(/\//g, "-");
+    // Fecha y hora de emisión: la orden se genera en este momento, con el
+    // reloj local de ahora.
+    const { date: todayFormatted, time: todayTime, fileSafe: todayFileSafe } = pdfDateTime();
 
     const selectedCount = countSelectedTests([...selected]);
 
@@ -106,7 +106,10 @@ const LabOrderForm = () => {
             gender={patient?.gender}
             dui={patient?.dui}
             doctorName={doctorFullName}
+            signatureUrl={signatureUrl}
+            sealUrl={sealUrl}
             date={todayFormatted}
+            time={todayTime}
             weight={triageWeight}
             height={triageHeight}
             pregnancy={pregnancy}

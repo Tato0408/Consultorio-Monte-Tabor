@@ -106,11 +106,15 @@ const StepFechaHora = ({ procedureId, duration, doctor, nurse, date, slot, onSel
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     setTodayHasSlots(true);
+    // Sin abortar la petición anterior, un cambio rápido de proveedor/procedimiento podía
+    // dejar que una respuesta vieja llegara después que la nueva y sobrescribiera
+    // todayHasSlots con un resultado que ya no corresponde a la selección actual.
+    const controller = new AbortController();
     const solicitud = doctor
-      ? getAvailableSlots(doctor._id, toDateStr(hoy), duration)
+      ? getAvailableSlots(doctor._id, toDateStr(hoy), duration, controller.signal)
       : nurse
-        ? getNurseAvailableSlots(nurse._id, toDateStr(hoy), duration)
-        : getPatientAvailableSlots(toDateStr(hoy), procedureId);
+        ? getNurseAvailableSlots(nurse._id, toDateStr(hoy), duration, controller.signal)
+        : getPatientAvailableSlots(toDateStr(hoy), procedureId, controller.signal);
     solicitud
       .then((res) => {
         const ahoraCheck = new Date();
@@ -121,28 +125,40 @@ const StepFechaHora = ({ procedureId, duration, doctor, nurse, date, slot, onSel
         });
         setTodayHasSlots(quedanHorarios);
       })
-      .catch(() => setTodayHasSlots(true));
+      .catch((err) => {
+        if (err?.name === "AbortError") return;
+        setTodayHasSlots(true);
+      });
+    return () => controller.abort();
   }, [procedureId, doctor, nurse, duration]);
 
   useEffect(() => {
     if (!date) return;
     setLoading(true);
     setMensaje("");
+    // Mismo criterio que el efecto de arriba: se aborta la petición anterior para que una
+    // respuesta tardía de una fecha/proveedor ya abandonados no sobrescriba los horarios
+    // mostrados con los de una selección distinta a la actual.
+    const controller = new AbortController();
     const solicitud = doctor
-      ? getAvailableSlots(doctor._id, toDateStr(date), duration)
+      ? getAvailableSlots(doctor._id, toDateStr(date), duration, controller.signal)
       : nurse
-        ? getNurseAvailableSlots(nurse._id, toDateStr(date), duration)
-        : getPatientAvailableSlots(toDateStr(date), procedureId);
+        ? getNurseAvailableSlots(nurse._id, toDateStr(date), duration, controller.signal)
+        : getPatientAvailableSlots(toDateStr(date), procedureId, controller.signal);
     solicitud
       .then((res) => {
         setSlots(res.slots || []);
         setMensaje(res.message || "");
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err?.name === "AbortError") return;
         setSlots([]);
         setMensaje("No se pudieron cargar los horarios.");
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, [procedureId, date, doctor, nurse, duration]);
 
   // Una excepción de tipo vacaciones o día no laborable bloquea ese rango de fechas

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Trash2 } from "lucide-react";
+import { Trash2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import { showError, showSuccess, confirmDelete, confirmTakeOverAppointment } from "@/lib/alerts";
+import { formatTime12h } from "@/lib/timeFormat";
 
 // El ciclo real de una cita es pending, scheduled, completed o
 // cancelled (ver AppointmentsForm.jsx). scheduled (Programada)
@@ -11,6 +12,11 @@ import { showError, showSuccess, confirmDelete, confirmTakeOverAppointment } fro
 // en AppointmentFilters.jsx, para que el filtro y la insignia de
 // estado de esta misma tabla usen exactamente el mismo texto en
 // español.
+// "Agendado (sin confirmar)" para pending es intencional en este módulo de Consultas
+// (va emparejado con la pestaña de filtro "Sin confirmar" de más abajo), a diferencia
+// del módulo de Citas/Agenda, que usa el texto genérico "Pendiente" para el mismo
+// estado — no es una divergencia accidental, cada uno describe el mismo estado con el
+// nivel de detalle que le sirve a esa pantalla.
 const STATUS_BADGE = {
     pending: { label: "Agendado (sin confirmar)", className: "bg-slate-100 text-slate-600" },
     scheduled: { label: "En espera", className: "bg-amber-100 text-amber-700" },
@@ -43,10 +49,10 @@ const ROW_GRID = "grid grid-cols-[1fr_1.3fr_1.3fr_1fr_0.9fr] gap-x-6 px-8";
 // "Todos los estados", el punto de partida por defecto.
 const TABS = [
     { key: "", label: "Todos" },
-    { key: "pending, scheduled", label: "Agendados" },
-    { key: "pending", label: "Sin confirmar" },
-    { key: "scheduled", label: "En espera" },
     { key: "completed", label: "Atendido" },
+    { key: "pending, scheduled", label: "Agendados" },
+    { key: "scheduled", label: "En espera" },
+    { key: "pending", label: "Sin confirmar" },
     { key: "cancelled", label: "Cancelado" },
     { key: "no_show", label: "No presentado" },
 ];
@@ -120,25 +126,27 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
         navigate(`/calendar/consultations/${appt._id}`);
     };
 
-    // Elimina el registro clínico (Consultation) de una cita ya atendida. El
-    // endpoint de borrado espera el id de la consulta, no el de la cita, así
-    // que primero se resuelve cuál consulta le pertenece a esta cita (mismo
-    // endpoint que ya usa useConsultation.js para cargar el formulario).
+    // Elimina por completo la cita y, si la tiene, su registro clínico
+    // (Consultation) asociado. El backend resuelve todo por el id de la cita
+    // (ver deleteConsultationByAppointment): borra la consulta con su
+    // cascada si existe, o la cita directamente si nunca llegó a tener una
+    // (evita que la fila quede "fantasma" en la tabla tras borrar).
     const handleDelete = async (appt) => {
+        // No presentada alimenta la tasa de asistencia y el conteo de
+        // inasistencias en Reportes (reportsController.js): a diferencia de
+        // cancelada, avisa explícitamente que borrarla le resta ese registro
+        // a las estadísticas/gráficas del mes correspondiente.
         const confirmed = await confirmDelete({
             title: "¿Eliminar esta consulta?",
-            text: "Esta acción es irreversible y la información no se podrá recuperar.",
+            text: appt.status === "no_show"
+                ? "Esta cita se contabiliza en las estadísticas de asistencia de Reportes (tasa de asistencia, inasistencias del mes). Al eliminarla, esos datos ya no reflejarán esta inasistencia. Esta acción es irreversible y la información no se podrá recuperar."
+                : "Esta acción es irreversible y la información no se podrá recuperar.",
         });
         if (!confirmed) return;
 
         setDeletingId(appt._id);
         try {
-            const consultation = await apiClient(`/consultations/by-appointment/${appt._id}`);
-            if (!consultation?._id) {
-                showError("No se encontró el registro clínico de esta cita.");
-                return;
-            }
-            await apiClient(`/consultations/${consultation._id}`, { method: "DELETE" });
+            await apiClient(`/consultations/by-appointment/${appt._id}`, { method: "DELETE" });
             showSuccess("Eliminada", "La consulta fue eliminada correctamente");
             onDeleted?.();
         } catch (err) {
@@ -219,7 +227,7 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                 key={appt._id}
                                 className={`${ROW_GRID} py-3 items-center border-b border-slate-50 last:border-0 ${isWaiting ? "bg-blue-50/40" : ""}`}
                             >
-                                <span className="text-slate-700 text-center">{appt.start_time} - {appt.end_time}</span>
+                                <span className="text-slate-700 text-center">{formatTime12h(appt.start_time)} - {formatTime12h(appt.end_time)}</span>
                                 <span className="text-slate-700 text-center truncate">{formatPersonName(appt.patient_id)}</span>
                                 <span className="text-slate-700 text-center truncate">
                                     {appt.doctor_id ? formatPersonName(appt.doctor_id) : appt.nurse_id ? `${formatPersonName(appt.nurse_id)} (enfermera)` : "—"}
@@ -230,6 +238,18 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                     </span>
                                 </div>
                                 <div className="flex justify-center items-center gap-2">
+                                    {/* Aviso para la enfermera asignada: a esta consulta le
+                                        falta su nota de enfermería (ver nurse_note_pending en
+                                        getAppointments). Abre la consulta para llenarla. */}
+                                    {userType === "nurse" && appt.nurse_note_pending && (
+                                        <button
+                                            onClick={() => navigate(`/calendar/consultations/${appt._id}`)}
+                                            title="Falta tu nota de enfermería en esta consulta"
+                                            className="text-amber-500 hover:text-amber-600 p-1.5"
+                                        >
+                                            <AlertTriangle className="h-4 w-4" />
+                                        </button>
+                                    )}
                                     {appt.status === "completed" ? (
                                         <>
                                             <button
@@ -250,7 +270,19 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                             )}
                                         </>
                                     ) : appt.status === "cancelled" || appt.status === "no_show" ? (
-                                        <span className="text-xs text-slate-400 italic">No disponible</span>
+                                        <>
+                                            <span className="text-xs text-slate-400 italic">No disponible</span>
+                                            {canDelete && (
+                                                <button
+                                                    onClick={() => handleDelete(appt)}
+                                                    disabled={deletingId === appt._id}
+                                                    title="Eliminar cita"
+                                                    className="text-slate-400 hover:text-red-600 p-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                        </>
                                     ) : canAttendRow(appt) ? (
                                         <button
                                             onClick={() => handleContinue(appt)}

@@ -14,14 +14,14 @@ const styles = StyleSheet.create({
   diagnosis: { marginBottom: 12, lineHeight: 1.5, paddingLeft: 8 },
 });
 
-const IncapacidadDocument = ({ title, patientName, dui, age, diagnosis, restDays, doctorName, date }) => (
+const IncapacidadDocument = ({ title, patientName, dui, age, diagnosis, restDays, doctorName, date, time }) => (
   <Document title={title}>
     <Page size="LETTER" style={styles.page}>
       <PdfLetterhead />
       <Text style={styles.title}>CONSTANCIA DE INCAPACIDAD MÉDICA</Text>
 
       <View style={styles.row}>
-        <Text>Fecha: {date}</Text>
+        <Text>Fecha: {date}{time ? `   Hora: ${time}` : ""}</Text>
         {dui ? <Text>DUI: {dui}</Text> : null}
       </View>
 

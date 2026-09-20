@@ -13,7 +13,10 @@ const adminController = {};
 //Get
 adminController.getAdmins = async (req, res) => {
     try {
-        const admins = await adminModel.find();
+        // Nunca se envía el hash de la contraseña al cliente (mismo criterio que
+    // doctorsController/receptionistController). Antes exponía el hash bcrypt de
+    // cada administrador a cualquier otro admin que abriera este listado.
+    const admins = await adminModel.find().select("-password");
         const adminCount = await adminModel.countDocuments();
         if (adminCount === 0) {
             return res.status(404).json({ message: "No se encontraron administradores" });
@@ -29,6 +32,16 @@ adminController.getAdmins = async (req, res) => {
 //UPDATE
 adminController.updateAdmin = async (req, res) => {
     try {
+        // Solo el propio admin puede editar su cuenta. Antes cualquier admin
+        // autenticado podía editar (o, peor, borrar) la cuenta de otro admin
+        // con solo conocer su _id. Como el sistema solo permite un
+        // administrador a la vez (ver registerAdminController), esto es hoy
+        // una defensa en profundidad, no un caso que se pueda dar sin editar
+        // la base de datos a mano.
+        if (String(req.params.id) !== String(req.user.id)) {
+            return res.status(403).json({ message: "Solo puedes editar tu propia cuenta." });
+        }
+
         const {
             name,
             last_name,
@@ -37,6 +50,7 @@ adminController.updateAdmin = async (req, res) => {
             gender,
             email,
             password,
+            current_password,
             is_active,
             is_verified,
         } = req.body;
@@ -70,6 +84,17 @@ adminController.updateAdmin = async (req, res) => {
         // nombre) terminaría hasheando undefined y dejaría al admin
         // sin poder volver a iniciar sesión.
         if (password && password.trim() !== "") {
+            // Antes no se pedía la contraseña actual: una sesión comprometida
+            // (XSS, computadora sin bloquear, cookie robada) bastaba para
+            // tomar la cuenta cambiando la contraseña sin ninguna fricción.
+            if (!current_password || !current_password.trim()) {
+                return res.status(400).json({ message: "Debes ingresar tu contraseña actual." });
+            }
+            const currentMatches = await bcrypt.compare(current_password, adminFound.password);
+            if (!currentMatches) {
+                return res.status(400).json({ message: "La contraseña actual no es correcta." });
+            }
+
             const passwordError = getPasswordError(password);
             if (passwordError) {
                 return res.status(400).json({ message: passwordError });
@@ -164,6 +189,82 @@ adminController.updateAdmin = async (req, res) => {
     }
 };
 
+// Guarda/reemplaza/quita la firma propia del admin (que también puede actuar como "doctor
+// espejo" para agendarse citas, ver is_admin_mirror en el modelo Doctors). El navegador ya
+// manda un PNG con fondo transparente (foto procesada o firma dibujada a mano) — este
+// endpoint solo lo sube a Cloudinary. No hay :id: como solo existe un admin a la vez, va
+// siempre contra req.user.id.
+adminController.updateOwnSignature = async (req, res) => {
+    try {
+        const adminFound = await adminModel.findById(req.user.id);
+        if (!adminFound) {
+            return res.status(404).json({ message: "Administrador no encontrado" });
+        }
+
+        if (req.body.remove === "true") {
+            if (adminFound.signature_public_id) {
+                await cloudinary.uploader.destroy(adminFound.signature_public_id);
+            }
+            await adminModel.findByIdAndUpdate(req.user.id, { signature_url: null, signature_public_id: null });
+            return res.status(200).json({ message: "Firma eliminada", signature_url: null });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ message: "La imagen de la firma es requerida" });
+        }
+
+        if (adminFound.signature_public_id) {
+            await cloudinary.uploader.destroy(adminFound.signature_public_id);
+        }
+
+        await adminModel.findByIdAndUpdate(req.user.id, {
+            signature_url: req.file.path,
+            signature_public_id: req.file.filename,
+        });
+
+        return res.status(200).json({ message: "Firma guardada correctamente", signature_url: req.file.path });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor al guardar la firma" });
+    }
+};
+
+// Igual que updateOwnSignature, para el sello (campo sealImage, siempre foto/escaneo).
+adminController.updateOwnSeal = async (req, res) => {
+    try {
+        const adminFound = await adminModel.findById(req.user.id);
+        if (!adminFound) {
+            return res.status(404).json({ message: "Administrador no encontrado" });
+        }
+
+        if (req.body.remove === "true") {
+            if (adminFound.seal_public_id) {
+                await cloudinary.uploader.destroy(adminFound.seal_public_id);
+            }
+            await adminModel.findByIdAndUpdate(req.user.id, { seal_url: null, seal_public_id: null });
+            return res.status(200).json({ message: "Sello eliminado", seal_url: null });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ message: "La imagen del sello es requerida" });
+        }
+
+        if (adminFound.seal_public_id) {
+            await cloudinary.uploader.destroy(adminFound.seal_public_id);
+        }
+
+        await adminModel.findByIdAndUpdate(req.user.id, {
+            seal_url: req.file.path,
+            seal_public_id: req.file.filename,
+        });
+
+        return res.status(200).json({ message: "Sello guardado correctamente", seal_url: req.file.path });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor al guardar el sello" });
+    }
+};
+
 //Verificacion de cambio de correo
 adminController.verifyEmailChange = async (req, res) => {
     try {
@@ -202,6 +303,11 @@ adminController.verifyEmailChange = async (req, res) => {
 
 adminController.deleteAdmin = async (req, res) => {
     try {
+        // Mismo criterio que updateAdmin: solo el propio admin puede
+        // eliminar su cuenta, nunca la de otro.
+        if (String(req.params.id) !== String(req.user.id)) {
+            return res.status(403).json({ message: "Solo puedes eliminar tu propia cuenta." });
+        }
 
         const adminFound =
             await adminModel.findById(req.params.id);

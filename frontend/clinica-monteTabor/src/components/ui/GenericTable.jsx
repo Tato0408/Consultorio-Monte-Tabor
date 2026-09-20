@@ -88,10 +88,6 @@ const GenericTable = ({
     return () => ro.disconnect();
   }, [onTableOffsetChange, loading]);
 
-  if (loading) {
-    return <div ref={rootRef} className="py-10 text-center text-sm text-gray-500">Cargando información...</div>;
-  }
-
   const filteredData = data.filter((item) => {
     // 1. Filtro de texto.
     const matchSearch = !searchQuery || searchFields.some((field) => {
@@ -112,6 +108,20 @@ const GenericTable = ({
   // Lógica de paginación sobre los datos ya filtrados.
   const totalItems = filteredData.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+  // Si quien usa esta tabla filtra por su cuenta ANTES de pasar `data` (ej. InventoryTable
+  // refetch-eando del backend con category/status), currentPage nunca se resetea porque
+  // esta tabla no sabe que "data" cambió por un filtro: sin este clamp, quedarse en la
+  // página 3 y aplicar un filtro que solo llena 1 página deja el .slice() fuera de rango y
+  // se ve "No se encontraron registros" con resultados reales esperando en la página 1.
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  if (loading) {
+    return <div ref={rootRef} className="py-10 text-center text-sm text-gray-500">Cargando información...</div>;
+  }
+
   const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
   const effectivePerPage = itemsPerPage + Math.max(0, extraRows);
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfFirstItem + effectivePerPage);

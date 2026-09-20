@@ -8,14 +8,98 @@ import {
     resolveRange,
     dateFilter,
     growthPct,
-    formatVariation,
-    buildRow,
+    describeChange,
+    buildComparativeRow,
+    averageMonthCount,
+    earliestDate,
+    baselineNote,
     pctOf,
     formatCurrency,
-    buildTimeSeries,
+    buildMonthlySeries,
     formatPeriodLabel,
     rangeMeta,
 } from "../../utils/reportDateRange.js";
+
+// Arma el conjunto de helpers de comparación que usan las cuatro
+// funciones de reporte a partir del rango resuelto. base(raw) convierte
+// un conteo de la ventana de comparación en el valor comparable (dividido
+// por la cantidad de meses en modo promedio, o tal cual en modo dos
+// meses). cmpRow coloca ese valor y el del mes actual en las columnas
+// correctas de la tabla según el modo. statDiff arma el texto corto de
+// las tarjetas superiores.
+const buildComparisonHelpers = (range, divisor) => {
+    const compareReady = !range.isGeneral && (range.mode === "meses" || divisor >= 1);
+    const base = (raw) => (!compareReady || raw === null || raw === undefined ? null : raw / divisor);
+
+    const cmpRow = (proceso, currentValue, compareRaw, polarity, badge) => {
+        const compareValue = base(compareRaw);
+        const isMonths = range.mode === "meses";
+        return buildComparativeRow({
+            proceso,
+            badge,
+            leftValue: isMonths ? compareValue : currentValue,
+            rightValue: isMonths ? currentValue : compareValue,
+            variationOf: range.variationOf,
+            polarity,
+        });
+    };
+
+    // Igual que cmpRow pero con un formateador propio para el valor de las
+    // celdas (por ejemplo un decimal, o la unidad "min").
+    const cmpRowFmt = (proceso, currentValue, compareRaw, polarity, format) => {
+        const compareValue = base(compareRaw);
+        const isMonths = range.mode === "meses";
+        return buildComparativeRow({
+            proceso,
+            leftValue: isMonths ? compareValue : currentValue,
+            rightValue: isMonths ? currentValue : compareValue,
+            variationOf: range.variationOf,
+            polarity,
+            format,
+        });
+    };
+
+    const rateRow = (proceso, currentRate, compareRate, polarity) => {
+        const isMonths = range.mode === "meses";
+        const compareValue = compareReady ? compareRate : null;
+        return buildComparativeRow({
+            proceso,
+            leftValue: isMonths ? compareValue : currentRate,
+            rightValue: isMonths ? currentRate : compareValue,
+            variationOf: range.variationOf,
+            tipo: "tasa",
+            polarity,
+        });
+    };
+
+    const statDiff = (current, compareRaw) => {
+        const b = base(compareRaw);
+        if (b === null) return null;
+        const change = describeChange(current, b, { tipo: "flujo", polarity: "buena" });
+        if (change.variacion === "—") return null;
+        const otherLabel = range.mode === "meses" ? range.col2Label : range.col3Label;
+        return `${change.variacion} vs. ${otherLabel}`;
+    };
+
+    // Igual que statDiff, pero además expone el tono real (buena/mala) en
+    // vez de que el PDF exportado (ReportPDFDocument.jsx) tenga que
+    // adivinarlo por el signo del texto. statDiff() siempre asume
+    // polarity "buena", lo que funciona por casualidad para casi todas las
+    // tarjetas (más ingresos/pacientes/citas completadas sí es bueno),
+    // pero pintaba en VERDE un aumento de "Citas canceladas" en el PDF,
+    // como si fuera una mejora. Se usa solo donde la polaridad real no es
+    // "buena"; statDiff() se deja intacta para no tocar los demás usos.
+    const statDiffWithTone = (current, compareRaw, polarity) => {
+        const b = base(compareRaw);
+        if (b === null) return { diff: null, tone: null };
+        const change = describeChange(current, b, { tipo: "flujo", polarity });
+        if (change.variacion === "—") return { diff: null, tone: null };
+        const otherLabel = range.mode === "meses" ? range.col2Label : range.col3Label;
+        return { diff: `${change.variacion} vs. ${otherLabel}`, tone: change.tone };
+    };
+
+    return { compareReady, base, cmpRow, cmpRowFmt, rateRow, statDiff, statDiffWithTone, col2Label: range.col2Label, col3Label: range.col3Label };
+};
 
 const reportsController = {};
 
@@ -29,15 +113,19 @@ const TYPE_PROCEDURE = "Procedimiento";
 reportsController.getAppointmentsReport = async (req, res) => {
     try {
         const range = resolveRange(req.query);
-        const { isGeneral, start, end, prevStart, prevEnd } = range;
+        const { isGeneral, start, end, compareStart, compareEnd } = range;
 
-        // Los 4 reportes (citas, pacientes, doctores, inventario)
-        // muestran siempre los datos generales de toda la clínica,
-        // sin importar el rol de quien los consulta, igual que
-        // getPatientsReport, getDoctorsReport y getInventoryReport,
-        // que tampoco filtran por usuario.
+        // Divisor del promedio: en modo "promedio" es la cantidad de meses
+        // del tramo (para pasar de total a promedio por mes); en los demás
+        // modos es 1. Los 4 reportes muestran siempre los datos de toda la
+        // clínica, sin filtrar por el rol de quien los consulta.
+        const divisor = range.mode === "promedio"
+            ? averageMonthCount(range, await earliestDate(appointmentsModel, "date"))
+            : 1;
+        const { base, cmpRow, cmpRowFmt, statDiff, statDiffWithTone, col2Label, col3Label } = buildComparisonHelpers(range, divisor);
+
         const curFilter = dateFilter("date", start, end);
-        const prevFilter = isGeneral ? {} : dateFilter("date", prevStart, prevEnd);
+        const prevFilter = isGeneral ? {} : dateFilter("date", compareStart, compareEnd);
         const countCur = (extra = {}) => appointmentsModel.countDocuments({ ...curFilter, ...extra });
         const countPrev = (extra = {}) =>
             isGeneral ? Promise.resolve(0) : appointmentsModel.countDocuments({ ...prevFilter, ...extra });
@@ -87,8 +175,8 @@ reportsController.getAppointmentsReport = async (req, res) => {
             isGeneral ? Promise.resolve([]) : appointmentsModel.distinct("doctor_id", prevFilter),
             appointmentsModel.aggregate([{ $match: curFilter }, { $group: { _id: null, avg: { $avg: "$duration_minutes" } } }]),
             isGeneral ? Promise.resolve([]) : appointmentsModel.aggregate([{ $match: prevFilter }, { $group: { _id: null, avg: { $avg: "$duration_minutes" } } }]),
-            buildTimeSeries(appointmentsModel, "date", {}, range),
-            buildTimeSeries(appointmentsModel, "date", { status: "completed" }, range),
+            buildMonthlySeries(appointmentsModel, "date", {}),
+            buildMonthlySeries(appointmentsModel, "date", { status: "completed" }),
             appointmentsModel.aggregate([
                 { $match: { ...curFilter, status: "completed" } },
                 { $group: { _id: "$patient_id", count: { $sum: 1 } } },
@@ -105,126 +193,117 @@ reportsController.getAppointmentsReport = async (req, res) => {
         const nameById = new Map(topPatients.map((p) => [String(p._id), `${p.name} ${p.last_name}`]));
         const mostAttended = topPatientsAgg.map((p) => nameById.get(String(p._id))).filter(Boolean);
 
-        const statDiff = (cur, prev) =>
-            isGeneral ? null : `${formatVariation(growthPct(cur, prev))} comparado con el período anterior`;
+        const monthLabelText = isGeneral ? "total histórico" : `en ${col2Label}`;
 
         const topCards = [
             {
                 key: "programadas",
                 title: "Citas programadas",
                 stat: String(totalCur),
-                statLabel: isGeneral ? "total histórico" : "en el período seleccionado",
+                statLabel: monthLabelText,
                 statDiff: statDiff(totalCur, totalPrev),
-                chartData: { "Por día": dailySeries },
+                chartData: { "Por mes": dailySeries },
             },
             {
                 key: "atendidos",
                 title: "Citas completadas",
                 stat: String(completedCur),
-                statLabel: isGeneral ? "total histórico" : "completadas en el período",
+                statLabel: monthLabelText,
                 statDiff: statDiff(completedCur, completedPrev),
                 chartType: "bar",
-                chartData: { "Por día": completedSeries },
+                chartData: { "Por mes": completedSeries },
             },
             {
                 key: "mas_atendidos",
                 title: "Pacientes más atendidos",
-                subtitle: "Basado en el número de citas completadas en el período",
+                subtitle: isGeneral ? "Basado en las citas completadas en todo el histórico" : `Basado en las citas completadas en ${col2Label}`,
                 listItems: mostAttended.length ? mostAttended : ["Sin datos suficientes en este período"],
                 linkLabel: "Ver todos los pacientes",
             },
         ];
 
+        // Duración promedio: se compara el valor tal cual contra el mes de
+        // comparación, con la unidad "min" pegada a cada celda.
+        const avgDurationRow = cmpRowFmt(
+            "Duración promedio de las citas",
+            avgDuration,
+            avgDurationPrev,
+            "neutra",
+            (v) => `${Math.round(v)} min`
+        );
+
+        const section = (key, title, icon, rows) => ({ key, title, icon, rows, col2Label, comparisonLabel: col3Label });
+
         const sections = [
-            {
-                key: "volumen",
-                title: "Volumen de citas",
-                icon: "calendar",
-                rows: [
-                    buildRow("Total de citas registradas", totalCur, totalPrev, isGeneral),
-                    buildRow("Citas completadas", completedCur, completedPrev, isGeneral),
-                ],
-            },
-            {
-                key: "estado",
-                title: "Estado de citas",
-                icon: "clipboard",
-                rows: [
-                    buildRow("Citas completadas", completedCur, completedPrev, isGeneral, { label: "Completadas", color: "green" }),
-                    buildRow("Citas canceladas", cancelledCur, cancelledPrev, isGeneral, { label: "Canceladas", color: "red" }),
-                    buildRow("Citas no atendidas", noShowCur, noShowPrev, isGeneral, { label: "No se presentó", color: "orange" }),
-                    buildRow("Citas pendientes de confirmar", pendingCur, pendingPrev, isGeneral),
-                ],
-            },
-            {
-                key: "tipo_atencion",
-                title: "Tipo de atención",
-                icon: "stethoscope",
-                rows: [
-                    buildRow(TYPE_GENERAL, generalCur, generalPrev, isGeneral),
-                    buildRow(TYPE_PROCEDURE, procedureCur, procedurePrev, isGeneral),
-                ],
-            },
-            {
-                key: "medicos",
-                title: "Médicos y duración de consultas",
-                icon: "user",
-                // Ahora todos los roles ven el reporte general de toda la clínica (ver
-                // curFilter/prevFilter más arriba), así que esta fila ya aporta lo mismo para
-                // cualquier usuario que la consulte, no solo para admin.
-                rows: [
-                    buildRow("Doctores con citas asignadas", doctorsCur.length, doctorsPrev.length, isGeneral),
-                    {
-                        proceso: "Duración promedio de las citas",
-                        actual: `${avgDuration} min`,
-                        anterior: isGeneral ? "—" : `${avgDurationPrev} min`,
-                        variacion: isGeneral ? "—" : formatVariation(growthPct(avgDuration, avgDurationPrev)),
-                    },
-                ],
-            },
+            section("volumen", "Volumen de citas", "calendar", [
+                cmpRow("Total de citas registradas", totalCur, totalPrev, "buena"),
+                cmpRow("Citas completadas", completedCur, completedPrev, "buena"),
+            ]),
+            section("estado", "Estado de citas", "clipboard", [
+                cmpRow("Citas completadas", completedCur, completedPrev, "buena", { label: "Completadas", color: "green" }),
+                cmpRow("Citas canceladas", cancelledCur, cancelledPrev, "mala", { label: "Canceladas", color: "red" }),
+                cmpRow("Citas no atendidas", noShowCur, noShowPrev, "mala", { label: "No se presentó", color: "orange" }),
+                cmpRow("Citas pendientes de confirmar", pendingCur, pendingPrev, "neutra"),
+            ]),
+            section("tipo_atencion", "Tipo de atención", "stethoscope", [
+                cmpRow(TYPE_GENERAL, generalCur, generalPrev, "neutra"),
+                cmpRow(TYPE_PROCEDURE, procedureCur, procedurePrev, "neutra"),
+            ]),
+            section("medicos", "Médicos y duración de consultas", "user", [
+                cmpRow("Doctores con citas asignadas", doctorsCur.length, doctorsPrev.length, "neutra"),
+                avgDurationRow,
+            ]),
         ];
 
         // cur y prev son conteos de citas completadas por tipo, así
         // consultas e ingresos quedan consistentes en la misma fila:
-        // ambas reflejan solo lo atendido.
-        const serviceRow = (servicio, cur, prev, revCur, revPrev) => ({
-            servicio,
-            consultas: cur,
-            pctConsultas: pctOf(cur, completedCur),
-            ingresos: formatCurrency(revCur),
-            pctIngresos: pctOf(revCur, revenueCur),
-            variacion: isGeneral ? "—" : formatVariation(growthPct(cur, prev)),
-        });
+        // ambas reflejan solo lo atendido. La variación conserva solo el
+        // texto (sin el detalle entre paréntesis) para que quepa en la
+        // columna del PDF.
+        const serviceRow = (servicio, cur, prev, revCur, revPrev) => {
+            const change = describeChange(cur, base(prev), { tipo: "flujo", polarity: "neutra" });
+            return {
+                servicio,
+                consultas: cur,
+                pctConsultas: pctOf(cur, completedCur),
+                ingresos: formatCurrency(revCur),
+                pctIngresos: pctOf(revCur, revenueCur),
+                variacion: change.variacion,
+                tone: change.tone,
+            };
+        };
 
+        const otherLabel = range.mode === "meses" ? col2Label : col3Label;
         const observations = [];
-        if (!isGeneral) {
-            const genGrowth = growthPct(generalCur, generalPrev);
-            const procGrowth = growthPct(procedureCur, procedurePrev);
-            if (genGrowth !== 0) observations.push(`${genGrowth > 0 ? "Incremento" : "Disminución"} de ${Math.abs(genGrowth).toFixed(1)}% en consultas médicas generales respecto al período anterior.`);
-            if (procGrowth !== 0) observations.push(`${procGrowth > 0 ? "Incremento" : "Disminución"} de ${Math.abs(procGrowth).toFixed(1)}% en procedimientos respecto al período anterior.`);
-            if (cancelledCur > 0) observations.push(`Se registraron ${cancelledCur} citas canceladas en el período.`);
-        } else {
+        if (!isGeneral && base(1) !== null) {
+            const genGrowth = growthPct(generalCur, base(generalPrev) || 0);
+            const procGrowth = growthPct(procedureCur, base(procedurePrev) || 0);
+            if (genGrowth !== 0) observations.push(`${genGrowth > 0 ? "Incremento" : "Disminución"} de ${Math.abs(genGrowth).toFixed(1)}% en consultas médicas generales respecto a ${otherLabel}.`);
+            if (procGrowth !== 0) observations.push(`${procGrowth > 0 ? "Incremento" : "Disminución"} de ${Math.abs(procGrowth).toFixed(1)}% en procedimientos respecto a ${otherLabel}.`);
+            if (cancelledCur > 0) observations.push(`Se registraron ${cancelledCur} citas canceladas en el mes analizado.`);
+        } else if (isGeneral) {
             observations.push(`Se registran ${generalCur} consultas médicas generales y ${procedureCur} procedimientos en todo el histórico.`);
         }
-        if (observations.length === 0) observations.push("No se registran variaciones significativas en este período.");
+        if (observations.length === 0) observations.push("No se registran variaciones significativas.");
 
         const pdf = {
             reportTitle: "Reporte de Citas",
             periodLabel: formatPeriodLabel(range),
+            baselineNote: baselineNote(range),
             isGeneral,
             stats: [
                 { label: "Total de citas", value: String(totalCur), diff: statDiff(totalCur, totalPrev) },
                 { label: "Citas completadas", value: String(completedCur), diff: statDiff(completedCur, completedPrev) },
-                { label: "Citas canceladas", value: String(cancelledCur), diff: statDiff(cancelledCur, cancelledPrev) },
+                { label: "Citas canceladas", value: String(cancelledCur), ...statDiffWithTone(cancelledCur, cancelledPrev, "mala") },
                 { label: "Ingresos totales", value: formatCurrency(revenueCur), diff: statDiff(revenueCur, revenuePrev) },
             ],
             dailySeries,
-            dailySeriesLabel: "Citas por día",
+            dailySeriesLabel: "Citas por mes",
             typeSeries: [
                 { label: TYPE_GENERAL, total: generalCompletedCur },
                 { label: TYPE_PROCEDURE, total: procedureCompletedCur },
             ],
-            typeSeriesLabel: "Citas completadas por tipo de atención",
+            typeSeriesLabel: isGeneral ? "Citas completadas por tipo de atención" : `Citas completadas por tipo en ${col2Label}`,
             serviceTableTitle: "Resumen por servicios",
             serviceColumnLabel: "Servicio",
             serviceCountLabel: "Consultas",
@@ -248,12 +327,17 @@ reportsController.getAppointmentsReport = async (req, res) => {
 reportsController.getPatientsReport = async (req, res) => {
     try {
         const range = resolveRange(req.query);
-        const { isGeneral, start, end, prevStart, prevEnd } = range;
+        const { isGeneral, start, end, compareStart, compareEnd } = range;
+
+        const divisor = range.mode === "promedio"
+            ? averageMonthCount(range, await earliestDate(appointmentsModel, "date"))
+            : 1;
+        const { base, cmpRow, rateRow, statDiff, statDiffWithTone, col2Label, col3Label } = buildComparisonHelpers(range, divisor);
 
         const curFilter = dateFilter("date", start, end);
-        const prevFilter = isGeneral ? {} : dateFilter("date", prevStart, prevEnd);
+        const prevFilter = isGeneral ? {} : dateFilter("date", compareStart, compareEnd);
         const createdCurFilter = dateFilter("createdAt", start, end);
-        const createdPrevFilter = isGeneral ? {} : dateFilter("createdAt", prevStart, prevEnd);
+        const createdPrevFilter = isGeneral ? {} : dateFilter("createdAt", compareStart, compareEnd);
 
         const countAppt = (extra = {}) => appointmentsModel.countDocuments({ ...curFilter, ...extra });
         const countApptPrev = (extra = {}) =>
@@ -271,6 +355,18 @@ reportsController.getPatientsReport = async (req, res) => {
         const distinctAttended = (filter, type) =>
             appointmentsModel.distinct("patient_id", { ...filter, status: "completed", ...(type ? { type } : {}) });
 
+        // Pacientes con 2 o más citas completadas dentro de la ventana
+        // dada, para la fila de pacientes recurrentes.
+        const recurrentAgg = (filter) =>
+            appointmentsModel
+                .aggregate([
+                    { $match: { ...filter, status: "completed" } },
+                    { $group: { _id: "$patient_id", count: { $sum: 1 } } },
+                    { $match: { count: { $gte: 2 } } },
+                    { $count: "total" },
+                ])
+                .then((r) => r[0]?.total || 0);
+
         // Pacientes atendidos dentro del rango elegido, se usa para
         // acotar pathologicalCount (más abajo) al mismo período que
         // el resto del reporte, en vez de a toda la historia.
@@ -280,24 +376,28 @@ reportsController.getPatientsReport = async (req, res) => {
             totalPatientsNow, totalPatientsPrevEnd,
             newPatientsCur, newPatientsPrev,
             completedCur, completedPrev,
-            cancelledCur, noShowCur,
-            genderCur,
+            cancelledCur, cancelledPrev,
+            noShowCur, noShowPrev,
+            genderCur, genderPrev,
             generalAttendedCur, procedureAttendedCur,
+            generalAttendedPrev, procedureAttendedPrev,
             revenueCur, revenuePrev,
-            recurrentCount,
+            recurrentCount, recurrentCountPrev,
             pathologicalCount,
             attendedSeries,
             medsAgg,
         ] = await Promise.all([
             patientsModel.countDocuments(isGeneral ? {} : { createdAt: { $lte: end } }),
-            isGeneral ? Promise.resolve(0) : patientsModel.countDocuments({ createdAt: { $lte: prevEnd } }),
+            isGeneral ? Promise.resolve(0) : patientsModel.countDocuments({ createdAt: { $lte: compareEnd } }),
             patientsModel.countDocuments(createdCurFilter),
             isGeneral ? Promise.resolve(0) : patientsModel.countDocuments(createdPrevFilter),
             countAppt({ status: "completed" }), countApptPrev({ status: "completed" }),
-            countAppt({ status: "cancelled" }),
-            countAppt({ status: "no_show" }),
-            genderBreakdown(curFilter),
+            countAppt({ status: "cancelled" }), countApptPrev({ status: "cancelled" }),
+            countAppt({ status: "no_show" }), countApptPrev({ status: "no_show" }),
+            genderBreakdown(curFilter), isGeneral ? Promise.resolve([]) : genderBreakdown(prevFilter),
             distinctAttended(curFilter, TYPE_GENERAL), distinctAttended(curFilter, TYPE_PROCEDURE),
+            isGeneral ? Promise.resolve([]) : distinctAttended(prevFilter, TYPE_GENERAL),
+            isGeneral ? Promise.resolve([]) : distinctAttended(prevFilter, TYPE_PROCEDURE),
             // Los ingresos solo cuentan citas completadas, una
             // cancelada o no-show no generó ingreso real aunque
             // tenga un total (precio) guardado desde que se agendó.
@@ -305,12 +405,8 @@ reportsController.getPatientsReport = async (req, res) => {
             isGeneral ? Promise.resolve(0) : appointmentsModel.aggregate([{ $match: { ...prevFilter, status: "completed" } }, { $group: { _id: null, total: { $sum: "$total" } } }]).then((r) => r[0]?.total || 0),
             // Se acota al período elegido, igual que el resto de las
             // cifras de esta sección.
-            appointmentsModel.aggregate([
-                { $match: { ...curFilter, status: "completed" } },
-                { $group: { _id: "$patient_id", count: { $sum: 1 } } },
-                { $match: { count: { $gte: 2 } } },
-                { $count: "total" },
-            ]).then((r) => r[0]?.total || 0),
+            recurrentAgg(curFilter),
+            isGeneral ? Promise.resolve(0) : recurrentAgg(prevFilter),
             // Mismo problema: no hay fecha propia en cada antecedente patológico, así que se acota
             // a los pacientes efectivamente atendidos dentro del período elegido (en vez de a
             // todos los pacientes que alguna vez tuvieron un antecedente registrado).
@@ -318,7 +414,7 @@ reportsController.getPatientsReport = async (req, res) => {
                 ...(isGeneral ? {} : { _id: { $in: attendedPatientIdsCur } }),
                 "clinical_history.pathological.0": { $exists: true },
             }),
-            buildTimeSeries(appointmentsModel, "date", { status: "completed" }, range),
+            buildMonthlySeries(appointmentsModel, "date", { status: "completed" }),
             prescriptionModel.aggregate([
                 ...(isGeneral ? [] : [{ $match: { issued_at: { $gte: start, $lte: end } } }]),
                 { $unwind: "$medications" },
@@ -328,21 +424,26 @@ reportsController.getPatientsReport = async (req, res) => {
             ]),
         ]);
 
-        const maleCur = genderCur.find((g) => /masculino|m/i.test(g._id || ""))?.count || 0;
-        const femaleCur = genderCur.find((g) => /femenino|f/i.test(g._id || ""))?.count || 0;
+        // Anclado al inicio: "femenino" también hacía match contra /masculino|m/i (contiene
+        // una "m"), así que según el orden en que Mongo devolviera los buckets del $group de
+        // arriba (no garantizado), el conteo de hombres y mujeres podía quedar cruzado.
+        const genderCount = (agg, re) => agg.find((g) => re.test(g._id || ""))?.count || 0;
+        const maleCur = genderCount(genderCur, /^m/i);
+        const femaleCur = genderCount(genderCur, /^f/i);
+        const malePrev = genderCount(genderPrev, /^m/i);
+        const femalePrev = genderCount(genderPrev, /^f/i);
         const attendedTotal = maleCur + femaleCur;
 
-        const statDiff = (cur, prev) =>
-            isGeneral ? null : `${formatVariation(growthPct(cur, prev))} comparado con el período anterior`;
+        const attendanceRate = (c, ca, ns) => (c + ca + ns > 0 ? (c / (c + ca + ns)) * 100 : 0);
 
         const topCards = [
             {
                 key: "atendidos_linea",
                 title: "Pacientes atendidos",
                 stat: String(completedCur),
-                statLabel: isGeneral ? "total histórico" : "citas completadas en el período",
+                statLabel: isGeneral ? "citas completadas (histórico)" : `citas completadas en ${col2Label}`,
                 statDiff: statDiff(completedCur, completedPrev),
-                chartData: { "Por día": attendedSeries },
+                chartData: { "Por mes": attendedSeries },
             },
             {
                 key: "genero",
@@ -358,63 +459,47 @@ reportsController.getPatientsReport = async (req, res) => {
             {
                 key: "medicamentos",
                 title: "Medicamentos más recetados",
-                subtitle: "Basado en las recetas emitidas a los pacientes en el período",
-                listItems: medsAgg.length ? medsAgg.map((m) => m._id).filter(Boolean) : ["Sin recetas registradas en este período"],
+                subtitle: isGeneral ? "Basado en las recetas emitidas en todo el histórico" : `Basado en las recetas emitidas en ${col2Label}`,
+                listItems: medsAgg.length ? medsAgg.map((m) => m._id).filter(Boolean) : ["Sin recetas registradas"],
                 linkLabel: "Ver inventario",
             },
         ];
 
+        const section = (key, title, icon, rows) => ({ key, title, icon, rows, col2Label, comparisonLabel: col3Label });
+
         const sections = [
-            {
-                key: "registro",
-                title: "Registro de pacientes",
-                icon: "users",
-                rows: [
-                    buildRow("Total de pacientes registrados", totalPatientsNow, totalPatientsPrevEnd, isGeneral),
-                    buildRow("Pacientes nuevos", newPatientsCur, newPatientsPrev, isGeneral, { label: "Nuevos", color: "blue" }),
-                    { proceso: "Pacientes recurrentes (2+ citas completadas)", badge: { label: "Recurrentes", color: "purple" }, actual: String(recurrentCount), anterior: "—", variacion: "—" },
-                ],
-            },
-            {
-                key: "asistencia",
-                title: "Asistencia y comportamiento",
-                icon: "users",
-                rows: [
-                    buildRow("Citas completadas", completedCur, completedPrev, isGeneral),
-                    {
-                        proceso: "Tasa de asistencia",
-                        actual: pctOf(completedCur, completedCur + cancelledCur + noShowCur),
-                        anterior: "—",
-                        variacion: "—",
-                    },
-                ],
-            },
-            {
-                key: "tipo_atencion_pac",
-                title: "Tipo de atención recibida",
-                icon: "clipboard",
-                rows: [
-                    buildRow("Pacientes atendidos en consulta general", generalAttendedCur.length, 0, true),
-                    buildRow("Pacientes atendidos en procedimientos", procedureAttendedCur.length, 0, true),
-                ],
-            },
-            {
-                key: "demografia",
-                title: "Distribución demográfica",
-                icon: "chart",
-                rows: [
-                    buildRow("Pacientes masculinos atendidos", maleCur, 0, true),
-                    buildRow("Pacientes femeninos atendidos", femaleCur, 0, true),
-                ],
-            },
-            {
-                key: "seguimiento",
-                title: "Seguimiento clínico",
-                icon: "stethoscope",
-                rows: [
-                    { proceso: "Pacientes con antecedentes patológicos registrados", actual: String(pathologicalCount), anterior: "—", variacion: "—" },
-                ],
-            },
+            section("registro", "Registro de pacientes", "users", [
+                cmpRow("Total de pacientes registrados", totalPatientsNow, totalPatientsPrevEnd, "buena"),
+                cmpRow("Pacientes nuevos", newPatientsCur, newPatientsPrev, "buena", { label: "Nuevos", color: "blue" }),
+                cmpRow("Pacientes recurrentes (2+ citas completadas)", recurrentCount, recurrentCountPrev, "buena", { label: "Recurrentes", color: "purple" }),
+            ]),
+            section("asistencia", "Asistencia y comportamiento", "users", [
+                cmpRow("Citas completadas", completedCur, completedPrev, "buena"),
+                rateRow(
+                    "Tasa de asistencia",
+                    attendanceRate(completedCur, cancelledCur, noShowCur),
+                    attendanceRate(completedPrev, cancelledPrev, noShowPrev),
+                    "buena"
+                ),
+            ]),
+            section("tipo_atencion_pac", "Tipo de atención recibida", "clipboard", [
+                cmpRow("Pacientes atendidos en consulta general", generalAttendedCur.length, generalAttendedPrev.length, "neutra"),
+                cmpRow("Pacientes atendidos en procedimientos", procedureAttendedCur.length, procedureAttendedPrev.length, "neutra"),
+            ]),
+            section("demografia", "Distribución demográfica", "chart", [
+                cmpRow("Pacientes masculinos atendidos", maleCur, malePrev, "neutra"),
+                cmpRow("Pacientes femeninos atendidos", femaleCur, femalePrev, "neutra"),
+            ]),
+            section("seguimiento", "Seguimiento clínico", "stethoscope", [
+                // Los antecedentes patológicos no tienen fecha propia, así que
+                // este conteo es una foto del presente, sin comparación posible.
+                buildComparativeRow({
+                    proceso: "Pacientes con antecedentes patológicos registrados",
+                    leftValue: pathologicalCount,
+                    rightValue: null,
+                    tipo: "al_momento",
+                }),
+            ]),
         ];
 
         const serviceRow = (servicio, cur) => ({
@@ -424,21 +509,24 @@ reportsController.getPatientsReport = async (req, res) => {
             ingresos: "—",
             pctIngresos: "—",
             variacion: "—",
+            tone: "neutra",
         });
 
+        const otherLabel = range.mode === "meses" ? col2Label : col3Label;
         const observations = [];
-        if (!isGeneral) {
-            const growthNew = growthPct(newPatientsCur, newPatientsPrev);
-            if (growthNew !== 0) observations.push(`${growthNew > 0 ? "Incremento" : "Disminución"} de ${Math.abs(growthNew).toFixed(1)}% en pacientes nuevos respecto al período anterior.`);
-            observations.push(`Se registraron ${recurrentCount} pacientes recurrentes (2 o más citas completadas).`);
-        } else {
+        if (!isGeneral && base(1) !== null) {
+            const growthNew = growthPct(newPatientsCur, base(newPatientsPrev) || 0);
+            if (growthNew !== 0) observations.push(`${growthNew > 0 ? "Incremento" : "Disminución"} de ${Math.abs(growthNew).toFixed(1)}% en pacientes nuevos respecto a ${otherLabel}.`);
+            observations.push(`Se registraron ${recurrentCount} pacientes recurrentes (2 o más citas completadas) en el mes analizado.`);
+        } else if (isGeneral) {
             observations.push(`Se han registrado ${totalPatientsNow} pacientes en total desde la creación del sistema.`);
         }
-        if (observations.length === 0) observations.push("No se registran variaciones significativas en este período.");
+        if (observations.length === 0) observations.push("No se registran variaciones significativas.");
 
         const pdf = {
             reportTitle: "Reporte de Pacientes",
             periodLabel: formatPeriodLabel(range),
+            baselineNote: baselineNote(range),
             isGeneral,
             stats: [
                 { label: "Total de pacientes", value: String(totalPatientsNow), diff: statDiff(totalPatientsNow, totalPatientsPrevEnd) },
@@ -447,12 +535,12 @@ reportsController.getPatientsReport = async (req, res) => {
                 { label: "Ingresos totales", value: formatCurrency(revenueCur), diff: statDiff(revenueCur, revenuePrev) },
             ],
             dailySeries: attendedSeries,
-            dailySeriesLabel: "Pacientes atendidos por día",
+            dailySeriesLabel: "Pacientes atendidos por mes",
             typeSeries: [
                 { label: TYPE_GENERAL, total: generalAttendedCur.length },
                 { label: TYPE_PROCEDURE, total: procedureAttendedCur.length },
             ],
-            typeSeriesLabel: "Pacientes por tipo de atención",
+            typeSeriesLabel: isGeneral ? "Pacientes por tipo de atención" : `Pacientes por tipo en ${col2Label}`,
             serviceTableTitle: "Resumen por tipo de atención",
             serviceColumnLabel: "Tipo de atención",
             serviceCountLabel: "Pacientes",
@@ -476,10 +564,15 @@ reportsController.getPatientsReport = async (req, res) => {
 reportsController.getDoctorsReport = async (req, res) => {
     try {
         const range = resolveRange(req.query);
-        const { isGeneral, start, end, prevStart, prevEnd } = range;
+        const { isGeneral, start, end, compareStart, compareEnd } = range;
+
+        const divisor = range.mode === "promedio"
+            ? averageMonthCount(range, await earliestDate(appointmentsModel, "date"))
+            : 1;
+        const { base, cmpRow, cmpRowFmt, rateRow, statDiff, col2Label, col3Label } = buildComparisonHelpers(range, divisor);
 
         const curFilter = dateFilter("date", start, end);
-        const prevFilter = isGeneral ? {} : dateFilter("date", prevStart, prevEnd);
+        const prevFilter = isGeneral ? {} : dateFilter("date", compareStart, compareEnd);
         const countCur = (extra = {}) => appointmentsModel.countDocuments({ ...curFilter, ...extra });
         const countPrev = (extra = {}) =>
             isGeneral ? Promise.resolve(0) : appointmentsModel.countDocuments({ ...prevFilter, ...extra });
@@ -503,7 +596,7 @@ reportsController.getDoctorsReport = async (req, res) => {
             countCur({ type: TYPE_PROCEDURE }), countPrev({ type: TYPE_PROCEDURE }),
             appointmentsModel.distinct("doctor_id", curFilter),
             isGeneral ? Promise.resolve([]) : appointmentsModel.distinct("doctor_id", prevFilter),
-            buildTimeSeries(appointmentsModel, "date", { status: "completed" }, range),
+            buildMonthlySeries(appointmentsModel, "date", { status: "completed" }),
             appointmentsModel.aggregate([
                 { $match: { ...curFilter, status: "completed" } },
                 { $group: { _id: "$doctor_id", count: { $sum: 1 } } },
@@ -517,17 +610,14 @@ reportsController.getDoctorsReport = async (req, res) => {
         const nameById = new Map(topDoctorsDocs.map((d) => [String(d._id), `${d.name} ${d.last_name}`]));
         const mostActive = topDoctorsAgg.map((d) => nameById.get(String(d._id))).filter(Boolean);
 
-        const statDiff = (cur, prev) =>
-            isGeneral ? null : `${formatVariation(growthPct(cur, prev))} comparado con el período anterior`;
-
         const topCards = [
             {
                 key: "citas_atendidas",
                 title: "Citas atendidas",
                 stat: String(completedCur),
-                statLabel: isGeneral ? "total histórico" : "en el período seleccionado",
+                statLabel: isGeneral ? "total histórico" : `en ${col2Label}`,
                 statDiff: statDiff(completedCur, completedPrev),
-                chartData: { "Por día": completedSeries },
+                chartData: { "Por mes": completedSeries },
             },
             {
                 key: "tipo_pie",
@@ -543,92 +633,92 @@ reportsController.getDoctorsReport = async (req, res) => {
             {
                 key: "mas_activos",
                 title: "Doctores más activos",
-                subtitle: "Basado en el número de citas completadas en el período",
+                subtitle: isGeneral ? "Basado en las citas completadas en todo el histórico" : `Basado en las citas completadas en ${col2Label}`,
                 listItems: mostActive.length ? mostActive : ["Sin datos suficientes en este período"],
                 linkLabel: "Ver todos los doctores",
             },
         ];
 
-        const promedioPorDoctor = doctorsCur.length > 0 ? (completedCur / doctorsCur.length).toFixed(1) : "0.0";
-        const promedioPorDoctorPrev = doctorsPrev.length > 0 ? (completedPrev / doctorsPrev.length).toFixed(1) : "0.0";
+        const avgPerDoctor = doctorsCur.length > 0 ? completedCur / doctorsCur.length : 0;
+        const avgPerDoctorPrev = doctorsPrev.length > 0 ? completedPrev / doctorsPrev.length : 0;
+        const promedioPorDoctor = avgPerDoctor.toFixed(1);
+        const fulfillmentRate = (c, t) => (t > 0 ? (c / t) * 100 : 0);
+
+        const avgPerDoctorRow = cmpRowFmt(
+            "Promedio de citas atendidas por doctor",
+            avgPerDoctor,
+            avgPerDoctorPrev,
+            "buena",
+            (v) => v.toFixed(1)
+        );
+
+        const section = (key, title, icon, rows) => ({ key, title, icon, rows, col2Label, comparisonLabel: col3Label });
 
         const sections = [
-            {
-                key: "actividad",
-                title: "Actividad general",
-                icon: "activity",
-                rows: [
-                    { proceso: "Doctores activos en el sistema", actual: String(activeDoctors), anterior: "—", variacion: "—" },
-                    buildRow("Doctores con citas asignadas", doctorsCur.length, doctorsPrev.length, isGeneral),
-                    buildRow("Citas atendidas entre todos los doctores", completedCur, completedPrev, isGeneral),
-                    {
-                        proceso: "Promedio de citas atendidas por doctor",
-                        actual: promedioPorDoctor,
-                        anterior: isGeneral ? "—" : promedioPorDoctorPrev,
-                        variacion: isGeneral ? "—" : formatVariation(growthPct(Number(promedioPorDoctor), Number(promedioPorDoctorPrev))),
-                    },
-                ],
-            },
-            {
-                key: "rendimiento",
-                title: "Rendimiento clínico",
-                icon: "chart",
-                rows: [
-                    buildRow("Citas canceladas por doctores", cancelledCur, cancelledPrev, isGeneral),
-                    {
-                        proceso: "Tasa de cumplimiento de citas",
-                        actual: pctOf(completedCur, totalCur),
-                        anterior: isGeneral ? "—" : pctOf(completedPrev, totalPrev),
-                        variacion: "—",
-                    },
-                ],
-            },
-            {
-                key: "atencion_brindada",
-                title: "Atención brindada",
-                icon: "stethoscope",
-                rows: [
-                    buildRow("Consultas generales atendidas", generalCur, generalPrev, isGeneral),
-                    buildRow("Procedimientos realizados", procedureCur, procedurePrev, isGeneral),
-                ],
-            },
+            section("actividad", "Actividad general", "activity", [
+                // El total de doctores activos es una foto del presente, sin
+                // histórico por fecha.
+                buildComparativeRow({ proceso: "Doctores activos en el sistema", leftValue: activeDoctors, rightValue: null, tipo: "al_momento" }),
+                cmpRow("Doctores con citas asignadas", doctorsCur.length, doctorsPrev.length, "neutra"),
+                cmpRow("Citas atendidas entre todos los doctores", completedCur, completedPrev, "buena"),
+                avgPerDoctorRow,
+            ]),
+            section("rendimiento", "Rendimiento clínico", "chart", [
+                cmpRow("Citas canceladas por doctores", cancelledCur, cancelledPrev, "mala"),
+                rateRow(
+                    "Tasa de cumplimiento de citas",
+                    fulfillmentRate(completedCur, totalCur),
+                    fulfillmentRate(completedPrev, totalPrev),
+                    "buena"
+                ),
+            ]),
+            section("atencion_brindada", "Atención brindada", "stethoscope", [
+                cmpRow("Consultas generales atendidas", generalCur, generalPrev, "neutra"),
+                cmpRow("Procedimientos realizados", procedureCur, procedurePrev, "neutra"),
+            ]),
         ];
 
-        const serviceRow = (servicio, cur, prev) => ({
-            servicio,
-            consultas: cur,
-            pctConsultas: pctOf(cur, generalCur + procedureCur),
-            ingresos: "—",
-            pctIngresos: "—",
-            variacion: isGeneral ? "—" : formatVariation(growthPct(cur, prev)),
-        });
+        const serviceRow = (servicio, cur, prev) => {
+            const change = describeChange(cur, base(prev), { tipo: "flujo", polarity: "neutra" });
+            return {
+                servicio,
+                consultas: cur,
+                pctConsultas: pctOf(cur, generalCur + procedureCur),
+                ingresos: "—",
+                pctIngresos: "—",
+                variacion: change.variacion,
+                tone: change.tone,
+            };
+        };
 
+        const otherLabel = range.mode === "meses" ? col2Label : col3Label;
         const observations = [];
-        if (!isGeneral) {
-            const doctorsGrowth = growthPct(doctorsCur.length, doctorsPrev.length);
-            if (doctorsGrowth !== 0) observations.push(`${doctorsGrowth > 0 ? "Incremento" : "Disminución"} de ${Math.abs(doctorsGrowth).toFixed(1)}% en doctores con citas asignadas respecto al período anterior.`);
-            observations.push(`Los doctores atendieron en promedio ${promedioPorDoctor} citas cada uno en el período.`);
-        } else {
+        if (!isGeneral && base(1) !== null) {
+            const canceledGrowth = growthPct(cancelledCur, base(cancelledPrev) || 0);
+            if (canceledGrowth !== 0) observations.push(`${canceledGrowth > 0 ? "Incremento" : "Disminución"} de ${Math.abs(canceledGrowth).toFixed(1)}% en citas canceladas respecto a ${otherLabel}.`);
+            observations.push(`Los doctores atendieron en promedio ${promedioPorDoctor} citas cada uno en ${col2Label}.`);
+        } else if (isGeneral) {
             observations.push(`Se registran ${activeDoctors} doctores activos en el sistema.`);
         }
 
         const pdf = {
             reportTitle: "Reporte de Doctores",
             periodLabel: formatPeriodLabel(range),
+            baselineNote: baselineNote(range),
             isGeneral,
             stats: [
                 { label: "Doctores activos", value: String(activeDoctors), diff: null },
                 { label: "Citas atendidas", value: String(completedCur), diff: statDiff(completedCur, completedPrev) },
-                { label: "Citas canceladas", value: String(cancelledCur), diff: statDiff(cancelledCur, cancelledPrev) },
+                { label: "Citas canceladas", value: String(cancelledCur), ...statDiffWithTone(cancelledCur, cancelledPrev, "mala") },
                 { label: "Promedio por doctor", value: promedioPorDoctor, diff: null },
             ],
             dailySeries: completedSeries,
-            dailySeriesLabel: "Citas atendidas por día",
+            dailySeriesLabel: "Citas atendidas por mes",
             typeSeries: [
                 { label: TYPE_GENERAL, total: generalCur },
                 { label: TYPE_PROCEDURE, total: procedureCur },
             ],
-            typeSeriesLabel: "Atención por tipo",
+            typeSeriesLabel: isGeneral ? "Atención por tipo" : `Atención por tipo en ${col2Label}`,
             serviceTableTitle: "Resumen por tipo de atención",
             serviceColumnLabel: "Tipo de atención",
             serviceCountLabel: "Citas",
@@ -654,10 +744,15 @@ const USAGE_TYPES = ["Treatment use", "Manual use"];
 reportsController.getInventoryReport = async (req, res) => {
     try {
         const range = resolveRange(req.query);
-        const { isGeneral, start, end, prevStart, prevEnd } = range;
+        const { isGeneral, start, end, compareStart, compareEnd } = range;
+
+        const divisor = range.mode === "promedio"
+            ? averageMonthCount(range, await earliestDate(movementsModel, "date"))
+            : 1;
+        const { base, cmpRow, statDiff, col2Label, col3Label } = buildComparisonHelpers(range, divisor);
 
         const curFilter = dateFilter("date", start, end);
-        const prevFilter = isGeneral ? {} : dateFilter("date", prevStart, prevEnd);
+        const prevFilter = isGeneral ? {} : dateFilter("date", compareStart, compareEnd);
         const countMov = (extra = {}) => movementsModel.countDocuments({ ...curFilter, ...extra });
         const countMovPrev = (extra = {}) =>
             isGeneral ? Promise.resolve(0) : movementsModel.countDocuments({ ...prevFilter, ...extra });
@@ -694,8 +789,8 @@ reportsController.getInventoryReport = async (req, res) => {
             countMov({ type: "Stock entry" }), countMovPrev({ type: "Stock entry" }),
             countMov({ type: { $in: USAGE_TYPES } }), countMovPrev({ type: { $in: USAGE_TYPES } }),
             countMov({ type: "Inventory adjustment" }), countMovPrev({ type: "Inventory adjustment" }),
-            buildTimeSeries(movementsModel, "date", {}, range),
-            buildTimeSeries(movementsModel, "date", { type: { $in: USAGE_TYPES } }, range),
+            buildMonthlySeries(movementsModel, "date", {}),
+            buildMonthlySeries(movementsModel, "date", { type: { $in: USAGE_TYPES } }),
             topUsedAgg(curFilter),
             isGeneral ? Promise.resolve([]) : topUsedAgg(prevFilter),
         ]);
@@ -703,73 +798,61 @@ reportsController.getInventoryReport = async (req, res) => {
         const valorTotal = valorTotalAgg[0]?.total || 0;
         const prevUsedByName = new Map(topUsedPrev.map((u) => [u._id, u.total]));
 
-        const statDiff = (cur, prev) =>
-            isGeneral ? null : `${formatVariation(growthPct(cur, prev))} comparado con el período anterior`;
+        const snapshotRow = (proceso, cur, badge) =>
+            buildComparativeRow({ proceso, leftValue: cur, rightValue: null, tipo: "al_momento", badge });
+
+        const monthLabelText = isGeneral ? "total histórico" : `en ${col2Label}`;
 
         const topCards = [
             {
                 key: "movimientos",
                 title: "Movimientos de inventario",
                 stat: String(totalMovCur),
-                statLabel: isGeneral ? "total histórico" : "en el período seleccionado",
+                statLabel: monthLabelText,
                 statDiff: statDiff(totalMovCur, totalMovPrev),
-                chartData: { "Por día": movementsSeries },
+                chartData: { "Por mes": movementsSeries },
             },
             {
                 key: "usos",
                 title: "Productos usados/consumidos",
                 stat: String(usageCur),
-                statLabel: isGeneral ? "total histórico" : "en el período",
+                statLabel: monthLabelText,
                 statDiff: statDiff(usageCur, usagePrev),
                 chartType: "bar",
-                chartData: { "Por día": usageSeries },
+                chartData: { "Por mes": usageSeries },
             },
             {
                 key: "mas_usados",
                 title: "Productos más utilizados",
-                subtitle: "Basado en las unidades consumidas en el período",
-                listItems: topUsedCur.length ? topUsedCur.map((u) => u._id).filter(Boolean) : ["Sin movimientos registrados en este período"],
+                subtitle: isGeneral ? "Basado en las unidades consumidas en todo el histórico" : `Basado en las unidades consumidas en ${col2Label}`,
+                listItems: topUsedCur.length ? topUsedCur.map((u) => u._id).filter(Boolean) : ["Sin movimientos registrados"],
                 linkLabel: "Ver el inventario",
             },
         ];
 
+        const section = (key, title, icon, rows) => ({ key, title, icon, rows, col2Label, comparisonLabel: col3Label });
+
         const sections = [
-            {
-                key: "estado_general",
-                title: "Estado general del inventario",
-                icon: "package",
-                rows: [
-                    { proceso: "Total de productos registrados", actual: String(totalProducts), anterior: "—", variacion: "—" },
-                    { proceso: "Productos con stock disponible", actual: String(availableProducts), anterior: "—", variacion: "—" },
-                    { proceso: "Productos con stock bajo", badge: { label: "Stock bajo", color: "orange" }, actual: String(lowStockProducts), anterior: "—", variacion: "—" },
-                    { proceso: "Productos agotados", badge: { label: "Agotado", color: "red" }, actual: String(outOfStockProducts), anterior: "—", variacion: "—" },
-                ],
-            },
-            {
-                key: "categorias",
-                title: "Categorías de productos",
-                icon: "clipboardCheck",
-                rows: categoriesAgg.map((c) => ({ proceso: c._id || "Sin categoría", actual: String(c.count), anterior: "—", variacion: "—" })),
-            },
-            {
-                key: "movimientos_detalle",
-                title: "Movimientos de inventario",
-                icon: "plusCircle",
-                rows: [
-                    buildRow("Entradas de stock", entriesCur, entriesPrev, isGeneral),
-                    buildRow("Usos/salidas registradas", usageCur, usagePrev, isGeneral),
-                    buildRow("Ajustes de inventario", adjustmentsCur, adjustmentsPrev, isGeneral),
-                    buildRow("Total de movimientos registrados", totalMovCur, totalMovPrev, isGeneral),
-                ],
-            },
-            {
-                key: "mas_utilizados",
-                title: "Productos más utilizados",
-                icon: "user",
-                rows: topUsedCur.length
-                    ? topUsedCur.map((u) => buildRow(u._id || "Sin nombre", u.total, prevUsedByName.get(u._id) || 0, isGeneral))
-                    : [{ proceso: "Sin movimientos de uso registrados en este período", actual: "0", anterior: "—", variacion: "—" }],
-            },
+            // El stock es una foto del presente: no se guarda su valor
+            // histórico por fecha, así que no hay período con qué compararlo.
+            section("estado_general", "Estado general del inventario", "package", [
+                snapshotRow("Total de productos registrados", totalProducts),
+                snapshotRow("Productos con stock disponible", availableProducts),
+                snapshotRow("Productos con stock bajo", lowStockProducts, { label: "Stock bajo", color: "orange" }),
+                snapshotRow("Productos agotados", outOfStockProducts, { label: "Agotado", color: "red" }),
+            ]),
+            section("categorias", "Categorías de productos", "clipboardCheck",
+                categoriesAgg.map((c) => snapshotRow(c._id || "Sin categoría", c.count))),
+            section("movimientos_detalle", "Movimientos de inventario", "plusCircle", [
+                cmpRow("Entradas de stock", entriesCur, entriesPrev, "buena"),
+                cmpRow("Usos/salidas registradas", usageCur, usagePrev, "neutra"),
+                cmpRow("Ajustes de inventario", adjustmentsCur, adjustmentsPrev, "mala"),
+                cmpRow("Total de movimientos registrados", totalMovCur, totalMovPrev, "neutra"),
+            ]),
+            section("mas_utilizados", "Productos más utilizados", "user",
+                topUsedCur.length
+                    ? topUsedCur.map((u) => cmpRow(u._id || "Sin nombre", u.total, prevUsedByName.get(u._id) || 0, "neutra"))
+                    : [buildComparativeRow({ proceso: "Sin movimientos de uso registrados", leftValue: 0, rightValue: null, tipo: "al_momento" })]),
         ];
 
         const totalCategoryCount = categoriesAgg.reduce((sum, c) => sum + c.count, 0);
@@ -780,20 +863,23 @@ reportsController.getInventoryReport = async (req, res) => {
             ingresos: "—",
             pctIngresos: "—",
             variacion: "—",
+            tone: "neutra",
         }));
 
+        const otherLabel = range.mode === "meses" ? col2Label : col3Label;
         const observations = [];
         if (outOfStockProducts > 0) observations.push(`Hay ${outOfStockProducts} producto(s) agotado(s) que requieren reabastecimiento.`);
         if (lowStockProducts > 0) observations.push(`Hay ${lowStockProducts} producto(s) con stock bajo el mínimo configurado.`);
-        if (!isGeneral) {
-            const usageGrowth = growthPct(usageCur, usagePrev);
-            if (usageGrowth !== 0) observations.push(`${usageGrowth > 0 ? "Incremento" : "Disminución"} de ${Math.abs(usageGrowth).toFixed(1)}% en el consumo de productos respecto al período anterior.`);
+        if (!isGeneral && base(1) !== null) {
+            const usageGrowth = growthPct(usageCur, base(usagePrev) || 0);
+            if (usageGrowth !== 0) observations.push(`${usageGrowth > 0 ? "Incremento" : "Disminución"} de ${Math.abs(usageGrowth).toFixed(1)}% en el consumo de productos respecto a ${otherLabel}.`);
         }
-        if (observations.length === 0) observations.push("No se registran alertas de inventario en este período.");
+        if (observations.length === 0) observations.push("No se registran alertas de inventario.");
 
         const pdf = {
             reportTitle: "Reporte de Inventario",
             periodLabel: formatPeriodLabel(range),
+            baselineNote: baselineNote(range),
             isGeneral,
             stats: [
                 { label: "Total de productos", value: String(totalProducts), diff: null },
@@ -802,7 +888,7 @@ reportsController.getInventoryReport = async (req, res) => {
                 { label: "Valor total del inventario", value: formatCurrency(valorTotal), diff: null },
             ],
             dailySeries: movementsSeries,
-            dailySeriesLabel: "Movimientos por día",
+            dailySeriesLabel: "Movimientos por mes",
             typeSeries: categoriesAgg.map((c) => ({ label: c._id || "Sin categoría", total: c.count })),
             typeSeriesLabel: "Productos por categoría",
             serviceTableTitle: "Resumen por categoría",

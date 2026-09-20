@@ -32,7 +32,6 @@ import LifestyleScreen from './src/screens/profile/lifeStyleScreen';
 
 import MedicationsScreen from './src/screens/medication/medicationScreen';
 import AppointmentsScreen from './src/screens/appointments/AppointmentsScreen';
-import AddMedicationScreen from './src/screens/medication/addMedicationScreen';
 import NewAppointmentScreen from './src/screens/appointments/NewAppointmentScreen';
 import PayAppointmentScreen from './src/screens/appointments/PayAppointmentScreen';
 import NotificationsScreen from './src/screens/notifications/NotificationsScreen';
@@ -41,7 +40,6 @@ import ConsultationDetailScreen from './src/screens/appointments/ConsultationDet
 
 import DocumentsHubScreen from './src/screens/documents/DocumentsHubScreen';
 import DocumentsListScreen from './src/screens/documents/DocumentsListScreen';
-import ComingSoonScreen from './src/screens/profile/comingSoonScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -93,16 +91,6 @@ function RootNavigator() {
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
           <Stack.Screen name="DocumentsHub" component={DocumentsHubScreen} />
           <Stack.Screen name="DocumentsList" component={DocumentsListScreen} />
-          <Stack.Screen
-            name="NotificationSettings"
-            component={ComingSoonScreen}
-            initialParams={{ title: "Notificaciones", icon: "notifications-outline", text: "Pronto podrás elegir qué notificaciones recibir y cómo." }}
-          />
-          <Stack.Screen
-            name="PrivacySettings"
-            component={ComingSoonScreen}
-            initialParams={{ title: "Privacidad y datos", icon: "shield-checkmark-outline", text: "Pronto podrás administrar tus datos y preferencias de privacidad aquí." }}
-          />
 
           {/* ---------- Historia clínica ----------
               El "name" es el string que reciben los navigation.navigate(): tiene que
@@ -120,7 +108,6 @@ function RootNavigator() {
             component={MedicationsScreen}
             options={({ route }) => ({ animation: route.params?.tabSwitch ? "none" : "slide_from_right" })}
           />
-          <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
         </>
       ) : (
         <>

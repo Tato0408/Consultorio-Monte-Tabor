@@ -57,6 +57,23 @@ const ProceduresTable = ({ data, loading, onAdd, onEdit, onDelete, canUpdate = t
         </div>
       ),
     },
+    {
+      // El formulario de edición sí tiene el toggle de activo/inactivo (is_active), pero
+      // esta tabla no mostraba ninguna columna ni badge: un admin no podía saber de un
+      // vistazo cuáles procedimientos están desactivados.
+      header: "Estado",
+      align: "center",
+      render: (proc) => (
+        <span
+          className={`inline-flex items-center gap-1.5 font-medium px-2.5 py-1 rounded-full text-xs ${
+            proc.is_active !== false ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+          }`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${proc.is_active !== false ? "bg-green-500" : "bg-red-500"}`} />
+          {proc.is_active !== false ? "Activo" : "Inactivo"}
+        </span>
+      ),
+    },
     ...(canUpdate || canDelete
       ? [
           {

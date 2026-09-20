@@ -6,8 +6,16 @@ import apiClient from "@/lib/apiClient";
 export const getMyProfile = () => apiClient("/patientAccount/me");
 
 // Solo campos del documento raíz: name, last_name, dui, birth_date, gender, phone, email.
+// Si el correo cambió, el backend no lo aplica todavía: manda un código al
+// correo nuevo y responde pendingEmailVerification:true (ver
+// verifyMyEmailChange más abajo). El resto de los campos sí se guarda de una vez.
 export const updateMyProfile = (data) =>
   apiClient("/patientAccount/me", { method: "PUT", body: data });
+
+// Confirma el código enviado al correo nuevo tras updateMyProfile. Recién
+// aquí el correo se aplica de verdad y queda marcado como verificado.
+export const verifyMyEmailChange = (verificationCodeRequest) =>
+  apiClient("/patientAccount/verifyEmailChange", { method: "PUT", body: { verificationCodeRequest } });
 
 // Cambia la contraseña estando ya logueado: exige confirmar la actual.
 export const changeMyPassword = (oldPassword, newPassword, confirmNewPassword) =>
@@ -32,11 +40,17 @@ export const updateMyLifestyle = (non_pathological, ecologycal_social) =>
 export const addMyPathological = (disease, diagnosis) =>
   apiClient("/patientAccount/me/pathological", { method: "POST", body: { disease, diagnosis } });
 
+export const updateMyPathological = (entryId, disease, diagnosis) =>
+  apiClient(`/patientAccount/me/pathological/${entryId}`, { method: "PUT", body: { disease, diagnosis } });
+
 export const deleteMyPathological = (entryId) =>
   apiClient(`/patientAccount/me/pathological/${entryId}`, { method: "DELETE" });
 
 export const addMyHereditary = (relationship, condition) =>
   apiClient("/patientAccount/me/hereditary", { method: "POST", body: { relationship, condition } });
+
+export const updateMyHereditary = (entryId, relationship, condition) =>
+  apiClient(`/patientAccount/me/hereditary/${entryId}`, { method: "PUT", body: { relationship, condition } });
 
 export const deleteMyHereditary = (entryId) =>
   apiClient(`/patientAccount/me/hereditary/${entryId}`, { method: "DELETE" });

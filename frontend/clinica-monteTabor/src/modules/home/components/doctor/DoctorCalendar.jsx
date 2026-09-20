@@ -4,6 +4,7 @@ import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import useAppointmentsApi from "@/modules/schedule/appointments/hooks/useAppointmentsApi";
 import useAppointmentTypes from "@/modules/schedule/appointments/hooks/useAppointmentTypes";
+import { formatTime12h as fmt12 } from "@/lib/timeFormat";
 
 const DAYS   = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -11,12 +12,6 @@ const FALLBACK_COLOR = "#94a3b8";
 const CANCELLED_COLOR = "#f87171";
 
 const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-const fmt12 = (t) => {
-    if (!t) return "";
-    const [h, m] = t.split(":").map(Number);
-    return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
-};
 
 // Calendario mensual del doctor. Trae las citas reales del mes visible
 // (mismo endpoint y hook que el Calendario general,

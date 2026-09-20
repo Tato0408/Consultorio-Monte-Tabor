@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { v2 as cloudinary } from "cloudinary";
 import patientsModel from "../models/patients/patients.js";
 import doctorsModel from "../models/doctors/doctors.js";
+import nursesModel from "../models/nurses/nurses.js";
 import appointmentsModel from "../models/appointments/appointments.js";
 import consultationsModel from "../models/consultations/consultation.js";
 import prescriptionsModel from "../models/consultations/prescription.js";
@@ -11,6 +12,8 @@ import medicationLogModel from "../models/medicationLog/medicationLog.js";
 import notificationModel from "../models/notifications/notification.js";
 import nurseNotesModel from "../models/nurse_notes/nurse_notes.js";
 import scheduleModel from "../models/schedule/schedule.js";
+import nurseScheduleModel from "../models/schedule/nurseSchedule.js";
+import treatmentsModel from "../models/treatments/treatment.js";
 
 // Borrado en cascada de un paciente o un doctor junto con todo lo que
 // depende de ellos: citas, consultas, recetas, ordenes de laboratorio,
@@ -24,11 +27,12 @@ import scheduleModel from "../models/schedule/schedule.js";
 // administrador cuantos registros se llevaria por delante antes de que
 // confirme.
 export const countPatientRelatedRecords = async (patientId) => {
-  const [appointments, consultations] = await Promise.all([
+  const [appointments, consultations, treatments] = await Promise.all([
     appointmentsModel.countDocuments({ patient_id: patientId }),
     consultationsModel.countDocuments({ patient_id: patientId }),
+    treatmentsModel.countDocuments({ patient_id: patientId }),
   ]);
-  return { appointments, consultations };
+  return { appointments, consultations, treatments };
 };
 
 // Cuenta las citas y consultas ligadas a un doctor (las consultas incluyen
@@ -50,6 +54,17 @@ export const countDoctorRelatedRecords = async (doctorId) => {
 
 // Elimina al paciente y toda su informacion relacionada.
 export const deletePatientCascade = async (patientId) => {
+  // Se lee antes de la transaccion, solo para tener a mano los public_id de
+  // los documentos adjuntos y borrarlos de Cloudinary despues (igual que las
+  // fotos de doctor/enfermera): un fallo ahi no debe afectar a la base.
+  const treatmentDocs = await treatmentsModel
+    .find({ patient_id: patientId }, "documents.public_id")
+    .lean();
+  const treatmentDocumentPublicIds = treatmentDocs
+    .flatMap((t) => t.documents || [])
+    .map((d) => d.public_id)
+    .filter(Boolean);
+
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -59,6 +74,12 @@ export const deletePatientCascade = async (patientId) => {
       const consultationDocs = await consultationsModel
         .find({ patient_id: patientId }, "_id").session(session).lean();
       const consultationIds = consultationDocs.map((d) => d._id);
+
+      // Sin esto, los tratamientos del paciente sobrevivian con un
+      // patient_id que ya no existia: seguian apareciendo en el listado (ver
+      // el filtro de is_active en treatmentsController.list) y sus
+      // documentos adjuntos quedaban huerfanos en Cloudinary para siempre.
+      await treatmentsModel.deleteMany({ patient_id: patientId }, { session });
 
       await prescriptionsModel.deleteMany(
         { consultation_id: { $in: consultationIds } },
@@ -92,6 +113,14 @@ export const deletePatientCascade = async (patientId) => {
     });
   } finally {
     await session.endSession();
+  }
+
+  // Limpieza de Cloudinary fuera de la transaccion: un fallo aqui solo deja
+  // archivos huerfanos en el almacenamiento externo, no afecta la base.
+  for (const publicId of treatmentDocumentPublicIds) {
+    await cloudinary.uploader.destroy(publicId).catch((error) =>
+      console.log("Error eliminando documento de tratamiento en Cloudinary:", error)
+    );
   }
 };
 
@@ -182,5 +211,115 @@ export const deleteDoctorCascade = async (doctorId) => {
         console.log("Error eliminando imagen del doctor en Cloudinary:", error)
       );
     }
+  }
+};
+
+// Cuenta las citas y consultas ligadas a una enfermera. "appointments" son
+// TODAS las citas donde figura (como proveedora principal de un
+// procedimiento sin doctor, o como enfermera de apoyo de un doctor);
+// "consultations" son solo las de sus citas como proveedora principal, que
+// son las unicas que el borrado en cascada elimina de verdad (las citas de
+// apoyo a un doctor no se borran, solo se le desasigna la enfermera).
+export const countNurseRelatedRecords = async (nurseId) => {
+  const [primaryAppointments, supportingAppointments, primaryAppointmentIds] = await Promise.all([
+    appointmentsModel.countDocuments({ nurse_id: nurseId, doctor_id: null }),
+    appointmentsModel.countDocuments({ nurse_id: nurseId, doctor_id: { $ne: null } }),
+    appointmentsModel.distinct("_id", { nurse_id: nurseId, doctor_id: null }),
+  ]);
+  const consultations = await consultationsModel.countDocuments({
+    appointment_id: { $in: primaryAppointmentIds },
+  });
+  return { appointments: primaryAppointments + supportingAppointments, consultations };
+};
+
+// Elimina a la enfermera y su informacion relacionada. Antes deleteNurse era
+// un findByIdAndDelete incondicional: no revisaba citas asignadas, notas de
+// enfermeria, horario propio ni incapacidades emitidas, dejando esas
+// colecciones con referencias huerfanas.
+//
+// Citas donde la enfermera es la PROVEEDORA PRINCIPAL (procedimiento sin
+// doctor, doctor_id null) se eliminan por completo junto con su consulta y
+// documentos derivados, igual que al eliminar un doctor: esa cita es "suya".
+// Citas donde es enfermera DE APOYO de un doctor no se tocan como registro
+// clinico (son del doctor, no de ella): solo se le desasigna (nurse_id a
+// null) para no dejar una referencia a una enfermera que ya no existe.
+export const deleteNurseCascade = async (nurseId) => {
+  const nurse = await nursesModel.findById(nurseId).select("public_id");
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const primaryAppointmentDocs = await appointmentsModel
+        .find({ nurse_id: nurseId, doctor_id: null }, "_id").session(session).lean();
+      const primaryAppointmentIds = primaryAppointmentDocs.map((d) => d._id);
+      const consultationDocs = await consultationsModel
+        .find({ appointment_id: { $in: primaryAppointmentIds } }, "_id").session(session).lean();
+      const consultationIds = consultationDocs.map((d) => d._id);
+
+      await prescriptionsModel.deleteMany(
+        { consultation_id: { $in: consultationIds } },
+        { session }
+      );
+      await labOrdersModel.deleteMany(
+        {
+          $or: [
+            { consultation_id: { $in: consultationIds } },
+            { appointment_id: { $in: primaryAppointmentIds } },
+          ],
+        },
+        { session }
+      );
+      // sickLeave.nurse_id solo se llena cuando la incapacidad la emite la
+      // enfermera de un procedimiento sin doctor (ver el modelo), así que
+      // nunca alcanza una incapacidad real emitida por un doctor.
+      await sickLeavesModel.deleteMany(
+        {
+          $or: [
+            { nurse_id: nurseId },
+            { consultation_id: { $in: consultationIds } },
+          ],
+        },
+        { session }
+      );
+      await nurseNotesModel.deleteMany({ nurse_id: nurseId }, { session });
+      await notificationModel.deleteMany(
+        {
+          $or: [
+            { recipient_role: "nurse", recipient_id: nurseId },
+            { appointment_id: { $in: primaryAppointmentIds } },
+          ],
+        },
+        { session }
+      );
+      await patientsModel.updateMany(
+        {},
+        { $pull: { "clinical_history.procedures": { consultation_id: { $in: consultationIds } } } },
+        { session }
+      );
+      await consultationsModel.deleteMany(
+        { _id: { $in: consultationIds } },
+        { session }
+      );
+      await appointmentsModel.deleteMany({ _id: { $in: primaryAppointmentIds } }, { session });
+
+      // Citas de apoyo a un doctor: se desasigna en vez de borrar, el
+      // registro clinico sigue siendo del doctor.
+      await appointmentsModel.updateMany(
+        { nurse_id: nurseId, doctor_id: { $ne: null } },
+        { $set: { nurse_id: null } },
+        { session }
+      );
+
+      await nurseScheduleModel.deleteMany({ nurse_id: nurseId }, { session });
+      await nursesModel.deleteOne({ _id: nurseId }, { session });
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  if (nurse?.public_id) {
+    await cloudinary.uploader.destroy(nurse.public_id).catch((error) =>
+      console.log("Error eliminando imagen de la enfermera en Cloudinary:", error)
+    );
   }
 };

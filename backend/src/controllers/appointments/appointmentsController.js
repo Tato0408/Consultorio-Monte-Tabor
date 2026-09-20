@@ -7,9 +7,11 @@ import { isNurseAvailable, isSlotFreeForNurse, anyNurseAvailable } from "../sche
 import { notifyAppointmentRecipients } from "../../services/notificationService.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import nursesModel from "../../models/nurses/nurses.js";
-import { getNonNegativeError } from "../../utils/validators.js";
-import { RESCHEDULE_REASONS } from "../../utils/appointmentStatus.js";
+import consultationsModel from "../../models/consultations/consultation.js";
+import { getNonNegativeError, escapeRegex } from "../../utils/validators.js";
+import { RESCHEDULE_REASONS, isCancelLockedForPatient } from "../../utils/appointmentStatus.js";
 import { buildActivePartiesAppointmentFilter, assertActiveParties } from "../../utils/activeScope.js";
+import { deleteAppointmentCascade } from "../../services/consultationCascade.js";
 
 const appointmentsController = {};
 
@@ -153,7 +155,9 @@ export async function runAppointmentAutoTransitions() {
             type: "appointment_reschedule_needed",
             message: "Ningún doctor aceptó tu cita a tiempo. Puedes reagendarla para otra fecha y horario.",
             appointment_id: a._id,
-            action_url: `/appointments/${a._id}/edit`,
+            // El portal público no tiene /appointments/:id/edit; la pantalla real es
+            // /mis-citas (ver patientPortalController.js y notificationService.js).
+            action_url: "/mis-citas",
         })));
     }
 }
@@ -197,7 +201,7 @@ async function bumpCompetingRequests(accepted) {
         type: "appointment_reschedule_needed",
         message: "El horario que solicitaste ya fue asignado a otro paciente. Reagenda tu cita para otra fecha y horario.",
         appointment_id: c._id,
-        action_url: `/appointments/${c._id}/edit`,
+        action_url: "/mis-citas",
     })));
 }
 
@@ -269,7 +273,11 @@ appointmentsController.getAppointments = async (req, res) => {
         // Búsqueda libre por paciente, doctor, tipo o descripción; primero se
         // resuelven los ids de paciente/doctor que coinciden con el texto.
         if (search) {
-            const regex = new RegExp(search, "i");
+            // escapeRegex evita un patrón con backtracking catastrófico (ReDoS): antes se
+            // pasaba el texto del usuario directo a RegExp, a diferencia de los otros 3
+            // usos de RegExp en el backend (tipos de cita, inventario, procedimientos),
+            // que ya escapaban.
+            const regex = new RegExp(escapeRegex(search), "i");
             const [matchingPatients, matchingDoctors] = await Promise.all([
                 patientsModel.find({ $or: [{ name: regex }, { last_name: regex }] }).select("_id"),
                 doctorsModel.find({ $or: [{ name: regex }, { last_name: regex }] }).select("_id"),
@@ -356,8 +364,40 @@ appointmentsController.getAppointments = async (req, res) => {
             appointmentsModel.countDocuments(filters),
         ]);
 
+        // Para la enfermera: marca cada cita cuya consulta ya registrada le
+        // falta la nota de enfermería (procedimiento que exige enfermera y
+        // ella es la asignada). Alimenta el ícono de warning de la tabla de
+        // consultas.
+        let responseData = appointments;
+        if (req.user.role === "nurse") {
+            const noteCandidateIds = appointments
+                .filter((a) => a.nurse_id && a.procedure_id?.requires_nurse)
+                .map((a) => a._id);
+            const noteByAppointment = new Map();
+            if (noteCandidateIds.length > 0) {
+                const consultations = await consultationsModel
+                    .find({ appointment_id: { $in: noteCandidateIds } })
+                    .select("appointment_id nurse_note")
+                    .lean();
+                for (const consultation of consultations) {
+                    noteByAppointment.set(String(consultation.appointment_id), consultation.nurse_note);
+                }
+            }
+            responseData = appointments.map((appointment) => {
+                const plain = appointment.toObject();
+                const key = String(appointment._id);
+                const isCandidate = appointment.nurse_id && appointment.procedure_id?.requires_nurse;
+                plain.nurse_note_pending = Boolean(
+                    isCandidate
+                    && noteByAppointment.has(key)
+                    && !String(noteByAppointment.get(key) || "").trim()
+                );
+                return plain;
+            });
+        }
+
         return res.status(200).json({
-            data: appointments,
+            data: responseData,
             pagination: {
                 page: pageNumber,
                 limit: limitNumber,
@@ -401,9 +441,14 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         const { start, end } = getDayRange(date || new Date());
 
         const dayFilter = { date: { $gte: start, $lte: end } };
-        // El doctor solo ve estadísticas de sus propias citas.
+        // El doctor solo ve estadísticas de sus propias citas. La enfermera queda asignada a
+        // citas propias vía nurse_id (como proveedora principal de un procedimiento sin
+        // doctor, o de apoyo), así que aplica el mismo criterio; sin esto veía los números de
+        // toda la clínica en vez de los suyos.
         if (req.user.role === "doctor") {
             dayFilter.doctor_id = req.user.id;
+        } else if (req.user.role === "nurse") {
+            dayFilter.nurse_id = req.user.id;
         }
 
         // "Completados" cuenta las citas atendidas HOY (updatedAt), no las
@@ -413,6 +458,8 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
         const completedFilter = { status: "completed", updatedAt: { $gte: start, $lte: end } };
         if (req.user.role === "doctor") {
             completedFilter.doctor_id = req.user.id;
+        } else if (req.user.role === "nurse") {
+            completedFilter.nurse_id = req.user.id;
         }
 
         const [scheduled, waiting, completed] = await Promise.all([
@@ -441,6 +488,7 @@ appointmentsController.getAppointmentsStats = async (req, res) => {
                     date: { $gt: end },
                     status: "scheduled",
                     ...(req.user.role === "doctor" ? { doctor_id: req.user.id } : {}),
+                    ...(req.user.role === "nurse" ? { nurse_id: req.user.id } : {}),
                 })
                 .sort({ date: 1, start_time: 1 })
                 .populate("doctor_id", "name last_name specialty img_url")
@@ -475,7 +523,7 @@ appointmentsController.getAppointmentById = async (req, res) => {
         await runAppointmentAutoTransitions();
 
         const appointment = await appointmentsModel.findById(id)
-            .populate({ path: "patient_id", model: "Patients", select: "name last_name phone gender birth_date dui clinical_history.blood_type email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social is_active" })
+            .populate({ path: "patient_id", model: "Patients", select: "name last_name phone gender birth_date dui clinical_history.blood_type clinical_history.blood_type_verified email clinical_history.hereditary clinical_history.pathological clinical_history.non_pathological clinical_history.ecologycal_social is_active" })
             .populate("doctor_id", "name last_name is_active")
             .populate("nurse_id", "name last_name");
 
@@ -951,12 +999,21 @@ appointmentsController.cancelPatientAppointment = async (req, res) => {
         if (!appointment) {
             return res.status(404).json({ message: "Cita no encontrada." });
         }
-        // Se puede cancelar en cualquier momento, incluso si la cita ya comenz\u00f3 o su fecha
-        // ya pas\u00f3, mientras no est\u00e9 ya completada/cancelada/no presentada/vencida (misma
-        // regla en las tres plataformas, ver patientPortalController.cancelMyAppointment
-        // para la web y AppointmentDetailScreen.jsx para el cliente m\u00f3vil).
+        // No se puede cancelar una cita ya cerrada (completada, cancelada, no
+        // presentada o vencida). Misma regla en las tres plataformas, ver
+        // patientPortalController.cancelMyAppointment para la web.
         if (["completed", "cancelled", "no_show", "expired"].includes(appointment.status)) {
             return res.status(400).json({ message: "Esta cita ya no puede cancelarse." });
+        }
+
+        // A menos de media hora del inicio (o ya empezada), la cita aceptada ya
+        // no se puede cancelar sola: el paciente debe coordinarlo con quien lo
+        // atender\u00e1.
+        if (isCancelLockedForPatient(appointment)) {
+            const conQuien = appointment.doctor_id ? "el doctor que te atender\u00e1" : "la cl\u00ednica";
+            return res.status(400).json({
+                message: `Tu cita est\u00e1 pr\u00f3xima a comenzar. Para cancelarla, comun\u00edcate con ${conQuien} y lleguen a un acuerdo.`,
+            });
         }
 
         appointment.status = "cancelled";
@@ -980,10 +1037,14 @@ appointmentsController.cancelPatientAppointment = async (req, res) => {
     }
 };
 
-// Elimina una cita.
+// Elimina una cita. Si ya tiene una consulta registrada (una cita
+// "completed" borrada desde aquí en vez de desde la tabla de Consultas), se
+// borra también con toda su cascada (receta, orden de laboratorio,
+// expediente, tratamiento) — antes esto solo borraba el documento de la
+// cita y dejaba esos registros huérfanos, apuntando a una cita inexistente.
 appointmentsController.deleteAppointment = async (req, res) => {
     try {
-        const appointment = await appointmentsModel.findByIdAndDelete(req.params.id);
+        const appointment = await deleteAppointmentCascade(req.params.id);
         if (!appointment) {
             return res.status(404).json({ message: "Cita no encontrada" });
         }
@@ -1166,6 +1227,17 @@ appointmentsController.acceptAppointment = async (req, res) => {
             if (!assignedNurse) {
                 return res.status(400).json({ message: "La enfermera seleccionada no existe." });
             }
+            // Revalida contra la base de datos que la enfermera de apoyo siga libre en este
+            // horario, mismo criterio que ya se aplica al doctor arriba y al crear/editar una
+            // cita (insertAppointment/updateAppointment): el catálogo de enfermeras
+            // disponibles que vio el doctor pudo quedar desactualizado entre que se cargó y
+            // que se confirma la aceptación.
+            const { free: nurseFree, reason: nurseReason } = await isSlotFreeForNurse(
+                nurse_id, dateStr, appointment.start_time, appointment.end_time, appointmentsModel, appointment._id
+            );
+            if (!nurseFree) {
+                return res.status(409).json({ message: nurseReason || "Esa enfermera ya no está disponible en este horario." });
+            }
         }
 
         // La condición exige que siga sin asignar (o asignada a este mismo
@@ -1277,6 +1349,15 @@ appointmentsController.assignDoctor = async (req, res) => {
             assignedNurse = await nursesModel.findById(nurse_id).select("_id");
             if (!assignedNurse) {
                 return res.status(400).json({ message: "La enfermera seleccionada no existe." });
+            }
+            // Mismo criterio que acceptAppointment: revalida contra la base de datos que la
+            // enfermera de apoyo siga libre en este horario, en vez de confiar en el catálogo
+            // que vio el admin al armar la solicitud.
+            const { free: nurseFree, reason: nurseReason } = await isSlotFreeForNurse(
+                nurse_id, dateStr, appointment.start_time, appointment.end_time, appointmentsModel, appointment._id
+            );
+            if (!nurseFree) {
+                return res.status(409).json({ message: nurseReason || "Esa enfermera ya no está disponible en este horario." });
             }
         }
 

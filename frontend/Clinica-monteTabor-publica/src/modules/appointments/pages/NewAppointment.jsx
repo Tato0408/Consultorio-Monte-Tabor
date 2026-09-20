@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, ChevronDown, Clock, Stethoscope, CalendarDays, Timer, Wallet, CreditCard, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getProcedures, getSchedulableDoctors, bookAppointment, rescheduleAppointment } from "@/services/appointmentsService";
+import { getProcedures, getSchedulableDoctors, getSchedulableNurses, bookAppointment, rescheduleAppointment } from "@/services/appointmentsService";
 import { showError, showSuccess } from "@/lib/alerts";
 import NotificationsMenu from "@/components/NotificationsMenu";
 import StepIndicator from "../components/StepIndicator";
@@ -211,6 +211,24 @@ const NewAppointment = () => {
             } else {
               // El doctor de la cita anterior ya no está disponible: se vuelve al modo
               // rápido en vez de dejar el asistente atascado sin poder avanzar.
+              setModo("rapido");
+              setStep(2);
+            }
+          })
+          .catch(() => { setModo("rapido"); setStep(2); });
+      } else if (prefill.nurseId) {
+        // Mismo criterio que prefill.doctorId, para un procedimiento sin doctor (la
+        // enfermera es la proveedora principal). Antes esta rama no existía: solo se
+        // intentaba restaurar el proveedor cuando había un doctor previo, así que
+        // reagendar una cita atendida por enfermera la dejaba sin proveedor asignado.
+        setModo("doctor");
+        getSchedulableNurses()
+          .then((list) => {
+            const encontrada = list.find((n) => n._id === prefill.nurseId);
+            if (encontrada) {
+              setNurse(encontrada);
+              setStep(3);
+            } else {
               setModo("rapido");
               setStep(2);
             }

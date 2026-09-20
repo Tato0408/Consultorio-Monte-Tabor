@@ -12,10 +12,12 @@ import apiClient from "@/lib/apiClient";
 import { confirmDelete, showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
 import { openPdfInNewTab } from "@/modules/schedule/consultations/pdf/openPdfInNewTab";
+import { pdfDateTime } from "@/modules/schedule/consultations/pdf/pdfDate";
 import IncapacidadDocument from "@/modules/schedule/consultations/pdf/IncapacidadDocument";
 import RecetaDocument from "@/modules/schedule/consultations/pdf/RecetaDocument";
 import LabOrderDocument from "@/modules/schedule/consultations/pdf/LabOrderDocument";
 import ReferenciaDocument from "@/modules/schedule/consultations/pdf/ReferenciaDocument";
+import { useMySignatureAssets } from "@/lib/useMySignatureAssets";
 
 // Configuración de cada tipo de documento: de dónde sale su lista dentro de
 // patient (armada por usePatientRecordDetail.js), su icono/color y cómo
@@ -64,6 +66,7 @@ const ORDEN = ["incapacidad", "receta", "laboratorio", "referencia"];
 // categoría elegida.
 export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControlado, onTipoChange }) {
   const { hasPermission, user, userType } = useAuth();
+  const { signatureUrl, sealUrl } = useMySignatureAssets();
   const canCreate = hasPermission("reports.records", "create");
   const canUpdate = hasPermission("reports.records", "update");
   const canDelete = hasPermission("reports.records", "delete");
@@ -148,32 +151,39 @@ export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControl
 
   const handleGeneratePdf = async (row) => {
     try {
+      // El documento se genera desde el expediente: la fecha y la hora son las
+      // del momento en que se emitió (issued_at, start_date, referred_date),
+      // no las de ahora.
       if (tipo === "incapacidad") {
-        const issueDate = row.startDateRaw ? new Date(row.startDateRaw) : new Date();
-        const dateFormatted = issueDate.toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" });
+        const { date: dateFormatted, time: timeFormatted, fileSafe } = pdfDateTime(row.startDateRaw);
         await openPdfInNewTab(
           <IncapacidadDocument
-            title={`Incapacidad de ${patientFullName} ${dateFormatted.replace(/\//g, "-")}`}
+            title={`Incapacidad de ${patientFullName} ${fileSafe}`}
             patientName={patientFullName}
             dui={patient.dui}
             age={calculateAge(patient.birthDate)}
             diagnosis={row.diagnosisRaw}
             restDays={row.restDays}
             doctorName={signatureFor(row.doctorName)}
+            signatureUrl={signatureUrl}
+            sealUrl={sealUrl}
             date={dateFormatted}
+            time={timeFormatted}
           />
         );
       } else if (tipo === "receta") {
-        const issueDate = row.issuedAtRaw ? new Date(row.issuedAtRaw) : new Date();
-        const dateFormatted = issueDate.toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" });
+        const { date: dateFormatted, time: timeFormatted, fileSafe } = pdfDateTime(row.issuedAtRaw);
         await openPdfInNewTab(
           <RecetaDocument
-            title={`Receta médica de ${patientFullName} ${dateFormatted.replace(/\//g, "-")}`}
+            title={`Receta médica de ${patientFullName} ${fileSafe}`}
             patientName={patientFullName}
             dui={patient.dui}
             age={calculateAge(patient.birthDate)}
             doctorName={signatureFor(row.doctorName)}
+            signatureUrl={signatureUrl}
+            sealUrl={sealUrl}
             date={dateFormatted}
+            time={timeFormatted}
             medications={row.medicationsRaw}
             instructions={row.instructionsRaw}
           />
@@ -181,18 +191,19 @@ export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControl
       } else if (tipo === "laboratorio") {
         const o = row.labOrder;
         const dateSource = o.consultation_id?.date || o.issued_at || o.createdAt;
-        const dateFormatted = dateSource
-          ? new Date(dateSource).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" })
-          : "";
+        const { date: dateFormatted, time: timeFormatted, fileSafe } = pdfDateTime(dateSource);
         await openPdfInNewTab(
           <LabOrderDocument
-            title={`Orden de laboratorio de ${patientFullName} ${dateFormatted.replace(/\//g, "-")}`}
+            title={`Orden de laboratorio de ${patientFullName} ${fileSafe}`}
             patientName={patientFullName}
             age={calculateAge(patient.birthDate)}
             gender={patient.sexo}
             dui={patient.dui}
             doctorName={signatureFor(row.doctorName)}
+            signatureUrl={signatureUrl}
+            sealUrl={sealUrl}
             date={dateFormatted}
+            time={timeFormatted}
             weight={o.weight}
             height={o.height}
             pregnancy={o.pregnancy}
@@ -202,19 +213,31 @@ export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControl
           />
         );
       } else {
-        const dateFormatted = row.referredDateRaw
-          ? new Date(row.referredDateRaw).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" })
-          : "";
+        const { date: dateFormatted, time: timeFormatted, fileSafe } = pdfDateTime(row.referredDateRaw);
         await openPdfInNewTab(
           <ReferenciaDocument
-            title={`Referencia de ${patientFullName} ${dateFormatted.replace(/\//g, "-")}`}
+            title={`Referencia de ${patientFullName} ${fileSafe}`}
             patientName={patientFullName}
             dui={patient.dui}
             age={calculateAge(patient.birthDate)}
+            patientPhone={patient.telefono}
+            referredDoctorAddress={row.referredDoctorAddressRaw}
+            referredDoctorPhone={row.referredDoctorPhoneRaw}
             reason={row.reasonRaw}
             referredTo={row.referredToRaw}
+            bloodPressure={row.bloodPressureRaw}
+            heartRate={row.heartRateRaw}
+            respiratoryRate={row.respiratoryRateRaw}
+            spo2={row.spo2Raw}
+            physicalExam={row.physicalExamRaw}
+            icdCode={row.icdRaw}
+            diagnosis={row.diagnosisRaw}
+            diagnosisDescription={row.diagnosisDescRaw}
             doctorName={signatureFor(row.doctorName)}
+            signatureUrl={signatureUrl}
+            sealUrl={sealUrl}
             date={dateFormatted}
+            time={timeFormatted}
           />
         );
       }

@@ -16,7 +16,9 @@ import styles from "../../styles/appointments/appointmentsStyle";
 const STATUS = {
   pending: { label: "Pendiente", tone: "amber" }, scheduled: { label: "Programada", tone: "blue" },
   completed: { label: "Completada", tone: "green" }, cancelled: { label: "Cancelada", tone: "red" },
-  no_show: { label: "No asistió", tone: "gray" },
+  // Mismo texto que appointmentsStyle.js (este mismo módulo) y que el panel
+  // privado/portal público para el mismo estado: antes decía "No asistió" solo acá.
+  no_show: { label: "No se presentó", tone: "gray" },
   needs_reschedule: { label: "Por reagendar", tone: "orange" }, expired: { label: "Por reagendar", tone: "orange" },
 };
 
@@ -31,7 +33,7 @@ const APPOINTMENT_FILTERS = [
   { key: "needs_reschedule", label: "Por reagendar" },
 ];
 
-const dateLabel = (value) => new Date(value).toLocaleDateString("es-GT", {
+const dateLabel = (value) => new Date(value).toLocaleDateString("es-SV", {
   day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
 });
 

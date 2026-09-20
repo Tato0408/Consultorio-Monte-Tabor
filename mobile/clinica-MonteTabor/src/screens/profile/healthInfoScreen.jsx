@@ -14,15 +14,14 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
+import { formatShortDate } from "../../utils/date";
 import styles from "../../styles/profile/healthStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
-const dateLabel = (value) =>
-  value
-    ? new Date(value).toLocaleDateString("es-GT", {
-        day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
-      })
-    : null;
+// toLocaleDateString con opciones no funciona en el motor de RN (Hermes) y
+// devuelve el toString crudo de Date ("Mon Aug 31 2026 18:00:00 GMT..."), por
+// eso se formatea a mano igual que el resto de fechas del proyecto.
+const dateLabel = (value) => formatShortDate(value) || null;
 
 const SectionHeader = ({ title, onAdd }) => (
   <View style={styles.sectionRow}>
@@ -160,8 +159,8 @@ const HealthInfoScreen = ({ navigation }) => {
               </View>
               <View style={styles.listTexts}>
                 <Text style={styles.listTitle}>{item.disease}</Text>
-                {dateLabel(item.diagnosis) ? (
-                  <Text style={styles.listMeta}>Diagnóstico: {dateLabel(item.diagnosis)}</Text>
+                {item.diagnosis ? (
+                  <Text style={styles.listMeta}>Diagnóstico: {item.diagnosis}</Text>
                 ) : null}
               </View>
               <TouchableOpacity

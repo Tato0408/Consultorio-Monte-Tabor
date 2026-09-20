@@ -9,11 +9,15 @@ import { config } from "../../../config.js"
 import { sendEmail } from "../../utils/sendMailMailjet.js"
 import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js"
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js"
+import { countNurseRelatedRecords, deleteNurseCascade } from "../../utils/cascadeDelete.js"
 const nursesController = {}
 
 nursesController.getAllNurses = async (req, res) => {
     try {
-        const response = await nursesModel.find();
+        // Nunca se envía el hash de la contraseña al cliente (mismo criterio que
+        // doctorsController/receptionistController). Antes cualquier rol con
+        // users.nurses:view recibía el hash bcrypt de todas las enfermeras.
+        const response = await nursesModel.find().select("-password");
         if (!response) {
             return res.status(404).json({ message: "Enfermera no encontrada" });
         }
@@ -195,6 +199,30 @@ nursesController.deleteNurse = async (req, res) => {
         if (!response) {
             return res.status(404).json({ message: "Enfermera no encontrada" })
         }
+
+        // Con citas o consultas relacionadas el borrado es en dos pasos,
+        // igual que doctores y pacientes: la primera llamada responde 409
+        // con el conteo para que la gestión de usuarios pida confirmación
+        // reforzada, y la segunda, con ?cascade=true, elimina también todo
+        // lo relacionado (ver deleteNurseCascade). Antes esto era un
+        // findByIdAndDelete incondicional que dejaba citas, notas de
+        // enfermería, horario e incapacidades huérfanas.
+        const related = await countNurseRelatedRecords(req.params.id);
+        const hasRelated = related.appointments > 0 || related.consultations > 0;
+
+        if (hasRelated && req.query.cascade !== "true") {
+            return res.status(409).json({
+                message: "Esta enfermera tiene citas o consultas relacionadas.",
+                code: "HAS_RELATED_RECORDS",
+                related,
+            });
+        }
+
+        if (hasRelated) {
+            await deleteNurseCascade(req.params.id);
+            return res.status(200).json({ message: "Enfermera y toda su información relacionada eliminada" });
+        }
+
         // No todas las enfermeras tienen foto guardada (public_id puede venir vacío).
         if (response.public_id) {
             const deleteImage = await cloudinary.uploader.destroy(response.public_id)
@@ -323,8 +351,23 @@ nursesController.updateOwnProfile = async (req, res) => {
             phone,
             birth_date,
             email,
-            password
+            password,
+            current_password
         } = req.body;
+
+        // Mismas dos validaciones que ya hace updateNurse (edición desde administración):
+        // sin ellas, esta ruta ni siquiera validaba el formato de correo/teléfono/DUI, y una
+        // enfermera podía cambiar su propio correo o DUI a uno ya usado por otro miembro del
+        // staff sin ningún aviso.
+        const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+        if (formatError) {
+            return res.status(400).json({ message: formatError });
+        }
+
+        const staffDuplicate = await findStaffDuplicate(email, dui, nurseId);
+        if (staffDuplicate) {
+            return res.status(400).json(staffDuplicate);
+        }
 
         const payload = {
             name,
@@ -339,6 +382,16 @@ nursesController.updateOwnProfile = async (req, res) => {
         };
 
         if (password && password.trim() !== "") {
+            // Antes no se pedía la contraseña actual: una sesión comprometida
+            // bastaba para tomar la cuenta cambiando la contraseña sin fricción.
+            if (!current_password || !current_password.trim()) {
+                return res.status(400).json({ message: "Debes ingresar tu contraseña actual." });
+            }
+            const currentMatches = await bcrypt.compare(current_password, nurseFound.password);
+            if (!currentMatches) {
+                return res.status(400).json({ message: "La contraseña actual no es correcta." });
+            }
+
             const passwordError = getPasswordError(password);
             if (passwordError) {
                 return res.status(400).json({ message: passwordError });

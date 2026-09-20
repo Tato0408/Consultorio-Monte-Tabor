@@ -131,11 +131,11 @@ export const VIEW_ONLY_MODULE_KEYS = ["reports.appointments", "reports.patients"
 // visibles.
 export const HIDDEN_PERMISSION_ACTIONS = {
   "calendar.schedule": ["create", "delete"],
-  // Movimientos de inventario: GET dan Ver, POST a /stock-entry,
-  // /manual-usage y /procedure-discount dan Crear, y POST a
-  // /:id/adjust da Editar. No existe ninguna ruta DELETE para
-  // movimientos (backend/src/routes/inventory/inventory.js), son un
-  // registro histórico y no se borran.
+  // Movimientos de inventario: GET dan Ver, POST a /stock-entry y
+  // /manual-usage dan Crear, y POST a /:id/adjust da Editar. No existe
+  // ninguna ruta DELETE para movimientos
+  // (backend/src/routes/inventory/inventory.js), son un registro
+  // histórico y no se borran.
   "inventory.movements": ["delete"],
 };
 
@@ -155,6 +155,32 @@ export const MODULE_VIEW_DEPENDENCIES = {
     { moduleKey: "users.patients", label: "Pacientes" },
     { moduleKey: "calendar.consultations", label: "Consultas" },
     { moduleKey: "calendar.appointments", label: "Citas" },
+  ],
+  // Mismo caso: la pantalla de Inventario abre con solo Ver en
+  // inventory.products, pero sus tarjetas de estadísticas y gráficas piden
+  // aparte a inventory.reports (GET /inventory/stats y /inventory/charts), la
+  // tabla de movimientos recientes a inventory.movements (GET
+  // /inventory/movements), y la tarjeta "Insumos utilizados por tratamiento"
+  // a procedures (GET /procedures). Sin esos, las tarjetas quedan en
+  // $NaN/guiones y esas secciones no cargan, aunque el catálogo de
+  // productos sí funcione.
+  "inventory.products": [
+    { moduleKey: "inventory.reports", label: "Reportes de inventario" },
+    { moduleKey: "inventory.movements", label: "Movimientos" },
+    { moduleKey: "procedures", label: "Procedimientos" },
+  ],
+};
+
+// Mismo mecanismo que MODULE_VIEW_DEPENDENCIES, pero para el permiso de Editar en vez de
+// Ver. Caso real: "Editar expediente" (RecordsLayout.jsx) manda en un solo PUT
+// /patients/:id tanto campos personales como clínicos, y el backend exige
+// users.patients:update ADEMÁS de reports.records en create/update
+// (patientsController.updatePatient) — antes esta dependencia cruzada no tenía ningún
+// aviso: un rol con Editar en Expediente pero sin Editar en Pacientes veía el botón, pero
+// el guardado fallaba con 403.
+export const MODULE_UPDATE_DEPENDENCIES = {
+  "reports.records": [
+    { moduleKey: "users.patients", label: "Pacientes" },
   ],
 };
 

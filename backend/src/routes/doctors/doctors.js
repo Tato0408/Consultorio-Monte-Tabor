@@ -66,6 +66,17 @@ router
     doctorsController.updateOwnProfile
   );
 
+// Firma y sello propios, opcionales e independientes entre sí (guardar uno no exige el
+// otro) — ver doctorsController.updateOwnSignature/updateOwnSeal. Mismo criterio de ruta
+// fija por rol que /profile/update: no dependen de la matriz de permisos dinámica.
+router
+  .route("/profile/signature")
+  .put(authenticate(["doctor"]), upload.single("signatureImage"), doctorsController.updateOwnSignature);
+
+router
+  .route("/profile/seal")
+  .put(authenticate(["doctor"]), upload.single("sealImage"), doctorsController.updateOwnSeal);
+
 router
   .route("/:id")
   .put(

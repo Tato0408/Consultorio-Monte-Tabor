@@ -27,6 +27,23 @@ const defaultBreaks = [1,2,3,4,5].map(d => ({ day: d, start_time: "12:00", end_t
 
 const DEFAULT_BUFFER_OPTIONS  = [0, 5, 10, 15, 20, 30];
 
+// A diferencia de los bloques de horario (que solo se guardan al presionar
+// Guardar cambios), no había ningún punto donde se rechazara un rango
+// invertido: se guardaba sin aviso y ese bloque simplemente no generaba
+// slots. BreaksSection ya valida cada pausa antes de confirmarla, así que
+// solo hace falta revisar los bloques de "Tu semana" aquí.
+const toMinutes = (t) => {
+    if (!t) return 0;
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+};
+const hasInvalidTimeBlock = (weeklyAvailability) =>
+    weeklyAvailability.some((day) =>
+        (day.time_blocks || []).some(
+            (b) => b.start_time && b.end_time && toMinutes(b.end_time) <= toMinutes(b.start_time)
+        )
+    );
+
 const EMPTY_SCHEDULE = {
     weekly_availability:  defaultWeekly,
     breaks:               defaultBreaks,
@@ -156,6 +173,12 @@ const ScheduleConfig = () => {
             setError(isNurse
                 ? "No se pudo obtener el ID de la enfermera. Recarga la página."
                 : "No se pudo obtener el ID del doctor. Recarga la página.");
+            return;
+        }
+        if (hasInvalidTimeBlock(config.weekly_availability)) {
+            const msg = "Hay un bloque en \"Tu semana\" con la hora de fin antes o igual que la de inicio. Corrígelo antes de guardar.";
+            setError(msg);
+            showError(msg);
             return;
         }
         setSaving(true);

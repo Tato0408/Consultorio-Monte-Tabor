@@ -30,3 +30,32 @@ export const RESCHEDULE_REASONS = {
     NOT_ACCEPTED: "no_aceptada",   // ningún proveedor la aceptó antes de su hora de fin
     SLOT_TAKEN: "cupo_asignado",   // el proveedor aceptó a otro paciente para ese horario
 };
+
+// Minutos antes del inicio de la cita a partir de los cuales el paciente ya no
+// puede cancelarla por su cuenta: tan cerca de la hora debe coordinarlo con
+// quien lo atenderá. Aplica solo a citas ya aceptadas (scheduled), no a una
+// solicitud pendiente que nadie ha tomado.
+export const CANCEL_LOCK_MINUTES = 30;
+
+// Instante de inicio de la cita (fecha + start_time). appointment.date se guarda
+// como medianoche local de la clínica (el proceso corre con TZ
+// America/El_Salvador, ver backend/timezone.js), así que sus componentes
+// locales son el día correcto. Devuelve null si faltan datos.
+export const getAppointmentStart = (appointment) => {
+    if (!appointment?.date || !appointment?.start_time) return null;
+    const date = new Date(appointment.date);
+    if (Number.isNaN(date.getTime())) return null;
+    const [hours, minutes] = String(appointment.start_time).split(":").map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes, 0, 0);
+};
+
+// true cuando la cita está tan próxima a comenzar (o ya empezó) que el paciente
+// ya no puede cancelarla solo. Solo bloquea citas scheduled: las solicitudes
+// pendientes, las que quedaron por reagendar y las vencidas se manejan aparte.
+export const isCancelLockedForPatient = (appointment) => {
+    if (appointment?.status !== "scheduled") return false;
+    const startsAt = getAppointmentStart(appointment);
+    if (!startsAt) return false;
+    return startsAt.getTime() - Date.now() <= CANCEL_LOCK_MINUTES * 60 * 1000;
+};

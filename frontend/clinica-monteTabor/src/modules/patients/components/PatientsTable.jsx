@@ -11,10 +11,12 @@ const PatientsTable = ({ patients, loading, onAdd, onSelectPatient }) => {
     {
       header: "Estado",
       align: "center",
+      // is_active === undefined cuenta como activo en el resto del sistema
+      // (default:true del schema), no como inactivo.
       render: (patient) => (
-        <span className={`inline-flex items-center gap-1.5 font-medium px-2.5 py-1 rounded-full text-xs ${patient.is_active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${patient.is_active ? "bg-green-500" : "bg-red-500"}`} />
-          {patient.is_active ? "Activo" : "Inactivo"}
+        <span className={`inline-flex items-center gap-1.5 font-medium px-2.5 py-1 rounded-full text-xs ${patient.is_active !== false ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${patient.is_active !== false ? "bg-green-500" : "bg-red-500"}`} />
+          {patient.is_active !== false ? "Activo" : "Inactivo"}
         </span>
       ),
     },

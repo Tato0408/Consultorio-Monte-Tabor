@@ -11,17 +11,24 @@ const CARD_COLORS = [
   "bg-teal-100 text-teal-600",
 ];
 
-const TreatmentUsage = () => {
+const TreatmentUsage = ({ canView = true }) => {
   const { getProcedures } = useProcedures();
   const [procedures, setProcedures] = useState([]);
   const [loading, setLoading]       = useState(true);
 
   useEffect(() => {
+    // GET /procedures exige el permiso "procedures" (view), un módulo
+    // distinto de inventory.products (el que da acceso a esta pantalla de
+    // Inventario). Sin este chequeo, un rol con solo Productos recibía 403
+    // en silencio y esta tarjeta se quedaba mostrando "No hay procedimientos
+    // registrados" para siempre, sin ningún aviso de qué permiso le faltaba.
+    if (!canView) { setProcedures([]); setLoading(false); return; }
+    setLoading(true);
     getProcedures()
       .then((data) => setProcedures(Array.isArray(data) ? data.filter(p => p.is_active !== false) : []))
       .catch(() => setProcedures([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [canView]);
 
   return (
     <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
@@ -30,7 +37,9 @@ const TreatmentUsage = () => {
         <p className="text-xs text-slate-400 mt-0.5">Cantidad promedio de insumos por procedimiento</p>
       </div>
 
-      {loading ? (
+      {!canView ? (
+        <div className="py-8 text-center text-sm text-slate-400">Sin permiso para ver los procedimientos</div>
+      ) : loading ? (
         <div className="py-8 text-center text-sm text-slate-400">Cargando procedimientos...</div>
       ) : procedures.length === 0 ? (
         <div className="py-8 text-center text-sm text-slate-400">No hay procedimientos registrados.</div>

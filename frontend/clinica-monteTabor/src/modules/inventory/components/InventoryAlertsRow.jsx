@@ -1,10 +1,6 @@
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
-
-const diffDays = (dateStr) => {
-  const diff = new Date(dateStr) - new Date();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-};
+import { getExpiryDays, getExpiryLabel } from "../utils/expiry";
 
 const fmtExpiry = (dateStr) => {
   if (!dateStr) return "";
@@ -14,9 +10,10 @@ const fmtExpiry = (dateStr) => {
 // Los bloques de alertas de inventario y próximos a vencer van
 // debajo de la tabla, no en el panel lateral, uno al lado del otro,
 // cada uno ocupando la mitad del ancho de la tabla.
-const InventoryAlertsRow = ({ stats, defaultOpen = true }) => {
-  const alertas         = stats?.alertas         ?? [];
-  const proximosAVencer = stats?.proximosAVencer ?? [];
+const InventoryAlertsRow = ({ stats, defaultOpen = true, canView = true }) => {
+  const alertas         = canView ? stats?.alertas         ?? [] : [];
+  const proximosAVencer = canView ? stats?.proximosAVencer ?? [] : [];
+  const emptyLabel = canView ? null : "Sin permiso para ver este dato";
 
   // La clase items-start hace que cada card tome su propia altura
   // de contenido. Con el stretch por defecto de la cuadrícula,
@@ -28,7 +25,7 @@ const InventoryAlertsRow = ({ stats, defaultOpen = true }) => {
       <CollapsibleCard title="Alertas de inventario" defaultOpen={defaultOpen}>
         <div className="flex flex-col gap-2">
           {alertas.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-4">Sin alertas activas</p>
+            <p className="text-xs text-slate-400 text-center py-4">{emptyLabel || "Sin alertas activas"}</p>
           )}
           {alertas.map((a) => {
             const critico = a.stock <= 0;
@@ -58,11 +55,11 @@ const InventoryAlertsRow = ({ stats, defaultOpen = true }) => {
       <CollapsibleCard title="Próximos a vencer" defaultOpen={defaultOpen}>
         <div className="flex flex-col gap-3">
           {proximosAVencer.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-4">Sin vencimientos próximos</p>
+            <p className="text-xs text-slate-400 text-center py-4">{emptyLabel || "Sin vencimientos próximos"}</p>
           )}
           {proximosAVencer.map((p) => {
-            const days = diffDays(p.expiration_date);
-            const color = days <= 15 ? "text-red-500" : days <= 30 ? "text-orange-500" : "text-yellow-500";
+            const days = getExpiryDays(p.expiration_date);
+            const color = days <= 0 ? "text-red-600" : days <= 15 ? "text-red-500" : "text-orange-500";
             return (
               <div key={p._id} className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs">💊</div>
@@ -70,7 +67,7 @@ const InventoryAlertsRow = ({ stats, defaultOpen = true }) => {
                   <p className="text-sm font-medium text-slate-800 truncate">{p.name}</p>
                   <p className="text-xs text-slate-400">Vence el {fmtExpiry(p.expiration_date)}</p>
                 </div>
-                <span className={`text-xs font-semibold ${color} flex-shrink-0`}>{days} días</span>
+                <span className={`text-xs font-semibold ${color} flex-shrink-0`}>{getExpiryLabel(p.expiration_date)}</span>
               </div>
             );
           })}

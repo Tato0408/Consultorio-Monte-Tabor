@@ -13,6 +13,7 @@ import {
   ROLE_COLOR_BY_KEY,
   DEFAULT_ROLE_PERMISSIONS,
   MODULE_VIEW_DEPENDENCIES,
+  MODULE_UPDATE_DEPENDENCIES,
   MODULE_LABEL_BY_KEY,
 } from "../rolesConfig.js";
 
@@ -126,18 +127,33 @@ const RolesPage = () => {
   // MODULE_VIEW_DEPENDENCIES). Devuelve un mensaje listo para mostrar,
   // o null si todo está bien.
   const findMissingDependenciesMessage = (permissions) => {
-    const problems = Object.entries(MODULE_VIEW_DEPENDENCIES)
+    const viewProblems = Object.entries(MODULE_VIEW_DEPENDENCIES)
       .filter(([moduleKey]) => permissions[moduleKey]?.view)
       .map(([moduleKey, deps]) => ({
         moduleLabel: MODULE_LABEL_BY_KEY[moduleKey] || moduleKey,
+        action: "Ver",
         missingLabels: deps.filter((dep) => !permissions[dep.moduleKey]?.view).map((dep) => dep.label),
       }))
       .filter((entry) => entry.missingLabels.length > 0);
 
+    // Mismo chequeo, pero para Editar (ver MODULE_UPDATE_DEPENDENCIES en rolesConfig.js):
+    // antes solo se bloqueaba el guardado por dependencias de Ver, así que la
+    // combinación "Editar expediente sin Editar pacientes" se guardaba sin ningún aviso
+    // y luego fallaba con un 403 real al usarla.
+    const updateProblems = Object.entries(MODULE_UPDATE_DEPENDENCIES)
+      .filter(([moduleKey]) => permissions[moduleKey]?.update)
+      .map(([moduleKey, deps]) => ({
+        moduleLabel: MODULE_LABEL_BY_KEY[moduleKey] || moduleKey,
+        action: "Editar",
+        missingLabels: deps.filter((dep) => !permissions[dep.moduleKey]?.update).map((dep) => dep.label),
+      }))
+      .filter((entry) => entry.missingLabels.length > 0);
+
+    const problems = [...viewProblems, ...updateProblems];
     if (problems.length === 0) return null;
 
     return problems
-      .map((p) => `Para ${p.moduleLabel} es necesario activar "Ver" en estos apartados: ${p.missingLabels.join(", ")}.`)
+      .map((p) => `Para ${p.moduleLabel} es necesario activar "${p.action}" en estos apartados: ${p.missingLabels.join(", ")}.`)
       .join(" ");
   };
 

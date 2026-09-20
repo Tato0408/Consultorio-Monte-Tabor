@@ -37,6 +37,10 @@ const emptyConsultation = {
     reason: "",
     referred_to: "",
     referred_date: "",
+    referred_doctor_address: "",
+    referred_doctor_phone: "",
+    heart_rate: "",
+    respiratory_rate: "",
   },
   antecedents: {
     hereditary: [],
@@ -45,6 +49,17 @@ const emptyConsultation = {
     socio_ecological: [],
   },
   follow_up_date: "",
+  // Plan de tratamiento (TreatmentPlanCard). create inicia un tratamiento
+  // nuevo desde esta consulta; link agrega la evolución de esta consulta
+  // al tratamiento que el paciente ya tenga abierto.
+  treatment_plan: {
+    create: false,
+    link: true,
+    objective: "",
+    plan_description: "",
+    total_sessions: "",
+    estimated_end_date: "",
+  },
 };
 
 function useConsultation(appointmentId) {
@@ -56,6 +71,10 @@ function useConsultation(appointmentId) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  // Tratamiento activo o en pausa del paciente de la cita, si tiene uno.
+  // Lo consume TreatmentPlanCard para ofrecer registrar la evolución en
+  // ese tratamiento en vez de crear uno nuevo.
+  const [activeTreatment, setActiveTreatment] = useState(null);
 
   // Normaliza el historial clínico del paciente y devuelve sus
   // antecedentes en el formato que espera el formulario de consulta.
@@ -138,21 +157,33 @@ function useConsultation(appointmentId) {
     try {
       // Obtiene los datos de la cita a partir de su id.
       const apptRes = await apiClient(`/appointments/${appointmentId}`);
-      console.log(" Appointment response:", apptRes);
       setAppointment(apptRes);
+
+      // Consulta si el paciente ya tiene un tratamiento abierto, para que
+      // el formulario ofrezca continuarlo en vez de crear otro. Un fallo
+      // acá no corta la carga de la consulta.
+      const patientIdForTreatment = apptRes.patient_id?._id || apptRes.patient_id;
+      if (patientIdForTreatment) {
+        try {
+          const treatmentRes = await apiClient("/treatments/active", {
+            params: { patient_id: patientIdForTreatment },
+          });
+          setActiveTreatment(treatmentRes?.treatment || null);
+        } catch {
+          setActiveTreatment(null);
+        }
+      }
 
       // Extrae de forma segura los antecedentes clínicos del paciente
       // asociado a la cita.
       const clinicalHistory = apptRes.patient_id?.clinical_history || {};
       const patientAntecedents = getPatientAntecedents(clinicalHistory);
-      console.log(" Patient antecedents:", patientAntecedents);
 
       try {
         // Busca una consulta médica ya guardada para esta cita.
         const consultRes = await apiClient(
           `/consultations/by-appointment/${appointmentId}`
         );
-        console.log(" Consultation response:", consultRes);
 
         if (consultRes && Object.keys(consultRes).length > 0) {
           const consultationAntecedents = consultRes.antecedents || {};
@@ -341,6 +372,8 @@ function useConsultation(appointmentId) {
     isLoading,
     isSaving,
     error,
+    consultationId,
+    activeTreatment,
     hasExistingRecord: !!consultationId,
   };
 }

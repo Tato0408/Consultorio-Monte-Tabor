@@ -2,11 +2,9 @@ import { useState, useEffect } from "react";
 import { X, Loader2, CalendarPlus } from "lucide-react";
 import { showSuccess, showError } from "@/lib/alerts";
 
-// Modal del boton "Programar control". Permite elegir o reprogramar la
-// fecha del proximo control del tratamiento actual. Es la unica accion que
-// mueve a un paciente entre "En tratamiento" y "Requiere revisión" (ver
-// treatmentsController.getFollowUp): con fecha futura queda activo, si se
-// deja vencer sin reprogramar pasa a requerir revision.
+// Modal para elegir o reprogramar la fecha del proximo control de un
+// tratamiento. Si esa fecha vence sin que el paciente asista, el
+// tratamiento sigue activo pero la lista lo marca como "Control vencido".
 const ScheduleControlModal = ({ isOpen, onClose, initialValue = "", onSubmit }) => {
   const [date, setDate] = useState(initialValue);
   const [loading, setLoading] = useState(false);
@@ -66,6 +64,7 @@ const ScheduleControlModal = ({ isOpen, onClose, initialValue = "", onSubmit }) 
             type="date"
             autoFocus
             min={new Date().toISOString().split("T")[0]}
+            max={`${new Date().getFullYear() + 2}-12-31`}
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"

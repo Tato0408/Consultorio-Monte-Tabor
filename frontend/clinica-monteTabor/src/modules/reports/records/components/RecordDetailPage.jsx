@@ -53,24 +53,48 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated, initialTab }) => {
   // pestaña ya posicionada en la categoría correcta (ver goToTab).
   const [docsTipo, setDocsTipo] = useState("incapacidad");
 
-  // Elimina una consulta médica ya atendida (el documento Consultation
-  // real, no la cita). Existe sobre todo para poder limpiar consultas
-  // huérfanas: si su cita se borró por separado, la consulta sobrevive
-  // apuntando solo al paciente y bloquea la eliminación del paciente sin
-  // dar ninguna pista de por qué. Este botón es el único lugar del sistema
-  // donde se puede quitar una consulta huérfana.
+  // Fila en curso de eliminación, para deshabilitar su botón mientras se resuelve —
+  // mismo criterio que deletingId en AppointmentTable.jsx (tabla de Consultas).
+  const [deletingConsultaId, setDeletingConsultaId] = useState(null);
+
+  // Elimina una fila de la pestaña Consultas del expediente. Dos casos, cada uno con su
+  // propio endpoint, EXACTAMENTE el mismo proceso que ya usa la tabla de Consultas
+  // (AppointmentTable.jsx):
+  //   - Cancelada o no presentada (nunca llegaron a tener una consulta real): se borra
+  //     por el id de la CITA (by-appointment), con el mismo aviso de "no presentada
+  //     afecta las estadísticas de Reportes" que ya usa esa tabla.
+  //   - Atendida (documento Consultation real): se sigue borrando por el id de la
+  //     CONSULTA, no por el de la cita. Existe sobre todo para poder limpiar consultas
+  //     huérfanas: si su cita se borró por separado, la consulta sobrevive apuntando
+  //     solo al paciente y bloquea la eliminación del paciente sin dar ninguna pista de
+  //     por qué. Este botón es el único lugar del sistema donde se puede quitar una
+  //     consulta huérfana, así que cambiar esta rama a by-appointment perdería esa
+  //     capacidad (una consulta huérfana ya no tiene una cita válida que referenciar).
   const handleEliminarConsulta = async (c) => {
+    const esCitaSinConsulta = c.estado === "cancelled" || c.estado === "no_show";
+
     const ok = await confirmDelete({
       title: "¿Eliminar esta consulta?",
-      text: "Esta acción es irreversible y la información no se podrá recuperar.",
+      text: c.estado === "no_show"
+        ? "Esta cita se contabiliza en las estadísticas de asistencia de Reportes (tasa de asistencia, inasistencias del mes). Al eliminarla, esos datos ya no reflejarán esta inasistencia. Esta acción es irreversible y la información no se podrá recuperar."
+        : "Esta acción es irreversible y la información no se podrá recuperar.",
     });
     if (!ok) return;
+
+    setDeletingConsultaId(c.id);
     try {
-      await apiClient(`/consultations/${c.id}`, { method: "DELETE" });
-      showSuccess("Consulta eliminada correctamente");
+      if (esCitaSinConsulta) {
+        await apiClient(`/consultations/by-appointment/${c.appointmentId}`, { method: "DELETE" });
+        showSuccess("Eliminada", "La consulta fue eliminada correctamente");
+      } else {
+        await apiClient(`/consultations/${c.id}`, { method: "DELETE" });
+        showSuccess("Consulta eliminada correctamente");
+      }
       refreshAll();
     } catch (err) {
       showError(err.message || "No se pudo eliminar la consulta");
+    } finally {
+      setDeletingConsultaId(null);
     }
   };
 
@@ -137,6 +161,7 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated, initialTab }) => {
           patient={patient}
           canAttend={canAttend}
           canDelete={canDeleteConsulta}
+          deletingId={deletingConsultaId}
           onContinuar={(c) =>
             c.appointmentId &&
             navigate(`/calendar/consultations/${c.appointmentId}`, {

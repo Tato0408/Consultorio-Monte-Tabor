@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import ModulePermissionCard from "./ModulePermissionCard";
-import { VIEW_ONLY_MODULE_KEYS, HIDDEN_PERMISSION_ACTIONS, LOCKED_TRUE_PERMISSIONS, LOCKED_FALSE_PERMISSIONS, MODULE_VIEW_DEPENDENCIES } from "../rolesConfig.js";
+import { VIEW_ONLY_MODULE_KEYS, HIDDEN_PERMISSION_ACTIONS, LOCKED_TRUE_PERMISSIONS, LOCKED_FALSE_PERMISSIONS, MODULE_VIEW_DEPENDENCIES, MODULE_UPDATE_DEPENDENCIES } from "../rolesConfig.js";
 
 const PermissionSection = ({
   section,
@@ -76,6 +76,11 @@ const PermissionSection = ({
                 // los dos.
                 missingDependencies={(MODULE_VIEW_DEPENDENCIES[module.key] || []).filter(
                   (dep) => !permissionsState[dep.moduleKey]?.view
+                )}
+                // Mismo cálculo, pero para el permiso de Editar (ver
+                // MODULE_UPDATE_DEPENDENCIES en rolesConfig.js).
+                missingUpdateDependencies={(MODULE_UPDATE_DEPENDENCIES[module.key] || []).filter(
+                  (dep) => !permissionsState[dep.moduleKey]?.update
                 )}
               />
             ))}

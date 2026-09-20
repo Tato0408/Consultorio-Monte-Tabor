@@ -1,4 +1,5 @@
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
+import { formatTime12h } from "@/lib/timeFormat";
 
 const STATUS_BADGE = {
     scheduled: { label: "Confirmada", cls: "bg-emerald-50 text-emerald-600" },
@@ -34,7 +35,7 @@ const UpcomingAppointmentsList = ({ appointments, onViewAll }) => {
                         return (
                             <div key={a._id} className="flex items-center justify-between py-2.5 gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <span className="text-xs font-bold text-slate-700 w-24 flex-shrink-0">{a.start_time} - {a.end_time}</span>
+                                    <span className="text-xs font-bold text-slate-700 w-24 flex-shrink-0">{formatTime12h(a.start_time)} - {formatTime12h(a.end_time)}</span>
                                     <div className="min-w-0">
                                         <p className="text-xs font-semibold text-slate-700 truncate">
                                             {a.patient ? `${a.patient.name} ${a.patient.last_name}` : "Paciente"}

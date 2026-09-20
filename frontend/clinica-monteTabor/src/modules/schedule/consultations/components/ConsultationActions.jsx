@@ -2,7 +2,7 @@
 // ocultan las acciones de escritura y el botón inferior pasa a ser
 // "Finalizar", que solo cierra el formulario (onClose) sin guardar nada.
 
-const ConsultationActions = ({ readOnly, isSaving, onFinish, onClose, onPreview, onGenerateIncapacidad, onGenerateLabOrder, onGenerateReceta }) => {
+const ConsultationActions = ({ readOnly, isSaving, onFinish, onClose, onPreview, onGenerateIncapacidad, onGenerateLabOrder, onGenerateReceta, onGenerateReferencia }) => {
     return (
         <div className="bg-white border border-slate-100 rounded-xl p-4 space-y-2">
             {!readOnly && (
@@ -35,6 +35,17 @@ const ConsultationActions = ({ readOnly, isSaving, onFinish, onClose, onPreview,
                 className="w-full border border-slate-200 rounded-lg py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
             >
                 Generar orden de laboratorio
+            </button>
+
+            {/* Referencia a otro nivel de atención. Lee lo que el doctor cargó en
+                la tarjeta "Referencia" + datos de la consulta; también disponible
+                en solo lectura para reimprimirla. */}
+            <button
+                type="button"
+                onClick={onGenerateReferencia}
+                className="w-full border border-slate-200 rounded-lg py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+                Generar referencia
             </button>
 
             <button

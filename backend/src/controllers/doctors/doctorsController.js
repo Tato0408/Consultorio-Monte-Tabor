@@ -15,6 +15,20 @@ import { countDoctorRelatedRecords, deleteDoctorCascade } from "../../utils/casc
 //al final del archivo este objeto lo exportaremos
 const doctorController = {};
 
+// Quita signature_url/seal_url/sus public_id de un doctor plano (post .lean()) y los
+// reemplaza por dos booleanos. Se usa en todo endpoint que devuelve doctores a alguien
+// que no es el propio doctor (gestión de usuarios, catálogos de agendamiento, búsqueda):
+// la firma y el sello son completamente inaccesibles para cualquiera más que su dueño, la
+// gestión de usuarios solo necesita saber si el doctor los guardó o no.
+const withSignatureFlags = (doctor) => {
+  const { signature_url, signature_public_id, seal_url, seal_public_id, ...rest } = doctor;
+  return {
+    ...rest,
+    has_signature: Boolean(signature_url),
+    has_seal: Boolean(seal_url),
+  };
+};
+
 // Avatar genérico de respaldo cuando el admin no tiene foto propia — mismo placeholder ya usado
 // en AppointmentsGrid.jsx para doctores sin foto.
 const DEFAULT_AVATAR_URL = "https://res.cloudinary.com/dgpreaeg9/image/upload/images_gb0wco.png";
@@ -88,11 +102,11 @@ doctorController.getDoctors = async (req, res) => {
     //doctorsModel.find() busca todos los documentos de la colección doctors.
     //y lo guarda en la constante doctors
     //-password: nunca se envia el hash de la contraseña al cliente
-    const doctors = await doctorsModel.find({ is_admin_mirror: { $ne: true } }).select("-password");
+    const doctors = await doctorsModel.find({ is_admin_mirror: { $ne: true } }).select("-password").lean();
 
     //devulve un codigo 200 indiacndo que la peticion fue exitosa
     //y envia  a todos los doctores encontrados en un json
-    return res.status(200).json(doctors);
+    return res.status(200).json(doctors.map(withSignatureFlags));
   } catch (error) {
     //Si ocurre un error durante la consulta muestra une rror
     console.log("error " + error);
@@ -121,8 +135,8 @@ doctorController.getDoctorsCatalog = async (req, res) => {
 
     // Solo doctores activos: un doctor inactivo no puede recibir citas nuevas
     // ni aparecer como opcion al agendar o asignar.
-    const doctors = await doctorsModel.find({ is_active: true }).select("-password");
-    return res.status(200).json(doctors);
+    const doctors = await doctorsModel.find({ is_active: true }).select("-password").lean();
+    return res.status(200).json(doctors.map(withSignatureFlags));
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });
@@ -153,8 +167,9 @@ doctorController.getSchedulableDoctorsCatalog = async (req, res) => {
 
     const doctors = await doctorsModel
       .find({ _id: { $in: doctorIds }, is_active: true })
-      .select("-password");
-    return res.status(200).json(doctors);
+      .select("-password")
+      .lean();
+    return res.status(200).json(doctors.map(withSignatureFlags));
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor" });
@@ -544,10 +559,10 @@ doctorController.searchDoctors = async (req, res) => {
       //-password: nunca se envia el hash de la contraseña al cliente
       //Excluye los doctores espejo de los admins (ver is_admin_mirror) — esta búsqueda es para la
       //gestión de doctores, no para el catálogo de agendamiento.
-      const doctors = await doctorsModel.find({ is_admin_mirror: { $ne: true } }).select("-password");
+      const doctors = await doctorsModel.find({ is_admin_mirror: { $ne: true } }).select("-password").lean();
 
       //Retorna la lista total de medicos encontrados con un codigo de estado exitoso 200
-      return res.status(200).json(doctors);
+      return res.status(200).json(doctors.map(withSignatureFlags));
     }
 
     //Si 'search' contiene texto, realiza una busqueda avanzada utilizando filtros condicionales dentro de Mongoose
@@ -600,10 +615,10 @@ doctorController.searchDoctors = async (req, res) => {
           },
         },
       ],
-    }).select("-password");
+    }).select("-password").lean();
 
     //Manda de regreso al cliente la coleccion de doctores filtrados que cumplieron los criterios junto a un codigo 200
-    return res.status(200).json(doctors);
+    return res.status(200).json(doctors.map(withSignatureFlags));
   } catch (error) {
     //Captura el error arrojado y lo muestra por la consola de administracion
     console.log("error " + error);
@@ -630,11 +645,21 @@ doctorController.updateOwnProfile = async (req, res) => {
       return res.status(404).json({ message: "Perfil del doctor no encontrado" });
     }
 
-    const { name, last_name, dui, birth_date, phone, email, password } = req.body;
+    const { name, last_name, dui, birth_date, phone, email, password, current_password } = req.body;
 
     const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
     if (formatError) {
       return res.status(400).json({ message: formatError });
+    }
+
+    // Mismo chequeo que updateDoctors (edición desde administración): sin esto, un doctor
+    // podía cambiar su propio correo o DUI a uno ya usado por otro miembro del staff (de su
+    // mismo rol o de otro), y como el login resuelve el correo por orden fijo de modelos,
+    // quien quedara "detrás" en ese orden se veía bloqueado de iniciar sesión sin ningún
+    // aviso que lo explicara.
+    const staffDuplicate = await findStaffDuplicate(email, dui, doctorId);
+    if (staffDuplicate) {
+      return res.status(400).json(staffDuplicate);
     }
 
     const updatedData = { name, last_name, dui, birth_date, phone, email };
@@ -642,6 +667,16 @@ doctorController.updateOwnProfile = async (req, res) => {
     // Si viene una nueva contraseña, la validamos y encriptamos (mismo criterio que
     // doctorController.updateDoctors / adminController.updateAdmin)
     if (password && password.trim() !== "") {
+      // Antes no se pedía la contraseña actual: una sesión comprometida
+      // bastaba para tomar la cuenta cambiando la contraseña sin fricción.
+      if (!current_password || !current_password.trim()) {
+        return res.status(400).json({ message: "Debes ingresar tu contraseña actual." });
+      }
+      const currentMatches = await bcryptjs.compare(current_password, doctorFound.password);
+      if (!currentMatches) {
+        return res.status(400).json({ message: "La contraseña actual no es correcta." });
+      }
+
       const passwordError = getPasswordError(password);
       if (passwordError) {
         return res.status(400).json({ message: passwordError });
@@ -672,6 +707,83 @@ doctorController.updateOwnProfile = async (req, res) => {
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor al actualizar tu perfil" });
+  }
+};
+
+// Guarda/reemplaza/quita la firma propia del doctor. El navegador ya manda un PNG con fondo
+// transparente (foto procesada o firma dibujada a mano, ver removeWhiteBackground.js y
+// SignatureSealModal.jsx en el frontend) — este endpoint solo lo sube a Cloudinary y lo
+// asocia al doctor de la sesión, nunca a otro. Mismo patrón que la foto de perfil en
+// updateOwnProfile: se destruye el archivo anterior en Cloudinary antes de reemplazarlo.
+doctorController.updateOwnSignature = async (req, res) => {
+  try {
+    const doctorFound = await doctorsModel.findById(req.user.id);
+    if (!doctorFound) {
+      return res.status(404).json({ message: "Perfil del doctor no encontrado" });
+    }
+
+    if (req.body.remove === "true") {
+      if (doctorFound.signature_public_id) {
+        await cloudinary.uploader.destroy(doctorFound.signature_public_id);
+      }
+      await doctorsModel.findByIdAndUpdate(req.user.id, { signature_url: null, signature_public_id: null });
+      return res.status(200).json({ message: "Firma eliminada", signature_url: null });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "La imagen de la firma es requerida" });
+    }
+
+    if (doctorFound.signature_public_id) {
+      await cloudinary.uploader.destroy(doctorFound.signature_public_id);
+    }
+
+    await doctorsModel.findByIdAndUpdate(req.user.id, {
+      signature_url: req.file.path,
+      signature_public_id: req.file.filename,
+    });
+
+    return res.status(200).json({ message: "Firma guardada correctamente", signature_url: req.file.path });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor al guardar la firma" });
+  }
+};
+
+// Igual que updateOwnSignature, para el sello (campo sealImage, siempre foto/escaneo, nunca
+// dibujado).
+doctorController.updateOwnSeal = async (req, res) => {
+  try {
+    const doctorFound = await doctorsModel.findById(req.user.id);
+    if (!doctorFound) {
+      return res.status(404).json({ message: "Perfil del doctor no encontrado" });
+    }
+
+    if (req.body.remove === "true") {
+      if (doctorFound.seal_public_id) {
+        await cloudinary.uploader.destroy(doctorFound.seal_public_id);
+      }
+      await doctorsModel.findByIdAndUpdate(req.user.id, { seal_url: null, seal_public_id: null });
+      return res.status(200).json({ message: "Sello eliminado", seal_url: null });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "La imagen del sello es requerida" });
+    }
+
+    if (doctorFound.seal_public_id) {
+      await cloudinary.uploader.destroy(doctorFound.seal_public_id);
+    }
+
+    await doctorsModel.findByIdAndUpdate(req.user.id, {
+      seal_url: req.file.path,
+      seal_public_id: req.file.filename,
+    });
+
+    return res.status(200).json({ message: "Sello guardado correctamente", seal_url: req.file.path });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor al guardar el sello" });
   }
 };
 

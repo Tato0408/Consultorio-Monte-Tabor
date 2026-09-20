@@ -5,6 +5,7 @@ const sickLeaveSchema = new Schema(
     patient_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Patients",
+      required: true,
     },
     doctor_id: {
       type: mongoose.Schema.Types.ObjectId,
@@ -22,12 +23,15 @@ const sickLeaveSchema = new Schema(
     },
     diagnosis: {
       type: String,
+      required: true,
     },
     start_date: {
       type: Date,
+      required: true,
     },
     end_date: {
       type: Date,
+      required: true,
     },
     status: {
       type: String,

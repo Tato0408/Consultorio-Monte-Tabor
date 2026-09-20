@@ -1,6 +1,5 @@
 import inventoryModel from "../../models/inventory/inventory.js";
 import movementModel from "../../models/inventory/movements.js";
-import { v2 as cloudinary } from "cloudinary";
 import { notifyLowStockAdmins } from "../../services/notificationService.js";
 import { getNonNegativeError, escapeRegex } from "../../utils/validators.js";
 
@@ -9,11 +8,11 @@ const inventoryController = {};
 // GET todos, con paginación y filtros.
 inventoryController.getAll = async (req, res) => {
   try {
-    const { page = 1, limit = 8, category, status, search } = req.query;
+    const { page = 1, limit = 8, category, status, expiry, search } = req.query;
     const query = {};
 
     if (category && category !== "Todas") query.category = category;
-    if (search) query.name = { $regex: search, $options: "i" };
+    if (search) query.name = { $regex: escapeRegex(search), $options: "i" };
 
     if (status && status !== "Todos") {
       if (status === "Disponible") {
@@ -24,6 +23,21 @@ inventoryController.getAll = async (req, res) => {
         };
       } else if (status === "Crítico") {
         query.stock = { $lte: 0 };
+      }
+    }
+
+    // Caducidad: independiente del estado de stock de arriba. La ventana de
+    // "Próximo a vencer" es la misma que usa el virtual expiryStatus del
+    // modelo (30 días) y el widget de próximos a vencer del dashboard.
+    if (expiry && expiry !== "Todas") {
+      const now = new Date();
+      const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      if (expiry === "Caduco") {
+        query.expiration_date = { $ne: null, $lte: now };
+      } else if (expiry === "Próximo a vencer") {
+        query.expiration_date = { $gt: now, $lte: in30Days };
+      } else if (expiry === "Vigente") {
+        query.$or = [{ expiration_date: null }, { expiration_date: { $gt: in30Days } }];
       }
     }
 
@@ -79,11 +93,6 @@ inventoryController.create = async (req, res) => {
       supplier,
     });
 
-    if (req.file) {
-      newItem.image           = req.file.path;
-      newItem.image_public_id = req.file.filename;
-    }
-
     await newItem.save();
     await notifyLowStockAdmins(newItem).catch((error) => console.log("Error notificando inventario:", error));
 
@@ -124,15 +133,6 @@ inventoryController.update = async (req, res) => {
     if (updateData.expiration_date) updateData.expiration_date = new Date(updateData.expiration_date);
     else if (updateData.expiration_date === "") updateData.expiration_date = null;
 
-    // Si llega imagen nueva, eliminar la anterior de Cloudinary
-    if (req.file) {
-      if (item.image_public_id) {
-        await cloudinary.uploader.destroy(item.image_public_id);
-      }
-      updateData.image           = req.file.path;
-      updateData.image_public_id = req.file.filename;
-    }
-
     const updatedItem = await inventoryModel.findByIdAndUpdate(id, updateData, { new: true });
     await notifyLowStockAdmins(updatedItem).catch((error) => console.log("Error notificando inventario:", error));
     return res.status(200).json({ message: "Insumo actualizado", item: updatedItem });
@@ -146,10 +146,6 @@ inventoryController.remove = async (req, res) => {
   try {
     const item = await inventoryModel.findById(req.params.id);
     if (!item) return res.status(404).json({ message: "Insumo no encontrado" });
-
-    if (item.image_public_id) {
-      await cloudinary.uploader.destroy(item.image_public_id);
-    }
 
     await inventoryModel.findByIdAndDelete(req.params.id);
     // Eliminar también sus movimientos
@@ -185,35 +181,21 @@ inventoryController.getStats = async (req, res) => {
       date: { $gte: startOfDay },
     });
 
-    // Próximos a vencer en 60 días (maneja fechas como string o como Date)
-    const today    = new Date();
-    const in60Days = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
-
-    // Debug: ver todos los productos que tienen expiration_date
-    const allWithDate = await inventoryModel
-      .find({ expiration_date: { $ne: null, $exists: true } })
-      .select("name expiration_date");
-    console.log("[stats] productos con fecha:", allWithDate.map(p => ({
-      name: p.name,
-      expiration_date: p.expiration_date,
-      type: typeof p.expiration_date,
-    })));
-    console.log("[stats] today:", today, "| in60Days:", in60Days);
-
-    const todayStr    = today.toISOString().split("T")[0];
-    const in60DaysStr = in60Days.toISOString().split("T")[0];
+    // Próximos a vencer: los que vencen dentro de los próximos 30 días (misma
+    // ventana que el virtual expiryStatus del modelo) y también los que ya
+    // vencieron (esos son los más urgentes, por eso el orden ascendente los
+    // deja primero). expiration_date se guarda siempre como Date (ver el
+    // modelo), así que basta comparar contra el límite superior.
+    const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     const expiringSoon = await inventoryModel.find({
-      $or: [
-        { expiration_date: { $gte: today,     $lte: in60Days    } },
-        { expiration_date: { $gte: todayStr,  $lte: in60DaysStr } },
-      ],
+      expiration_date: { $ne: null, $lte: in30Days },
     })
     .sort({ expiration_date: 1 })
     .limit(5)
     .select("name expiration_date unit_measure");
 
-    // Alertas de stock bajo o crítico
+    // Alertas de stock bajo o crítico (stock en cero o por debajo del mínimo).
     const alerts = await inventoryModel
       .find({
         $or: [
@@ -224,8 +206,6 @@ inventoryController.getStats = async (req, res) => {
       .sort({ stock: 1 })
       .limit(5)
       .select("name stock min_stock unit_measure");
-
-    console.log("[stats] proximosAVencer:", expiringSoon);
 
     // Tendencias reales de los últimos 7 días para las mini gráficas
     // (sparklines) de las tarjetas KPI de InventoryStats.jsx. No
@@ -356,10 +336,15 @@ inventoryController.adjustStock = async (req, res) => {
     if (!item) return res.status(404).json({ message: "Insumo no encontrado" });
 
     const qty = Number(quantity);
+    // Con "disminuir", si se pide más de lo que hay, solo se puede descontar lo
+    // que existe: el stock nunca debe quedar negativo. La bitácora antes
+    // igual registraba la cantidad PEDIDA (qty), no la aplicada, dejando un
+    // movimiento que no correspondía a ningún cambio real de stock.
+    const appliedQty = adjustType === "aumentar" ? qty : Math.min(qty, item.stock);
     if (adjustType === "aumentar") {
-      item.stock += qty;
+      item.stock += appliedQty;
     } else {
-      item.stock = Math.max(0, item.stock - qty);
+      item.stock -= appliedQty;
     }
 
     await item.save();
@@ -369,13 +354,20 @@ inventoryController.adjustStock = async (req, res) => {
       type:     "Inventory adjustment",
       item:     item._id,
       itemName: item.name,
-      quantity: adjustType === "aumentar" ? qty : -qty,
+      quantity: adjustType === "aumentar" ? appliedQty : -appliedQty,
       detail:   reason,
       user:     responsible,
       patient:  notes || null,
     }).save();
 
-    return res.status(200).json({ message: "Ajuste realizado", item });
+    const capped = adjustType !== "aumentar" && appliedQty < qty;
+    return res.status(200).json({
+      message: capped
+        ? `Ajuste realizado. Solo había ${appliedQty} en stock: se descontó esa cantidad, no las ${qty} solicitadas.`
+        : "Ajuste realizado",
+      item,
+      capped,
+    });
   } catch (error) {
     return res.status(500).json({ message: "Error al realizar ajuste", error: error.message });
   }
@@ -384,14 +376,21 @@ inventoryController.adjustStock = async (req, res) => {
 // POST, entrada de stock.
 inventoryController.stockEntry = async (req, res) => {
   try {
-    const { name, category, unit_measure, supplier, quantity, unit_cost, detalle } = req.body;
+    const { name, category, unit_measure, supplier, quantity, unit_cost, min_stock, detalle } = req.body;
+
+    const hasMinStock = min_stock !== undefined && min_stock !== null && String(min_stock).trim() !== "";
 
     const numberError = getNonNegativeError(quantity, "La cantidad")
-      || getNonNegativeError(unit_cost, "El costo unitario");
+      || getNonNegativeError(unit_cost, "El costo unitario")
+      || (hasMinStock ? getNonNegativeError(min_stock, "El stock mínimo") : null);
     if (numberError) return res.status(400).json({ message: numberError });
 
     const qty  = Number(quantity);
     const cost = Number(unit_cost) || 0;
+    // Cantidad mínima a partir de la cual el producto se considera en "stock
+    // bajo". Si no llega, se mantiene la que ya tenía el producto (o 5 para
+    // uno nuevo).
+    const minStock = hasMinStock ? Number(min_stock) : null;
 
     // Busca si ya existe por nombre, comparación insensible a
     // mayúsculas y a espacios extra (Guantes y guantes con espacio
@@ -411,12 +410,13 @@ inventoryController.stockEntry = async (req, res) => {
     if (item) {
       item.stock += qty;
       item.price  = cost;
+      if (minStock !== null) item.min_stock = minStock;
       await item.save();
       await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
     } else {
       item = await new inventoryModel({
         name: normalizedName, category, unit_measure,
-        stock: qty, min_stock: 5, price: cost, supplier,
+        stock: qty, min_stock: minStock !== null ? minStock : 5, price: cost, supplier,
       }).save();
       await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
     }
@@ -445,11 +445,20 @@ inventoryController.manualUsage = async (req, res) => {
     const quantityError = (items || []).map((entry) => getNonNegativeError(entry.quantity, "La cantidad")).find(Boolean);
     if (quantityError) return res.status(400).json({ message: quantityError });
 
+    const cappedItems = [];
     for (const entry of items) {
       const item = await inventoryModel.findById(entry.insumoId);
       if (!item) continue;
 
-      item.stock     = Math.max(0, item.stock - Number(entry.quantity));
+      // Si se pide más de lo que hay, solo se puede descontar lo que existe.
+      // Antes la bitácora igual registraba la cantidad PEDIDA, no la
+      // aplicada: con 3 en stock y un uso de 10, el stock quedaba en 0 pero
+      // el historial decía "-10 uds", una cantidad que nunca existió.
+      const requested = Number(entry.quantity);
+      const applied = Math.min(requested, item.stock);
+      if (applied < requested) cappedItems.push({ name: item.name, requested, applied });
+
+      item.stock     = item.stock - applied;
       item.last_used = new Date();
       await item.save();
       await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
@@ -458,51 +467,19 @@ inventoryController.manualUsage = async (req, res) => {
         type:     "Manual use",
         item:     item._id,
         itemName: item.name,
-        quantity: -Number(entry.quantity),
+        quantity: -applied,
         detail:   reason,
         user:     responsible,
         patient:  patient || null,
       }).save();
     }
 
-    return res.status(200).json({ message: "Uso manual registrado" });
+    const message = cappedItems.length
+      ? `Uso manual registrado. Stock insuficiente para ${cappedItems.map((c) => `${c.name} (se descontaron ${c.applied} de ${c.requested} pedidas)`).join(", ")}.`
+      : "Uso manual registrado";
+    return res.status(200).json({ message, capped: cappedItems.length > 0 });
   } catch (error) {
     return res.status(500).json({ message: "Error al registrar uso manual", error: error.message });
-  }
-};
-
-// POST, descuenta inventario desde un procedimiento.
-inventoryController.discountFromProcedure = async (req, res) => {
-  try {
-    const { patientName, responsible, procedureType, items } = req.body;
-    // items: [{ insumoId, quantity }]
-
-    const quantityError = (items || []).map((entry) => getNonNegativeError(entry.quantity, "La cantidad")).find(Boolean);
-    if (quantityError) return res.status(400).json({ message: quantityError });
-
-    for (const entry of items) {
-      const item = await inventoryModel.findById(entry.insumoId);
-      if (!item) continue;
-
-      item.stock     = Math.max(0, item.stock - Number(entry.quantity));
-      item.last_used = new Date();
-      await item.save();
-      await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
-
-      await new movementModel({
-        type:     "Treatment use",
-        item:     item._id,
-        itemName: item.name,
-        quantity: -Number(entry.quantity),
-        detail:   `Procedimiento: ${procedureType}`,
-        user:     responsible,
-        patient:  patientName || null,
-      }).save();
-    }
-
-    return res.status(200).json({ message: "Inventario descontado del procedimiento" });
-  } catch (error) {
-    return res.status(500).json({ message: "Error al descontar inventario", error: error.message });
   }
 };
 
@@ -524,7 +501,16 @@ inventoryController.discountMaterialsForProcedure = async ({ materials, patientN
     const item = await inventoryModel.findById(material.insumo);
     if (!item) continue;
 
-    item.stock = Math.max(0, item.stock - quantity);
+    // Si se pide más de lo que hay, solo se descuenta lo que existe. La
+    // bitácora debe registrar esa cantidad real, no la pedida por el
+    // catálogo del procedimiento (antes quedaba, por ejemplo, "-10 uds" con
+    // solo 3 en stock, una cantidad que nunca existió).
+    const applied = Math.min(quantity, item.stock);
+    if (applied < quantity) {
+      console.log(`Inventario insuficiente para "${item.name}": se pidieron ${quantity}, solo había ${item.stock}.`);
+    }
+
+    item.stock = item.stock - applied;
     item.last_used = new Date();
     await item.save();
     notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
@@ -533,7 +519,7 @@ inventoryController.discountMaterialsForProcedure = async ({ materials, patientN
       type: "Treatment use",
       item: item._id,
       itemName: item.name,
-      quantity: -quantity,
+      quantity: -applied,
       detail: `Procedimiento: ${procedureType || "Procedimiento"}`,
       user: responsible || "Sistema",
       patient: patientName || null,
@@ -583,7 +569,16 @@ inventoryController.applyMaterialUsageDelta = async ({
     const item = await inventoryModel.findById(inventoryId).session(session);
     if (!item) continue;
 
-    item.stock = Math.max(0, item.stock - delta);
+    // Solo el sentido "se usó más material" (delta > 0) puede toparse con el
+    // stock disponible; el sentido contrario (se redujo el material usado)
+    // repone y nunca necesita recortarse. Antes la bitácora registraba
+    // siempre el delta PEDIDO, no el aplicado.
+    const appliedDelta = delta > 0 ? Math.min(delta, item.stock) : delta;
+    if (appliedDelta !== delta) {
+      console.log(`Inventario insuficiente para "${item.name}": se pidieron ${delta}, solo había ${item.stock}.`);
+    }
+
+    item.stock = item.stock - appliedDelta;
     if (delta > 0) item.last_used = new Date();
     await item.save({ session });
 
@@ -591,7 +586,7 @@ inventoryController.applyMaterialUsageDelta = async ({
       type:     delta > 0 ? "Treatment use" : "Inventory adjustment",
       item:     item._id,
       itemName: item.name,
-      quantity: -delta,
+      quantity: -appliedDelta,
       detail:   delta > 0
         ? `Procedimiento: ${procedureType || "Consulta médica"}`
         : `Ajuste por edición de consulta (se redujo el material usado): ${procedureType || "Consulta médica"}`,

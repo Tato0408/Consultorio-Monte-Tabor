@@ -13,17 +13,16 @@ router.get("/charts",    authorize("inventory.reports", "view"), inventoryContro
 // CRUD principal
 router.route("/")
   .get(authorize("inventory.products", "view"), inventoryController.getAll)
-  .post(authorize("inventory.products", "create"), upload.single("imagen"), inventoryController.create);
+  .post(authorize("inventory.products", "create"), inventoryController.create);
 
 router.route("/:id")
   .get(authorize("inventory.products", "view"), inventoryController.getById)
-  .put(authorize("inventory.products", "update"), upload.single("imagen"), inventoryController.update)
+  .put(authorize("inventory.products", "update"), inventoryController.update)
   .delete(authorize("inventory.products", "delete"), inventoryController.remove);
 
 // Acciones
 router.post("/:id/adjust",         authorize("inventory.movements", "update"), inventoryController.adjustStock);
 router.post("/stock-entry",        authorize("inventory.movements", "create"), upload.single("documento"), inventoryController.stockEntry);
 router.post("/manual-usage",       authorize("inventory.movements", "create"), inventoryController.manualUsage);
-router.post("/procedure-discount", authorize("inventory.movements", "create"), inventoryController.discountFromProcedure);
 
 export default router;

@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Bell, CalendarCheck2, CalendarClock, CalendarX2, ChevronRight, PackageX, Trash2 } from "lucide-react";
+import { Bell, CalendarCheck2, CalendarClock, CalendarX2, CheckCheck, ChevronRight, ClipboardList, PackageX, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import apiClient from "@/lib/apiClient";
+import { showError } from "@/lib/alerts";
 import useNotifications from "@/hooks/useNotifications";
 
 // Convierte una fecha ISO en un texto relativo corto ("hace 5 min").
@@ -24,6 +26,7 @@ const notificationIcon = (type) => {
         return <CalendarCheck2 className="w-4 h-4" />;
     }
     if (type === "inventory_alert") return <PackageX className="w-4 h-4" />;
+    if (type === "nurse_note_pending") return <ClipboardList className="w-4 h-4" />;
     return <CalendarClock className="w-4 h-4" />;
 };
 
@@ -43,23 +46,44 @@ export default function NotificationBell() {
         deleteAllNotifications,
     } = useNotifications();
 
-    const handleOpen = async () => {
+    const handleOpen = () => {
         const nextOpen = !open;
         setOpen(nextOpen);
-        if (nextOpen) {
-            // Se consulta antes de marcar como leídas para incluir cualquier
-            // notificación creada desde el último ciclo del polling.
-            await fetchNotifications();
-            await markAllAsRead();
-        }
+        // Ya no marca todas como leídas al abrir: quien solo abre la campana para
+        // ojear perdía el estado de no-leídas de inmediato, sin elegir. Ahora cada
+        // notificación se marca al hacer clic en ella (handleNotificationClick) y
+        // "Marcar todas" queda como una acción explícita aparte, igual que en la
+        // app móvil (ver NotificationsScreen.jsx).
+        if (nextOpen) fetchNotifications();
     };
 
     const handleNotificationClick = async (notification) => {
         if (!notification.read) await markAsRead(notification._id);
-        if (notification.action_url) {
-            setOpen(false);
-            navigate(notification.action_url);
+        if (!notification.action_url) return;
+
+        // Una cita eliminada deja notificaciones viejas con action_url apuntando
+        // a un recurso que ya no existe: se confirma que la cita siga viva antes
+        // de navegar (mismo criterio que openNotification en la app móvil,
+        // NotificationsScreen.jsx), en vez de navegar a ciegas y dejar al
+        // usuario en una pantalla vacía o con error.
+        if (notification.appointment_id) {
+            try {
+                await apiClient(`/appointments/${notification.appointment_id}`);
+            } catch (err) {
+                // Solo un 404 real significa "la cita ya no existe". Cualquier otro error
+                // (caída de red, timeout, un eventual 403) no debe presumir que se
+                // eliminó — antes esto trataba cualquier falla de la petición como
+                // prueba de eliminación, un falso positivo más impreciso que el
+                // criterio que dice imitar (openNotification en la app móvil).
+                showError(err.status === 404
+                    ? "Esta cita ya no existe. Puede haber sido eliminada."
+                    : (err.message || "No se pudo abrir la cita."));
+                return;
+            }
         }
+
+        setOpen(false);
+        navigate(notification.action_url);
     };
 
     const handleDeleteAll = async () => {
@@ -99,20 +123,29 @@ export default function NotificationBell() {
                     <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
                     <div className="absolute right-0 mt-2 w-[min(24rem,calc(100vw-2rem))] max-h-[30rem] overflow-y-auto bg-white rounded-2xl border border-slate-100 shadow-xl z-50">
                         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                            <div>
-                                <p className="text-sm font-semibold text-slate-800">Notificaciones</p>
-                                <p className="text-[10px] text-slate-400">Se marcan como leídas al abrir</p>
+                            <p className="text-sm font-semibold text-slate-800">Notificaciones</p>
+                            <div className="flex items-center gap-3">
+                                {unreadCount > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={markAllAsRead}
+                                        className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+                                    >
+                                        <CheckCheck className="h-3.5 w-3.5" />
+                                        Marcar todas
+                                    </button>
+                                )}
+                                {notifications.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={handleDeleteAll}
+                                        className="flex items-center gap-1 text-xs font-medium text-rose-500 hover:text-rose-600"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Vaciar todas
+                                    </button>
+                                )}
                             </div>
-                            {notifications.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={handleDeleteAll}
-                                    className="flex items-center gap-1 text-xs font-medium text-rose-500 hover:text-rose-600"
-                                >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                    Vaciar todas
-                                </button>
-                            )}
                         </div>
 
                         {notifications.length === 0 ? (

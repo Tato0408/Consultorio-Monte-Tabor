@@ -1,37 +1,31 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "@/lib/apiClient";
 
-// Consulta GET /api/treatments/follow-up, que arma el seguimiento real de
-// cada paciente a partir de su historial de procedimientos, y expone las
-// acciones del panel del paciente: actualizar evolucion, agregar nota,
-// programar control, cambiar estado y dar de alta.
+// Carga la lista de planes de tratamiento (GET /api/treatments) y expone
+// las acciones de la pantalla: crear un plan a mano, editar su definición,
+// programar el control, cambiar de estado (pausar, reanudar, cerrar,
+// reabrir) y gestionar notas y documentos. Cada acción llama al endpoint
+// correspondiente y refresca la lista en silencio.
 const useTreatmentsFollowUp = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
-  const [patients, setPatients] = useState([]);
-  const [chartData, setChartData] = useState([]);
-  const [upcomingControls, setUpcomingControls] = useState([]);
+  const [treatments, setTreatments] = useState([]);
 
-  // showLoading en false se usa despues de una accion (guardar nota,
-  // programar control, etc.). Ya hay datos en pantalla y el modal que
-  // disparo la accion tiene su propio spinner, por lo que no hace falta
-  // tapar toda la pantalla con el skeleton de carga inicial otra vez.
+  // showLoading en false se usa después de una acción: ya hay datos en
+  // pantalla y el modal que disparó la acción tiene su propio spinner, así
+  // que no hace falta tapar todo con el esqueleto de carga otra vez.
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     setError(null);
     try {
-      const data = await apiClient("/treatments/follow-up");
+      const data = await apiClient("/treatments");
       setStats(data.stats);
-      setPatients(data.patients || []);
-      setChartData(data.chartData || []);
-      setUpcomingControls(data.upcomingControls || []);
+      setTreatments(data.treatments || []);
     } catch (err) {
-      setError(err.message || "No se pudo cargar el seguimiento de pacientes.");
+      setError(err.message || "No se pudo cargar el listado de tratamientos.");
       setStats(null);
-      setPatients([]);
-      setChartData([]);
-      setUpcomingControls([]);
+      setTreatments([]);
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -41,97 +35,90 @@ const useTreatmentsFollowUp = () => {
     load(true);
   }, [load]);
 
-  // Las 4 acciones del panel de tratamiento llaman al endpoint
-  // correspondiente y refrescan la lista completa en silencio, para que el
-  // paciente seleccionado, la tabla y las estadisticas queden al dia con lo
-  // que se acaba de guardar.
-  const updateEvolution = useCallback(
-    async (patientId, result) => {
-      await apiClient(`/treatments/${patientId}/evolution`, { method: "PATCH", body: { result } });
+  const create_treatment = useCallback(
+    async (payload) => {
+      const res = await apiClient("/treatments", { method: "POST", body: payload });
+      await load(false);
+      return res;
+    },
+    [load]
+  );
+
+  const update_plan = useCallback(
+    async (id, payload) => {
+      await apiClient(`/treatments/${id}`, { method: "PATCH", body: payload });
       await load(false);
     },
     [load]
   );
 
-  const deleteEvolution = useCallback(
-    async (patientId) => {
-      await apiClient(`/treatments/${patientId}/evolution`, { method: "DELETE" });
+  const schedule_control = useCallback(
+    async (id, next_control_date) => {
+      await apiClient(`/treatments/${id}/control`, { method: "PATCH", body: { next_control_date } });
       await load(false);
     },
     [load]
   );
 
-  const addNote = useCallback(
-    async (patientId, text) => {
-      await apiClient(`/treatments/${patientId}/notes`, { method: "POST", body: { text } });
+  const set_status = useCallback(
+    async (id, payload) => {
+      await apiClient(`/treatments/${id}/status`, { method: "PATCH", body: payload });
       await load(false);
     },
     [load]
   );
 
-  const updateNote = useCallback(
-    async (patientId, noteId, text) => {
-      await apiClient(`/treatments/${patientId}/notes/${noteId}`, { method: "PATCH", body: { text } });
+  const add_note = useCallback(
+    async (id, text) => {
+      await apiClient(`/treatments/${id}/notes`, { method: "POST", body: { text } });
       await load(false);
     },
     [load]
   );
 
-  const deleteNote = useCallback(
-    async (patientId, noteId) => {
-      await apiClient(`/treatments/${patientId}/notes/${noteId}`, { method: "DELETE" });
+  const update_note = useCallback(
+    async (id, entry_id, text) => {
+      await apiClient(`/treatments/${id}/timeline/${entry_id}`, { method: "PATCH", body: { text } });
       await load(false);
     },
     [load]
   );
 
-  // A diferencia de las demas acciones, esta manda un archivo (FormData) y
-  // no JSON. apiClient ya sabe distinguirlo (ver lib/apiClient.js) y omite
-  // el header Content-Type para que el navegador arme el boundary del
-  // multipart correctamente.
-  const uploadDocument = useCallback(
-    async (patientId, file) => {
-      const formData = new FormData();
-      formData.append("document", file);
-      await apiClient(`/treatments/${patientId}/documents`, { method: "POST", body: formData });
+  const delete_note = useCallback(
+    async (id, entry_id) => {
+      await apiClient(`/treatments/${id}/timeline/${entry_id}`, { method: "DELETE" });
       await load(false);
     },
     [load]
   );
 
-  const deleteDocument = useCallback(
-    async (patientId, documentId) => {
-      await apiClient(`/treatments/${patientId}/documents/${documentId}`, { method: "DELETE" });
+  // A diferencia del resto, esta acción manda un archivo (FormData) y no
+  // JSON. apiClient ya distingue el caso y omite el header Content-Type
+  // para que el navegador arme el multipart.
+  const upload_document = useCallback(
+    async (id, file) => {
+      const form_data = new FormData();
+      form_data.append("document", file);
+      await apiClient(`/treatments/${id}/documents`, { method: "POST", body: form_data });
       await load(false);
     },
     [load]
   );
 
-  const scheduleControl = useCallback(
-    async (patientId, followUpDate) => {
-      await apiClient(`/treatments/${patientId}/follow-up`, {
-        method: "PATCH",
-        body: { follow_up_date: followUpDate },
-      });
+  const delete_document = useCallback(
+    async (id, document_id) => {
+      await apiClient(`/treatments/${id}/documents/${document_id}`, { method: "DELETE" });
       await load(false);
     },
     [load]
   );
 
-  // status es "En tratamiento", "Requiere revisión", "Finalizado" o "auto"
-  // (este último borra el estado manual y vuelve a dejar que el backend lo
-  // calcule solo a partir de la fecha de control).
-  const setStatus = useCallback(
-    async (patientId, status) => {
-      await apiClient(`/treatments/${patientId}/status`, { method: "PATCH", body: { status } });
-      await load(false);
-    },
-    [load]
-  );
-
-  const discharge = useCallback(
-    async (patientId) => {
-      await apiClient(`/treatments/${patientId}/discharge`, { method: "PATCH" });
+  // Borra el tratamiento completo (no solo un documento o una nota). Quien
+  // llame debe salir de la vista de detalle después, ya que el id deja de
+  // existir.
+  const delete_treatment = useCallback(
+    async (id) => {
+      await apiClient(`/treatments/${id}`, { method: "DELETE" });
       await load(false);
     },
     [load]
@@ -141,20 +128,20 @@ const useTreatmentsFollowUp = () => {
     loading,
     error,
     stats,
-    patients,
-    chartData,
-    upcomingControls,
-    refetch: () => load(true),
-    updateEvolution,
-    deleteEvolution,
-    addNote,
-    updateNote,
-    deleteNote,
-    uploadDocument,
-    deleteDocument,
-    scheduleControl,
-    setStatus,
-    discharge,
+    treatments,
+    // silent en true refresca la lista sin volver a mostrar el esqueleto
+    // de carga, para usarlo tras una acción hecha desde el detalle.
+    refetch: (silent = false) => load(!silent),
+    create_treatment,
+    update_plan,
+    schedule_control,
+    set_status,
+    add_note,
+    update_note,
+    delete_note,
+    upload_document,
+    delete_document,
+    delete_treatment,
   };
 };
 

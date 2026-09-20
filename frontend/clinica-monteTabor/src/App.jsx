@@ -17,7 +17,7 @@ import Password from './modules/login/pages/Recovery/NewPassword';
 import Consultations from './modules/schedule/consultations/pages/Consultations';
 import ConsultationForm from './modules/schedule/consultations/pages/ConsultationForm';
 import LabOrderForm from './modules/schedule/consultations/pages/LabOrderForm';
-import Procedures from './modules//procedures/pages/ProceduresPage';
+import Procedures from './modules/procedures/pages/ProceduresPage';
 import ScheduleConfig from './modules/schedule/appointments/pages/ScheduleConfig';
 import ProfilePage from './modules/profile/page/ProfilePage'
 import RecepcionistList from './modules/recepcionist/pages/RecepcionistList'

@@ -63,6 +63,14 @@ async function apiClient(path, { method = "GET", body, params, signal, timeout =
         clearTimeout(timeoutId);
     }
 
+    // Sesión deslizante: el backend renueva el token del paciente en cada request y lo
+    // manda de vuelta en este header (además de la cookie, que la web sí reenvía sola sin
+    // ayuda). Sin esto, la sesión del móvil expiraba siempre a las 2h exactas del login
+    // sin importar qué tan activo estuviera usando la app, porque nunca se enteraba de
+    // que el backend ya había extendido la ventana.
+    const renewedToken = response.headers.get("X-Renewed-Token");
+    if (renewedToken) tokenStorage.set(renewedToken).catch(() => {});
+
     // Se parsea siempre porque la API devuelve { message } también en los errores
     const data = await response.json().catch(() => null);
 

@@ -136,10 +136,15 @@ const BarChartSvg = ({ data, width = 220, height = 80 }) => {
   );
 };
 
-// Devuelve el color según el signo del valor de variación: rojo si es
-// negativo, verde si es positivo y gris si no hay dato o es neutro.
-const variationColor = (value) => {
+// Color del valor de variación. Cuando el backend manda un tono
+// ("buena" verde, "mala" rojo) se usa ese, porque una baja en
+// cancelaciones es algo bueno y no debe verse en rojo. Sin tono se cae
+// al signo, para las tarjetas de estadísticas que no lo traen.
+const variationColor = (value, tone) => {
   if (!value || value === "—") return COLORS.textGray;
+  if (tone === "buena") return COLORS.green;
+  if (tone === "mala") return COLORS.red;
+  if (tone === "neutra") return COLORS.textGray;
   if (value.startsWith("-")) return COLORS.red;
   if (value.startsWith("+")) return COLORS.green;
   return COLORS.textGray;
@@ -154,6 +159,7 @@ const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }
   const {
     reportTitle,
     periodLabel,
+    baselineNote,
     isGeneral,
     stats = [],
     dailySeries = [],
@@ -198,6 +204,7 @@ const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }
           <View>
             <Text style={styles.reportTitle}>{(reportTitle || "Reporte").toUpperCase()}</Text>
             <Text style={styles.metaText}>Período: {periodLabel}</Text>
+            {baselineNote && <Text style={styles.metaText}>{baselineNote}</Text>}
             <Text style={styles.metaText}>Fecha de generación: {generatedAt}</Text>
           </View>
         </View>
@@ -208,7 +215,7 @@ const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }
             <View key={i} style={styles.statCard}>
               <Text style={styles.statLabel}>{s.label}</Text>
               <Text style={styles.statValue}>{s.value}</Text>
-              {s.diff && <Text style={[styles.statDiff, { color: variationColor(s.diff) }]}>{s.diff}</Text>}
+              {s.diff && <Text style={[styles.statDiff, { color: variationColor(s.diff, s.tone) }]}>{s.diff}</Text>}
             </View>
           ))}
         </View>
@@ -257,7 +264,7 @@ const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }
               <Text style={[styles.td, { flex: 1, textAlign: "right" }]}>{row.pctConsultas}</Text>
               <Text style={[styles.td, { flex: 1, textAlign: "right" }]}>{row.ingresos}</Text>
               <Text style={[styles.td, { flex: 1, textAlign: "right" }]}>{row.pctIngresos}</Text>
-              <Text style={[styles.td, { flex: 1, textAlign: "right", color: variationColor(row.variacion) }]}>{row.variacion}</Text>
+              <Text style={[styles.td, { flex: 1, textAlign: "right", color: variationColor(row.variacion, row.tone) }]}>{row.variacion}</Text>
             </View>
           ))}
         </View>

@@ -24,6 +24,18 @@ const InventoryDashboard = () => {
   // el ajuste de stock es "editar" (ver inventory.js).
   const canCreateMovement = hasPermission("inventory.movements", "create");
   const canUpdateMovement = hasPermission("inventory.movements", "update");
+  // Las tarjetas de estadísticas/gráficas y la tabla de movimientos
+  // recientes viven en esta misma pantalla pero piden datos de otros dos
+  // módulos aparte de inventory.products (ver MODULE_VIEW_DEPENDENCIES en
+  // rolesConfig.js): sin estos permisos, GET /inventory/stats,
+  // /inventory/charts y /inventory/movements devuelven 403. Antes esto se
+  // pedía siempre, sin importar el permiso, y el 403 silencioso dejaba las
+  // tarjetas en $NaN/guiones y la tabla de movimientos sin cargar nunca.
+  const canViewReports = hasPermission("inventory.reports", "view");
+  const canViewMovements = hasPermission("inventory.movements", "view");
+  // "Insumos utilizados por tratamiento" pide GET /procedures, un cuarto
+  // módulo aparte de los otros tres (ver TreatmentUsage.jsx).
+  const canViewProcedures = hasPermission("procedures", "view");
 
   const { getStats } = useInsumos();
   const [stats, setStats]           = useState(null);
@@ -39,8 +51,9 @@ const InventoryDashboard = () => {
   const [tableOffset, setTableOffset] = useState(0);
 
   const loadStats = useCallback(() => {
+    if (!canViewReports) { setStats(null); return; }
     getStats().then(setStats).catch(() => {});
-  }, [refresh]);
+  }, [refresh, canViewReports]);
 
   useEffect(() => { loadStats(); }, [loadStats]);
 
@@ -75,7 +88,7 @@ const InventoryDashboard = () => {
         </div>
       </div>
 
-      <InventoryStats stats={stats} />
+      <InventoryStats stats={stats} canView={canViewReports} />
 
       {/* La clase items-start hace que cada columna tome su propia
           altura de contenido en vez de estirarse a la más alta. Esto
@@ -107,19 +120,19 @@ const InventoryDashboard = () => {
       {/* A todo el ancho de la pantalla (no solo el ancho de la tabla), y ambas del mismo
           largo (CollapsibleCard ya se estira con h-full para igualar la más alta). */}
       <div className="mt-6">
-        <InventoryAlertsRow stats={stats} />
+        <InventoryAlertsRow stats={stats} canView={canViewReports} />
       </div>
 
       <div className="mt-6">
-        <TreatmentUsage />
+        <TreatmentUsage canView={canViewProcedures} />
       </div>
 
       <div className="mt-6">
-        <InventoryCharts refreshTrigger={refresh} />
+        <InventoryCharts refreshTrigger={refresh} canView={canViewReports} />
       </div>
 
       <div className="mt-6">
-        <RecentMovements refreshTrigger={refresh} />
+        <RecentMovements refreshTrigger={refresh} canView={canViewMovements} />
       </div>
 
       {modal === "add" && (

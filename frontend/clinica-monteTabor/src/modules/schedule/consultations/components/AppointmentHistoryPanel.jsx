@@ -22,7 +22,11 @@ const formatPatientName = (patient) =>
 const AppointmentHistoryPanel = ({ history, isLoading, error }) => {
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
-    const canEdit = hasPermission("calendar.consultations", "update");
+    // ConsultationForm exige "crear" ADEMÁS de "actualizar" en Consultas para
+    // poder editar una ya registrada (ver canEditExistingConsultation en
+    // ConsultationForm.jsx): con solo "actualizar" en true, el formulario abre
+    // en solo lectura aunque este panel haya ofrecido "Editar".
+    const canEdit = hasPermission("calendar.consultations", "update") && hasPermission("calendar.consultations", "create");
 
     return (
         <div className="bg-white border border-slate-100 rounded-xl p-5 w-full">

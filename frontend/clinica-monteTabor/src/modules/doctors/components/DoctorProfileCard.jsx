@@ -89,12 +89,12 @@ const DoctorProfileCard = ({ doctor, onEdit, onDelete, canUpdate = true, canDele
           {/* Cambia el color del texto segun si el doctor esta activo o inactivo */}
           <span
             className={
-              doctor.is_active
+              doctor.is_active !== false
                 ? "text-green-600"
                 : "text-red-600"
             }
           >
-            {doctor.is_active
+            {doctor.is_active !== false
               ? "Activo"
               : "Inactivo"}
           </span>

@@ -1,7 +1,7 @@
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import PdfLetterhead from "./PdfLetterhead";
 import PdfSignature from "./PdfSignature";
-import { LAB_ORDER_CATALOG, testKey } from "../lab/labOrderCatalog";
+import { selectedPanelsWithAllTests } from "../lab/labOrderCatalog";
 
 const styles = StyleSheet.create({
     page: { padding: 32, fontSize: 8, fontFamily: "Helvetica", color: "#1e293b" },
@@ -24,7 +24,8 @@ const styles = StyleSheet.create({
     headerLabel: { fontSize: 6.5, color: "#64748b" },
     headerValue: { fontSize: 8.5, fontWeight: 700 },
     columns: { flexDirection: "row", flexWrap: "wrap" },
-    column: { width: "20%", paddingRight: 4, marginBottom: 6 },
+    column: { width: "50%", paddingRight: 8, marginBottom: 8 },
+    emptyNote: { fontSize: 8, color: "#64748b", marginBottom: 8 },
     panelTitle: {
         fontSize: 7.5,
         fontWeight: 700,
@@ -68,7 +69,10 @@ const LabOrderDocument = ({
     gender,
     dui,
     doctorName,
+    signatureUrl,
+    sealUrl,
     date,
+    time,
     weight,
     height,
     pregnancy,
@@ -76,7 +80,11 @@ const LabOrderDocument = ({
     tests = [],
     otherTests,
 }) => {
-    const selected = new Set(tests);
+    // Solo los paneles con al menos un examen marcado, pero cada uno completo
+    // (con sus casillas llenas y vacías), como en la hoja original. Las
+    // secciones sin nada marcado no se imprimen.
+    const panels = selectedPanelsWithAllTests(tests);
+    const trimmedOtherTests = (otherTests || "").trim();
 
     return (
         <Document title={title}>
@@ -86,6 +94,7 @@ const LabOrderDocument = ({
 
                 <View style={styles.headerBox}>
                     <HeaderItem label="Fecha" value={date} />
+                    {time ? <HeaderItem label="Hora" value={time} /> : null}
                     <HeaderItem label="Paciente" value={patientName} />
                     <HeaderItem label="Edad" value={age != null ? `${age} años` : "—"} />
                     <HeaderItem label="Sexo" value={gender} />
@@ -97,31 +106,36 @@ const LabOrderDocument = ({
                     <HeaderItem label="Tratamiento antibiótico" value={yesNo(antibioticTreatment)} />
                 </View>
 
-                <View style={styles.columns}>
-                    {LAB_ORDER_CATALOG.map((panel) => (
-                        <View key={panel.key} style={styles.column} wrap={false}>
-                            <Text style={styles.panelTitle}>{panel.title.toUpperCase()}</Text>
-                            {panel.tests.map((test) => {
-                                const checked = selected.has(testKey(panel.key, test.key));
-                                return (
-                                    <View key={test.key} style={styles.testRow}>
-                                        <View style={[styles.box, checked && styles.boxChecked]} />
-                                        <Text style={[styles.testLabel, checked && styles.testLabelChecked]}>
+                {panels.length > 0 ? (
+                    <View style={styles.columns}>
+                        {panels.map((panel) => (
+                            <View key={panel.title} style={styles.column} wrap={false}>
+                                <Text style={styles.panelTitle}>{panel.title.toUpperCase()}</Text>
+                                {panel.tests.map((test) => (
+                                    <View key={test.label} style={styles.testRow}>
+                                        <View style={[styles.box, test.checked && styles.boxChecked]} />
+                                        <Text style={[styles.testLabel, test.checked && styles.testLabelChecked]}>
                                             {test.label}
                                         </Text>
                                     </View>
-                                );
-                            })}
-                        </View>
-                    ))}
-                </View>
+                                ))}
+                            </View>
+                        ))}
+                    </View>
+                ) : (
+                    <Text style={styles.emptyNote}>
+                        No se seleccionaron exámenes del catálogo.
+                    </Text>
+                )}
 
-                <Text style={styles.otros}>
-                    <Text style={{ fontWeight: 700 }}>OTROS: </Text>
-                    {otherTests || "________________________________________________"}
-                </Text>
+                {trimmedOtherTests ? (
+                    <Text style={styles.otros}>
+                        <Text style={{ fontWeight: 700 }}>OTROS: </Text>
+                        {trimmedOtherTests}
+                    </Text>
+                ) : null}
 
-                <PdfSignature doctorName={doctorName} />
+                <PdfSignature doctorName={doctorName} signatureUrl={signatureUrl} sealUrl={sealUrl} />
             </Page>
         </Document>
     );

@@ -41,11 +41,11 @@ const ReceptionistsTable = ({
       render: (receptionist) => (
         <span
           className={`inline-flex items-center gap-1.5 font-medium px-2.5 py-1 rounded-full text-xs ${
-            receptionist.is_active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+            receptionist.is_active !== false ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
           }`}
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${receptionist.is_active ? "bg-green-500" : "bg-red-500"}`} />
-          {receptionist.is_active ? "Activo" : "Inactivo"}
+          <span className={`w-1.5 h-1.5 rounded-full ${receptionist.is_active !== false ? "bg-green-500" : "bg-red-500"}`} />
+          {receptionist.is_active !== false ? "Activo" : "Inactivo"}
         </span>
       ),
     },

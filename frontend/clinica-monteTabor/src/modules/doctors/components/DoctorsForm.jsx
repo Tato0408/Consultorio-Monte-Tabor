@@ -522,6 +522,27 @@ const DoctorForm = ({
                 {licenseImageError && <span className="text-[10px] text-red-500 font-medium px-1">{licenseImageError}</span>}
               </div>
 
+              {/* Firma y sello: nunca la imagen real (es información sensible, solo el propio
+                  doctor puede verla y guardarla desde su perfil) — el backend ya la reemplaza
+                  por estos booleanos antes de responder (ver withSignatureFlags en
+                  doctorsController.js), así que ni siquiera este modal de administración puede
+                  acceder a ella, solo mostrar si el doctor las guardó o no. */}
+              {doctor && (
+                <div className="flex flex-col gap-1.5 w-full">
+                  <label className="text-xs font-semibold text-gray-400">Firma y sello</label>
+                  <div className="flex gap-4 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50">
+                    <label className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                      <input type="checkbox" checked={Boolean(doctor.has_signature)} disabled className="w-4 h-4 accent-blue-600 cursor-not-allowed" />
+                      Firma guardada
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                      <input type="checkbox" checked={Boolean(doctor.has_seal)} disabled className="w-4 h-4 accent-blue-600 cursor-not-allowed" />
+                      Sello guardado
+                    </label>
+                  </div>
+                </div>
+              )}
+
               {/* Contraseña: solo en creacion */}
               {!doctor && (
                 <div className="flex flex-col gap-3 w-full border-t border-gray-100 pt-4 mt-1">

@@ -4,7 +4,7 @@ import InputField from "@/components/ui/InputField";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ScheduleCard from "./ScheduleCard";
 import useAppointmentTypes from "../hooks/useAppointmentTypes";
-import { showError } from "@/lib/alerts";
+import { showError, confirmDelete } from "@/lib/alerts";
 import { maskLettersOnly } from "@/lib/inputMasks";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
@@ -76,6 +76,15 @@ const AppointmentTypesSection = ({ editing }) => {
     };
 
     const remove = async (i) => {
+        // Era el único botón de eliminar de todo el sistema sin este
+        // aviso: un clic accidental borraba el tipo de cita sin ninguna
+        // confirmación ni forma de deshacerlo.
+        const confirmed = await confirmDelete({
+            title: "¿Eliminar este tipo de cita?",
+            text: `Se eliminará "${types[i].name}". Esta acción no se puede deshacer.`,
+        });
+        if (!confirmed) return;
+
         try {
             await deleteAppointmentType(types[i]._id);
             load();

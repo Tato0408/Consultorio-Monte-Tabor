@@ -9,6 +9,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
   const { user, userType } = useAuth();
 
   const [formData, setFormData] = useState({
+    contrasenaActual:  "",
     contrasena:        "",
     confirmContrasena: "",
   });
@@ -71,6 +72,20 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     if (submitting) return;
 
+    // Antes no se pedía la contraseña actual: una sesión abierta (o
+    // comprometida) bastaba para tomar la cuenta cambiando la contraseña
+    // sin ninguna fricción. El backend ya la exige también, esto solo
+    // evita el viaje al servidor si falta.
+    if (!formData.contrasenaActual.trim()) {
+      Swal.fire({
+        icon:               "warning",
+        title:              "Falta tu contraseña actual",
+        text:               "Ingresa tu contraseña actual para poder cambiarla.",
+        confirmButtonColor: "#2563eb",
+      });
+      return;
+    }
+
     if (!allRulesPassed) {
       Swal.fire({
         icon:               "warning",
@@ -85,7 +100,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
       setSubmitting(true);
       await apiClient(getEndpoint(), {
         method: "PUT",
-        body:   { password: formData.contrasena },
+        body:   { current_password: formData.contrasenaActual, password: formData.contrasena },
       });
 
       await Swal.fire({
@@ -98,7 +113,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
       });
 
       // Limpia el formulario y cierra el modal.
-      setFormData({ contrasena: "", confirmContrasena: "" });
+      setFormData({ contrasenaActual: "", contrasena: "", confirmContrasena: "" });
       onClose();
     } catch (err) {
       Swal.fire({
@@ -134,7 +149,19 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
           <InputField
-            label="Contraseña"
+            label="Contraseña actual"
+            id="contrasenaActual"
+            type="password"
+            placeholder="Ingresa tu contraseña actual"
+            value={formData.contrasenaActual}
+            onChange={handleChange("contrasenaActual")}
+            maxLength={100}
+            icon={<Lock className="w-4 h-4" />}
+            disabled={submitting}
+          />
+
+          <InputField
+            label="Contraseña nueva"
             id="contrasena"
             type="password"
             placeholder="Ingresa tu contraseña"
@@ -186,7 +213,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
             </button>
             <button
               type="submit"
-              disabled={submitting || !allRulesPassed}
+              disabled={submitting || !allRulesPassed || !formData.contrasenaActual.trim()}
               className="px-5 py-2.5 text-sm font-semibold bg-[#3B6FCA] text-white rounded-xl hover:bg-[#2d5ab5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? "Guardando..." : "Actualizar"}

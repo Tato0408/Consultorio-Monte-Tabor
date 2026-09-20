@@ -95,9 +95,7 @@ const ProductCombobox = ({ value, onChange, onSelect, error }) => {
               suggestions.map((s) => (
                 <button key={s._id} type="button" onClick={() => pick(s)}
                   className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 text-left">
-                  {s.image
-                    ? <img src={s.image} alt={s.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-                    : <div className="w-8 h-8 rounded-lg bg-slate-100 flex-shrink-0" />}
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs flex-shrink-0">📦</div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
                     <p className="text-xs text-gray-400">{s.category} · {s.stock} {s.unit_measure} en stock</p>
@@ -119,7 +117,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
   const { stockEntry } = useInsumos();
   const [form, setForm] = useState({
     name: "", category: "", unit_measure: "",
-    supplier: "", quantity: "", unit_cost: "", detalle: "",
+    supplier: "", quantity: "", unit_cost: "", min_stock: "", detalle: "",
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -137,6 +135,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
       category:     insumo.category     || p.category,
       unit_measure: insumo.unit_measure || p.unit_measure,
       supplier:     insumo.supplier     || p.supplier,
+      min_stock:    insumo.min_stock != null ? String(insumo.min_stock) : p.min_stock,
     }));
     setErrors((p) => ({ ...p, name: "" }));
   };
@@ -170,6 +169,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
         supplier:     form.supplier,
         quantity:     form.quantity,
         unit_cost:    form.unit_cost,
+        min_stock:    form.min_stock,
         detalle:      form.detalle || `Compra a ${form.supplier || "proveedor"}`,
       });
       onSuccess?.();
@@ -196,7 +196,7 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
 
   return (
     <Modal
-      title="Registrar entrada de stock"
+      title="Ingreso de productos"
       subtitle="Registra un nuevo ingreso de productos al inventario"
       onClose={onClose}
       footer={footer}
@@ -241,6 +241,14 @@ const ModalStockEntry = ({ onClose, onSuccess }) => {
               placeholder="Nombre del proveedor"
               maxLength={100}
               value={form.supplier} onChange={set("supplier")} />
+
+            {/* Cantidad a partir de la cual el producto se marca en "stock
+                bajo" (alertas de inventario y notificaciones a admins). */}
+            <InputField label="Stock mínimo" id="min_stock"
+              type="number" min={0} max={100000}
+              placeholder="Ej. 5"
+              value={form.min_stock} onChange={set("min_stock")}
+              onKeyDown={(e) => { if (["-", "e", "E", "+", "."].includes(e.key)) e.preventDefault(); }} />
           </div>
         </section>
 

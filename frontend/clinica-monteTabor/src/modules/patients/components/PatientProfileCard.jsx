@@ -76,9 +76,9 @@ const PatientProfileCard = ({ patient, onEdit, onDelete, canUpdate = true, canDe
         </div>
 
         <div className="mt-2 border border-blue-100 rounded-[20px] p-3 flex items-center justify-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${patient.is_active ? "bg-green-500" : "bg-red-500"}`} />
-          <span className={`text-xs font-semibold ${patient.is_active ? "text-green-700" : "text-red-700"}`}>
-            {patient.is_active ? "Activo" : "Inactivo"}
+          <span className={`w-2 h-2 rounded-full ${patient.is_active !== false ? "bg-green-500" : "bg-red-500"}`} />
+          <span className={`text-xs font-semibold ${patient.is_active !== false ? "text-green-700" : "text-red-700"}`}>
+            {patient.is_active !== false ? "Activo" : "Inactivo"}
           </span>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, CalendarClock } from "lucide-react";
+import { formatTime12h as fmt12 } from "@/lib/timeFormat";
 
 // Mismo mapeo de estados que AppointmentsCalendar.jsx (el calendario real de citas), para
 // que el badge de estado se vea y diga exactamente lo mismo en todo el sistema.
@@ -20,12 +21,6 @@ const STATUS_LABELS = {
     pending:   "Pendiente",
     no_show:   "No se presentó",
     expired:   "Vencida",
-};
-
-const fmt12 = (t) => {
-    if (!t) return "—";
-    const [h, m] = t.split(":").map(Number);
-    return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 };
 
 const personName = (p) => (p ? `${p.name || ""} ${p.last_name || ""}`.trim() : "—");

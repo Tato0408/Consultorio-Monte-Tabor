@@ -118,7 +118,9 @@ const toRecordDetail = (patient) => {
       _fecha: lastProcedure?.date || null,
     },
     doctor: lastProcedure?.doctor_name ? { nombre: lastProcedure.doctor_name } : DEFAULT_DOCTOR,
-    estado: patient.is_active ? "Activo" : "Inactivo",
+    // is_active === undefined cuenta como activo en el resto del sistema (default:true
+    // del schema), no como inactivo.
+    estado: patient.is_active !== false ? "Activo" : "Inactivo",
     tipoSangre: patient?.clinical_history?.blood_type || "—",
     signosVitales: lastVital
       ? {
@@ -129,9 +131,6 @@ const toRecordDetail = (patient) => {
           temperatura: lastVital.temperature ?? "—",
           imc: lastVital.imc ?? "—",
           imcCategoria: getImcCategoria(lastVital.imc),
-          // El modelo de paciente no registra un estado general calculado, se
-          // deriva de forma simple a partir de la categoría de IMC.
-          estadoGeneral: getImcCategoria(lastVital.imc) === "Normal" ? "Estable" : "En seguimiento",
           ultimoRegistro: formatFecha(lastVital.last_date_taken) || "—",
         }
       : {},
@@ -190,6 +189,9 @@ const toRecordDetail = (patient) => {
       noPatologicos:
         patient?.clinical_history?.non_pathological ||
         "Sin antecedentes no patológicos registrados.",
+      // Texto libre de antecedentes ecológico-sociales. Solo lo consume el PDF
+      // de historial clínico, la pestaña de historia clínica no lo muestra.
+      ecologicoSociales: patient?.clinical_history?.ecologycal_social || "",
     },
   };
 };

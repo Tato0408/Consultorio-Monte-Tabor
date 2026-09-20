@@ -33,7 +33,7 @@ const FormDateInput = ({ label, value, onChange, error }) => {
       display={Platform.OS === "ios" ? "spinner" : "default"}
       maximumDate={new Date()}
       minimumDate={new Date(1900, 0, 1)}
-      locale="es-ES"
+      locale="es-SV"
       onChange={
         Platform.OS === "ios"
           ? (e, selected) => selected && setTemp(selected)

@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -21,7 +22,8 @@ import { formatTime12h } from "../../utils/date";
 import styles from "../../styles/appointments/appointmentDetailStyle";
 
 const STATUS = {
-  pending: { label: "Pendiente de asignación", color: "#A16207", bg: "#FFF7D6" },
+  // Mismo texto que AppointmentsScreen.jsx (el listado) para el mismo estado.
+  pending: { label: "Pendiente", color: "#A16207", bg: "#FFF7D6" },
   scheduled: { label: "Programada", color: "#245CE0", bg: "#E8EFFF" },
   needs_reschedule: { label: "Por reagendar", color: "#C2410C", bg: "#FFEDD5" },
   expired: { label: "Por reagendar", color: "#C2410C", bg: "#FFEDD5" },
@@ -29,12 +31,27 @@ const STATUS = {
 
 // Estados desde los que el paciente puede reagendar reusando el mismo registro.
 const RESCHEDULABLE = ["pending", "needs_reschedule", "expired"];
+
+// A menos de 30 minutos del inicio (o ya empezada), una cita ya aceptada no se puede
+// cancelar sola: el paciente debe coordinarlo con quien lo atenderá. Mismo criterio que
+// isCancelLockedForPatient en el backend (appointmentStatus.js) y que cancelarBloqueado en
+// el portal público (MyAppointments.jsx) — acá solo se anticipa del lado del cliente para
+// no hacer escribir un motivo obligatorio para nada; el backend sigue siendo quien de
+// verdad lo aplica.
+const CANCEL_LOCK_MS = 30 * 60 * 1000;
+const inicioDeCita = (appt) => {
+  const d = new Date(appt.date);
+  const [h, m] = String(appt.start_time || "0:0").split(":").map(Number);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h, m, 0, 0);
+};
+const cancelarBloqueado = (appt) =>
+  appt.status === "scheduled" && inicioDeCita(appt).getTime() - Date.now() <= CANCEL_LOCK_MS;
 const RESCHEDULE_REASON_TEXT = {
   no_aceptada: "Ningún profesional aceptó tu cita a tiempo. Elige una nueva fecha y hora.",
   cupo_asignado: "El horario que solicitaste se le asignó a otro paciente. Elige una nueva fecha y hora.",
 };
 
-const longDate = (value) => new Date(value).toLocaleDateString("es-GT", {
+const longDate = (value) => new Date(value).toLocaleDateString("es-SV", {
   weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
 });
 
@@ -53,6 +70,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
   const [cancelVisible, setCancelVisible] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [reagendandoConfirmada, setReagendandoConfirmada] = useState(false);
 
   const load = useCallback(async () => {
     if (!appointmentId) {
@@ -73,6 +91,15 @@ export default function AppointmentDetailScreen({ navigation, route }) {
   }, [appointmentId, navigation]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const abrirCancelar = () => {
+    if (cancelarBloqueado(appointment)) {
+      const conQuien = appointment.doctor_id ? "el doctor que te atenderá" : "la clínica";
+      showError(`Tu cita está próxima a comenzar. Para cancelarla, comunícate con ${conQuien} y lleguen a un acuerdo.`);
+      return;
+    }
+    setCancelVisible(true);
+  };
 
   const cancelAppointment = async () => {
     const reason = cancellationReason.trim();
@@ -96,6 +123,45 @@ export default function AppointmentDetailScreen({ navigation, route }) {
     } finally {
       setCancelling(false);
     }
+  };
+
+  // Reagendar una cita ya confirmada (scheduled) no puede reusar el mismo registro: el
+  // backend solo lo permite para pending/needs_reschedule/expired (ver
+  // RESCHEDULABLE_STATUSES en appointmentStatus.js). Mismo criterio que el portal público
+  // (handleReagendar en MyAppointments.jsx): se cancela para liberar el cupo y se agenda
+  // una nueva, prellenada con el mismo servicio y proveedor.
+  const reagendarConfirmada = () => {
+    Alert.alert(
+      "Reagendar cita",
+      "Se cancelará esta cita para que puedas elegir una nueva fecha y hora. ¿Deseas continuar?",
+      [
+        { text: "No, conservar cita", style: "cancel" },
+        {
+          text: "Sí, reagendar",
+          onPress: async () => {
+            setReagendandoConfirmada(true);
+            try {
+              await apiClient(`/appointments/patient/${appointment._id}/cancel`, {
+                method: "PATCH",
+                body: { cancellation_reason: "Cancelada por el paciente para reagendar" },
+              });
+              navigation.replace("NewAppointment", {
+                prefill: {
+                  procedureId: appointment.procedure_id?._id || null,
+                  doctorId: appointment.doctor_id?._id || null,
+                  nurseId: appointment.nurse_id?._id || null,
+                  motivo: appointment.description || "",
+                },
+              });
+            } catch (error) {
+              showError(error.message || "No se pudo reagendar la cita.");
+            } finally {
+              setReagendandoConfirmada(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading || !appointment) {
@@ -187,13 +253,26 @@ export default function AppointmentDetailScreen({ navigation, route }) {
             <Ionicons name="calendar-outline" size={20} color="#FFF" />
             <Text style={styles.rescheduleButtonText}>Reagendar cita</Text>
           </TouchableOpacity>
+        ) : appointment.status === "scheduled" ? (
+          <TouchableOpacity
+            style={styles.rescheduleButton}
+            disabled={reagendandoConfirmada}
+            onPress={reagendarConfirmada}
+          >
+            {reagendandoConfirmada
+              ? <ActivityIndicator size="small" color="#FFF" />
+              : <>
+                  <Ionicons name="calendar-outline" size={20} color="#FFF" />
+                  <Text style={styles.rescheduleButtonText}>Reagendar cita</Text>
+                </>}
+          </TouchableOpacity>
         ) : null}
 
-        {/* Se puede cancelar en cualquier momento mientras la cita siga pending/scheduled
-            (ver el filtro justo arriba de este return), incluso si ya comenz\u00f3 o su fecha
-            ya pas\u00f3 \u2014 misma regla que la web y que ya aplica el backend. */}
+        {/* Se puede intentar cancelar mientras la cita siga pending/scheduled (ver el
+            filtro justo arriba de este return); abrirCancelar corta antes de abrir el
+            di\u00e1logo si est\u00e1 a menos de 30 minutos de empezar (solo aplica a scheduled). */}
         {["pending", "scheduled"].includes(appointment.status) ? (
-          <TouchableOpacity style={styles.cancelButton} onPress={() => setCancelVisible(true)}>
+          <TouchableOpacity style={styles.cancelButton} onPress={abrirCancelar}>
             <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
             <Text style={styles.cancelButtonText}>Cancelar cita</Text>
           </TouchableOpacity>

@@ -18,23 +18,14 @@ import apiClient from "../../lib/apiClient";
 import styles, { colors } from "../../styles/profile/profileStyle";
 import { useAuth } from "../../context/AuthContext";
 import { showError, showSuccess, showWarning, confirmLogout } from "../../lib/toast";
+import { descargarHistorialClinicoPdf } from "../../lib/pdf/patientDocuments";
 
 const EMPTY = "Sin registrar";
-
-// "Recordatorios" salió de aquí: MedicationsScreen ya se titula "Recordatorios de medicina",
-// así que apuntaba al mismo lugar que "Medicamentos". Su espacio lo toma el tipo de sangre,
-// que sí necesita entrada propia. Son cuatro para que quepan en una fila (shortcut usa flex: 1).
-const shortcuts = [
-  { icon: "person-outline", title: "Mis datos", screen: "EditProfile" },
-  { icon: "calendar-outline", title: "Mis consultas", screen: "Appointments" },
-  { icon: "medkit-outline", title: "Medicamentos", screen: "Medications" },
-  { icon: "water-outline", title: "Tipo de sangre", screen: "BloodType" },
-];
 
 // El backend guarda fechas ISO; se formatea en UTC para que no se corra un día
 const dateLabel = (value) =>
   value
-    ? new Date(value).toLocaleDateString("es-GT", {
+    ? new Date(value).toLocaleDateString("es-SV", {
         day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
       })
     : EMPTY;
@@ -77,17 +68,52 @@ const ProfileScreen = ({ navigation }) => {
     }
   }, [logout]);
 
-  const personalInfo = useMemo(() => [
-    { icon: "calendar-outline", label: "Fecha de nacimiento", value: dateLabel(patient?.birth_date), chevron: true },
-    { icon: "card-outline", label: "DUI", value: patient?.dui || EMPTY, chevron: true },
-    { icon: "male-female-outline", label: "Género", value: patient?.gender || EMPTY, chevron: true },
-    { icon: "call-outline", label: "Teléfono", value: patient?.phone || EMPTY, chevron: true },
-    { icon: "mail-outline", label: "Correo electrónico", value: patient?.email || EMPTY, chevron: true },
-    // A diferencia de las filas de arriba, esta NO lleva a EditProfile: define su propio
-    // onPress, que se respeta en el .map() de abajo (antes todas las filas de esta lista
-    // caían siempre en EditProfile sin importar lo que trajeran).
-    { icon: "document-text-outline", label: "Mis documentos", value: "Recetas e incapacidades", chevron: true, onPress: () => navigation.navigate("DocumentsHub") },
-  ], [patient, navigation]);
+  // El historial clínico solo se puede descargar cuando ya hay signos vitales
+  // guardados, es decir, después de la primera consulta.
+  const hasVitals = !!patient?.clinical_history?.vital_signs?.length;
+
+  const handleDescargarHistorial = useCallback(async () => {
+    try {
+      await descargarHistorialClinicoPdf();
+    } catch (error) {
+      showError(error.message || "No se pudo generar tu historial clínico.");
+    }
+  }, []);
+
+  // "Mis datos" ya no va como atajo: su fila vive en Información personal. El
+  // cuarto atajo, descargar el historial clínico, solo aparece cuando ya hay
+  // datos que descargar.
+  const shortcuts = useMemo(() => {
+    const base = [
+      { icon: "calendar-outline", title: "Mis consultas", screen: "Appointments" },
+      { icon: "medkit-outline", title: "Medicamentos", screen: "Medications" },
+      { icon: "water-outline", title: "Tipo de sangre", screen: "BloodType" },
+    ];
+    if (hasVitals) {
+      base.push({ icon: "download-outline", title: "Descargar historial clínico", onPress: handleDescargarHistorial });
+    }
+    return base;
+  }, [hasVitals, handleDescargarHistorial]);
+
+  const personalInfo = useMemo(() => {
+    const rows = [
+      { icon: "calendar-outline", label: "Fecha de nacimiento", value: dateLabel(patient?.birth_date), chevron: true },
+      { icon: "card-outline", label: "DUI", value: patient?.dui || EMPTY, chevron: true },
+      { icon: "male-female-outline", label: "Género", value: patient?.gender || EMPTY, chevron: true },
+      { icon: "call-outline", label: "Teléfono", value: patient?.phone || EMPTY, chevron: true },
+      { icon: "mail-outline", label: "Correo electrónico", value: patient?.email || EMPTY, chevron: true },
+      // A diferencia de las filas de arriba, esta NO lleva a EditProfile: define su propio
+      // onPress, que se respeta en el .map() de abajo (antes todas las filas de esta lista
+      // caían siempre en EditProfile sin importar lo que trajeran).
+      { icon: "document-text-outline", label: "Mis documentos", value: "Recetas e incapacidades", chevron: true, onPress: () => navigation.navigate("DocumentsHub") },
+    ];
+    // Última fila de la sección: descarga inmediata del historial clínico, sin
+    // pantalla intermedia. Solo cuando ya hay signos vitales registrados.
+    if (hasVitals) {
+      rows.push({ icon: "download-outline", label: "Descargar historial clínico", value: "Descarga inmediata en PDF", chevron: false, onPress: handleDescargarHistorial });
+    }
+    return rows;
+  }, [patient, navigation, hasVitals, handleDescargarHistorial]);
 
   // Solo campos que existen en clinical_history: no hay alergias ni medicamentos actuales
   const healthInfo = useMemo(() => {
@@ -184,7 +210,7 @@ const ProfileScreen = ({ navigation }) => {
                   icon={s.icon}
                   title={s.title}
                   onPress={() =>
-                    s.screen ? navigation.navigate(s.screen) : console.log("Pressed:", s.title)
+                    s.onPress ? s.onPress() : s.screen ? navigation.navigate(s.screen) : undefined
                   }
                 />
               ))}

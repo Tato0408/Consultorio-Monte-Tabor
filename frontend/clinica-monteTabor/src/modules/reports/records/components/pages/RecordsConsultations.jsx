@@ -1,12 +1,41 @@
 import { useState } from "react";
 import {
-  Calendar, Filter, ChevronLeft, ChevronRight, ChevronDown, Trash2,
+  Calendar, ChevronLeft, ChevronRight, ChevronDown, Trash2,
 } from "lucide-react";
 import { Badge, Card } from "../global/ui";
 
+// Mismos estados y etiquetas que la tabla de Consultas
+// (AppointmentTable.jsx), para que el badge diga y se vea igual sin
+// importar desde dónde se mire una cita.
 const ESTADO_STYLES = {
-  atendido:  { label: "Atendido",  tone: "green" },
-  en_espera: { label: "En espera", tone: "blue" },
+  pending:   { label: "Agendado (sin confirmar)", tone: "gray" },
+  scheduled: { label: "En espera", tone: "blue" },
+  atendido:  { label: "Atendido", tone: "green" },
+  cancelled: { label: "Cancelado", tone: "red" },
+  no_show:   { label: "No se presentó", tone: "gray" },
+  needs_reschedule: { label: "Por reagendar", tone: "gray" },
+  expired:   { label: "Vencida", tone: "gray" },
+};
+
+// Mismas pestañas y mismo orden que AppointmentTable.jsx (tabla de
+// Consultas): Todos, Atendido, Agendados, En espera, Sin confirmar,
+// Cancelado, No presentado.
+const TABS = [
+  { key: "todos", label: "Todos" },
+  { key: "atendido", label: "Atendido" },
+  { key: "agendados", label: "Agendados" },
+  { key: "scheduled", label: "En espera" },
+  { key: "pending", label: "Sin confirmar" },
+  { key: "cancelled", label: "Cancelado" },
+  { key: "no_show", label: "No presentado" },
+];
+
+// "Agendados" agrupa pending + scheduled, igual que en la tabla de
+// Consultas; el resto de las pestañas calzan 1 a 1 con el estado real.
+const matchesTab = (estado, tabKey) => {
+  if (tabKey === "todos") return true;
+  if (tabKey === "agendados") return estado === "pending" || estado === "scheduled";
+  return estado === tabKey;
 };
 
 const MIN_FILTER_YEAR = 2000;
@@ -21,20 +50,21 @@ const ConsultasDelDia = ({
   onEliminar,
   canAttend = false,
   canDelete = false,
+  deletingId = null,
 }) => {
   const consultas = patient.consultas ?? [];
-  const enEspera = consultas.filter((c) => c.estado === "en_espera").length;
+  const enEspera = consultas.filter((c) => c.estado === "scheduled").length;
   const atendidas = consultas.filter((c) => c.estado === "atendido").length;
 
   const [desde, setDesde]     = useState("");
   const [hasta, setHasta]     = useState("");
-  const [estado, setEstado]   = useState("todos");
+  const [tab, setTab]         = useState("todos");
   const [filas, setFilas]     = useState(8);
   const [pagina, setPagina]   = useState(1);
 
   // Filtrado en memoria sobre lo ya cargado (no dispara requests nuevas).
   const filtradas = consultas.filter((c) => {
-    if (estado !== "todos" && c.estado !== estado) return false;
+    if (!matchesTab(c.estado, tab)) return false;
     if (!c._fecha) return !desde && !hasta;
     const fecha = new Date(c._fecha);
     if (desde && fecha < new Date(`${desde}T00:00:00`)) return false;
@@ -53,78 +83,72 @@ const ConsultasDelDia = ({
   return (
     <Card className="space-y-6">
 
-      {/* Fila de títulos de filtro */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-slate-700 font-medium text-sm">
-          <Calendar size={16} className="text-blue-600" />
-          Filtro por fechas
-        </div>
-        <div className="flex items-center gap-2 text-slate-700 font-medium text-sm">
-          <Filter size={16} className="text-blue-600" />
-          Filtro por estado
-        </div>
+      {/* Título de filtro por fechas */}
+      <div className="flex items-center gap-2 text-slate-700 font-medium text-sm">
+        <Calendar size={16} className="text-blue-600" />
+        Filtro por fechas
       </div>
 
       {/* Controles de filtro */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex items-end gap-4">
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-slate-500">Desde</span>
-            <input
-              type="date"
-              min={`${MIN_FILTER_YEAR}-01-01`}
-              max={MAX_FILTER_DATE}
-              value={desde}
-              onChange={(e) => {
-                const val = e.target.value;
-                // Corta un año de más de 4 dígitos antes de que entre al estado del filtro.
-                if (val && val.length !== 10) return;
-                if (val && (val < `${MIN_FILTER_YEAR}-01-01` || val > MAX_FILTER_DATE)) return;
-                setDesde(val);
-                setPagina(1);
-              }}
-              className={inputCls}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-slate-500">Hasta</span>
-            <input
-              type="date"
-              min={`${MIN_FILTER_YEAR}-01-01`}
-              max={MAX_FILTER_DATE}
-              value={hasta}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val && val.length !== 10) return;
-                if (val && (val < `${MIN_FILTER_YEAR}-01-01` || val > MAX_FILTER_DATE)) return;
-                setHasta(val);
-                setPagina(1);
-              }}
-              className={inputCls}
-            />
-          </label>
-        </div>
-
+      <div className="flex flex-wrap items-end gap-4">
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-slate-500 text-right">Estado actual</span>
-          <div className="relative">
-            <select
-              value={estado}
-              onChange={(e) => { setEstado(e.target.value); setPagina(1); }}
-              className={inputCls + " appearance-none pr-9 min-w-44"}
-            >
-              <option value="todos">Todos los estados</option>
-              <option value="atendido">Atendido</option>
-              <option value="en_espera">En espera</option>
-            </select>
-            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
+          <span className="text-xs text-slate-500">Desde</span>
+          <input
+            type="date"
+            min={`${MIN_FILTER_YEAR}-01-01`}
+            max={MAX_FILTER_DATE}
+            value={desde}
+            onChange={(e) => {
+              const val = e.target.value;
+              // Corta un año de más de 4 dígitos antes de que entre al estado del filtro.
+              if (val && val.length !== 10) return;
+              if (val && (val < `${MIN_FILTER_YEAR}-01-01` || val > MAX_FILTER_DATE)) return;
+              setDesde(val);
+              setPagina(1);
+            }}
+            className={inputCls}
+          />
         </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-slate-500">Hasta</span>
+          <input
+            type="date"
+            min={`${MIN_FILTER_YEAR}-01-01`}
+            max={MAX_FILTER_DATE}
+            value={hasta}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val && val.length !== 10) return;
+              if (val && (val < `${MIN_FILTER_YEAR}-01-01` || val > MAX_FILTER_DATE)) return;
+              setHasta(val);
+              setPagina(1);
+            }}
+            className={inputCls}
+          />
+        </label>
+      </div>
+
+      {/* Tabs de estado, mismo criterio que AppointmentTable.jsx */}
+      <div className="flex items-center gap-1 border-b border-slate-100 overflow-x-auto">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => { setTab(t.key); setPagina(1); }}
+            className={`px-3 py-2 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+              tab === t.key
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Resumen del día */}
       <div className="flex items-center gap-6 border-b border-slate-100 pb-3">
-        <span className="text-sm font-semibold text-slate-800">Consultas del día</span>
+        <span className="text-sm font-semibold text-slate-800">Consultas registradas</span>
         <span className="flex items-center gap-2 text-sm text-slate-600">
           <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> {enEspera} En espera
         </span>
@@ -157,8 +181,9 @@ const ConsultasDelDia = ({
               </tr>
             )}
             {filasPagina.map((c) => {
-              const est = ESTADO_STYLES[c.estado];
+              const est = ESTADO_STYLES[c.estado] || { label: c.estado, tone: "gray" };
               const atendido = c.estado === "atendido";
+              const noDisponible = c.estado === "cancelled" || c.estado === "no_show";
               return (
                 <tr key={c.id} className="border-t border-slate-100">
                   <td className="py-4 px-2 text-center text-slate-700 whitespace-nowrap">{c.hora}</td>
@@ -176,6 +201,20 @@ const ConsultasDelDia = ({
                         >
                           Ver
                         </button>
+                      ) : noDisponible ? (
+                        <>
+                          <span className="text-xs text-slate-400 italic">No disponible</span>
+                          {canDelete && (
+                            <button
+                              onClick={() => onEliminar?.(c)}
+                              disabled={deletingId === c.id}
+                              title="Eliminar cita"
+                              className="text-slate-400 hover:text-red-600 p-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </>
                       ) : canAttend ? (
                         <button
                           onClick={() => onContinuar?.(c)}
@@ -187,8 +226,9 @@ const ConsultasDelDia = ({
                       {atendido && canDelete && (
                         <button
                           onClick={() => onEliminar?.(c)}
+                          disabled={deletingId === c.id}
                           title="Eliminar consulta"
-                          className="text-slate-400 hover:text-red-600 p-1.5"
+                          className="text-slate-400 hover:text-red-600 p-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

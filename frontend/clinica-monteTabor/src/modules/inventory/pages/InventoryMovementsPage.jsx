@@ -17,6 +17,12 @@ const InventoryMovementsPage = () => {
   // (permiso inventory.movements, ver inventory.js).
   const canCreateMovement = hasPermission("inventory.movements", "create");
   const canUpdateMovement = hasPermission("inventory.movements", "update");
+  // GET /inventory/stats exige inventory.reports (view), un módulo distinto
+  // del que da acceso a esta pantalla (inventory.movements). Sin este
+  // chequeo, un rol con solo Movimientos recibía 403 en silencio y
+  // InventoryAlertsRow se quedaba mostrando "sin alertas" para siempre —
+  // mismo bug ya corregido en InventoryDashboard.jsx, replicado aquí.
+  const canViewReports = hasPermission("inventory.reports", "view");
   const { getMovements, getStats } = useInsumos();
   const [movements, setMovements] = useState([]);
   const [stats, setStats]         = useState(null);
@@ -127,8 +133,9 @@ const InventoryMovementsPage = () => {
   }, [movements, selectedMovement]);
 
   const loadStats = useCallback(() => {
+    if (!canViewReports) { setStats(null); return; }
     getStats().then(setStats).catch(() => {});
-  }, [refresh]);
+  }, [refresh, canViewReports]);
 
   useEffect(() => { loadMovements(); loadStats(); }, [loadMovements, loadStats]);
 
@@ -185,7 +192,7 @@ const InventoryMovementsPage = () => {
           tabla. Cada una toma su propia altura para poder
           colapsarse de forma independiente. */}
       <div className="mt-6">
-        <InventoryAlertsRow stats={stats} defaultOpen={false} />
+        <InventoryAlertsRow stats={stats} defaultOpen={false} canView={canViewReports} />
       </div>
 
       {modal === "stock" && (

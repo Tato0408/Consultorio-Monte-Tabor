@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import InputField from "@/components/ui/InputField";
-import { updateMyProfile } from "@/services/profileService";
-import { showSuccess, showError } from "@/lib/alerts";
+import { updateMyProfile, verifyMyEmailChange } from "@/services/profileService";
+import { showSuccess, showError, promptCode } from "@/lib/alerts";
 
-const GENEROS = ["Masculino", "Femenino", "Otro", "Prefiero no decirlo"];
+// Mismo enum que Register.jsx (este portal) y PatientFormModal.jsx (panel privado):
+// antes este formulario ofrecía 2 opciones más ("Otro", "Prefiero no decirlo") que
+// ninguna otra pantalla del sistema soporta, así que un paciente podía terminar con un
+// valor que el backend guardaba sin validar y que el resto del sistema no esperaba.
+const GENEROS = ["Masculino", "Femenino"];
 
 // ISO del backend -> "AAAA-MM-DD" para <input type="date">, siempre en UTC para que
 // un nacimiento guardado a medianoche no se corra un día en El Salvador (UTC-6).
@@ -61,8 +65,29 @@ const EditProfileForm = ({ patient, onSaved, onCancel }) => {
         phone: form.phone.trim(),
         email: form.email.trim(),
       });
-      showSuccess(res?.message || "Tus cambios se guardaron.");
       onSaved?.(res?.user || null);
+
+      // El correo no cambia todavía si vino pendingEmailVerification: el
+      // backend mandó un código al correo nuevo y solo lo aplica al
+      // confirmarlo (así el badge de verificación nunca miente sobre un
+      // correo que nunca se probó, ver patientSelfController.updateMe).
+      if (res?.pendingEmailVerification) {
+        showSuccess("Tus datos se guardaron. Revisa tu nuevo correo para confirmar el cambio.");
+        const code = await promptCode("Ingresa el código que enviamos a tu nuevo correo.", {
+          confirmLabel: "Confirmar correo",
+        });
+        if (code) {
+          try {
+            const verifyRes = await verifyMyEmailChange(code);
+            showSuccess(verifyRes?.message || "Correo actualizado y verificado.");
+            onSaved?.(verifyRes?.user || null);
+          } catch (verifyErr) {
+            showError(verifyErr.message || "No se pudo confirmar el código.");
+          }
+        }
+      } else {
+        showSuccess(res?.message || "Tus cambios se guardaron.");
+      }
     } catch (err) {
       showError(err.message || "No se pudieron guardar los cambios.");
     } finally {

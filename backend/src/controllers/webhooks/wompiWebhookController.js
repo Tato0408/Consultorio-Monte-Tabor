@@ -20,12 +20,19 @@ wompiWebhookController.handle = async (req, res) => {
         }
 
         const payload = req.body || {};
-        // El id de la cita se manda como datosAdicionales.appointment_id
-        // al cobrar.
+        // El id de la cita y el paciente que hizo el cobro se mandan como
+        // datosAdicionales.appointment_id / patient_id al cobrar (ver
+        // wompiController.paymentTest/payment3DS). patient_id lo inyecta el
+        // backend con el id de la sesión autenticada en ese momento, nunca lo
+        // manda el cliente, así que sirve para verificar dueño acá.
         const appointmentId =
             payload?.datosAdicionales?.appointment_id ||
             payload?.DatosAdicionales?.appointment_id ||
             payload?.DatosAdicionales?.AppointmentId;
+        const patientId =
+            payload?.datosAdicionales?.patient_id ||
+            payload?.DatosAdicionales?.patient_id ||
+            payload?.DatosAdicionales?.PatientId;
         const transactionId = payload?.IdTransaccion || payload?.idTransaccion;
 
         if (!appointmentId || !transactionId) {
@@ -37,13 +44,22 @@ wompiWebhookController.handle = async (req, res) => {
             return res.status(200).json({ message: "Nada que actualizar" });
         }
 
+        // Mismas dos validaciones que el flujo normal (confirmAppointmentPayment en
+        // patientPortalController.js): sin ellas, cualquier paciente autenticado podía usar
+        // el proxy crudo de Wompi para cobrarse a sí mismo un monto mínimo apuntando
+        // appointment_id a la cita de otro paciente, y este webhook la marcaba como pagada
+        // igual.
+        if (!patientId || appointment.patient_id.toString() !== String(patientId)) {
+            return res.status(200).json({ message: "Sin referencia, se ignora" });
+        }
+
         // Se vuelve a consultar la transacción directamente a Wompi en
         // vez de confiar ciegamente en los campos del webhook, para
         // tener una sola fuente de verdad del estado del pago. El status
         // de la cita no cambia aquí: pagar el anticipo no salta la
         // aceptación del doctor, sigue "pending" hasta que se acepte.
         const transaccion = await getTransactionStatus(transactionId);
-        if (transaccion.esAprobada === true) {
+        if (transaccion.esAprobada === true && Number(transaccion.monto) >= Number(appointment.deposit_amount)) {
             appointment.wompi_transaction_id = transactionId;
             appointment.deposit_paid = true;
             await appointment.save();

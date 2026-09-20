@@ -3,9 +3,10 @@ import { Plus, Trash2, Minus } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import InputField from "../../../components/ui/InputField";
 import useInsumos from "../hooks/useInsumos";
+import { showWarning } from "@/lib/alerts";
 
 const newRow = () => ({
-  insumoId: "", name: "", image: "", unit_measure: "",
+  insumoId: "", name: "", unit_measure: "",
   quantity: 1, search: "", suggestions: [], open: false,
 });
 
@@ -32,7 +33,6 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
     updateRow(idx, {
       insumoId:     insumo._id,
       name:         insumo.name,
-      image:        insumo.image || "",
       unit_measure: insumo.unit_measure || "",
       search:       insumo.name,
       suggestions:  [],
@@ -59,12 +59,16 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
 
     setLoading(true);
     try {
-      await manualUsage({
+      const response = await manualUsage({
         responsible,
         reason,
         patient,
         items: items.map(({ insumoId, quantity }) => ({ insumoId, quantity: Number(quantity) })),
       });
+      // Si se pidió más de lo que había en stock para algún insumo, el
+      // backend solo descuenta lo disponible y lo avisa aquí (antes no
+      // había ningún aviso: el stock quedaba en 0 sin que se supiera).
+      if (response?.capped) showWarning(response.message);
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -168,9 +172,7 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
                 <div className="relative">
                   {row.insumoId ? (
                     <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-3 py-2.5 bg-white">
-                      {row.image
-                        ? <img src={row.image} alt={row.name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
-                        : <div className="w-9 h-9 rounded-lg bg-slate-100 flex-shrink-0" />}
+                      <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-xs flex-shrink-0">📦</div>
                       <p className="text-sm font-semibold text-gray-800 truncate flex-1">{row.name}</p>
                       <button type="button" onClick={() => updateRow(idx, newRow())}
                         className="text-xs text-blue-500 hover:underline flex-shrink-0">
@@ -192,9 +194,7 @@ const ModalManualUsage = ({ onClose, onSuccess }) => {
                             <button key={s._id} type="button"
                               onClick={() => selectInsumo(s, idx)}
                               className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left">
-                              {s.image
-                                ? <img src={s.image} alt={s.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-                                : <div className="w-8 h-8 rounded-lg bg-slate-100 flex-shrink-0" />}
+                              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs flex-shrink-0">📦</div>
                               <div>
                                 <p className="font-medium text-gray-800">{s.name}</p>
                                 <p className="text-xs text-gray-400">{s.stock} {s.unit_measure} disponibles</p>

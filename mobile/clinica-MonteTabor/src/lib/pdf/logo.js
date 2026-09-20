@@ -1,5 +1,10 @@
 import { Asset } from "expo-asset";
-import * as FileSystem from "expo-file-system";
+// La API nueva de expo-file-system (desde SDK 54+) ya no expone
+// readAsStringAsync/EncodingType en la raíz del paquete (se reescribió a
+// clases File/Directory sin un getter síncrono de base64); el subpath
+// /legacy mantiene la API anterior tal cual, así que se usa acá para no
+// reescribir esta única lectura puntual.
+import * as FileSystem from "expo-file-system/legacy";
 
 // El logo se embebe como data URI en el HTML del PDF (expo-print renderiza el HTML en un
 // WebView aislado, sin acceso al sistema de archivos de la app, así que una ruta de

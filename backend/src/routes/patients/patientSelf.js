@@ -18,6 +18,7 @@ router.use(authenticate(), requireActiveUser);
 
 router.get("/me", patientSelfController.getMe);
 router.put("/me", patientSelfController.updateMe);
+router.put("/verifyEmailChange", patientSelfController.verifyEmailChange);
 router.put("/changePassword", patientSelfController.changePassword);
 router.get("/consultations", patientSelfController.getMyConsultations);
 router.get("/consultations/:consultationId", patientSelfController.getMyConsultationById);
@@ -30,9 +31,11 @@ router.put("/me/blood-type", patientSelfController.updateBloodType);
 router.put("/me/lifestyle", patientSelfController.updateLifestyle);
 
 router.post("/me/hereditary", patientSelfController.addHereditary);
+router.put("/me/hereditary/:entryId", patientSelfController.updateHereditary);
 router.delete("/me/hereditary/:entryId", patientSelfController.deleteHereditary);
 
 router.post("/me/pathological", patientSelfController.addPathological);
+router.put("/me/pathological/:entryId", patientSelfController.updatePathological);
 router.delete("/me/pathological/:entryId", patientSelfController.deletePathological);
 
 export default router;

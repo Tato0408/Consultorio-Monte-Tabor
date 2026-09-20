@@ -60,7 +60,10 @@ const ConsultationDocument = ({
     gender,
     dui,
     doctorName,
+    signatureUrl,
+    sealUrl,
     date,
+    time,
     vitals,
     icdCode,
     historial,
@@ -87,7 +90,7 @@ const ConsultationDocument = ({
 
                 <View style={styles.headerRow}>
                     <Text>Paciente: {patientName}</Text>
-                    <Text>Fecha: {date}</Text>
+                    <Text>Fecha: {date}{time ? `   Hora: ${time}` : ""}</Text>
                 </View>
                 <View style={styles.headerRow}>
                     <Text>Edad: {age ?? "—"}</Text>
@@ -121,6 +124,18 @@ const ConsultationDocument = ({
                         <Text style={styles.vitalLabel}>Glucosa</Text>
                         <Text style={styles.vitalValue}>{vitals?.glucose || "—"}</Text>
                     </View>
+                    {vitals?.heartRate ? (
+                        <View style={styles.vitalItem}>
+                            <Text style={styles.vitalLabel}>F.C.</Text>
+                            <Text style={styles.vitalValue}>{vitals.heartRate}</Text>
+                        </View>
+                    ) : null}
+                    {vitals?.respiratoryRate ? (
+                        <View style={styles.vitalItem}>
+                            <Text style={styles.vitalLabel}>F.R.</Text>
+                            <Text style={styles.vitalValue}>{vitals.respiratoryRate}</Text>
+                        </View>
+                    ) : null}
                 </View>
 
                 <Text style={styles.sectionTitle}>Historial médico</Text>
@@ -191,7 +206,7 @@ const ConsultationDocument = ({
                     </>
                 )}
 
-                <PdfSignature doctorName={doctorName} />
+                <PdfSignature doctorName={doctorName} signatureUrl={signatureUrl} sealUrl={sealUrl} />
             </Page>
         </Document>
     );

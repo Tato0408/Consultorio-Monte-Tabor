@@ -10,6 +10,7 @@ import QuickAppointmentForm from "../components/QuickAppointmentForm";
 import UpcomingAppointmentsList from "../components/UpcomingAppointmentsList";
 import PendingConfirmationsPanel from "../components/PendingConfirmationsPanel";
 import DashboardWelcomeHeader from "../components/DashboardWelcomeHeader";
+import { formatTime12h } from "@/lib/timeFormat";
 
 const todayStr = () => {
     const d = new Date();
@@ -149,7 +150,7 @@ const NurseDashboard = () => {
                     iconBg="bg-amber-100"
                     label="Citas próximas (1h)"
                     value={s.upcomingAppointments?.count ?? 0}
-                    growth={s.upcomingAppointments?.next ? `Próxima a las ${s.upcomingAppointments.next.start_time} - ${s.upcomingAppointments.next.end_time}` : "Sin citas próximas"}
+                    growth={s.upcomingAppointments?.next ? `Próxima a las ${formatTime12h(s.upcomingAppointments.next.start_time)} - ${formatTime12h(s.upcomingAppointments.next.end_time)}` : "Sin citas próximas"}
                     growthLabel={s.upcomingAppointments?.next?.doctorName ?? ""}
                     sparkline={[]}
                     sparklineColor="#d97706"

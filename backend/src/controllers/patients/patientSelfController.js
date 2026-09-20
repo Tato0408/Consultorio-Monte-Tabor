@@ -1,5 +1,7 @@
+import crypto from "crypto";
 import bcryptjs from "bcryptjs";
 import jsonwebtoken from "jsonwebtoken";
+import { sendEmail } from "../../utils/sendMailMailjet.js";
 import patientsModel from "../../models/patients/patients.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import consultationsModel from "../../models/consultations/consultation.js";
@@ -18,9 +20,17 @@ import { validateUserFieldFormats, getMissingRequiredField, getPasswordError } f
 // (identidad tomada del token, nunca de un :id).
 const patientSelfController = {};
 
+// El diagnóstico de un antecedente patológico es texto libre corto.
+const MAX_DIAGNOSIS_LENGTH = 50;
+
 const REQUIRED_FIELDS = ["name", "last_name", "birth_date", "gender", "phone", "email", "password"];
 
 const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
+
+// Mismo enum que registerPatientsController.js (portal web) y PatientFormModal.jsx
+// (panel privado): ninguna otra pantalla del sistema soporta un valor distinto a estos
+// dos (el ícono ♂/♀ del encabezado del paciente, por ejemplo, asume uno de los dos).
+const GENEROS_VALIDOS = ["Masculino", "Femenino"];
 
 // Firma el mismo tipo de token que usa el login. Registrarse
 // funciona como un login escondido: el paciente queda autenticado de
@@ -47,6 +57,16 @@ const denyIfNotPatient = (req, res) => {
 };
 
 // POST /api/patientAccount/register, público, cualquiera puede registrarse.
+// Exclusivo de la app móvil (a diferencia de registerPatientsController.register, el
+// registro del portal público web). Decisión de producto, no un descuido: la app se
+// instala desde las tiendas oficiales, un canal ya menos anónimo que un formulario
+// abierto en cualquier navegador, así que acá se crea al paciente de inmediato, ya
+// activo y verificado (is_verified:true), sin pedir un código de confirmación por
+// correo. El registro web sí lo exige (ver registerPatientsController.js), porque un
+// formulario público en internet está mucho más expuesto a registros falsos o de spam.
+// La verificación de duplicados tampoco es idéntica entre ambos (acá va combinada con
+// $or en una sola consulta, allá en dos separadas): no hay una razón funcional para esa
+// diferencia puntual, es simplemente cómo se escribió cada endpoint por separado.
 patientSelfController.register = async (req, res) => {
     try {
         let { name, last_name, dui, birth_date, gender, phone, email, password } = req.body;
@@ -109,7 +129,18 @@ patientSelfController.register = async (req, res) => {
             timeOut: null,
         });
 
-        await newPatient.save();
+        try {
+            await newPatient.save();
+        } catch (saveError) {
+            // El índice único de email/dui (ver el modelo) es la garantía real contra dos
+            // registros simultáneos con el mismo correo/DUI; el findOne de arriba por sí
+            // solo no es atómico.
+            if (saveError?.code === 11000) {
+                const field = saveError.keyPattern?.dui ? "DUI" : "correo";
+                return res.status(400).json({ message: `Ya existe un paciente registrado con ese ${field}` });
+            }
+            throw saveError;
+        }
 
         const token = signPatientToken(newPatient);
 
@@ -153,50 +184,162 @@ patientSelfController.updateMe = async (req, res) => {
 
         let { name, last_name, dui, birth_date, gender, phone, email } = req.body;
 
-        if (dui === "") dui = undefined;
-
         const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date });
         if (formatError) {
             return res.status(400).json({ message: formatError });
         }
 
+        // Mismo enum que registerPatientsController.js y el formulario de pacientes del
+        // panel privado (PatientFormModal.jsx): antes este endpoint aceptaba cualquier
+        // valor de gender sin validar, así que un paciente podía terminar con un valor
+        // que el resto del sistema (que asume Masculino/Femenino) no espera.
+        if (gender !== undefined && !GENEROS_VALIDOS.includes(gender)) {
+            return res.status(400).json({ message: "Género no válido" });
+        }
+
+        const currentPatient = await patientsModel.findById(req.user.id).select("email");
+        if (!currentPatient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        // El correo NO se aplica de inmediato aquí abajo: cambia de dueño el
+        // acceso a la recuperación de contraseña, así que primero hay que
+        // confirmar que el paciente de verdad controla esa bandeja de
+        // entrada (ver verifyEmailChange más abajo). Antes se guardaba tal
+        // cual, sin tocar is_verified: el badge "Cuenta verificada" seguía
+        // en verde aunque el correo actual jamás se hubiera probado.
+        const wantsEmailChange = email !== undefined && String(email).trim() !== currentPatient.email;
+        const newEmail = wantsEmailChange ? String(email).trim() : undefined;
+
         const fieldsToSet = {};
+        const fieldsToUnset = {};
         if (name !== undefined) fieldsToSet.name = String(name).trim();
         if (last_name !== undefined) fieldsToSet.last_name = String(last_name).trim();
-        if (dui !== undefined) fieldsToSet.dui = String(dui).trim();
+        // Un DUI vacío borra el que tuviera, igual que ya hace patientsController.updatePatient
+        // (panel privado) — antes "" se convertía en undefined antes de llegar aquí, así que
+        // este endpoint interpretaba "vaciar el campo" como "no tocarlo": el paciente veía el
+        // campo en blanco tras guardar, pero al recargar el DUI viejo seguía ahí.
+        if (dui !== undefined) {
+            const duiClean = String(dui).trim();
+            if (duiClean) fieldsToSet.dui = duiClean;
+            else fieldsToUnset.dui = "";
+        }
         if (birth_date !== undefined) fieldsToSet.birth_date = birth_date;
         if (gender !== undefined) fieldsToSet.gender = gender;
         if (phone !== undefined) fieldsToSet.phone = String(phone).trim();
-        if (email !== undefined) fieldsToSet.email = String(email).trim();
 
-        if (Object.keys(fieldsToSet).length === 0) {
+        if (Object.keys(fieldsToSet).length === 0 && Object.keys(fieldsToUnset).length === 0 && !wantsEmailChange) {
             return res.status(400).json({ message: "No data provided to update" });
         }
 
         // Si cambia correo o DUI, valida que no choque con OTRO paciente (a sí mismo se excluye)
-        if (fieldsToSet.email || fieldsToSet.dui) {
+        if (newEmail || fieldsToSet.dui) {
             const orConditions = [];
-            if (fieldsToSet.email) orConditions.push({ email: fieldsToSet.email });
+            if (newEmail) orConditions.push({ email: newEmail });
             if (fieldsToSet.dui) orConditions.push({ dui: fieldsToSet.dui });
             const collision = await patientsModel.findOne({
                 _id: { $ne: req.user.id },
                 $or: orConditions,
             });
             if (collision) {
-                const field = collision.email === fieldsToSet.email ? "correo" : "DUI";
+                const field = collision.email === newEmail ? "correo" : "DUI";
                 return res.status(400).json({ message: `Ya existe un paciente registrado con ese ${field}` });
             }
         }
 
+        const updateOps = {};
+        if (Object.keys(fieldsToSet).length > 0) updateOps.$set = fieldsToSet;
+        if (Object.keys(fieldsToUnset).length > 0) updateOps.$unset = fieldsToUnset;
+
         const updatedPatient = await patientsModel
-            .findByIdAndUpdate(req.user.id, { $set: fieldsToSet }, { new: true })
+            .findByIdAndUpdate(req.user.id, updateOps, { new: true })
             .select("-password");
 
         if (!updatedPatient) {
             return res.status(404).json({ message: "Patient not found" });
         }
 
-        return res.status(200).json({ message: "Perfil actualizado", user: updatedPatient });
+        if (!wantsEmailChange) {
+            return res.status(200).json({ message: "Perfil actualizado", user: updatedPatient });
+        }
+
+        // Igual que el cambio de correo de administrador
+        // (adminController.updateAdmin/verifyEmailChange): se manda un
+        // código al correo NUEVO y el cambio solo se aplica al confirmarlo.
+        const randomCode = crypto.randomBytes(3).toString("hex");
+        const token = jsonwebtoken.sign(
+            { patient_id: req.user.id, newEmail, randomCode },
+            config.JWT.secret,
+            { expiresIn: "15m" },
+        );
+        res.cookie("patientEmailChangeCookie", token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+            maxAge: 15 * 60 * 1000,
+        });
+
+        const htmlContent =
+            "Para confirmar tu nuevo correo utiliza este código: " + randomCode + ". Expira en 15 minutos.";
+        try {
+            await sendEmail(newEmail, "Verificación de cambio de correo", htmlContent);
+        } catch (error) {
+            console.log("error " + error);
+            return res.status(500).json({ message: "Error al enviar el correo de verificación" });
+        }
+
+        return res.status(200).json({
+            message: "Perfil actualizado. Revisa tu nuevo correo para confirmar el cambio.",
+            user: updatedPatient,
+            pendingEmailVerification: true,
+        });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// PUT /api/patientAccount/verifyEmailChange — confirma el código enviado al
+// correo nuevo y recién ahí lo aplica, marcándolo como verificado. Mientras
+// tanto, el correo verificado que sigue en efecto (y el que usa recuperar
+// contraseña) es el anterior.
+patientSelfController.verifyEmailChange = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const { verificationCodeRequest } = req.body;
+        const token = req.cookies.patientEmailChangeCookie;
+        if (!token) {
+            return res.status(400).json({ message: "No hay un cambio de correo pendiente de confirmar." });
+        }
+
+        let decoded;
+        try {
+            decoded = jsonwebtoken.verify(token, config.JWT.secret);
+        } catch (error) {
+            return res.status(400).json({ message: "El código expiró. Solicita el cambio de correo de nuevo." });
+        }
+
+        const { patient_id, newEmail, randomCode: storedCode } = decoded;
+        if (patient_id !== req.user.id) {
+            return res.status(403).json({ message: "No tienes permiso para confirmar este cambio." });
+        }
+        if (verificationCodeRequest !== storedCode) {
+            return res.status(400).json({ message: "Código inválido" });
+        }
+
+        const emailInUse = await patientsModel.findOne({ email: newEmail, _id: { $ne: req.user.id } });
+        if (emailInUse) {
+            return res.status(400).json({ message: "Ya existe un paciente registrado con ese correo" });
+        }
+
+        const updatedPatient = await patientsModel
+            .findByIdAndUpdate(req.user.id, { $set: { email: newEmail, is_verified: true } }, { new: true })
+            .select("-password");
+
+        res.clearCookie("patientEmailChangeCookie", { httpOnly: true, secure: true, sameSite: "none" });
+
+        return res.status(200).json({ message: "Correo actualizado y verificado", user: updatedPatient });
     } catch (error) {
         console.log("error " + error);
         return res.status(500).json({ message: "Error interno del servidor" });
@@ -242,6 +385,12 @@ patientSelfController.updateBloodType = async (req, res) => {
                         // en objeto: el panel administrativo ya lo lee
                         // como string y se rompería.
                         "clinical_history.blood_type_date": registeredAt,
+                        // Autoreportado por el paciente, no confirmado por personal clínico
+                        // (ver blood_type_verified en el modelo). Si ya estaba verificado por
+                        // un doctor/enfermera y el paciente lo vuelve a editar, se marca de
+                        // nuevo como no verificado: el valor cambió y ya no es el que el
+                        // personal clínico confirmó.
+                        "clinical_history.blood_type_verified": false,
                     },
                 },
                 { new: true }
@@ -366,6 +515,46 @@ patientSelfController.deleteHereditary = async (req, res) => {
     }
 };
 
+// PUT /api/patientAccount/me/hereditary/:entryId, edita un antecedente
+// familiar ya registrado. type solo se toca si viene en el body: el portal
+// del paciente no lo edita y no debe borrar lo que haya puesto el personal.
+patientSelfController.updateHereditary = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const { relationship, condition, type } = req.body;
+        if (!relationship?.trim()) {
+            return res.status(400).json({ message: "Indica el parentesco" });
+        }
+        if (!condition?.trim()) {
+            return res.status(400).json({ message: "Indica la condición o enfermedad" });
+        }
+
+        const patient = await patientsModel.findById(req.user.id);
+        if (!patient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        const entry = patient.clinical_history?.hereditary?.id(req.params.entryId);
+        if (!entry) {
+            return res.status(404).json({ message: "Antecedente no encontrado" });
+        }
+
+        entry.relationship = relationship.trim();
+        entry.condition = condition.trim();
+        if (type !== undefined) {
+            entry.type = type?.trim() || undefined;
+        }
+        await patient.save();
+
+        const updatedPatient = await patientsModel.findById(req.user.id).select("-password");
+        return res.status(200).json({ message: "Antecedente actualizado", user: updatedPatient });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
 // POST /api/patientAccount/me/pathological, agrega una enfermedad
 // crónica o diagnóstico.
 patientSelfController.addPathological = async (req, res) => {
@@ -378,16 +567,11 @@ patientSelfController.addPathological = async (req, res) => {
             return res.status(400).json({ message: "Indica la enfermedad" });
         }
 
-        let diagnosisDate;
-        if (diagnosis) {
-            const parsed = new Date(diagnosis);
-            if (Number.isNaN(parsed.getTime())) {
-                return res.status(400).json({ message: "Fecha de diagnóstico no válida" });
-            }
-            if (parsed > new Date()) {
-                return res.status(400).json({ message: "La fecha de diagnóstico no puede ser futura" });
-            }
-            diagnosisDate = parsed;
+        // El diagnóstico es texto libre corto (ej. "Confirmado en 2019"), no
+        // una fecha: se guarda tal cual como string.
+        const diagnosisText = diagnosis?.trim() || undefined;
+        if (diagnosisText && diagnosisText.length > MAX_DIAGNOSIS_LENGTH) {
+            return res.status(400).json({ message: `El diagnóstico admite máximo ${MAX_DIAGNOSIS_LENGTH} caracteres` });
         }
 
         const updatedPatient = await patientsModel
@@ -397,7 +581,7 @@ patientSelfController.addPathological = async (req, res) => {
                     $push: {
                         "clinical_history.pathological": {
                             disease: disease.trim(),
-                            diagnosis: diagnosisDate,
+                            diagnosis: diagnosisText,
                             type: type?.trim() || undefined,
                         },
                     },
@@ -436,6 +620,47 @@ patientSelfController.deletePathological = async (req, res) => {
         await patient.save();
 
         return res.status(200).json({ message: "Enfermedad eliminada" });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
+// PUT /api/patientAccount/me/pathological/:entryId, edita una enfermedad
+// crónica ya registrada. diagnosis es texto libre corto (no una fecha).
+patientSelfController.updatePathological = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const { disease, diagnosis, type } = req.body;
+        if (!disease?.trim()) {
+            return res.status(400).json({ message: "Indica la enfermedad" });
+        }
+
+        const diagnosisText = diagnosis?.trim() || undefined;
+        if (diagnosisText && diagnosisText.length > MAX_DIAGNOSIS_LENGTH) {
+            return res.status(400).json({ message: `El diagnóstico admite máximo ${MAX_DIAGNOSIS_LENGTH} caracteres` });
+        }
+
+        const patient = await patientsModel.findById(req.user.id);
+        if (!patient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        const entry = patient.clinical_history?.pathological?.id(req.params.entryId);
+        if (!entry) {
+            return res.status(404).json({ message: "Enfermedad no encontrada" });
+        }
+
+        entry.disease = disease.trim();
+        entry.diagnosis = diagnosisText;
+        if (type !== undefined) {
+            entry.type = type?.trim() || undefined;
+        }
+        await patient.save();
+
+        const updatedPatient = await patientsModel.findById(req.user.id).select("-password");
+        return res.status(200).json({ message: "Enfermedad actualizada", user: updatedPatient });
     } catch (error) {
         console.log("error " + error);
         return res.status(500).json({ message: "Error interno del servidor" });

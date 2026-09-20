@@ -133,3 +133,12 @@
     @apply font-sans;
     }
 }
+
+/* Edge/algunos navegadores basados en Chromium agregan su propio ícono de
+   "mostrar contraseña" dentro de input[type=password], que se superpone al
+   ícono de ojo del componente InputField (ver src/components/ui/InputField.jsx).
+   Sin esto, en esos navegadores se ven dos íconos de ojo encimados. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}

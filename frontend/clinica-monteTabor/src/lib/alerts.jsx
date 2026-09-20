@@ -115,18 +115,23 @@ export const confirmDelete = async ({
 // con el conteo de esos registros y la gestion de usuarios llama aqui antes
 // de reintentar el borrado con cascade. subject es "paciente" o "doctor",
 // name es el nombre completo para el mensaje, y related trae los conteos
-// { appointments, consultations }.
+// { appointments, consultations, treatments }. treatments solo lo manda el
+// borrado de paciente (un doctor/enfermera no tiene tratamientos propios),
+// por eso se muestra aparte y solo si viene informado.
 export const confirmCascadeDelete = async ({ subject, name, related = {} }) => {
   const appointments = related.appointments || 0;
   const consultations = related.consultations || 0;
+  const treatments = related.treatments || 0;
   const cita = appointments === 1 ? "cita" : "citas";
   const consulta = consultations === 1 ? "consulta" : "consultas";
+  const tratamiento = treatments === 1 ? "tratamiento" : "tratamientos";
 
   const result = await Swal.fire({
     title: `¿Eliminar a ${name} y todo lo relacionado?`,
     html:
-      `Este ${subject} tiene <b>${appointments}</b> ${cita} y <b>${consultations}</b> ${consulta} registradas. ` +
-      `Si continúas, también se eliminarán todas sus citas, consultas, recetas, órdenes de laboratorio, ` +
+      `Este ${subject} tiene <b>${appointments}</b> ${cita} y <b>${consultations}</b> ${consulta} registradas` +
+      (treatments > 0 ? ` y <b>${treatments}</b> ${tratamiento} de seguimiento` : "") +
+      `. Si continúas, también se eliminarán todas sus citas, consultas, recetas, órdenes de laboratorio, ` +
       `incapacidades y demás información relacionada. Esta acción no se puede deshacer.`,
     icon: "warning",
     iconColor: "#fbbf24",
@@ -145,6 +150,42 @@ export const confirmCascadeDelete = async ({ subject, name, related = {} }) => {
     buttonsStyling: true,
   });
   return result.isConfirmed;
+};
+
+// Se muestra cuando se intenta eliminar un paciente que se registró hace
+// menos de un año: el backend bloquea el borrado (ver deletePatient), la
+// información clínica se protege ese primer año. La única acción disponible
+// mientras tanto es marcarlo como inactivo, y solo se ofrece si todavía está
+// activo. Devuelve true solo si el usuario confirmó "Marcar como inactivo".
+export const confirmDeleteLocked = async ({ name, unlockDate, isActive = true }) => {
+  const fecha = unlockDate
+    ? new Date(unlockDate).toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric" })
+    : "un año después de su registro";
+
+  const result = await Swal.fire({
+    title: "Todavía no se puede eliminar",
+    html:
+      `<b>${name}</b> se registró hace menos de un año. Para proteger la información clínica, el paciente podrá eliminarse a partir del <b>${fecha}</b>.` +
+      (isActive
+        ? "<br/><br/>Si no deseas que se muestre su información mientras tanto, puedes marcarlo como <b>inactivo</b>."
+        : "<br/><br/>Este paciente ya está inactivo, así que su información no aparece en las vistas clínicas."),
+    icon: "info",
+    iconColor: "#3B82F6",
+    showCancelButton: isActive,
+    confirmButtonText: isActive ? "Marcar como inactivo" : "Entendido",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#3B6FCA",
+    cancelButtonColor: "#94a3b8",
+    customClass: {
+      popup: "rounded-2xl shadow-xl border border-slate-100 text-sm",
+      title: "text-slate-800 font-bold text-lg",
+      htmlContainer: "text-slate-500",
+      confirmButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+      cancelButton: "rounded-xl font-semibold text-sm px-5 py-2.5",
+    },
+    buttonsStyling: true,
+  });
+  return isActive && result.isConfirmed;
 };
 
 export const confirmResetPermissions = async (roleName) => {

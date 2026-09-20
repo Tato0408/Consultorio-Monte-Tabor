@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import apiClient from "../../../lib/apiClient";
-import { confirmDelete, showSuccess, showError } from "../../../lib/alerts";
+import { confirmDelete, confirmCascadeDelete, showSuccess, showError } from "../../../lib/alerts";
 import { sortByName } from "../../../lib/utils";
 
 const useNurse = () => {
@@ -79,20 +79,40 @@ const useNurse = () => {
 
     if (!confirmed) return;
 
-    try {
-      setError(null);
-      await apiClient(`/nurses/${nurse._id}`, { method: "DELETE" });
-
+    const afterDelete = () => {
       // Limpia el panel si la enfermera eliminada era la seleccionada
       if (selectedNurse?._id === nurse._id) {
         setSelectedNurse(null);
         setNextProcedure(null);
       }
-
-      await fetchNurses();
-
       showSuccess("La enfermera fue eliminada correctamente.");
+    };
+
+    try {
+      setError(null);
+      await apiClient(`/nurses/${nurse._id}`, { method: "DELETE" });
+      await fetchNurses();
+      afterDelete();
     } catch (err) {
+      // Si tiene citas o consultas relacionadas, el backend responde 409 y
+      // pide una segunda confirmación reforzada antes de borrar también
+      // todo lo relacionado (mismo flujo que doctores y pacientes).
+      if (err.status === 409 && err.data?.code === "HAS_RELATED_RECORDS") {
+        const cascadeConfirmed = await confirmCascadeDelete({
+          subject: "enfermera",
+          name: `${nurse.name} ${nurse.last_name}`.trim() || "esta enfermera",
+          related: err.data.related,
+        });
+        if (!cascadeConfirmed) return;
+        try {
+          await apiClient(`/nurses/${nurse._id}?cascade=true`, { method: "DELETE" });
+          await fetchNurses();
+          afterDelete();
+        } catch (cascadeErr) {
+          showError(cascadeErr.message || "No se pudo eliminar la enfermera.");
+        }
+        return;
+      }
       showError(err.message || "No se pudo eliminar la enfermera.");
     }
   }, [fetchNurses, selectedNurse]);

@@ -80,14 +80,12 @@ const ChangePasswordScreen = ({ navigation }) => {
     const result = await changePassword(oldPassword.trim(), newPassword.trim(), confirmPassword.trim());
 
     if (result.ok) {
-      console.log("[ChangePassword] Contraseña actualizada correctamente.");
       showSuccess(result.message || "Contraseña actualizada correctamente.");
       setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
       navigation?.goBack();
     } else {
-      console.log("[ChangePassword] Falló:", result.message);
       // Si el backend identifica a qué campo pertenece el error, lo marcamos en rojo también
       if (result.message === "La contraseña actual es incorrecta") {
         setErrors({ oldPassword: result.message });

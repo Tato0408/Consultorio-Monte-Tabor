@@ -33,8 +33,10 @@ notificationsController.getMyNotifications = async (req, res) => {
             const isDeleted = /elimin/i.test(notification.message || "");
             if (!notification.title) notification.title = inferLegacyTitle(notification.message);
             if (!notification.action_url && notification.appointment_id && !isDeleted) {
+                // El portal público no tiene /appointments/:id/edit; la pantalla real
+                // es /mis-citas (ver patientPortalController.js y notificationService.js).
                 notification.action_url = req.user.role === "patient"
-                    ? `/appointments/${notification.appointment_id}/edit`
+                    ? "/mis-citas"
                     : `/calendar/appointments/${notification.appointment_id}`;
             }
             return notification;

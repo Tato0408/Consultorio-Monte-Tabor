@@ -10,5 +10,9 @@ function getBaseUrl() {
 // Se resuelve una sola vez al importar el módulo
 export const API_URL = getBaseUrl();
 
+// URL del WebSocket de tiempo real (mismo canal /ws/roles que ya usan el panel privado
+// y el portal público): mismo host que la API, con esquema ws/wss y sin el sufijo "/api".
+export const WS_URL = API_URL.replace(/^http/, "ws").replace(/\/api\/?$/, "") + "/ws/roles";
+
 // __DEV__ es false en producción, así que esta traza no llega al build final
 if (__DEV__) console.log("[API] URL base:", API_URL);

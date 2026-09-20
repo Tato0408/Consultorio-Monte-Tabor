@@ -10,19 +10,39 @@ import useInsumos from "../hooks/useInsumos";
 const PIE_COLORS  = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#94a3b8"];
 const LINE_COLOR  = "#3b82f6";
 
-const InventoryCharts = ({ refreshTrigger }) => {
+const InventoryCharts = ({ refreshTrigger, canView = true }) => {
   const navigate = useNavigate();
   const { getCharts } = useInsumos();
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Sin permiso de Ver en Reportes de inventario, GET /inventory/charts
+    // devuelve 403: antes se pedía igual y el catch silencioso dejaba las
+    // tres gráficas mostrando "Sin datos" para siempre, indistinguible de
+    // que de verdad no hubiera movimientos.
+    if (!canView) { setData(null); setLoading(false); return; }
     setLoading(true);
     getCharts()
       .then(setData)
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, [refreshTrigger]);
+  }, [refreshTrigger, canView]);
+
+  if (!canView) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {["Consumo de insumos", "Insumos más utilizados", "Estado del inventario"].map((title) => (
+          <div key={title} className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+            <h3 className="text-sm font-semibold text-slate-800 mb-4">{title}</h3>
+            <div className="h-[180px] flex items-center justify-center text-xs text-slate-400 text-center px-4">
+              Sin permiso para ver este reporte
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   const dailyMovements = data?.dailyMovements ?? [];
   const topItems       = data?.topItems       ?? [];

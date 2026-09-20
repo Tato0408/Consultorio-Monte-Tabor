@@ -11,7 +11,12 @@ router.route("/by-appointment/:appointmentId")
     .delete(authorize("calendar.consultations", "delete"), labOrderController.removeByAppointment);
 
 router.route("/")
-    .get(authorize("calendar.consultations", "view"), labOrderController.list)
+    // El listado (GET) es lo que llena la pestaña Documentos > Laboratorio y el resumen del
+    // expediente (usePatientRecordDetail.js), no la consulta en curso, así que reusa el
+    // permiso del expediente clínico (reports.records) igual que el PUT/DELETE de abajo. Antes
+    // usaba calendar.consultations: un rol con acceso a Expediente pero no a Consultas
+    // recibía 403 en silencio y esa categoría de Documentos aparecía vacía sin aviso.
+    .get(authorize("reports.records", "view"), labOrderController.list)
     .post(authorize("calendar.consultations", "create"), labOrderController.upsert);
 
 // Edición/eliminación puntual de una orden ya finalizada desde la pestaña de

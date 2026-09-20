@@ -15,12 +15,18 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { getPrescriptions, getSickLeaves, getReferrals, getLabOrders } from "@/services/patientPortalService";
 import { showError } from "@/lib/alerts";
-import { downloadTextFile } from "@/lib/downloadFile";
-import { descargarIncapacidadPdf, descargarRecetaPdf, descargarOrdenLaboratorioPdf } from "@/lib/pdf/patientDocuments";
+import { descargarIncapacidadPdf, descargarRecetaPdf, descargarOrdenLaboratorioPdf, descargarReferenciaPdf } from "@/lib/pdf/patientDocuments";
 import { countSelectedTests } from "@/lib/labOrderCatalog";
 
-const fmtFecha = (iso) =>
-  iso ? new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric" }) : "—";
+// utc=true para los campos "solo fecha" (incapacidad, laboratorio, referencia), que el
+// backend guarda como medianoche UTC del día real (mismo criterio que isoDiaUTC más
+// abajo): sin timeZone:"UTC" el día se corre uno atrás en El Salvador. La receta usa
+// issued_at, un timestamp real, y debe seguir leyéndose en hora local o el corrimiento
+// pasaría al día siguiente en vez de al anterior.
+const fmtFecha = (iso, utc) =>
+  iso
+    ? new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric", ...(utc ? { timeZone: "UTC" } : {}) })
+    : "—";
 
 // Config por tipo. Mismos dos colores que la app móvil (incapacidad = azul de marca,
 // receta = verde); referencia lleva violeta porque solo existe en la web.
@@ -32,6 +38,7 @@ const TIPOS = {
     accent: "#3B6FCA",
     iconBg: "bg-[#EEF3FF]",
     dateField: "start_date",
+    dateIsUTC: true,
     bodyLabel: "Diagnóstico",
   },
   receta: {
@@ -50,6 +57,7 @@ const TIPOS = {
     accent: "#0D9488",
     iconBg: "bg-[#E6F5F3]",
     dateField: "date",
+    dateIsUTC: true,
     bodyLabel: "Exámenes solicitados",
   },
   referencia: {
@@ -59,6 +67,7 @@ const TIPOS = {
     accent: "#7C4FD1",
     iconBg: "bg-[#F1EBFB]",
     dateField: "date",
+    dateIsUTC: true,
     bodyLabel: "Motivo",
   },
 };
@@ -82,20 +91,6 @@ const isoDiaUTC = (iso) => {
   const d = new Date(iso);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 };
-
-const buildTextoReferencia = (r) =>
-  [
-    "CLÍNICA FAMILIAR MONTE TABOR",
-    "Referencia médica",
-    `Fecha: ${fmtFecha(r.date)}`,
-    r.doctor ? `Doctor: ${nombreDoctor(r.doctor)}` : "",
-    "",
-    `Motivo: ${r.reason || "—"}`,
-    `Referido a: ${r.referred_to || "—"}`,
-    `Estado: ${r.status || "—"}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
 
 const bodyValue = (tipo, doc) => {
   if (tipo === "incapacidad") return doc.diagnosis || "Sin diagnóstico registrado";
@@ -124,7 +119,7 @@ const DocCard = ({ tipo, doc, descargando, onDownload }) => {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[13px] font-bold text-gray-900 lg:text-[15px]">{fmtFecha(doc[cfg.dateField])}</p>
+            <p className="text-[13px] font-bold text-gray-900 lg:text-[15px]">{fmtFecha(doc[cfg.dateField], cfg.dateIsUTC)}</p>
             {tipo === "incapacidad" && (
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -239,7 +234,7 @@ const Documents = () => {
       if (t === "receta") await descargarRecetaPdf(patient, doc);
       else if (t === "incapacidad") await descargarIncapacidadPdf(patient, doc);
       else if (t === "laboratorio") await descargarOrdenLaboratorioPdf(patient, doc);
-      else downloadTextFile(`referencia-${fmtFecha(doc.date)}.txt`, buildTextoReferencia(doc));
+      else await descargarReferenciaPdf(patient, doc);
     } catch (err) {
       showError(err.message || "No se pudo generar el documento.");
     } finally {

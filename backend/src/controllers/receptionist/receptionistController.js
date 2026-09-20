@@ -237,6 +237,10 @@ receptionistController.updateReceptionist = async (req, res) => {
 // =====================
 // DELETE
 // =====================
+// A diferencia de doctors/nurses/patients, este borrado es incondicional (sin chequeo de
+// citas/consultas relacionadas ni modo cascada): ningún modelo guarda receptionist_id como
+// llave foránea, así que no hay riesgo real de dejar registros huérfanos. Es solo una
+// diferencia de estilo con el resto de la gestión de usuarios, no un bug funcional.
 receptionistController.deleteReceptionist = async (req, res) => {
   //El try sirve para capturar cualquier error que pueda ocurrir dentro del bloque al borrar
   try {
@@ -291,7 +295,21 @@ receptionistController.updateOwnProfile = async (req, res) => {
     
     //Obtiene toda la informacion enviada desde el formulario del perfil
     //los datos vienen dentro del body de la peticion
-    const { name, last_name, dui, birth_date, phone, email, password } = req.body;
+    const { name, last_name, dui, birth_date, phone, email, password, current_password } = req.body;
+
+    // Mismas dos validaciones que ya hace updateReceptionist (edición desde administración):
+    // sin ellas, esta ruta ni siquiera validaba el formato de correo/teléfono/DUI, y un
+    // recepcionista podía cambiar su propio correo o DUI a uno ya usado por otro miembro del
+    // staff sin ningún aviso.
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+    if (formatError) {
+      return res.status(400).json({ message: formatError });
+    }
+
+    const staffDuplicate = await findStaffDuplicate(email, dui, receptionistId);
+    if (staffDuplicate) {
+      return res.status(400).json(staffDuplicate);
+    }
 
     //Crea una constante con el objeto de los datos del propio perfil que se van a actualizar
     const updatedData = {
@@ -306,6 +324,16 @@ receptionistController.updateOwnProfile = async (req, res) => {
     // Si viene una nueva contraseña, la validamos y encriptamos (mismo criterio que
     // receptionistController.updateReceptionist / adminController.updateAdmin)
     if (password && password.trim() !== "") {
+      // Antes no se pedía la contraseña actual: una sesión comprometida
+      // bastaba para tomar la cuenta cambiando la contraseña sin fricción.
+      if (!current_password || !current_password.trim()) {
+        return res.status(400).json({ message: "Debes ingresar tu contraseña actual." });
+      }
+      const currentMatches = await bcryptjs.compare(current_password, receptionistFound.password);
+      if (!currentMatches) {
+        return res.status(400).json({ message: "La contraseña actual no es correcta." });
+      }
+
       const passwordError = getPasswordError(password);
       if (passwordError) {
         return res.status(400).json({ message: passwordError });

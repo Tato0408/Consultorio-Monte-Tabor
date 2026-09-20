@@ -7,7 +7,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { getDashboardSummary } from "@/services/patientPortalService";
 import { cancelAppointment } from "@/services/appointmentsService";
-import { showSuccess, showError, confirmAction } from "@/lib/alerts";
+import { showSuccess, showError, confirmAction, confirmActionWithReason } from "@/lib/alerts";
 import NotificationsMenu from "@/components/NotificationsMenu";
 
 const Logo = () => (
@@ -25,8 +25,13 @@ const fmt12 = (t) => {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 };
 
+// El backend guarda "date" como medianoche UTC del día real (no le mete
+// zona horaria), así que hay que leerla con timeZone:"UTC"/getters UTC o
+// el día se corre uno atrás en cualquier huso detrás de UTC (todo
+// Latinoamérica, incluido El Salvador). Mismo criterio que ya usa
+// inicioDeCita en MyAppointments.jsx para el cálculo de reagendar.
 const fmtFechaCorta = (iso) =>
-  new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "short", year: "numeric" });
+  new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -36,9 +41,9 @@ const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "s
 const partesFecha = (iso) => {
   const d = new Date(iso);
   return {
-    diaSemana: DIAS_SEMANA[d.getDay()],
-    diaNumero: d.getDate(),
-    mesAnio: `${MESES_CORTOS[d.getMonth()]} ${d.getFullYear()}`,
+    diaSemana: DIAS_SEMANA[d.getUTCDay()],
+    diaNumero: d.getUTCDate(),
+    mesAnio: `${MESES_CORTOS[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
   };
 };
 
@@ -116,14 +121,43 @@ const Dashboard = () => {
 
   const handleCancelar = async () => {
     if (!nextAppointment) return;
+    // A menos de 30 min del inicio, una cita ya aceptada no se puede cancelar
+    // sola (el backend también lo bloquea). "date" llega como medianoche del
+    // día de la cita, se combina con start_time igual que en Mis citas.
+    if (nextAppointment.status === "scheduled") {
+      const [hh, mm] = String(nextAppointment.start_time || "0:0").split(":").map(Number);
+      const d = new Date(nextAppointment.date);
+      const inicioCita = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hh, mm, 0, 0);
+      if (inicioCita.getTime() - Date.now() <= 30 * 60 * 1000) {
+        showError("Tu cita está próxima a comenzar. Para cancelarla, comunícate con el doctor que te atenderá y lleguen a un acuerdo.");
+        return;
+      }
+    }
     // El mensaje advierte que el anticipo se pierde solo cuando ya fue pagado y confirmado
     const mensaje = nextAppointment.deposit_paid
-      ? `Ya pagaste un anticipo de $${Number(nextAppointment.deposit_amount).toFixed(2)} para esta cita. Si cancelas, ese anticipo no será reembolsado. ¿Deseas continuar?`
-      : "¿Seguro que deseas cancelar tu próxima cita?";
-    if (!(await confirmAction(mensaje, { confirmLabel: "Sí, cancelar", danger: true }))) return;
+      ? `Ya pagaste un anticipo de $${Number(nextAppointment.deposit_amount).toFixed(2)} para esta cita. Si cancelas, ese anticipo no será reembolsado. Cuéntanos por qué cancelas:`
+      : "¿Por qué deseas cancelar tu próxima cita?";
+    // El motivo real que escriba el paciente es lo que se guarda (ver
+    // cancelMyAppointment en el backend), igual que en Mis citas.
+    const motivo = await confirmActionWithReason(mensaje, {
+      confirmLabel: "Sí, cancelar",
+      placeholder: "Ej. Ya no puedo asistir a esa hora...",
+    });
+    if (!motivo) return;
+
+    // Segunda confirmación explícita cuando ya se pagó el anticipo: el paciente
+    // acepta de forma clara que ese dinero no se le devuelve.
+    if (nextAppointment.deposit_paid) {
+      const aceptaPerderAnticipo = await confirmAction(
+        `¿Confirmas la cancelación? Ya pagaste un anticipo de $${Number(nextAppointment.deposit_amount).toFixed(2)} y, por política de la clínica, ese monto no se te reembolsará.`,
+        { confirmLabel: "Sí, cancelar", cancelLabel: "No, conservar la cita", danger: true }
+      );
+      if (!aceptaPerderAnticipo) return;
+    }
+
     setCancelling(true);
     try {
-      await cancelAppointment(nextAppointment._id);
+      await cancelAppointment(nextAppointment._id, motivo);
       showSuccess("Cita cancelada.");
       cargar();
     } catch (err) {

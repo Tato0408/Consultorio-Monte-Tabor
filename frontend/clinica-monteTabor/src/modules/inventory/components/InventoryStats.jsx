@@ -12,11 +12,41 @@ const CARDS = [
 ];
 
 const fmt = (key, val) => {
-  if (key === "Valor aproximado") return `$${Number(val || 0).toLocaleString()}`;
+  if (key === "Valor aproximado") {
+    // val puede llegar como "—" (placeholder de values[] mientras no hay
+    // stats todavía) en vez de un número: Number("—") es NaN, así que se
+    // revalida acá antes de formatear como moneda en vez de mostrar $NaN.
+    const num = Number(val);
+    return Number.isFinite(num) ? `$${num.toLocaleString()}` : "—";
+  }
   return val ?? "—";
 };
 
-const InventoryStats = ({ stats }) => {
+const InventoryStats = ({ stats, canView = true }) => {
+  // Sin permiso de Ver en Reportes de inventario, GET /inventory/stats
+  // devuelve 403 y stats nunca se llena: antes esto se mostraba igual,
+  // calculando "$NaN" a partir del guion de respaldo. Se avisa el motivo
+  // real en vez de fingir un dato numérico.
+  if (!canView) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-5">
+        {CARDS.map((card, i) => (
+          <div key={i} className="bg-white rounded-xl border border-slate-100 shadow-sm p-3 sm:p-5 flex flex-col gap-2 sm:gap-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] sm:text-sm text-slate-500 leading-tight">{card.title}</p>
+                <p className="text-xs text-slate-400 mt-1">Sin permiso para ver este dato</p>
+              </div>
+              <div className={`p-2 sm:p-2.5 rounded-lg flex-shrink-0 ${card.color} opacity-50`}>
+                <card.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const values = [
     stats?.total ?? "—",
     stats?.bajoStock ?? "—",

@@ -5,26 +5,36 @@ import uploadDocument from "../../utils/CloudinaryDocumentConfig.js";
 
 const router = express.Router();
 
-router.get("/follow-up", authorize("inventory.treatments", "view"), treatmentsController.getFollowUp);
+// Todas las acciones usan el permiso inventory.treatments, con el mismo
+// criterio del resto del sistema: view para leer, create para agregar
+// algo nuevo, update para editar el plan o el estado, delete para borrar
+// una nota o un documento.
+router.get("/", authorize("inventory.treatments", "view"), treatmentsController.list);
+router.get("/active", authorize("inventory.treatments", "view"), treatmentsController.getActiveByPatient);
+router.get("/:id", authorize("inventory.treatments", "view"), treatmentsController.getById);
 
-// Las acciones del panel de seguimiento del paciente (botones
-// "Actualizar evolución", "Agregar nota", "Programar control",
-// "Cambiar estado" y "Dar de alta") usan el mismo criterio de
-// permisos que el resto del sistema: "create" para agregar algo
-// nuevo, "update" para modificar el tratamiento.
-router.patch("/:patientId/evolution",        authorize("inventory.treatments", "update"), treatmentsController.updateEvolution);
-router.delete("/:patientId/evolution",       authorize("inventory.treatments", "delete"), treatmentsController.deleteEvolution);
-router.post("/:patientId/notes",             authorize("inventory.treatments", "create"), treatmentsController.addNote);
-router.patch("/:patientId/notes/:noteId",    authorize("inventory.treatments", "update"), treatmentsController.updateNote);
-router.delete("/:patientId/notes/:noteId",   authorize("inventory.treatments", "delete"), treatmentsController.deleteNote);
-router.patch("/:patientId/follow-up",        authorize("inventory.treatments", "update"), treatmentsController.scheduleControl);
-router.patch("/:patientId/status",           authorize("inventory.treatments", "update"), treatmentsController.setStatus);
-router.patch("/:patientId/discharge",        authorize("inventory.treatments", "update"), treatmentsController.discharge);
+router.post("/", authorize("inventory.treatments", "create"), treatmentsController.create);
+router.delete("/:id", authorize("inventory.treatments", "delete"), treatmentsController.remove);
+router.patch("/:id", authorize("inventory.treatments", "update"), treatmentsController.updatePlan);
+router.patch("/:id/control", authorize("inventory.treatments", "update"), treatmentsController.scheduleControl);
+router.patch("/:id/status", authorize("inventory.treatments", "update"), treatmentsController.setStatus);
 
-// El botón "Subir documento" de la pestaña Documentos sube el
-// archivo a Cloudinary (multer) antes de llegar al controller,
+router.post("/:id/notes", authorize("inventory.treatments", "create"), treatmentsController.addNote);
+router.patch("/:id/timeline/:entryId", authorize("inventory.treatments", "update"), treatmentsController.updateNote);
+router.delete("/:id/timeline/:entryId", authorize("inventory.treatments", "delete"), treatmentsController.deleteNote);
+
+// El archivo se sube a Cloudinary (multer) antes de llegar al controller,
 // igual que las fotos de doctores, enfermeras y recepcionistas.
-router.post("/:patientId/documents",              authorize("inventory.treatments", "create"), uploadDocument.single("document"), treatmentsController.uploadDocument);
-router.delete("/:patientId/documents/:documentId", authorize("inventory.treatments", "delete"), treatmentsController.deleteDocument);
+router.post(
+  "/:id/documents",
+  authorize("inventory.treatments", "create"),
+  uploadDocument.single("document"),
+  treatmentsController.uploadDocument
+);
+router.delete(
+  "/:id/documents/:documentId",
+  authorize("inventory.treatments", "delete"),
+  treatmentsController.deleteDocument
+);
 
 export default router;

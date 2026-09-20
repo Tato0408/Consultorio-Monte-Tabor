@@ -1,4 +1,4 @@
-import { BookOpen, PackagePlus, ClipboardList, ShoppingCart } from "lucide-react";
+import { BookOpen, PackagePlus, ClipboardList } from "lucide-react";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 // El bloque de acciones rápidas queda solo en el panel lateral, ya
@@ -19,10 +19,9 @@ const QuickActionsCard = ({
   defaultOpen = true,
 }) => {
   const actions = [
+    { label: "Ingreso de productos",       icon: PackagePlus,   color: "text-green-600 bg-green-50",    fn: onStockEntry,  show: canCreateMovement },
     { label: "Registrar uso manual",       icon: BookOpen,      color: "text-blue-600 bg-blue-50",     fn: onManualUsage, show: canCreateMovement },
-    { label: "Registrar entrada de stock", icon: PackagePlus,   color: "text-green-600 bg-green-50",    fn: onStockEntry,  show: canCreateMovement },
     { label: "Ajuste de inventario",       icon: ClipboardList, color: "text-orange-500 bg-orange-50",  fn: onAdjust,      show: canUpdateMovement },
-    { label: "Generar orden de compra",    icon: ShoppingCart,  color: "text-purple-600 bg-purple-50",  fn: null,          show: canCreateMovement },
   ].filter((a) => a.show);
 
   if (actions.length === 0) return null;

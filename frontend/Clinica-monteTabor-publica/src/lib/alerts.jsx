@@ -174,6 +174,68 @@ const ReasonConfirmCard = ({ t, message, confirmLabel, cancelLabel, placeholder,
   );
 };
 
+const CodePromptCard = ({ t, message, confirmLabel, cancelLabel, onConfirm, onCancel }) => {
+  const [valor, setValor] = useState("");
+  const valido = valor.trim().length > 0;
+
+  return (
+    <div
+      style={{
+        opacity: t.visible ? 1 : 0,
+        transform: t.visible ? "translateY(0) scale(1)" : "translateY(-10px) scale(0.97)",
+        transition: "all 0.2s cubic-bezier(.34,1.56,.64,1)",
+      }}
+      className="bg-white border border-gray-100 rounded-2xl shadow-lg shadow-gray-200/60 p-4 max-w-sm w-full"
+    >
+      <p className="text-sm font-semibold text-gray-800 leading-snug">{message}</p>
+      <input
+        autoFocus
+        type="text"
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+        placeholder="Código de verificación"
+        maxLength={12}
+        className="w-full mt-3 px-3 py-2 text-sm text-center tracking-widest font-semibold rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:border-[#3B6FCA] focus:bg-white"
+      />
+      <div className="flex justify-end gap-2 mt-3">
+        <button
+          onClick={onCancel}
+          className="px-3.5 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+        >
+          {cancelLabel}
+        </button>
+        <button
+          onClick={() => valido && onConfirm(valor.trim())}
+          disabled={!valido}
+          className="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white transition-colors bg-[#3B6FCA] hover:bg-[#2d5ab5] disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Pide un código corto (verificación de correo, etc.) con el mismo estilo de tarjeta
+// flotante que el resto de estos helpers, en vez del prompt nativo del navegador.
+// Devuelve el código escrito (trim) si se confirma, o null si se cancela.
+export const promptCode = (message, { confirmLabel = "Confirmar", cancelLabel = "Cancelar" } = {}) =>
+  new Promise((resolve) => {
+    toast.custom(
+      (t) => (
+        <CodePromptCard
+          t={t}
+          message={message}
+          confirmLabel={confirmLabel}
+          cancelLabel={cancelLabel}
+          onConfirm={(code) => { toast.dismiss(t.id); resolve(code); }}
+          onCancel={() => { toast.dismiss(t.id); resolve(null); }}
+        />
+      ),
+      { duration: Infinity }
+    );
+  });
+
 // Igual que confirmAction, pero además pide un motivo en un textarea — el paciente
 // escribe el texto real que se guarda tal cual (ver cancelMyAppointment en el backend),
 // en vez de un motivo fijo que no reflejaba lo que realmente pasó. Devuelve el texto

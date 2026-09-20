@@ -41,7 +41,7 @@ const describe = (type) => {
 
 const dateLabel = (value) =>
   value
-    ? new Date(value).toLocaleDateString("es-GT", {
+    ? new Date(value).toLocaleDateString("es-SV", {
         day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
       })
     : null;
@@ -81,6 +81,10 @@ const BloodTypeScreen = ({ navigation }) => {
   const bloodType = patient?.clinical_history?.blood_type;
   const registeredAt = dateLabel(patient?.clinical_history?.blood_type_date);
   const compatibility = bloodType ? COMPATIBILITY[bloodType] : null;
+  // true solo cuando lo confirmó personal clínico en una consulta (ver
+  // BloodTypeCard.jsx en el panel privado); autoreportarlo desde acá
+  // siempre lo deja en false.
+  const verified = !!patient?.clinical_history?.blood_type_verified;
 
   const goToForm = () =>
     navigation.navigate("AddBloodType", { current: bloodType });
@@ -136,6 +140,19 @@ const BloodTypeScreen = ({ navigation }) => {
               </View>
               <Text style={styles.heroLabel}>Tu tipo de sangre</Text>
               <Text style={styles.heroValue}>{bloodType}</Text>
+              <View
+                style={{
+                  marginTop: 8,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 999,
+                  backgroundColor: verified ? "#ECFDF5" : "#FFFBEB",
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "600", color: verified ? "#047857" : "#B45309" }}>
+                  {verified ? "Confirmado por personal clínico" : "Autoreportado, sin confirmar"}
+                </Text>
+              </View>
             </View>
 
             <View style={styles.card}>

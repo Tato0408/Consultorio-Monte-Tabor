@@ -7,11 +7,17 @@ import { sendEmail } from "../../utils/sendMailMailjet.js";
 import HTMLRecoveryEmail from "../../utils/HTMLsendRecoveryPassword.js";
 
 import { config } from "../../../config.js";
+import { getPasswordError } from "../../utils/validators.js";
 
 import patientModel from "../../models/patients/patients.js";
 
 //Array de funciones
 const recoveryPasswordController = {};
+
+// Mismo mensaje genérico que ya usa staffRecoveryController.js: sin esto,
+// requestCode devolvía 404 si el correo no existía y 200 si existía,
+// permitiendo enumerar qué correos son pacientes reales del sistema.
+const GENERIC_MESSAGE = "Si el correo está registrado, te enviaremos un código de verificación.";
 
 // La web guarda el token de recuperación en una cookie porque el
 // navegador la reenvía sola. La app móvil no tiene cookie jar, así
@@ -29,11 +35,12 @@ recoveryPasswordController.requestCode = async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Valida que el correo exista en la base de datos.
     const userFound = await patientModel.findOne({ email });
 
+    // Si no hay coincidencia, no se genera cookie ni se manda correo, pero la
+    // respuesta es idéntica a la de un correo que sí existe (ver GENERIC_MESSAGE).
     if (!userFound) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(200).json({ message: GENERIC_MESSAGE });
     }
 
     const randomCode = crypto.randomBytes(3).toString("hex");
@@ -48,7 +55,7 @@ recoveryPasswordController.requestCode = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: 15 * 60 * 1000
     });
 
     const htmlContent = HTMLRecoveryEmail(randomCode);
@@ -56,10 +63,11 @@ recoveryPasswordController.requestCode = async (req, res) => {
     try {
       await sendEmail(email, "Recuperación de contraseña", htmlContent);
     } catch (error) {
+      // No se revela si el envío falló: mismo mensaje genérico. El intento
+      // queda en el log del servidor para diagnóstico.
       console.log("error" + error);
-      return res.status(500).json({ message: "Error al enviar el correo" });
     }
-    return res.status(200).json({ message: "Correo enviado", recoveryToken: token });
+    return res.status(200).json({ message: GENERIC_MESSAGE, recoveryToken: token });
   } catch (error) {
     console.log("error" + error);
     return res.status(500).json({ message: "Error interno del servidor" });
@@ -91,7 +99,7 @@ recoveryPasswordController.verifyCode = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: 15 * 60 * 1000
     });
 
     return res.status(200).json({ message: "Código verificado correctamente", recoveryToken: newToken });
@@ -113,6 +121,13 @@ recoveryPasswordController.newPassword = async (req, res) => {
 
     if (newPassword !== confirmNewPassword) {
       return res.status(400).json({ message: "Las contraseñas no coinciden" });
+    }
+
+    // Antes este paso no exigía la misma complejidad que el registro: se podía
+    // recuperar una cuenta y dejarla con una contraseña de un solo carácter.
+    const passwordError = getPasswordError(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     // Verifica que el token tenga verified en true, es decir, que ya
@@ -179,7 +194,7 @@ recoveryPasswordController.resendCode = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: 15 * 60 * 1000
     });
 
     const htmlContent = HTMLRecoveryEmail(randomCode);

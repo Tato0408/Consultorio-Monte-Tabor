@@ -1,38 +1,28 @@
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
-import useInventory from "@/modules/inventory/hooks/useInventory";
-import useProcedures from "@/modules/procedures/hooks/useProcedures";
-import apiClient from "@/lib/apiClient";
 import { maskClinicalText } from "@/lib/inputMasks";
-import { useEffect, useState } from "react";
 
 // Clase del borde de un campo: rojo cuando el campo tiene un error de
 // validación pendiente, gris en cualquier otro caso.
 const borderClass = (hasError) => (hasError ? "border-red-400" : "border-slate-200");
 
-const ProcedureRow = ({ index, onRemove, readOnly }) => {
-    const { control, register, setValue, watch, formState: { errors } } = useFormContext();
-    const { inventory, isLoading: isLoadingInventory } = useInventory();
-    const { procedures, loading: isLoadingProcedures, getProcedureById } = useProcedures();
-    const [doctors, setDoctors] = useState([]);
-    const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
-
-    // Catálogo liviano, no exige el permiso Ver Doctores (a diferencia de
-    // GET /doctors): cualquier rol autenticado necesita esta lista para
-    // elegir el médico ejecutante de un procedimiento, aunque no tenga
-    // acceso al módulo de administración de doctores (mismo catálogo que
-    // usa el formulario de citas, ver useMedicalData.js).
-    useEffect(() => {
-        apiClient("/doctors/catalog")
-            .then(setDoctors)
-            .catch(() => setDoctors([]))
-            .finally(() => setIsLoadingDoctors(false));
-    }, []);
+// inventory/procedures/doctors llegan como props desde ProceduresCard.jsx (traídos una
+// sola vez ahí, no por cada fila): antes cada fila tenía su propia copia de estos 3
+// hooks/fetches, así que una consulta con 4 procedimientos disparaba 4 peticiones
+// idénticas a cada endpoint.
+const ProcedureRow = ({
+    index, onRemove, readOnly,
+    inventory, isLoadingInventory,
+    procedures, isLoadingProcedures, getProcedureById,
+    doctors, isLoadingDoctors,
+}) => {
+    const { control, register, setValue, getValues, watch, formState: { errors } } = useFormContext();
 
     const {
         fields: materials,
         append: appendMaterial,
         remove: removeMaterial,
+        replace: replaceMaterials,
     } = useFieldArray({
         control,
         name: `procedure.${index}.material_used`,
@@ -47,14 +37,28 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
         if (procedure) {
             setValue(`procedure.${index}._procedure_name`, procedure.name);
         }
-    };
 
-    // Registra en consola el procedimiento seleccionado en cada fila,
-    // útil para depuración.
-    useEffect(() => {
-        console.log(`📋 Procedure row ${index} - selected ID:`, selectedProcedureId);
-        console.log(`📋 Procedure row ${index} - selected procedure:`, selectedProcedure);
-    }, [selectedProcedureId, selectedProcedure, index]);
+        // Autocompleta los materiales que el catálogo de Procedimientos
+        // declaró para este procedimiento (Procedures.materials), en vez de
+        // dejar que el doctor tenga que volver a elegir cada insumo y
+        // cantidad a mano. Si lo olvidaba, la fila quedaba sin
+        // inventory_id, sanitizeProcedureRows la descartaba en silencio al
+        // guardar, y el inventario nunca se descontaba — justo lo contrario
+        // de lo que promete el propio formulario de Procedimientos ("Los
+        // materiales serán descontados del inventario al asignar el
+        // procedimiento."). Solo se autocompleta si esta fila todavía no
+        // tiene ningún material elegido a mano, para no pisar una edición
+        // que el doctor ya haya hecho.
+        const yaTieneMaterialesElegidos = (getValues(`procedure.${index}.material_used`) || [])
+            .some((m) => m?.inventory_id);
+        if (procedure?.materials?.length && !yaTieneMaterialesElegidos) {
+            replaceMaterials(
+                procedure.materials
+                    .filter((m) => m?.insumo?._id)
+                    .map((m) => ({ inventory_id: m.insumo._id, quantity: m.quantity || 1 }))
+            );
+        }
+    };
 
     return (
         <div className="border border-slate-100 rounded-lg p-3">
@@ -145,7 +149,7 @@ const ProcedureRow = ({ index, onRemove, readOnly }) => {
                                 </option>
                                 {inventory.map((item) => (
                                     <option key={item._id} value={item._id}>
-                                        {item.name} (stock: {item.stock} {item.unit})
+                                        {item.name} (stock: {item.stock} {item.unit_measure})
                                     </option>
                                 ))}
                             </select>

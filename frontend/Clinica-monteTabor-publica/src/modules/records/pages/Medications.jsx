@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getTodayMedications, markMedicationTaken, getPrescriptions } from "@/services/patientPortalService";
 import { showError } from "@/lib/alerts";
 import { descargarRecetaPdf } from "@/lib/pdf/patientDocuments";
+import NotificationsMenu from "@/components/NotificationsMenu";
 
 const fmtFecha = (iso) =>
   iso ? new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -119,7 +120,8 @@ const Medications = () => {
           </Link>
           <span className="font-bold text-gray-800">Medicamentos</span>
 
-          <div className="relative">
+          <div className="relative flex items-center gap-1">
+            <NotificationsMenu />
             <button onClick={() => setUserMenuOpen((v) => !v)} className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-50 transition-colors">
               <div className="w-8 h-8 rounded-full bg-[#3B6FCA]/10 flex items-center justify-center text-[#3B6FCA] font-semibold text-sm flex-shrink-0">
                 {patient?.name?.[0]}

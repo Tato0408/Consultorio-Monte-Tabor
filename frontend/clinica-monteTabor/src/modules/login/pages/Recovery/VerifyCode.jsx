@@ -7,11 +7,7 @@ import PrimaryButton from "../../components/PrimaryButton";
 import SecondaryButton from "../../components/SecondaryButton";
 import FooterLogin from "../../components/Footer";
 
-// Importa todos los hooks de recuperación para cada tipo de usuario.
-import { useRecoveryDoctor } from "../../hooks/useRecoveryDoctor";
-import { useRecoveryReceptionist } from "../../hooks/useRecoveryReceptionist";
-import { useRecoveryAdmin } from "../../hooks/useRecoveryAdmin";
-import { useRecoveryNurse } from "../../hooks/useRecoveryNurse";
+import { useStaffRecovery } from "../../hooks/useStaffRecovery";
 
 import { showError, showSuccess } from "../../../../lib/alerts";
 
@@ -25,44 +21,18 @@ const VerifyCode = () => {
   //Hook para navegar entre pantallas
   const navigate = useNavigate();
 
-  // Inicializa todos los hooks de recuperación disponibles.
-  // Más adelante se elige cuál usar según el rol guardado.
-  const doctorRecovery = useRecoveryDoctor();
-  const receptionistRecovery = useRecoveryReceptionist();
-  const adminRecovery = useRecoveryAdmin();
-  const nurseRecovery = useRecoveryNurse();
-
-  // Convierte el arreglo del código en un solo string.
-  const codeString = code.join("");
-
-  //Esta función devuelve el hook correcto según el tipo de usuario
-  const getActiveRecoveryHook = () => {
-    const role = localStorage.getItem("recoveryType");
-
-    switch (role) {
-      case "admin":
-        return adminRecovery;
-
-      case "receptionist":
-        return receptionistRecovery;
-
-      case "nurse":
-        return nurseRecovery;
-
-      case "doctor":
-      default:
-        return doctorRecovery;
-    }
-  };
-
-  // Obtiene el hook que corresponde al usuario actual.
-  const activeHook = getActiveRecoveryHook();
+  // Un solo endpoint atiende a los 4 roles de staff (el backend ya sabe cuál es, guardado
+  // en la cookie de recuperación desde requestCode) — ver staffRecoveryController.js.
+  const activeHook = useStaffRecovery();
 
   // El loading del hook activo solo lo activa su propio resendCode
   // interno, ni verifyCode ni requestCode lo modifican, así que no
   // sirve para bloquear este formulario. Por eso se controla con un
   // estado independiente.
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Convierte el arreglo del código en un solo string.
+  const codeString = code.join("");
 
   //Reglas que debe cumplir el código antes de enviarlo
   const codeRules = [

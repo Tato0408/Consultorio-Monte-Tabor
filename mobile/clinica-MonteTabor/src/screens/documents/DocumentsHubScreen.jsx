@@ -34,6 +34,14 @@ const TYPES = [
     accent: "#0D9488",
     endpoint: "/patient-portal/lab-orders",
   },
+  {
+    key: "referencia",
+    title: "Referencias",
+    icon: "swap-horizontal-outline",
+    iconBg: "#F1EBFB",
+    accent: "#7C4FD1",
+    endpoint: "/patient-portal/referrals",
+  },
 ];
 
 // Portada de "Mis documentos" (Perfil > Mis documentos): un encabezado inmersivo con el
@@ -43,7 +51,7 @@ export default function DocumentsHubScreen({ navigation }) {
   // null = todavía no se sabe (cargando o falló la consulta); nunca se muestra "0" a menos
   // que el conteo real haya llegado, para no dar a entender que no hay documentos cuando en
   // realidad fue un error de red.
-  const [counts, setCounts] = useState({ incapacidad: null, receta: null, laboratorio: null });
+  const [counts, setCounts] = useState({ incapacidad: null, receta: null, laboratorio: null, referencia: null });
   // Tamaño real del encabezado, para pintar el degradado con react-native-svg (ya es
   // dependencia, ver HexLogo) sin traer una librería de gradientes nueva.
   const [bannerSize, setBannerSize] = useState({ width: 0, height: 0 });
