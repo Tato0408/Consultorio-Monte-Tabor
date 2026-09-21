@@ -1,4 +1,5 @@
 const API_URL = "https://clinica-monte-tabor.onrender.com/api";
+//URL en local de la api
 //const API_URL = "http://localhost:4000/api";
 
 // URL del WebSocket de tiempo real: mismo host que la API, con esquema
