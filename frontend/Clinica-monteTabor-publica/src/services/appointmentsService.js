@@ -70,6 +70,12 @@ export const rescheduleAppointment = (id, { date, start_time, doctor_id, nurse_i
     body: { date, start_time, doctor_id, nurse_id },
   });
 
+// Elimina por completo una solicitud que nunca llegó a confirmarse (pending,
+// needs_reschedule o expired): a diferencia de cancelar, no deja ningún registro, porque
+// ningún doctor llegó a aceptarla (ver deleteMyAppointmentRequest en el backend).
+export const deleteAppointmentRequest = (id) =>
+  apiClient(`/patient-portal/appointments/${id}`, { method: "DELETE" });
+
 // Confirma (contra la propia API de Wompi, del lado del servidor) que la transacción ya cobrada
 // realmente fue aprobada, y recién ahí pasa la cita de "pending" a "scheduled"
 export const confirmPayment = (appointmentId, transactionId) =>

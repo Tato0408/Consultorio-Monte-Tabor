@@ -22,12 +22,15 @@ const STATUS = {
   needs_reschedule: { label: "Por reagendar", tone: "orange" }, expired: { label: "Por reagendar", tone: "orange" },
 };
 
-// Estados que se listan en la pestaña de citas (las demás viven en el historial de consultas).
+// Estados que se listan en la pestaña de citas (las demás, canceladas/no_show, viven en el
+// historial de consultas). "completed" no entra aquí: tiene su propio filtro "Atendidas"
+// más abajo, que sí se le suma a esta lista solo cuando ese filtro está activo.
 const OPEN_STATUSES = ["pending", "scheduled", "needs_reschedule", "expired"];
 const REAGENDABLES = ["needs_reschedule", "expired"];
 
 const APPOINTMENT_FILTERS = [
   { key: "all", label: "Todas" },
+  { key: "completed", label: "Atendidas" },
   { key: "pending", label: "Pendientes" },
   { key: "scheduled", label: "Programadas" },
   { key: "needs_reschedule", label: "Por reagendar" },
@@ -112,9 +115,13 @@ export default function AppointmentsScreen({ navigation, route }) {
   const visibleAppointments = useMemo(() => {
     const term = search.trim().toLowerCase();
     return appointments.filter((item) => {
-      if (!OPEN_STATUSES.includes(item.status)) return false;
-      if (appointmentFilter === "needs_reschedule" ? !REAGENDABLES.includes(item.status)
-        : appointmentFilter !== "all" && item.status !== appointmentFilter) return false;
+      if (appointmentFilter === "completed") {
+        if (item.status !== "completed") return false;
+      } else {
+        if (!OPEN_STATUSES.includes(item.status)) return false;
+        if (appointmentFilter === "needs_reschedule" ? !REAGENDABLES.includes(item.status)
+          : appointmentFilter !== "all" && item.status !== appointmentFilter) return false;
+      }
       if (!term) return true;
       const doctor = item.doctor_id ? `${item.doctor_id.name} ${item.doctor_id.last_name}` : "";
       return `${item.procedure_id?.name || item.type} ${doctor} ${item.description || ""}`.toLowerCase().includes(term);

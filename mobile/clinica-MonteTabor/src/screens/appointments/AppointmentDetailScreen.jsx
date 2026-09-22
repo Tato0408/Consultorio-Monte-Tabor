@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -17,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../lib/apiClient";
-import { showError, showSuccess } from "../../lib/toast";
+import { showError, showSuccess, confirmAction } from "../../lib/toast";
 import { formatTime12h } from "../../utils/date";
 import styles from "../../styles/appointments/appointmentDetailStyle";
 
@@ -71,6 +70,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [reagendandoConfirmada, setReagendandoConfirmada] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
 
   const load = useCallback(async () => {
     if (!appointmentId) {
@@ -130,38 +130,61 @@ export default function AppointmentDetailScreen({ navigation, route }) {
   // RESCHEDULABLE_STATUSES en appointmentStatus.js). Mismo criterio que el portal público
   // (handleReagendar en MyAppointments.jsx): se cancela para liberar el cupo y se agenda
   // una nueva, prellenada con el mismo servicio y proveedor.
-  const reagendarConfirmada = () => {
-    Alert.alert(
-      "Reagendar cita",
-      "Se cancelará esta cita para que puedas elegir una nueva fecha y hora. ¿Deseas continuar?",
-      [
-        { text: "No, conservar cita", style: "cancel" },
-        {
-          text: "Sí, reagendar",
-          onPress: async () => {
-            setReagendandoConfirmada(true);
-            try {
-              await apiClient(`/appointments/patient/${appointment._id}/cancel`, {
-                method: "PATCH",
-                body: { cancellation_reason: "Cancelada por el paciente para reagendar" },
-              });
-              navigation.replace("NewAppointment", {
-                prefill: {
-                  procedureId: appointment.procedure_id?._id || null,
-                  doctorId: appointment.doctor_id?._id || null,
-                  nurseId: appointment.nurse_id?._id || null,
-                  motivo: appointment.description || "",
-                },
-              });
-            } catch (error) {
-              showError(error.message || "No se pudo reagendar la cita.");
-            } finally {
-              setReagendandoConfirmada(false);
-            }
-          },
+  const reagendarConfirmada = async () => {
+    const confirmado = await confirmAction({
+      title: "Reagendar cita",
+      text: "Se cancelará esta cita para que puedas elegir una nueva fecha y hora. ¿Deseas continuar?",
+      confirmText: "Sí, reagendar",
+      cancelText: "No, conservar cita",
+    });
+    if (!confirmado) return;
+
+    setReagendandoConfirmada(true);
+    try {
+      await apiClient(`/appointments/patient/${appointment._id}/cancel`, {
+        method: "PATCH",
+        body: { cancellation_reason: "Cancelada por el paciente para reagendar" },
+      });
+      navigation.replace("NewAppointment", {
+        prefill: {
+          procedureId: appointment.procedure_id?._id || null,
+          doctorId: appointment.doctor_id?._id || null,
+          nurseId: appointment.nurse_id?._id || null,
+          motivo: appointment.description || "",
         },
-      ]
-    );
+      });
+    } catch (error) {
+      showError(error.message || "No se pudo reagendar la cita.");
+    } finally {
+      setReagendandoConfirmada(false);
+    }
+  };
+
+  // Cancelar una solicitud que nunca fue aceptada (pending/needs_reschedule/expired, los
+  // mismos 3 estados desde los que ya se puede reagendar) no la deja "cancelada": la elimina
+  // por completo, porque ningún doctor llegó a aceptarla y no hay nada clínico que dependa de
+  // ella. Reemplaza al botón de cancelar-con-motivo de más abajo, que solo tiene sentido para
+  // una cita ya confirmada (scheduled).
+  const eliminarSolicitud = async () => {
+    const confirmado = await confirmAction({
+      title: "Cancelar cita",
+      text: "Como ningún profesional la aceptó, esta solicitud se eliminará por completo en vez de solo marcarse como cancelada. Esta acción no se puede deshacer. ¿Deseas continuar?",
+      confirmText: "Sí, cancelar",
+      cancelText: "No, conservar",
+      destructive: true,
+    });
+    if (!confirmado) return;
+
+    setEliminando(true);
+    try {
+      await apiClient(`/appointments/patient/${appointment._id}`, { method: "DELETE" });
+      showSuccess("La solicitud fue eliminada.");
+      navigation.goBack();
+    } catch (error) {
+      showError(error.message || "No se pudo eliminar la cita.");
+    } finally {
+      setEliminando(false);
+    }
   };
 
   if (loading || !appointment) {
@@ -241,18 +264,32 @@ export default function AppointmentDetailScreen({ navigation, route }) {
         </View>
 
         {RESCHEDULABLE.includes(appointment.status) ? (
-          <TouchableOpacity
-            style={styles.rescheduleButton}
-            onPress={() => navigation.navigate("NewAppointment", {
-              reschedule: {
-                appointmentId: appointment._id,
-                procedureId: appointment.procedure_id?._id || null,
-              },
-            })}
-          >
-            <Ionicons name="calendar-outline" size={20} color="#FFF" />
-            <Text style={styles.rescheduleButtonText}>Reagendar cita</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              disabled={eliminando}
+              onPress={eliminarSolicitud}
+            >
+              {eliminando
+                ? <ActivityIndicator size="small" color="#DC2626" />
+                : <>
+                    <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
+                    <Text style={styles.cancelButtonText}>Cancelar cita</Text>
+                  </>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.rescheduleButton}
+              onPress={() => navigation.navigate("NewAppointment", {
+                reschedule: {
+                  appointmentId: appointment._id,
+                  procedureId: appointment.procedure_id?._id || null,
+                },
+              })}
+            >
+              <Ionicons name="calendar-outline" size={20} color="#FFF" />
+              <Text style={styles.rescheduleButtonText}>Reagendar cita</Text>
+            </TouchableOpacity>
+          </>
         ) : appointment.status === "scheduled" ? (
           <TouchableOpacity
             style={styles.rescheduleButton}
@@ -268,10 +305,11 @@ export default function AppointmentDetailScreen({ navigation, route }) {
           </TouchableOpacity>
         ) : null}
 
-        {/* Se puede intentar cancelar mientras la cita siga pending/scheduled (ver el
-            filtro justo arriba de este return); abrirCancelar corta antes de abrir el
-            di\u00e1logo si est\u00e1 a menos de 30 minutos de empezar (solo aplica a scheduled). */}
-        {["pending", "scheduled"].includes(appointment.status) ? (
+        {/* Solo para una cita ya confirmada (scheduled): pending/needs_reschedule/expired
+            usan el bot\u00f3n de arriba, que elimina la solicitud en vez de solo cancelarla.
+            abrirCancelar corta antes de abrir el di\u00e1logo si est\u00e1 a menos de 30 minutos de
+            empezar. */}
+        {appointment.status === "scheduled" ? (
           <TouchableOpacity style={styles.cancelButton} onPress={abrirCancelar}>
             <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
             <Text style={styles.cancelButtonText}>Cancelar cita</Text>

@@ -1,7 +1,7 @@
 import nurseScheduleModel from "../../models/schedule/nurseSchedule.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
-import { toMins, minsToStr, tileFreeSlots, resolveDurationMinutes, getSpecialHoursRange } from "./scheduleController.js";
+import { toMins, minsToStr, tileFreeSlots, resolveDurationMinutes, getSpecialHoursRange, MIN_BOOKING_LEAD_MINUTES } from "./scheduleController.js";
 import { OCCUPYING_STATUSES } from "../../utils/appointmentStatus.js";
 
 const nurseScheduleController = {};
@@ -265,6 +265,15 @@ nurseScheduleController.getAvailableSlotsForNurse = async (req, res) => {
         const durationMin = Number(duration);
         const bufferMin = schedule.buffer_time || 0;
 
+        // Mismo endpoint para personal y paciente (portal público/móvil, "elegir
+        // enfermera primero"): el mínimo de 1 h de anticipación solo aplica al paciente,
+        // ver MIN_BOOKING_LEAD_MINUTES.
+        const esPaciente = req.user?.role === "patient";
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const isToday = new Date(yr, mo - 1, dy).getTime() === today.getTime();
+        const now = new Date();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
         const dayStart = new Date(`${date}T00:00:00.000Z`);
         const dayEnd = new Date(`${date}T23:59:59.999Z`);
         const existingAppointments = await appointmentsModel.find({
@@ -295,6 +304,7 @@ nurseScheduleController.getAvailableSlotsForNurse = async (req, res) => {
         ];
 
         for (const free of tileFreeSlots(timeBlocksForDay, obstacles, durationMin, bufferMin)) {
+            if (esPaciente && isToday && free.start < currentMinutes + MIN_BOOKING_LEAD_MINUTES) continue;
             const startStr = minsToStr(free.start);
             slotsByStart.set(startStr, {
                 start_time: startStr,
@@ -412,7 +422,10 @@ export const getAggregateNurseSlots = async (date, minutes) => {
         ];
 
         for (const free of tileFreeSlots(timeBlocks, obstacles, minutes, bufferMin)) {
-            if (isToday && free.start <= currentMinutes) continue;
+            // Mismo mínimo de 1 h de anticipación que getPatientAvailableSlots (ver
+            // MIN_BOOKING_LEAD_MINUTES): esta función es exclusiva del paciente (nunca la
+            // usa el personal), así que aplica siempre, sin revisar el rol.
+            if (isToday && free.start < currentMinutes + MIN_BOOKING_LEAD_MINUTES) continue;
             const start_time = minsToStr(free.start);
             if (!candidateSlots.has(start_time)) {
                 candidateSlots.set(start_time, { start_time, end_time: minsToStr(free.end) });

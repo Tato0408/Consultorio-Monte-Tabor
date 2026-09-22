@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import apiClient, { WS_URL } from "../lib/apiClient";
 import { showWarning } from "../lib/alerts";
+import { requestNotificationPermission, showBrowserNotification } from "../lib/browserNotifications";
 
 const AuthContext = createContext();
 
@@ -88,6 +89,13 @@ export const AuthProvider = ({ children }) => {
     // hacía polling cada 30s (NotificationsMenu.jsx), hasta 30s de atraso
     // para algo que el backend ya empuja al instante. No se maneja
     // "role-updated" acá: un paciente no tiene permisos configurables.
+    // Pide permiso de notificaciones del sistema una sola vez por sesión (si el paciente ya
+    // lo concedió o lo rechazó antes, el navegador no vuelve a preguntar).
+    useEffect(() => {
+        if (!isLoggedIn) return;
+        requestNotificationPermission();
+    }, [isLoggedIn]);
+
     useEffect(() => {
         if (!isLoggedIn) return;
 
@@ -109,6 +117,7 @@ export const AuthProvider = ({ children }) => {
                     window.dispatchEvent(
                         new CustomEvent("app:notification", { detail: data.notification })
                     );
+                    showBrowserNotification(data.notification);
                 }
             };
 

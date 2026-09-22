@@ -22,7 +22,8 @@ const appointmentsController = {};
 async function resolvePatientService(procedureId) {
     if (!procedureId) return null;
 
-    const procedure = await proceduresModel.findOne({ _id: procedureId, is_active: true })
+    // $ne: false, no is_active: true: ver la nota en getPatientProcedures más abajo.
+    const procedure = await proceduresModel.findOne({ _id: procedureId, is_active: { $ne: false } })
         .select("name estimated_duration price requires_nurse");
     if (!procedure) return null;
 
@@ -60,7 +61,7 @@ async function validateStaffServiceCoherence({ procedure_id, type, duration_minu
         return "Debes seleccionar un procedimiento.";
     }
 
-    const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: true })
+    const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: { $ne: false } })
         .select("name estimated_duration");
     if (!procedure) {
         return "El procedimiento seleccionado no está disponible.";
@@ -153,12 +154,46 @@ export async function runAppointmentAutoTransitions() {
             recipient_id: a.patient_id,
             title: "Cita sin aceptar",
             type: "appointment_reschedule_needed",
-            message: "Ningún doctor aceptó tu cita a tiempo. Puedes reagendarla para otra fecha y horario.",
+            // Mismo texto que RESCHEDULE_REASON_TEXT/MOTIVO_REAGENDAR (móvil y portal
+            // público) para que la notificación diga exactamente lo mismo que el aviso que
+            // el paciente ve al abrir el detalle de la cita.
+            message: "Ningún profesional aceptó tu cita a tiempo. Elige una nueva fecha y hora.",
             appointment_id: a._id,
             // El portal público no tiene /appointments/:id/edit; la pantalla real es
             // /mis-citas (ver patientPortalController.js y notificationService.js).
             action_url: "/mis-citas",
         })));
+    }
+
+    // 3) Recordatorio de cita, un día antes: se compara por día (no por hora exacta), ya que
+    //    esto corre de forma perezosa cada vez que el paciente entra a alguna pantalla de
+    //    citas, no en un horario fijo. Solo aplica a citas ya confirmadas (scheduled) — una
+    //    "pending" todavía puede no tener proveedor, recordarla sería prematuro. Se deduplica
+    //    contra la propia notificación ya creada, para no repetirla en cada carga.
+    const { start: startOfTomorrow, end: endOfTomorrow } = getDayRange(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+    const upcoming = await appointmentsModel
+        .find({ status: "scheduled", date: { $gte: startOfTomorrow, $lte: endOfTomorrow } })
+        .select("_id patient_id start_time");
+
+    if (upcoming.length > 0) {
+        const yaNotificadas = await notificationModel.distinct("appointment_id", {
+            type: "appointment_reminder",
+            appointment_id: { $in: upcoming.map((a) => a._id) },
+        });
+        const yaNotificadasSet = new Set(yaNotificadas.map(String));
+        const pendientes = upcoming.filter((a) => !yaNotificadasSet.has(String(a._id)));
+
+        if (pendientes.length > 0) {
+            await notificationModel.insertMany(pendientes.map((a) => ({
+                recipient_role: "patient",
+                recipient_id: a.patient_id,
+                title: "Recordatorio de cita",
+                type: "appointment_reminder",
+                message: `Tienes una cita mañana a las ${a.start_time}. No olvides asistir.`,
+                appointment_id: a._id,
+                action_url: "/mis-citas",
+            })));
+        }
     }
 }
 
@@ -199,7 +234,9 @@ async function bumpCompetingRequests(accepted) {
         recipient_id: c.patient_id,
         title: "Tu cupo ya fue asignado",
         type: "appointment_reschedule_needed",
-        message: "El horario que solicitaste ya fue asignado a otro paciente. Reagenda tu cita para otra fecha y horario.",
+        // Mismo texto que RESCHEDULE_REASON_TEXT/MOTIVO_REAGENDAR (móvil y portal
+        // público), ver la nota equivalente en runAppointmentAutoTransitions.
+        message: "El horario que solicitaste se le asignó a otro paciente. Elige una nueva fecha y hora.",
         appointment_id: c._id,
         action_url: "/mis-citas",
     })));
@@ -538,8 +575,13 @@ appointmentsController.getAppointmentById = async (req, res) => {
             return res.status(404).json({ message: "Cita no encontrada" });
         }
 
-        // El doctor solo puede ver el detalle de sus propias citas.
-        if (req.user.role === "doctor" && appointment.doctor_id?._id?.toString() !== req.user.id && appointment.doctor_id?.toString() !== req.user.id) {
+        // El doctor solo puede ver el detalle de sus propias citas, salvo que sea una
+        // solicitud "pending" sin doctor asignado (procedimiento abierto a cualquier
+        // doctor, la misma que ya le aparece en "Por aceptar" vía getAppointments):
+        // antes esto daba "No tienes acceso a esta cita" al entrar desde la notificación
+        // de una cita nueva sin doctor específico.
+        const esSolicitudAbierta = appointment.status === "pending" && !appointment.doctor_id;
+        if (req.user.role === "doctor" && !esSolicitudAbierta && appointment.doctor_id?._id?.toString() !== req.user.id && appointment.doctor_id?.toString() !== req.user.id) {
             return res.status(403).json({ message: "No tienes acceso a esta cita." });
         }
 
@@ -877,16 +919,16 @@ appointmentsController.updateAppointment = async (req, res) => {
             return res.status(400).json({ message: inactivePartyError });
         }
 
-        // Reagendar solo aplica a una cita Programada (ver
-        // AppointmentsFormCalendar.jsx, que ya no habilita el botón de
-        // editar para ningún otro estado): pendiente aún no está
-        // confirmada, y cancelada/completada/no_show/expired ya no se
-        // puede modificar.
+        // Reagendar aplica a una cita Programada o Pendiente (ver
+        // AppointmentsFormCalendar.jsx, que solo habilita el botón de editar para estos dos
+        // estados): una pendiente todavía no fue aceptada, pero el doctor/admin puede
+        // adelantar el cambio de fecha/hora antes de aceptarla; cancelada/completada/
+        // no_show/expired ya no se pueden modificar.
         const existing = await appointmentsModel.findById(req.params.id).select("status");
         if (!existing) {
             return res.status(404).json({ message: "Cita no encontrada" });
         }
-        if (existing.status !== "scheduled") {
+        if (!["scheduled", "pending"].includes(existing.status)) {
             return res.status(400).json({ message: "Esta cita ya no puede modificarse." });
         }
 
@@ -1034,6 +1076,38 @@ appointmentsController.cancelPatientAppointment = async (req, res) => {
         return res.json({ message: "Cita cancelada.", data: appointment });
     } catch (error) {
         return res.status(500).json({ message: "Error al cancelar la cita." });
+    }
+};
+
+// El paciente elimina por completo una solicitud de cita que nunca llegó a confirmarse
+// (pending, needs_reschedule o expired: los mismos 3 estados desde los que ya se puede
+// reagendar, ver RESCHEDULABLE en AppointmentDetailScreen.jsx). A diferencia de cancelar
+// (que solo cambia el status y deja el registro), esto la borra de verdad: como ningún
+// doctor llegó a aceptarla, no hay consulta ni nada clínico que dependa de ella — no tiene
+// sentido dejar un registro de una solicitud que nunca se concretó. Reusa
+// deleteAppointmentCascade, el mismo helper que ya usa el borrado de citas del personal, así
+// que limpia igual cualquier orden de laboratorio huérfana que hubiera quedado ligada.
+appointmentsController.deleteMyAppointmentRequest = async (req, res) => {
+    try {
+        if (req.user.role !== "patient") {
+            return res.status(403).json({ message: "Acceso denegado." });
+        }
+
+        const appointment = await appointmentsModel
+            .findOne({ _id: req.params.id, patient_id: req.user.id })
+            .select("status");
+        if (!appointment) {
+            return res.status(404).json({ message: "Cita no encontrada." });
+        }
+        if (!["pending", "needs_reschedule", "expired"].includes(appointment.status)) {
+            return res.status(400).json({ message: "Esta cita ya no puede eliminarse." });
+        }
+
+        await deleteAppointmentCascade(req.params.id);
+        return res.status(200).json({ message: "Cita eliminada correctamente." });
+    } catch (error) {
+        console.log("error" + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -1554,7 +1628,13 @@ appointmentsController.getPatientProcedures = async (req, res) => {
         if (req.user.role !== "patient") {
             return res.status(403).json({ message: "Acceso denegado." });
         }
-        const procedures = await proceduresModel.find({ is_active: true })
+        // $ne: false (no is_active: true) a propósito: procedimientos creados antes de que
+        // este campo existiera en el esquema no lo tienen guardado en el documento, así que
+        // is_active: true nunca hacía match contra ellos aunque el panel web los mostrara
+        // como "Activo" (ProceduresTable.jsx ya los trata así: is_active !== false) — quedaban
+        // invisibles para agendar en el móvil y el portal público sin que nadie los hubiera
+        // desactivado a propósito.
+        const procedures = await proceduresModel.find({ is_active: { $ne: false } })
             .select("name description estimated_duration price requires_nurse requires_doctor")
             .sort({ name: 1 })
             .lean();

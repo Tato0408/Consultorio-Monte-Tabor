@@ -58,7 +58,12 @@ export default StyleSheet.create({
 
   docCard: { backgroundColor: "#FFF", borderRadius: 16, borderWidth: 1, borderColor: "#E7EBF2", padding: 15, marginBottom: 12, ...shadow },
   docCardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
-  docCardDateRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  // flex: 1 para que este bloque (fecha + badge + doctor) ceda espacio frente al botón
+  // Descargar en vez de empujarlo fuera de la tarjeta: a diferencia de la web, en React
+  // Native flexShrink por defecto es 0, así que sin esto una fecha larga ("1 Septiembre
+  // 2026") más el badge "No vigente" nunca cedían nada.
+  docCardInfo: { flex: 1, minWidth: 0 },
+  docCardDateRow: { flexDirection: "row", alignItems: "center", gap: 7, flexWrap: "wrap" },
   docCardDate: { fontSize: 13, fontWeight: "800", color: "#111827" },
   docCardDoctor: { fontSize: 11.5, color: "#8A94A6", marginTop: 2 },
   // Etiqueta Vigente/No vigente de una incapacidad, mismo criterio de color que el

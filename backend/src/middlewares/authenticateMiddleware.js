@@ -33,7 +33,12 @@ export const authenticate = (allowedTypes = []) => {
 
             let decoded;
             try {
-                decoded = jsonwebToken.verify(token, config.JWT.secret);
+                // clockTolerance: margen contra pequeños desfases de reloj entre instancias
+                // del backend (Render puede servir el mismo proceso desde contenedores
+                // distintos) — sin esto, un token recién emitido podía leerse como ya vencido
+                // si la instancia que verifica tiene el reloj unos segundos adelantada
+                // respecto a la que lo firmó.
+                decoded = jsonwebToken.verify(token, config.JWT.secret, { clockTolerance: 10 });
             } catch (verifyError) {
                 // Un token vencido o inválido no es una falla real del servidor,
                 // así que se responde 401 (no 500) para que el cliente pueda

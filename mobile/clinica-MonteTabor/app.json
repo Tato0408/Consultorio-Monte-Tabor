@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "clinica-MonteTabor",
+    "name": "Monte Tabor",
     "slug": "clinica-MonteTabor",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,9 +12,10 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1066CF"
       },
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "package": "com.tatonoto02.clinicaMonteTabor"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,7 +33,19 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#3B6FCA"
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3e584f16-53de-49b0-9e4e-141b25214de2"
+      }
+    }
   }
 }

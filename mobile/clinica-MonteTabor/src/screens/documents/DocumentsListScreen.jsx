@@ -122,7 +122,7 @@ export default function DocumentsListScreen({ navigation, route }) {
           visibles.map((doc) => (
             <View key={doc._id} style={styles.docCard}>
               <View style={styles.docCardTop}>
-                <View>
+                <View style={styles.docCardInfo}>
                   <View style={styles.docCardDateRow}>
                     <Text style={styles.docCardDate}>{formatLongDate(doc[info.fechaCampo])}</Text>
                     {tipo === "incapacidad" && (

@@ -12,10 +12,11 @@ import patientsModel from "../../models/patients/patients.js";
 import notificationModel from "../../models/notifications/notification.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import { isNurseAvailable, isSlotFreeForNurse } from "../../controllers/schedule/nurseScheduleController.js";
-import { isSlotFreeForDoctor } from "../../controllers/schedule/scheduleController.js";
+import { isSlotFreeForDoctor, MIN_BOOKING_LEAD_MINUTES } from "../../controllers/schedule/scheduleController.js";
 import { runAppointmentAutoTransitions } from "../../controllers/appointments/appointmentsController.js";
 import { getTransactionStatus } from "../../utils/wompi.js";
 import { RESCHEDULABLE_STATUSES, isCancelLockedForPatient } from "../../utils/appointmentStatus.js";
+import { deleteAppointmentCascade } from "../../services/consultationCascade.js";
 
 const patientPortalController = {};
 
@@ -163,6 +164,40 @@ const fetchTodayMedications = async (patientId, prescriptions) => {
     return activeMeds.map((m) => ({ ...m, taken: takenIds.has(m.medication_id) }));
 };
 
+// Recordatorio de medicamentos: un aviso al día (la receta no guarda horas de toma
+// exactas, solo "duración" en días, así que no se puede recordar dosis por dosis) cuando el
+// paciente tiene medicamentos activos hoy sin marcar como tomados. Se deduplica por día: si
+// ya se le mandó hoy, no se repite cada vez que abre el dashboard o la lista de medicamentos.
+// Nunca lanza: es informativo, no debe tumbar la petición que lo dispara.
+async function notifyPendingMedicationsIfAny(patientId, meds) {
+    try {
+        const pending = meds.filter((m) => !m.taken);
+        if (pending.length === 0) return;
+
+        const { start: startOfToday, end: endOfToday } = getDayRange(toDateStr(new Date()));
+        const yaNotificadoHoy = await notificationModel.exists({
+            recipient_role: "patient",
+            recipient_id: patientId,
+            type: "medication_reminder",
+            createdAt: { $gte: startOfToday, $lte: endOfToday },
+        });
+        if (yaNotificadoHoy) return;
+
+        await notificationModel.create({
+            recipient_role: "patient",
+            recipient_id: patientId,
+            title: "Recordatorio de medicamentos",
+            type: "medication_reminder",
+            message: pending.length === 1
+                ? `Tienes pendiente tomar ${pending[0].name} hoy.`
+                : `Tienes ${pending.length} medicamentos pendientes por tomar hoy.`,
+            action_url: "/medicamentos",
+        });
+    } catch (error) {
+        console.log("Error creando recordatorio de medicamentos:", error);
+    }
+}
+
 // GET /api/patient-portal/doctors, lista de doctores activos con
 // solo los datos necesarios para elegir uno (nunca datos sensibles
 // como contraseña, dui o licencia).
@@ -227,8 +262,11 @@ patientPortalController.getSchedulableNurses = async (req, res) => {
 // para que el paciente elija si su cita es un procedimiento o consulta general
 patientPortalController.getProcedures = async (req, res) => {
     try {
+        // $ne: false, no is_active: true: ver la nota equivalente en
+        // appointmentsController.getPatientProcedures — procedimientos antiguos sin el campo
+        // guardado se ven "Activo" en el panel web pero no hacían match contra is_active: true.
         const procedures = await procedureModel
-            .find({ is_active: true })
+            .find({ is_active: { $ne: false } })
             .select("name description estimated_duration price requires_nurse requires_doctor pre_care_instructions")
             .collation({ locale: "es", strength: 1 })
             .sort({ name: 1 });
@@ -334,7 +372,8 @@ patientPortalController.bookAppointment = async (req, res) => {
         if (!procedure_id) {
             return res.status(400).json({ message: "Debes seleccionar un procedimiento." });
         }
-        const procedure = await procedureModel.findOne({ _id: procedure_id, is_active: true })
+        // $ne: false, no is_active: true: ver la nota en getProcedures más arriba.
+        const procedure = await procedureModel.findOne({ _id: procedure_id, is_active: { $ne: false } })
             .populate("appointment_type_ids", "name");
         if (!procedure) {
             return res.status(404).json({ message: "El procedimiento seleccionado no existe o ya no está disponible." });
@@ -378,12 +417,20 @@ patientPortalController.bookAppointment = async (req, res) => {
         const end_time = addMinutes(start_time, duration);
         const { start: dayStart, end: dayEnd } = getDayRange(date);
 
-        // No se puede agendar una cita en una fecha/hora que ya pasó
+        // El paciente necesita al menos MIN_BOOKING_LEAD_MINUTES (1 h) de anticipación para
+        // agendar por su cuenta, no solo que la hora todavía no haya pasado: esta es la
+        // validación real (el filtro de getPatientAvailableSlots/getAvailableSlots del lado
+        // del listado es solo para que el paciente ni siquiera vea la opción; sin este
+        // chequeo aquí, un cliente que ya tenía cargados horarios viejos —o que arma la
+        // petición a mano— podía seguir agendando una cita a minutos de la hora actual).
         const [h, m] = start_time.split(":").map(Number);
         const appointmentMoment = new Date(dayStart);
         appointmentMoment.setHours(h, m, 0, 0);
-        if (appointmentMoment < new Date()) {
-            return res.status(400).json({ message: "No puedes agendar una cita en una fecha u hora que ya pasó." });
+        const minLeadMoment = new Date(Date.now() + MIN_BOOKING_LEAD_MINUTES * 60 * 1000);
+        if (appointmentMoment < minLeadMoment) {
+            return res.status(400).json({
+                message: `Debes agendar con al menos ${MIN_BOOKING_LEAD_MINUTES} minutos de anticipación.`,
+            });
         }
 
         // Vuelve a revisar que el horario siga libre, por si alguien más lo tomó mientras el
@@ -556,6 +603,33 @@ patientPortalController.cancelMyAppointment = async (req, res) => {
     }
 };
 
+// DELETE /api/patient-portal/appointments/:id — el paciente elimina por completo una
+// solicitud que nunca llegó a confirmarse (pending, needs_reschedule o expired: los mismos
+// 3 estados desde los que ya se puede reagendar). A diferencia de cancelar (que solo cambia
+// el status y deja el registro), esto la borra de verdad: como ningún doctor llegó a
+// aceptarla, no hay consulta ni nada clínico que dependa de ella. Reusa
+// deleteAppointmentCascade, el mismo helper que ya usa el borrado de citas del personal.
+patientPortalController.deleteMyAppointmentRequest = async (req, res) => {
+    try {
+        const appointment = await appointmentsModel.findById(req.params.id).select("patient_id status");
+        if (!appointment) {
+            return res.status(404).json({ message: "Cita no encontrada." });
+        }
+        if (appointment.patient_id.toString() !== req.user.id) {
+            return res.status(403).json({ message: "No puedes modificar esta cita." });
+        }
+        if (!["pending", "needs_reschedule", "expired"].includes(appointment.status)) {
+            return res.status(400).json({ message: "Esta cita ya no puede eliminarse." });
+        }
+
+        await deleteAppointmentCascade(req.params.id);
+        return res.status(200).json({ message: "Cita eliminada correctamente." });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
 // PATCH /api/patient-portal/appointments/:id/reschedule — el paciente reagenda una cita
 // propia que quedó "por reagendar" (nadie la aceptó a tiempo o le dieron el cupo a otro),
 // o que sigue "pending" y quiere moverla. Reusa el MISMO registro: conserva id, historial
@@ -589,8 +663,13 @@ patientPortalController.rescheduleMyAppointment = async (req, res) => {
         const [h, m] = start_time.split(":").map(Number);
         const cuando = new Date(dayStart);
         cuando.setHours(h, m, 0, 0);
-        if (cuando < new Date()) {
-            return res.status(400).json({ message: "No puedes reagendar la cita para una fecha u hora que ya pasó." });
+        // Mismo mínimo de anticipación que bookAppointment (ver MIN_BOOKING_LEAD_MINUTES):
+        // reagendar es, en la práctica, agendar de nuevo, así que debe cumplir la misma regla.
+        const minLeadMoment = new Date(Date.now() + MIN_BOOKING_LEAD_MINUTES * 60 * 1000);
+        if (cuando < minLeadMoment) {
+            return res.status(400).json({
+                message: `Debes reagendar con al menos ${MIN_BOOKING_LEAD_MINUTES} minutos de anticipación.`,
+            });
         }
 
         const sinProveedorElegido = requiresDoctor ? !doctor_id : !nurse_id;
@@ -749,6 +828,7 @@ patientPortalController.getTodayMedications = async (req, res) => {
         const consultations = await fetchConsultations(req.user.id);
         const prescriptions = await fetchPrescriptions(req.user.id, consultations);
         const meds = await fetchTodayMedications(req.user.id, prescriptions);
+        notifyPendingMedicationsIfAny(req.user.id, meds);
         return res.status(200).json(meds);
     } catch (error) {
         console.log("error " + error);
@@ -802,6 +882,7 @@ patientPortalController.getDashboardSummary = async (req, res) => {
         ]);
         const prescriptions = await fetchPrescriptions(patientId, consultations);
         const todayMedications = await fetchTodayMedications(patientId, prescriptions);
+        notifyPendingMedicationsIfAny(patientId, todayMedications);
 
         // Próxima cita: la más cercana entre las pendientes/programadas de hoy en adelante
         const nextAppointment = appointments

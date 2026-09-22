@@ -105,11 +105,12 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   // estado que se elija aquí. status solo guarda el estado real ya
   // cargado, para mostrarlo de forma informativa al ver/editar.
   const [status, setStatus]                   = useState("scheduled");
-  // Reagendar solo aplica a una cita Programada: pendiente aún no está
-  // confirmada, y cancelada/completada/no_show/expired ya no se puede
-  // reagendar (ver también los botones de origen en AppointmentsGrid.jsx
-  // y AppointmentsCalendar.jsx, que aplican el mismo criterio).
-  const canReschedule = status === "scheduled";
+  // Reagendar aplica a una cita Programada o Pendiente: pendiente todavía no fue
+  // aceptada, pero el doctor/admin puede adelantar el cambio de fecha/hora antes de
+  // aceptarla; cancelada/completada/no_show/expired ya no se puede reagendar (ver también
+  // los botones de origen en AppointmentsGrid.jsx y AppointmentsCalendar.jsx, que aplican
+  // el mismo criterio).
+  const canReschedule = status === "scheduled" || status === "pending";
   const [notes, setNotes]                     = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
   const [total, setTotal]                     = useState("");

@@ -34,6 +34,9 @@ router.patch("/appointments/:id/cancel", patientPortalController.cancelMyAppoint
 // Reagenda una cita propia que quedó "por reagendar" (o una "pending" que se quiere mover):
 // reusa el mismo registro y conserva el anticipo ya pagado.
 router.patch("/appointments/:id/reschedule", patientPortalController.rescheduleMyAppointment);
+// Elimina por completo una solicitud que nunca llegó a confirmarse (pending,
+// needs_reschedule o expired) — a diferencia de cancelar, no deja ningún registro.
+router.delete("/appointments/:id", patientPortalController.deleteMyAppointmentRequest);
 
 // Confirma, del lado del servidor y contra la propia API de Wompi,
 // el pago en línea de una cita en estado "pending".

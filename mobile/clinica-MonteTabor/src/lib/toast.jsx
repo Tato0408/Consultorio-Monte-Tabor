@@ -1,6 +1,7 @@
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import Toast from "react-native-toast-message";
 import { Ionicons } from "@expo/vector-icons";
+import { confirmDialog } from "../components/common/ConfirmDialog";
 
 // ── Paleta equivalente a las clases de Tailwind de la versión web ────────────
 const VARIANTS = {
@@ -46,20 +47,16 @@ export const showWarning = (message) =>
     Toast.show({ type: "warning", text1: message, visibilityTime: 3500 });
 
 // ── Confirmaciones: reemplazo de SweetAlert2 ─────────────────────────────────
-// En RN se usa el diálogo nativo del sistema. Lo envolvemos en una promesa
-// para conservar el patrón `if (await confirmDelete()) { ... }` de la web.
+// Tarjeta propia (ConfirmDialog, montada una sola vez en App.js) en vez del diálogo nativo
+// del sistema: mismo lenguaje visual que el ConfirmCard de la web/portal público, en vez de
+// un Alert.alert que se veía inconsistente con el resto de la app. Se envuelve en una
+// promesa para conservar el patrón `if (await confirmDelete()) { ... }` de la web.
 const confirm = ({ title, text, confirmText, cancelText = "Cancelar", destructive = false }) =>
-    new Promise((resolve) => {
-        Alert.alert(
-            title,
-            text,
-            [
-                { text: cancelText, style: "cancel", onPress: () => resolve(false) },
-                { text: confirmText, style: destructive ? "destructive" : "default", onPress: () => resolve(true) },
-            ],
-            { cancelable: true, onDismiss: () => resolve(false) } // onDismiss solo aplica en Android
-        );
-    });
+    confirmDialog({ title, text, confirmText, cancelText, destructive });
+
+// Versión genérica para confirmaciones puntuales de una sola pantalla (mismo shape que
+// confirm de arriba), en vez de definir un wrapper nuevo por cada mensaje distinto.
+export const confirmAction = confirm;
 
 export const confirmDelete = ({
     title = "¿Eliminar este registro?",

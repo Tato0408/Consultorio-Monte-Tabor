@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import apiClient, { tokenStorage, setOnUnauthorized } from "../lib/apiClient";
 import { WS_URL } from "../config/api";
 import { emitNotificationPushed } from "../lib/notificationEvents";
+import { registerForPushNotifications, clearPushToken } from "../lib/pushNotifications";
 
 // Ajustar según cómo esté montado el router en el backend
 const LOGIN_PATH = "/loginPatient/login";
@@ -175,6 +176,16 @@ export const AuthProvider = ({ children }) => {
         };
     }, [isLoggedIn]);
 
+    // Notificaciones push reales del sistema operativo (con la app cerrada o en segundo
+    // plano), a diferencia del WebSocket de arriba, que solo actualiza la campana mientras la
+    // app está abierta. Se registra el dispositivo cada vez que hay sesión (login, registro o
+    // sesión restaurada al abrir la app), no solo la primera vez, porque el token de Expo
+    // puede cambiar (reinstalación, etc.) y esta llamada siempre guarda el más reciente.
+    useEffect(() => {
+        if (!isLoggedIn) return;
+        registerForPushNotifications();
+    }, [isLoggedIn]);
+
     // Guarda token + usuario (dispositivo y memoria) — lo comparten login() y register(),
     // ya que registrarse deja al paciente autenticado exactamente igual que iniciar sesión
     const applySession = async (response) => {
@@ -235,6 +246,9 @@ export const AuthProvider = ({ children }) => {
     // solo porque la petición falló.
     const logout = async () => {
         let backendOk = true;
+        // Antes de borrar el token de autenticación: esta petición todavía necesita poder
+        // identificar al paciente para saber a quién limpiarle el push_token.
+        await clearPushToken();
         try {
             await apiClient(LOGOUT_PATH, { method: "POST" });
         } catch (error) {

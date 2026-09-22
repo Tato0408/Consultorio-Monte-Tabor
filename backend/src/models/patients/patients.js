@@ -214,6 +214,15 @@ const patientSchema = new Schema({
     },
     timeOut: {
         type: Date
+    },
+    // Token de push de Expo del dispositivo donde el paciente inició sesión por última vez
+    // en la app móvil (ver patientSelfController.updatePushToken). Solo un dispositivo a la
+    // vez: si el paciente cambia de teléfono o reinstala la app, el login nuevo sobreescribe
+    // este valor, así nunca se manda una notificación a un dispositivo donde ya no tiene
+    // sesión iniciada.
+    push_token: {
+        type: String,
+        default: null
     }
 }, {
     timestamps: true,
