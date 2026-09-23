@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   ChevronLeft, ChevronDown, Plus, CalendarDays, Clock, History, XCircle,
   MapPin, Trash2, CalendarCheck, HeartPulse, IdCard, CalendarX,
-  Loader2, User, CreditCard, CalendarClock, AlertTriangle,
+  Loader2, User, CreditCard, CalendarClock, AlertTriangle, LayoutGrid,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getMyAppointments, cancelAppointment, deleteAppointmentRequest } from "@/services/appointmentsService";
@@ -67,17 +67,33 @@ const MENSAJE_CANCELAR_BLOQUEADO =
 const cancelarBloqueado = (cita) =>
   cita.status === "scheduled" && inicioDeCita(cita).getTime() - Date.now() <= CANCELAR_BLOQUEADO_MS;
 
-// El portal público no tiene un tab "Todas" (el primero ya es "Próximas"), así que
-// "Atendidas" va de primero en la barra, igual de adelante que en la móvil (ver
-// APPOINTMENT_FILTERS en AppointmentsScreen.jsx). A diferencia de "Pasadas" (que mezcla
-// completadas y no_show), esta solo muestra las que sí se atendieron.
+// "Todas" va primero y es el tab por defecto (ver useState(tab) más abajo). El orden de
+// las demás pestañas define el orden en el que se listan las citas dentro de "Todas": cada
+// cita se clasifica en la primera pestaña de esta lista con la que su estado calce (ver
+// clasificarCita), así que "Atendidas" antes que "Pasadas" importa — evita que una cita
+// completada aparezca duplicada (pertenece a ambos grupos), y se resuelve a favor de la
+// que aparece primero en este arreglo.
 const TABS = [
+  { key: "todas", label: "Todas", icon: LayoutGrid, badge: "Cita", vacio: "citas", vacioHint: "Aquí aparecerán todas tus citas." },
   { key: "atendidas", label: "Atendidas", icon: CalendarCheck, badge: "Atendida", vacio: "citas atendidas", vacioHint: "Cuando finalice una cita, aparecerá aquí." },
   { key: "proximas", label: "Próximas", icon: CalendarDays, badge: "Próxima cita", vacio: "próximas citas", vacioHint: "Cuando agendes una cita, aparecerá aquí." },
   { key: "porReagendar", label: "Por reagendar", icon: CalendarClock, badge: "Por reagendar", vacio: "citas por reagendar", vacioHint: "Aquí verás las citas que debas reagendar." },
   { key: "pasadas", label: "Pasadas", icon: History, badge: "Cita pasada", vacio: "citas pasadas", vacioHint: "Tus citas completadas y pasadas aparecerán aquí." },
   { key: "canceladas", label: "Canceladas", icon: XCircle, badge: "Cancelada", vacio: "citas canceladas", vacioHint: "Cuando canceles una cita, aparecerá aquí." },
 ];
+
+// Mismo criterio de pertenencia que usan los filtros de grupos.* (ver useMemo de abajo),
+// pero para una sola cita: a qué pestaña (después de "Todas") pertenece. Se usa para armar
+// "Todas" sin duplicados y para que la insignia de cada tarjeta sea la correcta cuando se
+// ven mezcladas ahí, en vez de mostrar siempre la insignia fija del tab activo.
+const clasificarCita = (cita) => {
+  if (cita.status === "completed") return "atendidas";
+  if (["pending", "scheduled"].includes(cita.status)) return "proximas";
+  if (REAGENDABLES.includes(cita.status)) return "porReagendar";
+  if (cita.status === "no_show") return "pasadas";
+  return "canceladas";
+};
+const BADGE_POR_TAB = Object.fromEntries(TABS.map((t) => [t.key, t.badge]));
 
 const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, reagendando, onEliminar, eliminando, onPagar, expandedId, setExpandedId }) => {
   const expandida = expandedId === cita._id;
@@ -98,7 +114,7 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, rea
   const deshabilitado = cancelando || reagendando || eliminando;
 
   return (
-    <div className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-5 ${necesitaReagendar ? "border-orange-200" : "border-gray-100"}`}>
+    <div className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-6 ${necesitaReagendar ? "border-orange-200" : "border-gray-100"}`}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="inline-block px-2.5 py-1 rounded-full bg-[#3B6FCA]/10 text-[#3B6FCA] text-xs font-semibold">{badge}</span>
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[cita.status] || "bg-gray-100 text-gray-500"}`}>
@@ -144,7 +160,7 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, rea
         </div>
       </div>
 
-      <div className="flex flex-col sm:grid sm:grid-cols-3 gap-3 sm:gap-4 mt-4 pt-4 border-t border-gray-50">
+      <div className="flex flex-col sm:grid sm:grid-cols-3 gap-3 sm:gap-6 mt-4 pt-4 border-t border-gray-50">
         <div className="flex items-start gap-2 min-w-0">
           <CalendarDays className="w-4 h-4 text-[#3B6FCA] mt-0.5 flex-shrink-0" />
           <div className="min-w-0">
@@ -244,8 +260,13 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, rea
   );
 };
 
+// Claves válidas para llegar con un tab preseleccionado (ver location.state?.tab más
+// abajo), armado a partir de TABS en vez de repetirlas a mano.
+const TAB_KEYS = TABS.map((t) => t.key);
+
 const MyAppointments = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { patient, logout } = useAuth();
 
   const [appointments, setAppointments] = useState([]);
@@ -253,7 +274,10 @@ const MyAppointments = () => {
   const [cancelandoId, setCancelandoId] = useState(null);
   const [reagendandoId, setReagendandoId] = useState(null);
   const [eliminandoId, setEliminandoId] = useState(null);
-  const [tab, setTab] = useState("proximas");
+  // Se puede llegar con un tab ya elegido (ej. desde las tarjetas de estadísticas del
+  // dashboard: "Próxima cita" -> state:{tab:"proximas"}, "Consultas realizadas" ->
+  // state:{tab:"atendidas"}). Si no viene nada, o viene una clave inválida, cae a "todas".
+  const [tab, setTab] = useState(TAB_KEYS.includes(location.state?.tab) ? location.state.tab : "todas");
   const [expandedId, setExpandedId] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -284,7 +308,12 @@ const MyAppointments = () => {
     const canceladas = appointments
       .filter((a) => a.status === "cancelled")
       .sort((a, b) => new Date(b.date) - new Date(a.date));
-    return { atendidas, proximas, porReagendar, pasadas, canceladas };
+    // "Todas" concatena los demás grupos en el mismo orden en que aparecen sus pestañas
+    // (ver TABS/clasificarCita más arriba). "pasadas" se filtra a solo no_show porque las
+    // completadas ya entraron con "atendidas": sin eso, una cita completada saldría dos
+    // veces (pertenece a ambos grupos).
+    const todas = [...atendidas, ...proximas, ...porReagendar, ...pasadas.filter((a) => a.status !== "completed"), ...canceladas];
+    return { todas, atendidas, proximas, porReagendar, pasadas, canceladas };
   }, [appointments]);
 
   const tabActivo = TABS.find((t) => t.key === tab);
@@ -506,13 +535,14 @@ const MyAppointments = () => {
           </button>
         )}
 
-        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
+        <div className="flex flex-col lg:grid lg:grid-cols-3 lg:gap-10 gap-6">
           <div className="lg:col-span-2 min-w-0">
             {/* Móvil: rejilla de 2 columnas de "pills" — las pestañas con su contador caben
                 sin scroll ni recorte (la última fila queda con una sola pestaña si el total
                 es impar). sm+: barra de pestañas con subrayado (el diseño de escritorio de
-                antes). */}
-            <div className="grid grid-cols-2 gap-2 mb-5 sm:flex sm:items-center sm:gap-1 sm:border-b sm:border-gray-100">
+                antes). flex-wrap es la red de seguridad si algún día se agrega una
+                pestaña más y ya no cupieran en una sola fila. */}
+            <div className="grid grid-cols-2 gap-2 mb-5 sm:flex sm:flex-wrap sm:items-center sm:gap-1 sm:gap-y-2 sm:border-b sm:border-gray-100">
               {TABS.map(({ key, label, icon: Icon }) => {
                 const activa = tab === key;
                 return (
@@ -552,7 +582,9 @@ const MyAppointments = () => {
                   <AppointmentCard
                     key={cita._id}
                     cita={cita}
-                    badge={tabActivo.badge}
+                    // En "Todas" se mezclan citas de distintos grupos: la insignia debe
+                    // reflejar a cuál pertenece cada una, no la fija del tab activo.
+                    badge={tab === "todas" ? BADGE_POR_TAB[clasificarCita(cita)] : tabActivo.badge}
                     onCancelar={handleCancelar}
                     cancelando={cancelandoId === cita._id}
                     onReagendar={handleReagendar}
@@ -568,6 +600,9 @@ const MyAppointments = () => {
             )}
           </div>
 
+          {/* Sigue al lado de los tabs, como antes (columna derecha de la grid de 3);
+              lg:gap-10 arriba (antes gap-6) le da un poco más de aire respecto a la lista,
+              corriéndola un poco más a la derecha. */}
           <div className="flex flex-col gap-5 min-w-0">
             <div className="bg-gradient-to-br from-[#3B6FCA]/10 to-[#3B6FCA]/0 border border-[#3B6FCA]/10 rounded-2xl p-5">
               <HeartPulse className="w-7 h-7 text-[#3B6FCA] mb-2" />
