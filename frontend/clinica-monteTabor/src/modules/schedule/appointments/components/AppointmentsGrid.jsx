@@ -844,6 +844,34 @@ export default function AppointmentsGrid() {
                                             </>
                                         )}
 
+                                        {/* Reagendar una cita pendiente (todavía sin aceptar): abre el mismo
+                                            formulario en modo edición que ya usa "Reagendar" para una cita
+                                            Programada (ver el botón de más arriba y AppointmentsFormCalendar.jsx),
+                                            revalidando disponibilidad igual que al aceptar. Se muestra junto al
+                                            botón de Ver en vez de dentro del bloque de arriba porque para
+                                            "pending" ese bloque ya está ocupado por Aceptar/Asignar. */}
+                                        {canUpdate && cita.status === "pending" && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-slate-400 hover:text-amber-600 hover:bg-amber-50"
+                                                onClick={() =>
+                                                    navigate(
+                                                        `/calendar/appointments/${cita._id}`,
+                                                        {
+                                                            state: {
+                                                                editMode: true,
+                                                                fromView: "citas",
+                                                                fromTab: (isDoctor || isNurse || isAdmin) ? activeTab : undefined,
+                                                            }
+                                                        }
+                                                    )
+                                                }
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                        )}
+
                                         {/* Abre el formulario en modo de solo lectura. fromTab: ver nota en el botón de editar. */}
                                         <Button
                                             variant="ghost"

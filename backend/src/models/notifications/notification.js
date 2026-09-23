@@ -1,5 +1,6 @@
 import mongoose, { Schema, model } from "mongoose";
 import { broadcastNotification } from "../../services/roleSocket.js";
+import { sendExpoPushForNotification } from "../../services/pushNotificationService.js";
 
 // Notificación personal simple dentro de la aplicación. La combinación de
 // recipient_role y recipient_id identifica a quién pertenece, sin depender
@@ -25,6 +26,8 @@ const notificationSchema = new Schema({
             "appointment_assigned",
             "appointment_expired",
             "appointment_reschedule_needed",
+            "appointment_reminder",
+            "medication_reminder",
             "inventory_alert",
             "nurse_note_pending",
             "general",
@@ -43,13 +46,15 @@ const notificationSchema = new Schema({
     timestamps: true,
 });
 
-// Empuja cada notificación recién creada a su destinatario por WebSocket,
-// para que la campana del panel se actualice en tiempo real sin recargar. Es
-// best effort: si el socket no está disponible o falla, la notificación ya
-// quedó guardada y el poll de respaldo del frontend la recogerá igual. Solo
-// aplica a las altas (save e insertMany); marcar como leída o borrar no
-// dispara nada. updateMany y findOneAndUpdate no pasan por estos hooks, así
-// que no hace falta filtrarlos.
+// Empuja cada notificación recién creada a su destinatario por WebSocket (para la campana
+// del panel/portal en tiempo real) y, si es de un paciente con push_token guardado, además
+// como notificación push real del sistema operativo (ver pushNotificationService.js) — así
+// le llega aunque tenga la app cerrada o en segundo plano, sin tener que agregar el envío en
+// cada lugar del código que crea una Notification. Es best effort en ambos casos: si algo
+// falla, la notificación ya quedó guardada y el poll de respaldo del frontend la recogerá
+// igual. Solo aplica a las altas (save e insertMany); marcar como leída o borrar no dispara
+// nada. updateMany y findOneAndUpdate no pasan por estos hooks, así que no hace falta
+// filtrarlos.
 const pushNotificationRealtime = (documents) => {
     for (const document of Array.isArray(documents) ? documents : [documents]) {
         try {
@@ -57,6 +62,9 @@ const pushNotificationRealtime = (documents) => {
         } catch (error) {
             console.log("Error empujando notificación en tiempo real:", error);
         }
+        sendExpoPushForNotification(document).catch((error) =>
+            console.log("Error enviando notificación push:", error)
+        );
     }
 };
 

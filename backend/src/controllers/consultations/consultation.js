@@ -139,9 +139,12 @@ const normalizeReferral = (referral, consultationDate) => {
 // useConsultation.js a getPatientAntecedents), así que lo que llega aquí YA es la versión
 // editada por el doctor, no una lista parcial. Signos vitales y procedimientos en cambio se
 // ACUMULAN como historial (cada consulta agrega una toma/entrada nueva, no reemplaza la anterior).
-const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedure, consultationId, consultationDate, followUpDate }) => {
+const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedure, consultationId, consultationDate, followUpDate, patientId }) => {
   const set = {};
   const push = {};
+
+  const currentPatient = await patientsModel.findById(patientId).select("clinical_history.blood_type").lean();
+  const currentBloodType = currentPatient?.clinical_history?.blood_type || null;
 
   if (antecedents) {
     set["clinical_history.hereditary"] = nonEmptyRows(antecedents.hereditary, ["relative", "condition"])
@@ -157,6 +160,18 @@ const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedur
   const vitalSignsEntry = buildVitalSignsEntry(clinical_data?.triage, consultationDate);
   if (vitalSignsEntry) {
     push["clinical_history.vital_signs"] = vitalSignsEntry;
+  }
+
+  // El tipo de sangre que el paciente registra desde el móvil queda como autoreportado
+  // (blood_type_verified: false, ver patientSelfController.updateBloodType) hasta que
+  // personal clínico lo confirme. Antes eso solo pasaba si alguien lo reeditaba a mano
+  // desde el expediente (patientsController.updatePatient); una consulta normal nunca lo
+  // tocaba, así que se quedaba "pendiente de confirmación" para siempre aunque el
+  // paciente ya hubiera sido atendido varias veces. Al completarse una consulta se marca
+  // como confirmado por el doctor, si es que ya tenía uno registrado (no se inventa un
+  // tipo de sangre que el paciente nunca ingresó).
+  if (currentBloodType) {
+    set["clinical_history.blood_type_verified"] = true;
   }
 
   // Se resuelven los nombres reales (no solo los ids) para poder etiquetar con algo legible el
@@ -429,6 +444,7 @@ consultationController.insertConsultation = async (req, res) => {
       consultationId: savedConsultation._id,
       consultationDate: savedConsultation.date,
       followUpDate: follow_up_date,
+      patientId: patient_id,
     });
     if (patientUpdate) {
       await patientsModel.findByIdAndUpdate(patient_id, patientUpdate, {
@@ -674,6 +690,7 @@ consultationController.updateConsultation = async (req, res) => {
       consultationId: consultationUpdated._id,
       consultationDate: consultationUpdated.date,
       followUpDate: follow_up_date,
+      patientId: patient_id,
     });
     if (patientUpdate) {
       await patientsModel.findByIdAndUpdate(patient_id, patientUpdate, {

@@ -18,6 +18,7 @@ router.use(authenticate(), requireActiveUser);
 
 router.get("/me", patientSelfController.getMe);
 router.put("/me", patientSelfController.updateMe);
+router.put("/me/push-token", patientSelfController.updatePushToken);
 router.put("/verifyEmailChange", patientSelfController.verifyEmailChange);
 router.put("/changePassword", patientSelfController.changePassword);
 router.get("/consultations", patientSelfController.getMyConsultations);

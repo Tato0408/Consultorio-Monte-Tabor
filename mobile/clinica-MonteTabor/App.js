@@ -1,5 +1,4 @@
 import { StatusBar } from 'expo-status-bar';
-import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -7,8 +6,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { useSplashTimer } from './src/hooks/useSplashTimer';
 import SplashScreen from './src/screens/SplashScreen';
+import GlobalTouchGuard from './src/components/GlobalTouchGuard';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/lib/toast';
+import ConfirmDialog from './src/components/common/ConfirmDialog';
 
 import LoginScreen from './src/screens/login/loginScreens/LoginScreen';
 import RegisterScreen from './src/screens/login/loginScreens/RegisterScreen';
@@ -134,14 +135,15 @@ function AppContent() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <GlobalTouchGuard>
       <NavigationContainer>
         <StatusBar style="dark" />
         <RootNavigator />
       </NavigationContainer>
 
       <Toast config={toastConfig} />
-    </View>
+      <ConfirmDialog />
+    </GlobalTouchGuard>
   );
 }
 

@@ -15,7 +15,7 @@ export const tokenStorage = {
 let onUnauthorized = null;
 export const setOnUnauthorized = (fn) => { onUnauthorized = fn; };
 
-async function apiClient(path, { method = "GET", body, params, signal, timeout = 15000 } = {}) {
+async function apiClient(path, { method = "GET", body, params, signal, timeout = 15000, silentAuth = false } = {}) {
     let url = `${API_URL}${path}`;
 
     if (params) {
@@ -74,8 +74,14 @@ async function apiClient(path, { method = "GET", body, params, signal, timeout =
     // Se parsea siempre porque la API devuelve { message } también en los errores
     const data = await response.json().catch(() => null);
 
-    // Token vencido o inválido: se limpia y se avisa al contexto
-    if (response.status === 401 && token) {
+    // Token vencido o inválido: se limpia y se avisa al contexto. silentAuth es para
+    // llamadas de fondo no críticas (ej. registrar el push token justo tras el login) que no
+    // deben poder forzar un cierre de sesión global: antes, cualquier 401 de CUALQUIER
+    // endpoint —incluida una llamada secundaria que ni siquiera representa la actividad
+    // principal del usuario— sacaba al paciente de la app entera con "sesión expiró", aunque
+    // su sesión real siguiera vigente. Esas llamadas igual lanzan su error normalmente; solo
+    // se les quita el efecto secundario de cerrar la sesión de todos.
+    if (response.status === 401 && token && !silentAuth) {
         await tokenStorage.remove();
         onUnauthorized?.();
     }

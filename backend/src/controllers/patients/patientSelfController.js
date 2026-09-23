@@ -874,4 +874,27 @@ patientSelfController.changePassword = async (req, res) => {
     }
 };
 
+// PUT /api/patientAccount/me/push-token — la app móvil llama esto justo después de iniciar
+// sesión (o al recuperar una sesión guardada), con el Expo Push Token del dispositivo. Es
+// lo único que necesita el backend para poder mandarle una notificación push real más
+// adelante (ver services/pushNotificationService.js, enganchado al guardar cualquier
+// Notification). push_token: null borra el token (logout), para no seguir empujando
+// notificaciones a un dispositivo donde ya no hay sesión.
+patientSelfController.updatePushToken = async (req, res) => {
+    try {
+        if (denyIfNotPatient(req, res)) return;
+
+        const { push_token } = req.body;
+        if (push_token != null && typeof push_token !== "string") {
+            return res.status(400).json({ message: "Token de notificaciones inválido" });
+        }
+
+        await patientsModel.findByIdAndUpdate(req.user.id, { push_token: push_token || null });
+        return res.status(200).json({ message: "Token de notificaciones guardado" });
+    } catch (error) {
+        console.log("error " + error);
+        return res.status(500).json({ message: "Error interno del servidor" });
+    }
+};
+
 export default patientSelfController;

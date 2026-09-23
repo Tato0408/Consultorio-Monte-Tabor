@@ -38,7 +38,8 @@ router.get("/doctors-with-appointments", authorize("calendar.appointments", "vie
 
 router.route("/patient/:id")
     .get(requirePatientRole, appointmentsController.getPatientAppointmentById)
-    .put(requirePatientRole, appointmentsController.updatePatientAppointment);
+    .put(requirePatientRole, appointmentsController.updatePatientAppointment)
+    .delete(requirePatientRole, appointmentsController.deleteMyAppointmentRequest);
 
 router.route("/patient/:id/cancel")
     .patch(requirePatientRole, appointmentsController.cancelPatientAppointment);

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "react-hot-toast";
 import apiClient, { WS_URL } from "../lib/apiClient";
+import { requestNotificationPermission, showBrowserNotification } from "../lib/browserNotifications";
 
 // Declaración del contexto de autenticación.
 const AuthContext = createContext();
@@ -107,6 +108,13 @@ export const AuthProvider = ({ children }) => {
     //      reemite como evento del navegador ("app:notification") para que la
     //      campana (useNotifications) la agregue al instante sin recargar,
     //      mismo patrón desacoplado que "session-expired".
+    // Pide permiso de notificaciones del sistema una sola vez por sesión (si ya se concedió o
+    // se rechazó antes, el navegador no vuelve a preguntar).
+    useEffect(() => {
+        if (!isLoggedIn) return;
+        requestNotificationPermission();
+    }, [isLoggedIn]);
+
     useEffect(() => {
         if (!isLoggedIn) return;
 
@@ -132,6 +140,7 @@ export const AuthProvider = ({ children }) => {
                     window.dispatchEvent(
                         new CustomEvent("app:notification", { detail: data.notification })
                     );
+                    showBrowserNotification(data.notification);
                 }
             };
 

@@ -6,7 +6,7 @@ import {
   Loader2, User, CreditCard, CalendarClock, AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getMyAppointments, cancelAppointment } from "@/services/appointmentsService";
+import { getMyAppointments, cancelAppointment, deleteAppointmentRequest } from "@/services/appointmentsService";
 import { showSuccess, showError, confirmAction, confirmActionWithReason } from "@/lib/alerts";
 import NotificationsMenu from "@/components/NotificationsMenu";
 
@@ -22,6 +22,13 @@ const MOTIVO_REAGENDAR = {
   no_aceptada: "Ningún profesional aceptó tu cita a tiempo. Elige una nueva fecha y hora.",
   cupo_asignado: "El horario que solicitaste se le asignó a otro paciente. Elige una nueva fecha y hora.",
 };
+
+// Estados desde los que ningún doctor llegó a aceptar la cita: "cancelarla" no la deja
+// marcada como cancelada, la elimina por completo (mismo criterio que la app móvil, ver
+// eliminarSolicitud en AppointmentDetailScreen.jsx).
+const ELIMINABLES = ["pending", "needs_reschedule", "expired"];
+const MENSAJE_ELIMINAR =
+  "Como ningún profesional la aceptó, esta solicitud se eliminará por completo en vez de solo marcarse como cancelada. Esta acción no se puede deshacer. ¿Deseas continuar?";
 
 const fmt12 = (t) => {
   if (!t) return "";
@@ -60,25 +67,35 @@ const MENSAJE_CANCELAR_BLOQUEADO =
 const cancelarBloqueado = (cita) =>
   cita.status === "scheduled" && inicioDeCita(cita).getTime() - Date.now() <= CANCELAR_BLOQUEADO_MS;
 
+// El portal público no tiene un tab "Todas" (el primero ya es "Próximas"), así que
+// "Atendidas" va de primero en la barra, igual de adelante que en la móvil (ver
+// APPOINTMENT_FILTERS en AppointmentsScreen.jsx). A diferencia de "Pasadas" (que mezcla
+// completadas y no_show), esta solo muestra las que sí se atendieron.
 const TABS = [
+  { key: "atendidas", label: "Atendidas", icon: CalendarCheck, badge: "Atendida", vacio: "citas atendidas", vacioHint: "Cuando finalice una cita, aparecerá aquí." },
   { key: "proximas", label: "Próximas", icon: CalendarDays, badge: "Próxima cita", vacio: "próximas citas", vacioHint: "Cuando agendes una cita, aparecerá aquí." },
   { key: "porReagendar", label: "Por reagendar", icon: CalendarClock, badge: "Por reagendar", vacio: "citas por reagendar", vacioHint: "Aquí verás las citas que debas reagendar." },
   { key: "pasadas", label: "Pasadas", icon: History, badge: "Cita pasada", vacio: "citas pasadas", vacioHint: "Tus citas completadas y pasadas aparecerán aquí." },
   { key: "canceladas", label: "Canceladas", icon: XCircle, badge: "Cancelada", vacio: "citas canceladas", vacioHint: "Cuando canceles una cita, aparecerá aquí." },
 ];
 
-const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, reagendando, onPagar, expandedId, setExpandedId }) => {
+const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, reagendando, onEliminar, eliminando, onPagar, expandedId, setExpandedId }) => {
   const expandida = expandedId === cita._id;
   const depositoPendiente = cita.status === "pending" && cita.deposit_amount != null && !cita.deposit_paid;
   const depositoPagado = cita.deposit_paid && cita.deposit_amount != null;
   const necesitaReagendar = REAGENDABLES.includes(cita.status);
+  const puedeEliminar = ELIMINABLES.includes(cita.status);
 
   // En móvil los botones se apilan: una acción principal a ancho completo (pagar, o
   // reagendar cuando la cita quedó sin confirmar) y el par "Reagendar / Cancelar" en
   // una rejilla de dos. En sm+ vuelven a una fila. "Reagendar" solo aparece como
   // secundario cuando NO es la acción principal.
   const mostrarReagendarSecundario = puedeReagendar(cita) && !necesitaReagendar;
-  const mostrarCancelar = esCancelable(cita.status);
+  // Cancelar-con-motivo solo tiene sentido para una cita ya confirmada (scheduled): para
+  // pending/needs_reschedule/expired, "cancelar" ahora es eliminar la solicitud (ver
+  // puedeEliminar arriba).
+  const mostrarCancelarConMotivo = cita.status === "scheduled";
+  const deshabilitado = cancelando || reagendando || eliminando;
 
   return (
     <div className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-5 ${necesitaReagendar ? "border-orange-200" : "border-gray-100"}`}>
@@ -174,30 +191,39 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, rea
               <CreditCard className="w-4 h-4" /> Pagar anticipo
             </button>
           )}
+          {puedeEliminar && (
+            <button
+              onClick={() => onEliminar(cita)}
+              disabled={deshabilitado}
+              className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" /> Cancelar cita
+            </button>
+          )}
           {necesitaReagendar && (
             <button
               onClick={() => onReagendar(cita)}
-              disabled={reagendando || cancelando}
+              disabled={deshabilitado}
               className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2 rounded-lg bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold transition-colors disabled:opacity-50"
             >
               <CalendarClock className="w-4 h-4" /> Reagendar cita
             </button>
           )}
-          {(mostrarReagendarSecundario || mostrarCancelar) && (
-            <div className={`grid gap-2 sm:flex sm:gap-2 ${mostrarReagendarSecundario && mostrarCancelar ? "grid-cols-2" : "grid-cols-1"}`}>
+          {(mostrarReagendarSecundario || mostrarCancelarConMotivo) && (
+            <div className={`grid gap-2 sm:flex sm:gap-2 ${mostrarReagendarSecundario && mostrarCancelarConMotivo ? "grid-cols-2" : "grid-cols-1"}`}>
               {mostrarReagendarSecundario && (
                 <button
                   onClick={() => onReagendar(cita)}
-                  disabled={reagendando || cancelando}
+                  disabled={deshabilitado}
                   className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2 rounded-lg border border-[#3B6FCA]/20 text-[#3B6FCA] hover:bg-[#3B6FCA]/5 text-sm font-semibold transition-colors disabled:opacity-50"
                 >
                   <CalendarClock className="w-4 h-4" /> Reagendar
                 </button>
               )}
-              {mostrarCancelar && (
+              {mostrarCancelarConMotivo && (
                 <button
                   onClick={() => onCancelar(cita)}
-                  disabled={cancelando || reagendando}
+                  disabled={deshabilitado}
                   className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 text-sm font-semibold transition-colors disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" /> Cancelar
@@ -226,6 +252,7 @@ const MyAppointments = () => {
   const [loading, setLoading] = useState(true);
   const [cancelandoId, setCancelandoId] = useState(null);
   const [reagendandoId, setReagendandoId] = useState(null);
+  const [eliminandoId, setEliminandoId] = useState(null);
   const [tab, setTab] = useState("proximas");
   const [expandedId, setExpandedId] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -242,6 +269,9 @@ const MyAppointments = () => {
   }, []);
 
   const grupos = useMemo(() => {
+    const atendidas = appointments
+      .filter((a) => a.status === "completed")
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
     const proximas = appointments
       .filter((a) => ["pending", "scheduled"].includes(a.status))
       .sort((a, b) => new Date(a.date) - new Date(b.date) || a.start_time.localeCompare(b.start_time));
@@ -254,7 +284,7 @@ const MyAppointments = () => {
     const canceladas = appointments
       .filter((a) => a.status === "cancelled")
       .sort((a, b) => new Date(b.date) - new Date(a.date));
-    return { proximas, porReagendar, pasadas, canceladas };
+    return { atendidas, proximas, porReagendar, pasadas, canceladas };
   }, [appointments]);
 
   const tabActivo = TABS.find((t) => t.key === tab);
@@ -377,6 +407,24 @@ const MyAppointments = () => {
     }
   };
 
+  // Elimina por completo una solicitud que nunca fue aceptada (pending/needs_reschedule/
+  // expired): a diferencia de handleCancelar, no la deja marcada como cancelada, porque
+  // ningún doctor llegó a aceptarla y no hay nada clínico que dependa de ella.
+  const handleEliminar = async (cita) => {
+    const confirmado = await confirmAction(MENSAJE_ELIMINAR, { confirmLabel: "Sí, cancelar", cancelLabel: "No, conservar", danger: true });
+    if (!confirmado) return;
+    setEliminandoId(cita._id);
+    try {
+      await deleteAppointmentRequest(cita._id);
+      showSuccess("La solicitud fue eliminada.");
+      cargar();
+    } catch (err) {
+      showError(err.message || "No se pudo eliminar la cita.");
+    } finally {
+      setEliminandoId(null);
+    }
+  };
+
   const handlePagar = (id) => navigate(`/agendar-cita/pagar?appointment=${id}`);
 
   const handleLogout = async () => {
@@ -460,8 +508,9 @@ const MyAppointments = () => {
 
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 min-w-0">
-            {/* Móvil: rejilla 2×2 de "pills" — las 4 pestañas con su contador caben sin scroll
-                ni recorte. sm+: barra de pestañas con subrayado (el diseño de escritorio de
+            {/* Móvil: rejilla de 2 columnas de "pills" — las pestañas con su contador caben
+                sin scroll ni recorte (la última fila queda con una sola pestaña si el total
+                es impar). sm+: barra de pestañas con subrayado (el diseño de escritorio de
                 antes). */}
             <div className="grid grid-cols-2 gap-2 mb-5 sm:flex sm:items-center sm:gap-1 sm:border-b sm:border-gray-100">
               {TABS.map(({ key, label, icon: Icon }) => {
@@ -508,6 +557,8 @@ const MyAppointments = () => {
                     cancelando={cancelandoId === cita._id}
                     onReagendar={handleReagendar}
                     reagendando={reagendandoId === cita._id}
+                    onEliminar={handleEliminar}
+                    eliminando={eliminandoId === cita._id}
                     onPagar={handlePagar}
                     expandedId={expandedId}
                     setExpandedId={setExpandedId}

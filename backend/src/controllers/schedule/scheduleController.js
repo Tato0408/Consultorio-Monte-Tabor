@@ -10,6 +10,13 @@ import { getAggregateNurseSlots } from "./nurseScheduleController.js";
 
 const scheduleController = {};
 
+// Un paciente necesita al menos esta anticipación para agendar/reagendar una cita por su
+// cuenta (ver getPatientAvailableSlots, getAvailableSlots y bookAppointment/
+// rescheduleMyAppointment en patientPortalController). No aplica al personal: recepción,
+// doctores o enfermeras sí pueden crear una cita para dentro de un momento (ej. un
+// paciente que llega sin cita).
+export const MIN_BOOKING_LEAD_MINUTES = 60;
+
 // Busca un schedule por doctorId exacto. Si no lo encuentra, busca
 // por nombre del doctor, para resolver el caso donde hay dos entradas
 // del mismo médico con distintos _id.
@@ -214,7 +221,8 @@ export const isSlotFreeForDoctor = async (doctorId, date, start_time, end_time, 
 // un horario puntual ya elegido.
 export const resolveDurationMinutes = async (procedure_id) => {
     if (!procedure_id) return null;
-    const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: true })
+    // $ne: false, no is_active: true: ver la nota en appointmentsController.getPatientProcedures.
+    const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: { $ne: false } })
         .select("estimated_duration");
     if (!procedure) return null;
     return Number(procedure.estimated_duration) || 30;
@@ -298,7 +306,7 @@ scheduleController.getPatientAvailableSlots = async (req, res) => {
         // como proveedora principal: los horarios agregados salen de sus horarios, no de
         // los de los doctores. Cualquier otro procedimiento sigue el camino normal
         // (doctor) más abajo.
-        const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: true }).select("requires_doctor");
+        const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: { $ne: false } }).select("requires_doctor");
         if (procedure && procedure.requires_doctor === false) {
             const slots = await getAggregateNurseSlots(date, minutes);
             return res.json({ slots });
@@ -381,8 +389,13 @@ scheduleController.getPatientAvailableSlots = async (req, res) => {
             ];
 
             for (const free of tileFreeSlots(timeBlocks, obstacles, minutes, bufferMin)) {
-                // Una hora que ya comenzó (o ya pasó) no puede reservarse.
-                if (isToday && free.start <= currentMinutes) continue;
+                // El paciente necesita al menos 1 hora de anticipación para agendar (no solo
+                // que la hora no haya pasado ya): así, si son las 5:29, el horario elegible
+                // más próximo es a partir de las 6:30, no las 5:30. Antes esto solo
+                // descartaba lo que ya había pasado, así que un paciente podía agendar una
+                // cita a solo minutos de la hora actual sin que nadie en recepción llegara a
+                // enterarse a tiempo.
+                if (isToday && free.start < currentMinutes + MIN_BOOKING_LEAD_MINUTES) continue;
                 const start_time = minsToStr(free.start);
                 if (!candidateSlots.has(start_time)) {
                     candidateSlots.set(start_time, { start_time, end_time: minsToStr(free.end) });
@@ -525,6 +538,15 @@ scheduleController.getAvailableSlots = async (req, res) => {
         const durationMin = Number(duration);
         const bufferMin   = schedule.buffer_time || 0;
 
+        // Mismo endpoint para personal (panel privado) y paciente (portal público/móvil,
+        // modo "elegir doctor primero"): el mínimo de 1 h de anticipación solo aplica al
+        // paciente, ver MIN_BOOKING_LEAD_MINUTES.
+        const esPaciente = req.user?.role === "patient";
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const isToday = new Date(yr, mo - 1, dy).getTime() === today.getTime();
+        const now = new Date();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
         // Obtiene las citas ya agendadas para este doctor en esta
         // fecha (excluyendo canceladas).
         const dayStart = new Date(`${date}T00:00:00.000Z`);
@@ -568,6 +590,7 @@ scheduleController.getAvailableSlots = async (req, res) => {
         ];
 
         for (const free of tileFreeSlots(timeBlocksForDay, obstacles, durationMin, bufferMin)) {
+            if (esPaciente && isToday && free.start < currentMinutes + MIN_BOOKING_LEAD_MINUTES) continue;
             const startStr = minsToStr(free.start);
             slotsByStart.set(startStr, {
                 start_time: startStr,
