@@ -225,22 +225,15 @@ function useConsultation(appointmentId) {
           setDefaultValues((prev) => ({ ...prev, ...consultationData }));
           setConsultationId(consultRes._id);
         } else {
-          // No hay consulta guardada todavía. Si la cita ya trae un
-          // procedimiento preasignado, lo usa como valor inicial.
-          let procedureData = [];
-          if (apptRes.procedure_id) {
-            procedureData = [
-              {
-                procedure_id:
-                  typeof apptRes.procedure_id === "object"
-                    ? apptRes.procedure_id._id
-                    : apptRes.procedure_id,
-                doctor_id: apptRes.doctor_id?._id || apptRes.doctor_id || "",
-                notes: "",
-                material_used: [],
-              },
-            ];
-          }
+          // No hay consulta guardada todavía. Si la cita ya trae uno o más
+          // procedimientos preasignados (procedure_id es un array: la cita puede
+          // combinar varios), los usa como valor inicial, una fila por cada uno.
+          const procedureData = (apptRes.procedure_id || []).map((p) => ({
+            procedure_id: typeof p === "object" ? p._id : p,
+            doctor_id: apptRes.doctor_id?._id || apptRes.doctor_id || "",
+            notes: "",
+            material_used: [],
+          }));
 
           // Arma la estructura inicial de una consulta nueva, usando
           // los antecedentes del historial del paciente.
@@ -256,20 +249,13 @@ function useConsultation(appointmentId) {
         // Un 404 significa que todavía no existe consulta para esta
         // cita, así que se inicializa un registro nuevo en blanco.
         if (consultErr.status === 404 || consultErr.response?.status === 404) {
-          let procedureData = [];
-          if (apptRes.procedure_id) {
-            procedureData = [
-              {
-                procedure_id:
-                  typeof apptRes.procedure_id === "object"
-                    ? apptRes.procedure_id._id
-                    : apptRes.procedure_id,
-                doctor_id: apptRes.doctor_id?._id || apptRes.doctor_id || "",
-                notes: "",
-                material_used: [],
-              },
-            ];
-          }
+          // Misma regla que arriba: una fila por cada procedimiento preasignado.
+          const procedureData = (apptRes.procedure_id || []).map((p) => ({
+            procedure_id: typeof p === "object" ? p._id : p,
+            doctor_id: apptRes.doctor_id?._id || apptRes.doctor_id || "",
+            notes: "",
+            material_used: [],
+          }));
 
           const newConsultation = {
             ...emptyConsultation,

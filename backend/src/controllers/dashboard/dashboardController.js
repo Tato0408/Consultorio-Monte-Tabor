@@ -61,8 +61,10 @@ dashboardController.getStats = async (req, res) => {
             revenueForRange({ $gte: firstDayLastMonth, $lte: lastDayLastMonth }),
             revenueForRange({ $gte: firstDayThisMonth }),
             doctorsModel.countDocuments({ is_active: true }),
-            appointmentsModel.countDocuments({ date: { $gte: today, $lt: tomorrow } }),
-            appointmentsModel.countDocuments({ date: { $gte: yesterday, $lt: today } }),
+            // "pending_payment" (anticipo en línea sin confirmar aún) nunca es una cita
+            // real: se excluye para que "citas de hoy" no la cuente como agendada.
+            appointmentsModel.countDocuments({ date: { $gte: today, $lt: tomorrow }, status: { $ne: "pending_payment" } }),
+            appointmentsModel.countDocuments({ date: { $gte: yesterday, $lt: today }, status: { $ne: "pending_payment" } }),
             patientsModel.countDocuments(),
             patientsModel.countDocuments({ createdAt: { $lt: firstDayThisMonth } }),
         ]);
@@ -84,7 +86,7 @@ dashboardController.getStats = async (req, res) => {
 
         const [apptSparkline, patientSparkline] = await Promise.all([
             Promise.all(days.map(({ dayStart, dayEnd }) =>
-                appointmentsModel.countDocuments({ date: { $gte: dayStart, $lt: dayEnd } })
+                appointmentsModel.countDocuments({ date: { $gte: dayStart, $lt: dayEnd }, status: { $ne: "pending_payment" } })
             )),
             Promise.all(days.map(({ dayStart, dayEnd }) =>
                 patientsModel.countDocuments({ createdAt: { $gte: dayStart, $lt: dayEnd } })

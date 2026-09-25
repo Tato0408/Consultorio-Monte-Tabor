@@ -7,12 +7,12 @@ import {
 import apiClient from "@/lib/apiClient";
 
 const Logo = ({ size = 36 }) => (
-  <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: size * 0.875, height: size }}>
-    <svg viewBox="0 0 56 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0 w-full h-full">
-      <polygon points="28,2 54,17 54,47 28,62 2,47 2,17" fill="#3B6FCA" />
-    </svg>
-    <span className="relative z-10 text-white font-bold select-none" style={{ fontSize: size * 0.32 }}>T</span>
-  </div>
+  <img
+    src="/logoConsultorioSInFondo.png"
+    alt="Clínica Monte Tabor"
+    className="flex-shrink-0 object-contain"
+    style={{ height: size, width: size * 1.075 }}
+  />
 );
 
 const services = [
@@ -89,7 +89,7 @@ const Home = () => {
       <header className="sticky top-3 z-20 px-3 sm:px-6">
         <div className="max-w-6xl mx-auto bg-white/90 backdrop-blur border border-gray-100 shadow-sm shadow-gray-200/60 rounded-2xl px-5 sm:px-7 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Logo size={32} />
+            <Logo size={52} />
             <span className="font-bold text-gray-800 tracking-tight leading-tight text-sm sm:text-base">
               Clínica Familiar<br className="hidden sm:block" /> Monte Tabor
             </span>

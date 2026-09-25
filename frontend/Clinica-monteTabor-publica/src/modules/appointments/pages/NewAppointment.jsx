@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, ChevronDown, Clock, Stethoscope, CalendarDays, Timer, Wallet, CreditCard, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -142,14 +142,11 @@ const NewAppointment = () => {
   const [procedures, setProcedures] = useState([]);
   const [loadingCatalogo, setLoadingCatalogo] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  // Con muchos procedimientos (o sin usar el buscador) elegir uno queda fuera de la vista si
-  // el botón Continuar está más abajo de lo que se ve en pantalla; se hace scroll automático
-  // hacia él apenas se elige un tipo de atención, para que el paciente no tenga que buscarlo.
-  const continuarRef = useRef(null);
 
-  // El _id de un procedimiento del catálogo (incluida la Consulta Médica General, que ya
-  // no es un caso especial)
-  const [tipo, setTipo] = useState(null);
+  // Los _id de uno o más procedimientos del catálogo (incluida la Consulta Médica
+  // General, que ya no es un caso especial). La duración, el precio y el anticipo de la
+  // cita son la suma de todos los elegidos.
+  const [tipos, setTipos] = useState([]);
   // "rapido" (por defecto, sin doctor) o "doctor" (elige doctor antes que fecha/hora)
   const [modo, setModo] = useState("rapido");
   const [date, setDate] = useState(null);
@@ -198,8 +195,10 @@ const NewAppointment = () => {
     // fuera un procedimiento real) no trae con qué precargar el paso 1: se deja en el
     // paso 1 (el valor inicial de step) para que el paciente elija un procedimiento
     // explícitamente, en vez de saltar a un paso que depende de un tipo ya elegido.
-    if (prefill.tipo) {
-      setTipo(prefill.tipo);
+    // prefill.tipos: array (la cita puede traer más de un procedimiento).
+    const tiposPrefill = prefill.tipos?.length ? prefill.tipos : prefill.tipo ? [prefill.tipo] : [];
+    if (tiposPrefill.length > 0) {
+      setTipos(tiposPrefill);
       if (prefill.doctorId) {
         setModo("doctor");
         getSchedulableDoctors()
@@ -244,32 +243,36 @@ const NewAppointment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const procedimientoSeleccionado = tipo ? procedures.find((p) => p._id === tipo) : null;
+  const procedimientosSeleccionados = procedures.filter((p) => tipos.includes(p._id));
 
   // Un procedimiento sin doctor (requires_doctor false) lo atiende una enfermera como
-  // proveedora principal, en vez de un doctor. Sin procedimiento elegido todavía, por
-  // defecto se asume que sí requiere doctor (undefined !== false).
-  const requiresDoctorForProcedure = procedimientoSeleccionado?.requires_doctor !== false;
+  // proveedora principal, en vez de un doctor. Mezclar uno que requiere doctor con uno
+  // que no, el doctor pasa a ser el proveedor principal. Sin ningún procedimiento elegido
+  // todavía, por defecto se asume que sí requiere doctor.
+  const requiresDoctorForProcedure =
+    procedimientosSeleccionados.length === 0 || procedimientosSeleccionados.some((p) => p.requires_doctor !== false);
 
-  const duracion = Number(procedimientoSeleccionado?.estimated_duration) || 30;
-  const total = Number(procedimientoSeleccionado?.price) || 0;
+  const duracion = procedimientosSeleccionados.reduce((sum, p) => sum + (Number(p.estimated_duration) || 30), 0) || 30;
+  const total = procedimientosSeleccionados.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
   // Solo referencial: el monto real del anticipo lo calcula y valida el servidor
   const deposito = Math.round(total * 0.5 * 100) / 100;
-  const indicaciones = procedimientoSeleccionado?.pre_care_instructions || INDICACIONES_RESPALDO;
-  const tipoLabel = procedimientoSeleccionado?.name;
-  const tipoDescription = procedimientoSeleccionado?.description;
+  const indicaciones =
+    [...new Set(procedimientosSeleccionados.map((p) => p.pre_care_instructions?.trim()).filter(Boolean))].join(" ") ||
+    INDICACIONES_RESPALDO;
+  const tipoLabel = procedimientosSeleccionados.map((p) => p.name).join(", ");
+  const tipoDescription = procedimientosSeleccionados.map((p) => p.description).filter(Boolean).join("; ");
 
   const totalSteps = modo === "doctor" ? 4 : 3;
 
-  // Elegir un nuevo tipo invalida la fecha/hora/proveedor ya elegidos, porque la
-  // duración, disponibilidad y si aplica doctor o enfermera dependen del tipo.
+  // Agregar o quitar un procedimiento de la selección invalida la fecha/hora/proveedor ya
+  // elegidos, porque la duración, disponibilidad y si aplica doctor o enfermera dependen
+  // del conjunto elegido.
   const elegirTipo = (valor) => {
-    setTipo(valor);
+    setTipos((prev) => (prev.includes(valor) ? prev.filter((id) => id !== valor) : [...prev, valor]));
     setDate(null);
     setSlot(null);
     setDoctor(null);
     setNurse(null);
-    continuarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   // Cambiar de modo dentro del paso 2 invalida todo lo elegido después de ese paso:
@@ -304,7 +307,7 @@ const NewAppointment = () => {
   const goBack = () => setStep((s) => Math.max(rescheduleId ? 2 : 1, s - 1));
 
   const puedeContinuar =
-    (step === 1 && !!tipo) ||
+    (step === 1 && tipos.length > 0) ||
     (step === 2 && modo === "rapido" && !!slot) ||
     (step === 2 && modo === "doctor" && (requiresDoctorForProcedure ? !!doctor : !!nurse)) ||
     (step === 3 && modo === "doctor" && !!slot);
@@ -353,7 +356,7 @@ const NewAppointment = () => {
         nurse_id: requiresDoctorForProcedure ? undefined : nurse?._id,
         date: dateStr,
         start_time: slot.start_time,
-        procedure_id: tipo,
+        procedure_ids: tipos,
         payment_method: metodoPago,
         description: motivoLimpio || undefined,
       });
@@ -405,7 +408,7 @@ const NewAppointment = () => {
             nurse={confirmada.nurse_id}
             requiresDoctor={requiresDoctorForProcedure}
             tipoLabel={tipoLabel}
-            generalidades={procedimientoSeleccionado?.description}
+            generalidades={tipoDescription}
             date={new Date(confirmada.date)}
             startTime={confirmada.start_time}
             endTime={confirmada.end_time}
@@ -529,7 +532,7 @@ const NewAppointment = () => {
                   nurse={nurse}
                   requiresDoctor={requiresDoctorForProcedure}
                   tipoLabel={tipoLabel}
-                  generalidades={procedimientoSeleccionado?.description}
+                  generalidades={tipoDescription}
                   date={date}
                   startTime={slot.start_time}
                   endTime={slot.end_time}
@@ -574,7 +577,7 @@ const NewAppointment = () => {
             ) : (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
                 {step === 1 && (
-                  <StepTipoAtencion procedures={procedures} selected={tipo} onSelect={elegirTipo} />
+                  <StepTipoAtencion procedures={procedures} selected={tipos} onSelect={elegirTipo} />
                 )}
 
                 {step === 2 && (
@@ -585,7 +588,7 @@ const NewAppointment = () => {
                       <div className="flex flex-col lg:flex-row gap-6">
                         <div className="flex-1 min-w-0">
                           <StepFechaHora
-                            procedureId={tipo}
+                            procedureId={tipos.join(",")}
                             date={date}
                             slot={slot}
                             onSelectDate={elegirFecha}
@@ -628,7 +631,6 @@ const NewAppointment = () => {
             <div className={`flex justify-end mt-6 ${step === totalSteps ? "max-w-xl mx-auto" : ""}`}>
               {step < totalSteps && (
                 <button
-                  ref={continuarRef}
                   disabled={!puedeContinuar}
                   onClick={handleContinuar}
                   className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

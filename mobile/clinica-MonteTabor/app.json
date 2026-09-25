@@ -4,21 +4,22 @@
     "slug": "clinica-MonteTabor",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logoIconoAppRedondo.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logoIconoAppRedondo.png",
         "backgroundColor": "#1066CF"
       },
       "softwareKeyboardLayoutMode": "pan",
-      "package": "com.tatonoto02.clinicaMonteTabor"
+      "package": "com.tatonoto02.clinicaMonteTabor",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/logoIconoAppRedondo.png"
     },
     "plugins": [
       "@react-native-community/datetimepicker",
@@ -29,7 +30,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/logoMonteTabor.png",
+          "image": "./assets/logoConsultorioSInFondo.png",
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
@@ -37,7 +38,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/adaptive-icon.png",
+          "icon": "./assets/logoIconoAppRedondo.png",
           "color": "#3B6FCA"
         }
       ]

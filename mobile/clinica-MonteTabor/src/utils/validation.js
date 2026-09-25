@@ -4,6 +4,10 @@
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PHONE_REGEX = /^\d{4}-\d{4}$/;
 export const DUI_REGEX = /^\d{8}-\d{1}$/;
+// Solo letras (con acentos/ñ) y un espacio simple entre palabras: nada de números ni
+// caracteres especiales. Mismo patrón que ya usaba paymentValidators.js para el nombre
+// del titular de la tarjeta.
+export const NAME_REGEX = /^[A-Za-zÁÉÍÓÚÑáéíóúñ]+(\s[A-Za-zÁÉÍÓÚÑáéíóúñ]+)*$/;
 
 // "DD/MM/YYYY" (formato que produce FormDateInput/formatDate) -> "YYYY-MM-DD" (lo que espera
 // el backend para castear a Date). Es una simple reordenada de texto, no pasa por Date en
@@ -26,6 +30,10 @@ export const maskDui = (text) => {
   const digits = text.replace(/\D/g, "").slice(0, 9);
   return digits.length > 8 ? `${digits.slice(0, 8)}-${digits.slice(8)}` : digits;
 };
+
+// Máscara de nombre: bloquea números y caracteres especiales mientras se escribe, deja
+// solo letras (con acentos/ñ) y espacios.
+export const maskName = (text) => text.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]/g, "");
 
 // Misma regla que el checklist de contraseña de la web: más de 8 caracteres, mayúscula,
 // minúscula, número y carácter especial. Devuelve el mensaje del primer requisito incumplido,

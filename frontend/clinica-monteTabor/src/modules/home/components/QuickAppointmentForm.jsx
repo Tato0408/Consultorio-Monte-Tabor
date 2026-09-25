@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmProceedWithoutNurse } from "@/lib/alerts";
 import { Combobox, ComboboxTrigger, ComboboxContent, ComboboxItem } from "@/components/ui/combobox";
@@ -11,10 +11,10 @@ const todayStr = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-// procedure arranca vacío (no "general"): la sección de Encargados solo debe
-// aparecer una vez que el usuario elige un procedimiento explícitamente (ver
-// más abajo), así que no puede haber un procedimiento pre-seleccionado.
-const EMPTY_FORM = { patientId: "", doctorId: "", nurseId: "", procedure: "", date: todayStr(), selectedTime: "", description: "" };
+// procedureIds arranca vacío: la sección de Encargados solo debe aparecer una vez que el
+// usuario elige al menos un procedimiento explícitamente (ver más abajo), así que no
+// puede haber uno pre-seleccionado.
+const EMPTY_FORM = { patientId: "", doctorId: "", nurseId: "", procedureIds: [], date: todayStr(), selectedTime: "", description: "" };
 
 // Un horario cuya hora de inicio ya llegó o quedó atrás no debe poder
 // elegirse aquí, aunque nunca se haya ocupado. Por ejemplo, si son las
@@ -64,6 +64,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
     // podía mostrar la hora elegida porque no existía ninguna opción con
     // ese valor exacto.
     const [pinnedSlot, setPinnedSlot] = useState(null);
+    const [procedurePickerOpen, setProcedurePickerOpen] = useState(false);
 
     // Precarga doctor, fecha y hora cuando el recepcionista o la
     // enfermera hacen clic en un espacio libre de la agenda. El clic
@@ -81,16 +82,17 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
         setPinnedSlot({ date: prefill.date, start_time: prefill.start_time, end_time: prefill.end_time });
     }, [prefill]);
 
-    const selectedProcedure = procedures.find((p) => p._id?.toString() === form.procedure);
-    const procedureChosen = form.procedure !== "";
-    const duration = Number(selectedProcedure?.estimated_duration) || 30;
+    const selectedProcedures = procedures.filter((p) => form.procedureIds.includes(p._id?.toString()));
+    const procedureChosen = form.procedureIds.length > 0;
+    const duration = selectedProcedures.reduce((sum, p) => sum + (Number(p.estimated_duration) || 30), 0) || 30;
     // Un procedimiento sin doctor (requires_doctor false) lo atiende una enfermera como
     // proveedora principal: ahí el selector de doctor no aplica y "Enfermera" pasa a ser
-    // el campo principal. Sin procedimiento elegido todavía, por defecto se asume que sí
-    // requiere doctor (undefined !== false). Mismo criterio que AppointmentsFormCalendar.jsx.
-    const requiresDoctorForProcedure = selectedProcedure?.requires_doctor !== false;
-    // Enfermera de apoyo obligatoria (caso doctor + enfermera).
-    const isNurseRequired = procedureChosen && !!selectedProcedure?.requires_nurse;
+    // el campo principal. Mezclar uno que requiere doctor con uno que no, el doctor pasa a
+    // ser el proveedor principal. Sin ningún procedimiento elegido todavía, por defecto se
+    // asume que sí requiere doctor. Mismo criterio que AppointmentsFormCalendar.jsx.
+    const requiresDoctorForProcedure = !procedureChosen || selectedProcedures.some((p) => p.requires_doctor !== false);
+    // Enfermera de apoyo obligatoria (alcanza con que UNO de los procedimientos la exija).
+    const isNurseRequired = procedureChosen && selectedProcedures.some((p) => !!p.requires_nurse);
 
     // Informa al dashboard qué debe mostrar la agenda (DoctorsAgendaSection.jsx): vacía
     // hasta elegir procedimiento, luego doctores, enfermeras o ambos según el caso, y con qué
@@ -124,12 +126,12 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
         if (!procedureChosen || !form.date) { setRawSlots([]); return; }
         let cancelled = false;
         setLoadingSlots(true);
-        apiClient("/schedule/patient-available-slots", { params: { date: form.date, procedure_id: form.procedure } })
+        apiClient("/schedule/patient-available-slots", { params: { date: form.date, procedure_id: form.procedureIds.join(",") } })
             .then((res) => { if (!cancelled) setRawSlots(res.slots || []); })
             .catch(() => { if (!cancelled) setRawSlots([]); })
             .finally(() => !cancelled && setLoadingSlots(false));
         return () => { cancelled = true; };
-    }, [procedureChosen, form.procedure, form.date]);
+    }, [procedureChosen, form.procedureIds.join(","), form.date]);
 
     // Combina los horarios agregados con el horario fijado por un clic en la agenda, si
     // corresponde a la fecha actual, sin volver a pedir datos al backend. Si la fecha
@@ -173,7 +175,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
         if (requiresDoctorForProcedure) {
             pending += 1;
             apiClient("/schedule/patient-doctors-for-slot", {
-                params: { date: form.date, start_time: slot.start_time, procedure_id: form.procedure },
+                params: { date: form.date, start_time: slot.start_time, procedure_id: form.procedureIds.join(",") },
             }).then((res) => {
                 if (cancelled) return;
                 const list = res.doctors || [];
@@ -190,7 +192,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
             // enfermería (isSlotFreeForNurse, con excepciones y buffer_time incluidos).
             pending += 1;
             apiClient("/nurse-schedule/patient-nurses-for-slot", {
-                params: { date: form.date, start_time: slot.start_time, procedure_id: form.procedure },
+                params: { date: form.date, start_time: slot.start_time, procedure_id: form.procedureIds.join(",") },
             }).then((res) => {
                 if (cancelled) return;
                 const list = res.nurses || [];
@@ -215,7 +217,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
 
         if (pending === 0) setLoadingProviders(false);
         return () => { cancelled = true; };
-    }, [procedureChosen, requiresDoctorForProcedure, isNurseRequired, form.date, form.selectedTime, form.procedure, availableSlots]);
+    }, [procedureChosen, requiresDoctorForProcedure, isNurseRequired, form.date, form.selectedTime, form.procedureIds.join(","), availableSlots]);
 
     const missingRoleLabel = requiresDoctorForProcedure ? "doctores" : "enfermeras";
     const noAvailabilityMsg = `No hay ${missingRoleLabel} disponibles para esta fecha y/o horario, por favor escoge otra fecha y/o horario.`;
@@ -225,7 +227,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
         if (submitting) return;
 
         if (!form.patientId) return showError("Selecciona un paciente.");
-        if (!form.procedure) return showError("Selecciona un procedimiento.");
+        if (form.procedureIds.length === 0) return showError("Selecciona al menos un procedimiento.");
         if (!form.selectedTime) return showError("Selecciona una fecha y un horario.");
         if (requiresDoctorForProcedure && !form.doctorId) return showError("Selecciona un doctor.");
         if (!requiresDoctorForProcedure && !form.nurseId) return showError("Selecciona una enfermera.");
@@ -236,7 +238,8 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
         if (requiresDoctorForProcedure && isNurseRequired && !form.nurseId) {
             if (loadingProviders) return showError("Espera a que termine de cargar la lista de enfermeras.");
             if (slotNurses.length > 0) {
-                return showError(`El procedimiento "${selectedProcedure?.name}" requiere obligatoriamente asignar una enfermera.`);
+                const nombresConEnfermera = selectedProcedures.filter((p) => p.requires_nurse).map((p) => p.name).join(", ");
+                return showError(`El procedimiento "${nombresConEnfermera}" requiere obligatoriamente asignar una enfermera.`);
             }
             const confirmed = await confirmProceedWithoutNurse();
             if (!confirmed) return;
@@ -246,7 +249,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
         const slot = availableSlots.find((s) => s.start_time === form.selectedTime);
         if (!slot) return showError(noAvailabilityMsg);
 
-        const total = Number(selectedProcedure?.price) || 0;
+        const total = selectedProcedures.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
 
         setSubmitting(true);
         try {
@@ -256,11 +259,13 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                     doctor_id: requiresDoctorForProcedure ? form.doctorId : undefined,
                     nurse_id: form.nurseId || undefined,
                     patient_id: form.patientId,
-                    procedure_id: form.procedure,
+                    procedure_ids: form.procedureIds,
                     // "Consulta Médica General" ahora es un procedimiento real más: se
                     // identifica por nombre solo para mantener el campo type de siempre
-                    // (lo usan los reportes para separar consultas de procedimientos).
-                    type: selectedProcedure?.name === "Consulta Médica General" ? "Consulta Médica General" : "Procedimiento",
+                    // (lo usan los reportes para separar consultas de procedimientos). Con
+                    // más de un procedimiento elegido, o con uno solo que no sea ese, es
+                    // "Procedimiento" (mismo criterio que resolveProcedures en el backend).
+                    type: form.procedureIds.length === 1 && selectedProcedures[0]?.name === "Consulta Médica General" ? "Consulta Médica General" : "Procedimiento",
                     date: new Date(`${form.date}T00:00:00`).toISOString(),
                     start_time: slot.start_time,
                     end_time: slot.end_time,
@@ -328,21 +333,57 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                     </div>
 
                     <div>
-                        <label className="text-xs font-semibold text-slate-500 block mb-1">Procedimiento</label>
-                        <Combobox
-                            value={form.procedure}
-                            onValueChange={(value) => {
-                                setForm((f) => ({ ...f, procedure: value ?? "", selectedTime: "" }));
-                                setActiveTab("doctor");
-                            }}
-                        >
-                            <ComboboxTrigger placeholder="Buscar procedimiento..." className="h-[34px] text-xs bg-white" />
-                            <ComboboxContent>
-                                {procedures.map((p) => (
-                                    <ComboboxItem key={p._id} value={p._id}>{p.name}</ComboboxItem>
-                                ))}
-                            </ComboboxContent>
-                        </Combobox>
+                        <label className="text-xs font-semibold text-slate-500 block mb-1">Procedimientos</label>
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setProcedurePickerOpen((o) => !o)}
+                                className="h-[34px] w-full flex items-center justify-between gap-2 rounded-lg bg-white px-3 border border-slate-200 text-xs focus:outline-none focus:border-blue-400"
+                            >
+                                <span className={`truncate text-left ${selectedProcedures.length ? "text-slate-700" : "text-slate-400"}`}>
+                                    {selectedProcedures.length === 0
+                                        ? "Buscar procedimiento..."
+                                        : selectedProcedures.map((p) => p.name).join(", ")}
+                                </span>
+                                <ChevronDown className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            </button>
+                            {procedurePickerOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setProcedurePickerOpen(false)} />
+                                    <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg py-1">
+                                        {procedures.map((p) => {
+                                            const idStr = p._id?.toString();
+                                            const checked = form.procedureIds.includes(idStr);
+                                            return (
+                                                <label key={p._id} className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-slate-50 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={() => {
+                                                            setForm((f) => ({
+                                                                ...f,
+                                                                procedureIds: checked
+                                                                    ? f.procedureIds.filter((id) => id !== idStr)
+                                                                    : [...f.procedureIds, idStr],
+                                                                selectedTime: "",
+                                                            }));
+                                                            setActiveTab("doctor");
+                                                        }}
+                                                        className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-400"
+                                                    />
+                                                    <span className="flex-1 text-slate-700">{p.name}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        {selectedProcedures.length > 0 && (
+                            <p className="text-[11px] text-slate-400 mt-1">
+                                Duración total: {duration} min · Precio total: ${selectedProcedures.reduce((sum, p) => sum + (Number(p.price) || 0), 0)}
+                            </p>
+                        )}
                     </div>
 
                     {/* Fecha y horario: oculto hasta elegir procedimiento, porque recién ahí se

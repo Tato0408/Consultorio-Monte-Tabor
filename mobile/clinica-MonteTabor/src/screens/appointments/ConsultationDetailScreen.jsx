@@ -161,7 +161,7 @@ export default function ConsultationDetailScreen({ navigation, route }) {
         <View style={styles.infoCard}>
           <DetailItem icon="calendar-outline" label="Fecha" value={appointment ? formatLongDate(appointment.date) : "—"} />
           <DetailItem icon="time-outline" label="Horario" value={appointment ? formatTime12h(appointment.start_time) : "—"} />
-          <DetailItem icon="medkit-outline" label="Servicio" value={appointment?.procedure_id?.name || appointment?.type || "—"} />
+          <DetailItem icon="medkit-outline" label="Servicio" value={(appointment?.procedure_id || []).map((p) => p.name).join(", ") || appointment?.type || "—"} />
         </View>
 
         <Section icon="clipboard-outline" title="Diagnóstico">

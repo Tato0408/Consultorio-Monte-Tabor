@@ -1,5 +1,6 @@
 import appointmentsModel from "../../models/appointments/appointments.js";
 import { verifyWebhookSignature, getTransactionStatus } from "../../utils/wompi.js";
+import { activateAfterDeposit } from "../patientPortal/patientPortalController.js";
 
 const wompiWebhookController = {};
 
@@ -53,16 +54,20 @@ wompiWebhookController.handle = async (req, res) => {
             return res.status(200).json({ message: "Sin referencia, se ignora" });
         }
 
-        // Se vuelve a consultar la transacción directamente a Wompi en
-        // vez de confiar ciegamente en los campos del webhook, para
-        // tener una sola fuente de verdad del estado del pago. El status
-        // de la cita no cambia aquí: pagar el anticipo no salta la
-        // aceptación del doctor, sigue "pending" hasta que se acepte.
+        // Se vuelve a consultar la transacción directamente a Wompi en vez de confiar
+        // ciegamente en los campos del webhook, para tener una sola fuente de verdad del
+        // estado del pago.
         const transaccion = await getTransactionStatus(transactionId);
         if (transaccion.esAprobada === true && Number(transaccion.monto) >= Number(appointment.deposit_amount)) {
             appointment.wompi_transaction_id = transactionId;
             appointment.deposit_paid = true;
             await appointment.save();
+
+            // Respaldo del camino normal (confirmAppointmentPayment, que el frontend llama
+            // en cuanto termina de cobrar): si esa llamada nunca llegó a completarse, este
+            // webhook es el único que se entera de que sí se pagó, así que también le toca
+            // sacar la cita de "pending_payment" y recién ahí notificar a los proveedores.
+            await activateAfterDeposit(appointment);
         }
 
         return res.status(200).json({ message: "OK" });

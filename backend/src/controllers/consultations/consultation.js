@@ -14,6 +14,7 @@ import { refreshNurseNotePendingNotification } from "../../services/notification
 import { sync_treatment_from_consultation } from "../../services/treatmentSync.js";
 import { resolve_actor } from "../../utils/resolveActor.js";
 import { cascadeDeleteConsultation, deleteAppointmentCascade } from "../../services/consultationCascade.js";
+import { resolveProcedureFlags } from "../../utils/procedureAggregation.js";
 const consultationController = {};
 
 // follow_up_date (Procedimientos) y prescription.next_appointment_suggested (Receta)
@@ -49,12 +50,10 @@ const sanitizeTreatmentPlanForActor = (treatment_plan, req) => {
 // requiere enfermera. Best effort, nunca corta la respuesta.
 const notifyNurseNoteIfNeeded = async (appointment) => {
   try {
-    if (!appointment?.nurse_id || !appointment?.procedure_id) return;
-    const procedure = await proceduresModel
-      .findById(appointment.procedure_id)
-      .select("requires_nurse")
-      .lean();
-    if (procedure?.requires_nurse) {
+    if (!appointment?.nurse_id || !appointment?.procedure_id?.length) return;
+    // Alcanza con que UNO de los procedimientos de la cita requiera enfermera.
+    const { requiresNurse } = await resolveProcedureFlags(appointment.procedure_id);
+    if (requiresNurse) {
       await refreshNurseNotePendingNotification(appointment.nurse_id);
     }
   } catch (error) {
@@ -933,10 +932,9 @@ consultationController.setNurseNote = async (req, res) => {
       return res.status(403).json({ message: "No eres la enfermera asignada a esta consulta" });
     }
 
-    const procedure = appointment.procedure_id
-      ? await proceduresModel.findById(appointment.procedure_id).select("requires_nurse").lean()
-      : null;
-    if (!procedure?.requires_nurse) {
+    // Alcanza con que UNO de los procedimientos de la cita requiera enfermera.
+    const { requiresNurse } = await resolveProcedureFlags(appointment.procedure_id);
+    if (!requiresNurse) {
       return res.status(403).json({ message: "Esta consulta no requiere nota de enfermería" });
     }
 

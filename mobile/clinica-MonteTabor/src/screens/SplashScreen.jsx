@@ -14,7 +14,7 @@ export default function SplashScreen() {
 
             <View style={styles.body}>
                 <Image
-                    source={require("../../assets/logoMonteTabor.png")}
+                    source={require("../../assets/logoConsultorioSInFondo.png")}
                     style={styles.logo}
                     resizeMode="contain"
                 />

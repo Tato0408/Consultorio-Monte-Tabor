@@ -16,7 +16,7 @@ let logoPromise = null;
 export function getLogoDataUri() {
   if (!logoPromise) {
     logoPromise = (async () => {
-      const asset = Asset.fromModule(require("../../../assets/logoMonteTabor.png"));
+      const asset = Asset.fromModule(require("../../../assets/logoConsultorioSInFondo.png"));
       await asset.downloadAsync();
       const base64 = await FileSystem.readAsStringAsync(asset.localUri, {
         encoding: FileSystem.EncodingType.Base64,

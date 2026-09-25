@@ -181,7 +181,15 @@ export default function NewAppointmentScreen({ navigation, route }) {
 
   const [step, setStep] = useState(1);
   const [services, setServices] = useState([]);
-  const [selectedId, setSelectedId] = useState(reschedule?.procedureId || prefill?.procedureId || null);
+  // Uno o más servicios (procedimientos) elegidos: la duración y el precio de la cita son
+  // la suma de todos. reschedule/prefill traen procedureIds (array) — o, de un cliente
+  // viejo, procedureId suelto — nunca ambas formas a la vez.
+  const [selectedIds, setSelectedIds] = useState(
+    reschedule?.procedureIds || prefill?.procedureIds ||
+    (reschedule?.procedureId ? [reschedule.procedureId] : null) ||
+    (prefill?.procedureId ? [prefill.procedureId] : null) ||
+    []
+  );
   // "rapido" (por defecto, sin doctor) o "doctor" (elige doctor antes que fecha/hora)
   const [modo, setModo] = useState("rapido");
   const [date, setDate] = useState(toDateKey(new Date()));
@@ -195,16 +203,19 @@ export default function NewAppointmentScreen({ navigation, route }) {
   const [success, setSuccess] = useState(false);
   const [search, setSearch] = useState("");
   const upcomingDays = useMemo(getUpcomingDays, []);
-  const selectedService = services.find((service) => service._id === selectedId);
+  const selectedServices = services.filter((service) => selectedIds.includes(service._id));
+  const serviceDuration = selectedServices.reduce((sum, s) => sum + (Number(s.estimated_duration) || 30), 0) || 30;
+  const serviceTotal = selectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
   // Si el día elegido es hoy, oculta los horarios que ya pasaron (mismo criterio que
   // StepFechaHora.jsx en la web).
   const todayKey = toDateKey(new Date());
   const visibleSlots = date === todayKey ? slots.filter(isFutureSlot) : slots;
   const selectedSlot = visibleSlots.find((slot) => slot.start_time === selectedTime);
   // Un servicio con requires_doctor === false lo atiende una enfermera como proveedora
-  // principal en el modo "doctor". Sin servicio elegido todavía, por defecto se asume que
-  // sí requiere doctor (undefined !== false).
-  const requiresDoctorForService = selectedService?.requires_doctor !== false;
+  // principal en el modo "doctor". Mezclar uno que requiere doctor con uno que no, el
+  // doctor pasa a ser el proveedor principal. Sin ningún servicio elegido todavía, por
+  // defecto se asume que sí requiere doctor.
+  const requiresDoctorForService = selectedServices.length === 0 || selectedServices.some((s) => s.requires_doctor !== false);
 
   // Paso "elegir doctor" (modo doctor primero): solo doctores con horario configurado.
   const [doctors, setDoctors] = useState([]);
@@ -239,7 +250,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
         // disponible, mismo criterio que agendar sin elegir doctor). En modo prellenado
         // sin proveedor (procedimiento agregado) pasa lo mismo; con proveedor, el efecto
         // de abajo avanza directo al paso 3 una vez que lo encuentra.
-        if ((reschedule?.procedureId || prefill?.procedureId) && !prefill?.doctorId && !prefill?.nurseId) setStep(2);
+        if (selectedIds.length > 0 && !prefill?.doctorId && !prefill?.nurseId) setStep(2);
       })
       .catch((error) => showError(error.message || "No se pudieron cargar los servicios."))
       .finally(() => setLoading(false));
@@ -320,7 +331,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
     const enPasoDeHorarioRapido = modo === "rapido" && step === 2;
     const enPasoDeHorarioProveedor = modo === "doctor" && step === 3;
     if (!enPasoDeHorarioRapido && !enPasoDeHorarioProveedor) return;
-    if (!selectedId) return;
+    if (selectedIds.length === 0) return;
     const provider = selectedDoctor || selectedNurse;
     if (enPasoDeHorarioProveedor && !provider) return;
 
@@ -338,9 +349,9 @@ export default function NewAppointmentScreen({ navigation, route }) {
           selectedDoctor
             ? `/patient-portal/schedule/${selectedDoctor._id}/slots`
             : `/patient-portal/nurse-schedule/${selectedNurse._id}/slots`,
-          { params: { date, duration: selectedService?.estimated_duration || 30, includeBooked: true }, signal: controller.signal }
+          { params: { date, duration: serviceDuration, includeBooked: true }, signal: controller.signal }
         )
-      : apiClient("/schedule/patient-available-slots", { params: { date, procedure_id: selectedId }, signal: controller.signal });
+      : apiClient("/schedule/patient-available-slots", { params: { date, procedure_id: selectedIds.join(",") }, signal: controller.signal });
 
     solicitud
       .then((response) => setSlots(response.slots || []))
@@ -351,7 +362,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
       })
       .finally(() => { if (!controller.signal.aborted) setSlotsLoading(false); });
     return () => controller.abort();
-  }, [date, selectedId, step, modo, selectedDoctor, selectedNurse]);
+  }, [date, selectedIds.join(","), step, modo, selectedDoctor, selectedNurse]);
 
   // Consulta los horarios de HOY (sin importar cuál día esté seleccionado) solo para
   // saber si ya no le queda ninguno disponible, y así poder deshabilitar su botón en el
@@ -360,7 +371,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
     const enPasoDeHorarioRapido = modo === "rapido" && step === 2;
     const enPasoDeHorarioProveedor = modo === "doctor" && step === 3;
     if (!enPasoDeHorarioRapido && !enPasoDeHorarioProveedor) return;
-    if (!selectedId) return;
+    if (selectedIds.length === 0) return;
     const provider = selectedDoctor || selectedNurse;
     if (enPasoDeHorarioProveedor && !provider) return;
 
@@ -374,15 +385,15 @@ export default function NewAppointmentScreen({ navigation, route }) {
           selectedDoctor
             ? `/patient-portal/schedule/${selectedDoctor._id}/slots`
             : `/patient-portal/nurse-schedule/${selectedNurse._id}/slots`,
-          { params: { date: todayKey, duration: selectedService?.estimated_duration || 30, includeBooked: true }, signal: controller.signal }
+          { params: { date: todayKey, duration: serviceDuration, includeBooked: true }, signal: controller.signal }
         )
-      : apiClient("/schedule/patient-available-slots", { params: { date: todayKey, procedure_id: selectedId }, signal: controller.signal });
+      : apiClient("/schedule/patient-available-slots", { params: { date: todayKey, procedure_id: selectedIds.join(",") }, signal: controller.signal });
 
     solicitud
       .then((response) => setTodayHasSlots((response.slots || []).some(isFutureSlot)))
       .catch((error) => { if (error.name !== "AbortError") setTodayHasSlots(true); });
     return () => controller.abort();
-  }, [selectedId, step, modo, selectedDoctor, selectedNurse]);
+  }, [selectedIds.join(","), step, modo, selectedDoctor, selectedNurse]);
 
   // Un día cae dentro de una excepción bloqueante (vacaciones, día no laborable) si su
   // fecha está en el rango [date, end_date]. "special_hours" no bloquea el día, solo
@@ -401,12 +412,13 @@ export default function NewAppointmentScreen({ navigation, route }) {
     return fechaDentroDeExcepcionBloqueante(key);
   };
 
-  // Elegir un nuevo servicio invalida el proveedor y el horario ya elegidos: si cambia si
-  // el servicio requiere doctor o enfermera (requiresDoctorForService), un proveedor de la
-  // selección anterior podía quedar "pegado" y mostrarse junto al nuevo en la confirmación
-  // y en la pantalla de éxito (mismo criterio que elegirTipo en el portal público).
+  // Agregar o quitar un servicio de la selección invalida el proveedor y el horario ya
+  // elegidos: si cambia si el conjunto requiere doctor o enfermera
+  // (requiresDoctorForService), un proveedor de la selección anterior podía quedar
+  // "pegado" y mostrarse junto al nuevo en la confirmación y en la pantalla de éxito
+  // (mismo criterio que elegirTipo en el portal público).
   const elegirServicio = (id) => {
-    setSelectedId(id);
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]));
     setSelectedDoctor(null);
     setSelectedNurse(null);
     setDate(toDateKey(new Date()));
@@ -433,7 +445,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
   };
 
   const next = () => {
-    if (step === 1 && !selectedService) return showError("Selecciona el tipo de consulta.");
+    if (step === 1 && selectedServices.length === 0) return showError("Selecciona al menos un tipo de consulta.");
     if (step === 2 && modo === "rapido" && !selectedSlot) return showError("Selecciona un horario disponible.");
     if (step === 2 && modo === "doctor" && requiresDoctorForService && !selectedDoctor) return showError("Selecciona un doctor.");
     if (step === 2 && modo === "doctor" && !requiresDoctorForService && !selectedNurse) return showError("Selecciona una enfermera.");
@@ -471,7 +483,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
           // nurse_id a la vez.
           doctor_id: requiresDoctorForService ? selectedDoctor?._id : undefined,
           nurse_id: requiresDoctorForService ? undefined : selectedNurse?._id,
-          procedure_id: selectedId,
+          procedure_ids: selectedIds,
           date,
           start_time: selectedSlot.start_time,
           description: description.trim() || undefined,
@@ -511,7 +523,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
                   : "Tu solicitud quedó pendiente. Cualquier enfermera disponible podrá aceptarla y verás cualquier cambio en Consultas."}
           </Text>
           <View style={styles.summaryCard}>
-            <SummaryRow icon="medkit-outline" label="Servicio" value={selectedService?.name || "Consulta"} />
+            <SummaryRow icon="medkit-outline" label="Servicio" value={selectedServices.map((s) => s.name).join(", ") || "Consulta"} />
             {selectedDoctor && <SummaryRow icon="person-outline" label="Doctor" value={`Dr. ${selectedDoctor.name} ${selectedDoctor.last_name}`} />}
             {selectedNurse && <SummaryRow icon="person-outline" label="Enfermera" value={`${selectedNurse.name} ${selectedNurse.last_name}`} />}
             <SummaryRow icon="calendar-outline" label="Fecha" value={longDate(date)} />
@@ -540,7 +552,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
   // con "saving" únicamente (ver el TouchableOpacity del footer).
   const puedeContinuar =
     step === totalSteps ||
-    (step === 1 && !!selectedService) ||
+    (step === 1 && selectedServices.length > 0) ||
     (step === 2 && modo === "rapido" && !!selectedSlot) ||
     (step === 2 && modo === "doctor" && (requiresDoctorForService ? !!selectedDoctor : !!selectedNurse)) ||
     (step === 3 && modo === "doctor" && !!selectedSlot);
@@ -564,15 +576,34 @@ export default function NewAppointmentScreen({ navigation, route }) {
               <Ionicons name="search-outline" size={18} color="#94A3B8" />
             </View>
             {loading ? <ActivityIndicator color="#2F6BFF" style={styles.loader} /> : filteredServices.map((service, index) => (
-              <TouchableOpacity key={service._id} style={[styles.serviceCard, selectedId === service._id && styles.serviceCardSelected]} onPress={() => elegirServicio(service._id)}>
+              <TouchableOpacity key={service._id} style={[styles.serviceCard, selectedIds.includes(service._id) && styles.serviceCardSelected]} onPress={() => elegirServicio(service._id)}>
                 <View style={styles.serviceIcon}><Ionicons name={SERVICE_ICONS[index % SERVICE_ICONS.length]} size={21} color="#5368D9" /></View>
                 <View style={styles.serviceText}>
                   <Text style={styles.serviceName}>{service.name}</Text>
                   <Text style={styles.serviceMeta}>{service.estimated_duration || 30} min · {money(service.price)}</Text>
                 </View>
-                <Ionicons name={selectedId === service._id ? "checkmark-circle" : "chevron-forward"} size={21} color={selectedId === service._id ? "#2F6BFF" : "#111827"} />
+                <Ionicons name={selectedIds.includes(service._id) ? "checkmark-circle" : "chevron-forward"} size={21} color={selectedIds.includes(service._id) ? "#2F6BFF" : "#111827"} />
               </TouchableOpacity>
             ))}
+
+            {selectedServices.length > 0 && (
+              <View style={[styles.summaryCard, { marginTop: 4 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.summaryLabel}>
+                      {selectedServices.length === 1 ? "1 servicio seleccionado" : `${selectedServices.length} servicios seleccionados`}
+                    </Text>
+                    <Text style={[styles.summaryValue, { textTransform: "none" }]} numberOfLines={2}>
+                      {selectedServices.map((s) => s.name).join(", ")}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={[styles.summaryValue, { color: "#2F6BFF" }]}>{money(serviceTotal)}</Text>
+                    <Text style={styles.summaryLabel}>{serviceDuration} min</Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </>
         ) : null}
 
@@ -671,12 +702,12 @@ export default function NewAppointmentScreen({ navigation, route }) {
               {rescheduleId ? "Un profesional debe aceptar la cita para confirmarla" : "Revisa que la información sea correcta"}
             </Text>
             <View style={styles.summaryCard}>
-              <SummaryRow icon="medkit-outline" label="Servicio" value={selectedService?.name || "Consulta"} />
+              <SummaryRow icon="medkit-outline" label="Servicio" value={selectedServices.map((s) => s.name).join(", ") || "Consulta"} />
               {selectedDoctor && <SummaryRow icon="person-outline" label="Doctor" value={`Dr. ${selectedDoctor.name} ${selectedDoctor.last_name}`} />}
               {selectedNurse && <SummaryRow icon="person-outline" label="Enfermera" value={`${selectedNurse.name} ${selectedNurse.last_name}`} />}
               <SummaryRow icon="calendar-outline" label="Fecha" value={longDate(date)} />
               <SummaryRow icon="time-outline" label="Hora" value={`${selectedSlot.start_time} – ${selectedSlot.end_time}`} />
-              <SummaryRow icon="cash-outline" label="Costo" value={money(selectedService?.price)} />
+              <SummaryRow icon="cash-outline" label="Costo" value={money(serviceTotal)} />
               <SummaryRow icon="hourglass-outline" label="Estado inicial" value="Pendiente de asignación" />
             </View>
 

@@ -59,7 +59,10 @@ receptionistDashboardController.getStats = async (req, res) => {
             apptSparkline,
             attendedSparkline,
         ] = await Promise.all([
-            appointmentsModel.find({ ...activePartiesFilter, date: { $gte: today, $lt: tomorrow } })
+            // "pending_payment" (anticipo en línea sin confirmar aún) nunca es una cita
+            // real: se excluye para que ni el conteo ni el desglose de "citas de hoy"
+            // la cuenten como si ya estuviera agendada.
+            appointmentsModel.find({ ...activePartiesFilter, date: { $gte: today, $lt: tomorrow }, status: { $ne: "pending_payment" } })
                 .populate("doctor_id", "name last_name")
                 .populate("patient_id", "name last_name createdAt")
                 .sort({ start_time: 1 })
@@ -154,7 +157,7 @@ receptionistDashboardController.getDoctorsAgenda = async (req, res) => {
         const [doctors, schedules, appointments] = await Promise.all([
             doctorsModel.find({ is_active: true }, "name last_name img_url specialty").lean(),
             scheduleModel.find({}).lean(),
-            appointmentsModel.find({ ...(await buildActivePartiesAppointmentFilter()), date: { $gte: start, $lte: end }, status: { $ne: CANCELLED } })
+            appointmentsModel.find({ ...(await buildActivePartiesAppointmentFilter()), date: { $gte: start, $lte: end }, status: { $nin: [CANCELLED, "pending_payment"] } })
                 .populate("patient_id", "name last_name")
                 .lean(),
         ]);

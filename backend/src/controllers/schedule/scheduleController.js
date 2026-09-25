@@ -1,8 +1,8 @@
 import scheduleModel from "../../models/schedule/schedule.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import doctorModel from "../../models/doctors/doctors.js";
-import proceduresModel from "../../models/procedures/procedures.js";
 import { OCCUPYING_STATUSES } from "../../utils/appointmentStatus.js";
+import { resolveProcedures } from "../../utils/procedureAggregation.js";
 // Import circular con nurseScheduleController.js (que a su vez importa toMins/minsToStr/
 // tileFreeSlots de este archivo): seguro porque ambos lados solo usan el import dentro del
 // cuerpo de una función async, nunca en tiempo de evaluación del módulo.
@@ -220,12 +220,18 @@ export const isSlotFreeForDoctor = async (doctorId, date, start_time, end_time, 
 // para armar los horarios agregados como para resolver qué doctores cubren
 // un horario puntual ya elegido.
 export const resolveDurationMinutes = async (procedure_id) => {
-    if (!procedure_id) return null;
-    // $ne: false, no is_active: true: ver la nota en appointmentsController.getPatientProcedures.
-    const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: { $ne: false } })
-        .select("estimated_duration");
-    if (!procedure) return null;
-    return Number(procedure.estimated_duration) || 30;
+    const resolved = await resolveProcedures(procedure_id);
+    return resolved ? resolved.duration_minutes : null;
+};
+
+// Igual que resolveDurationMinutes, pero devuelve también si el conjunto de
+// procedimientos elegidos requiere doctor (alcanza con que UNO lo requiera): lo usa
+// getPatientAvailableSlots para decidir si el horario agregado sale de los doctores o de
+// las enfermeras (procedimiento(s) sin doctor, ver requires_doctor en el modelo).
+export const resolveDurationAndRequiresDoctor = async (procedure_id) => {
+    const resolved = await resolveProcedures(procedure_id);
+    if (!resolved) return null;
+    return { minutes: resolved.duration_minutes, requiresDoctor: resolved.requiresDoctor };
 };
 
 // Suma minutos a una hora en formato HH:mm y devuelve otra hora en el mismo formato.
@@ -297,17 +303,17 @@ scheduleController.getPatientAvailableSlots = async (req, res) => {
             return res.status(400).json({ message: "No puedes agendar una cita en una fecha que ya pasó." });
         }
 
-        const minutes = await resolveDurationMinutes(procedure_id);
-        if (minutes === null) {
+        const resolvedProcedures = await resolveDurationAndRequiresDoctor(procedure_id);
+        if (resolvedProcedures === null) {
             return res.status(400).json({ message: "El procedimiento seleccionado no está disponible." });
         }
+        const { minutes, requiresDoctor } = resolvedProcedures;
 
-        // Un procedimiento sin doctor (requires_doctor false) se agenda con una enfermera
-        // como proveedora principal: los horarios agregados salen de sus horarios, no de
-        // los de los doctores. Cualquier otro procedimiento sigue el camino normal
-        // (doctor) más abajo.
-        const procedure = await proceduresModel.findOne({ _id: procedure_id, is_active: { $ne: false } }).select("requires_doctor");
-        if (procedure && procedure.requires_doctor === false) {
+        // Ningún procedimiento elegido requiere doctor (requires_doctor false en TODOS):
+        // se agenda con una enfermera como proveedora principal, los horarios agregados
+        // salen de sus horarios, no de los de los doctores. Si se mezcló uno que sí
+        // requiere doctor, sigue el camino normal (doctor) más abajo.
+        if (!requiresDoctor) {
             const slots = await getAggregateNurseSlots(date, minutes);
             return res.json({ slots });
         }

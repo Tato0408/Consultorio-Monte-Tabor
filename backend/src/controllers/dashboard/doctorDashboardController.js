@@ -54,10 +54,13 @@ doctorDashboardController.getStats = async (req, res) => {
             appointmentsModel.distinct("patient_id", { doctor_id: doctorId }),
             appointmentsModel.distinct("patient_id", { doctor_id: doctorId, date: { $gte: firstDayThisMonth } }),
             appointmentsModel.distinct("patient_id", { doctor_id: doctorId, date: { $gte: firstDayLastMonth, $lte: lastDayLastMonth } }),
-            appointmentsModel.countDocuments({ doctor_id: doctorId, date: { $gte: today, $lt: tomorrow } }),
-            appointmentsModel.countDocuments({ doctor_id: doctorId, date: { $gte: yesterday, $lt: today } }),
+            // "pending_payment" (anticipo en línea sin confirmar aún) nunca es una cita
+            // real: se excluye en todos estos conteos para que "citas de hoy" no la
+            // cuente como si ya estuviera agendada.
+            appointmentsModel.countDocuments({ doctor_id: doctorId, date: { $gte: today, $lt: tomorrow }, status: { $ne: "pending_payment" } }),
+            appointmentsModel.countDocuments({ doctor_id: doctorId, date: { $gte: yesterday, $lt: today }, status: { $ne: "pending_payment" } }),
             Promise.all(days.map(({ dayStart, dayEnd }) =>
-                appointmentsModel.countDocuments({ doctor_id: doctorId, date: { $gte: dayStart, $lt: dayEnd } })
+                appointmentsModel.countDocuments({ doctor_id: doctorId, date: { $gte: dayStart, $lt: dayEnd }, status: { $ne: "pending_payment" } })
             )),
             Promise.all(days.map(({ dayStart, dayEnd }) =>
                 appointmentsModel.distinct("patient_id", { doctor_id: doctorId, date: { $gte: dayStart, $lt: dayEnd } })
@@ -92,7 +95,7 @@ doctorDashboardController.getCalendar = async (req, res) => {
         const year = parseInt(req.query.year) || new Date().getFullYear();
         const startOfYear = new Date(year, 0, 1);
         const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
-        const appointments = await appointmentsModel.find({ doctor_id: doctorId, date: { $gte: startOfYear, $lte: endOfYear } }, "date").lean();
+        const appointments = await appointmentsModel.find({ doctor_id: doctorId, date: { $gte: startOfYear, $lte: endOfYear }, status: { $ne: "pending_payment" } }, "date").lean();
         const uniqueDates = [...new Set(appointments.map((a) => {
             const d = new Date(a.date);
             return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -118,6 +121,7 @@ doctorDashboardController.getTodayAppointments = async (req, res) => {
             .find({
                 doctor_id: doctorId,
                 date: { $gte: today, $lt: tomorrow },
+                status: { $ne: "pending_payment" },
                 ...(inactivePatientIds.length ? { patient_id: { $nin: inactivePatientIds } } : {}),
             })
             .populate("patient_id", "name last_name img_url")

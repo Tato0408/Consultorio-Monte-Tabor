@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Stethoscope, FlaskConical, Syringe, ClipboardList, HeartPulse, Activity, Clock, CreditCard, ShieldCheck, Info, Search } from "lucide-react";
+import { Stethoscope, FlaskConical, Syringe, ClipboardList, HeartPulse, Activity, Clock, CreditCard, ShieldCheck, Info, Search, Check } from "lucide-react";
 import InfoSidebar from "./InfoSidebar";
 
 // Se van rotando entre los procedimientos para que no se vean todos idénticos
@@ -19,19 +19,26 @@ const INFO_ITEMS = [
   { icon: ShieldCheck, title: "Cancelaciones", description: "Puedes cancelar tu cita en cualquier momento antes de la hora agendada, desde 'Mis citas'." },
 ];
 
-const Radio = ({ selected }) => (
-  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-[#3B6FCA] bg-[#3B6FCA]" : "border-gray-200"}`}>
-    {selected && <div className="w-2 h-2 rounded-full bg-white" />}
+const CheckBox = ({ selected }) => (
+  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-[#3B6FCA] bg-[#3B6FCA]" : "border-gray-200"}`}>
+    {selected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
   </div>
 );
 
-// Paso 1: el paciente elige un procedimiento del catálogo (incluida la Consulta Médica
-// General, que es un procedimiento real más, no un caso especial fuera del catálogo).
+// Paso 1: el paciente elige uno o más procedimientos del catálogo (incluida la Consulta
+// Médica General, que es un procedimiento real más, no un caso especial fuera del
+// catálogo). selected es un array de ids; onSelect(id) agrega o quita ese id de la
+// selección (no la reemplaza). La duración y el precio de la cita son la suma de todos
+// los elegidos, ver el resumen al pie de la lista.
 const StepTipoAtencion = ({ procedures, selected, onSelect }) => {
   const [busqueda, setBusqueda] = useState("");
   const procedimientosFiltrados = busqueda.trim()
     ? procedures.filter((p) => p.name.toLowerCase().includes(busqueda.trim().toLowerCase()))
     : procedures;
+
+  const seleccionados = procedures.filter((p) => selected.includes(p._id));
+  const duracionTotal = seleccionados.reduce((sum, p) => sum + (Number(p.estimated_duration) || 30), 0);
+  const precioTotal = seleccionados.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -70,7 +77,7 @@ const StepTipoAtencion = ({ procedures, selected, onSelect }) => {
           {procedimientosFiltrados.map((p, i) => {
             const Icon = ICONOS[i % ICONOS.length];
             const color = COLORES[i % COLORES.length];
-            const isSelected = selected === p._id;
+            const isSelected = selected.includes(p._id);
             return (
               <button
                 key={p._id}
@@ -84,7 +91,7 @@ const StepTipoAtencion = ({ procedures, selected, onSelect }) => {
                   <div className={`w-10 h-10 rounded-xl ${color.bg} flex items-center justify-center`}>
                     <Icon className={`w-5 h-5 ${color.text}`} />
                   </div>
-                  <Radio selected={isSelected} />
+                  <CheckBox selected={isSelected} />
                 </div>
                 <p className="font-semibold text-gray-800">{p.name}</p>
                 {p.description && <p className="text-sm text-gray-500 mt-1">{p.description}</p>}
@@ -98,6 +105,21 @@ const StepTipoAtencion = ({ procedures, selected, onSelect }) => {
             );
           })}
         </div>
+
+        {seleccionados.length > 0 && (
+          <div className="flex items-center justify-between gap-3 bg-[#3B6FCA]/5 border border-[#3B6FCA]/10 rounded-xl px-4 py-3 mt-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-800">
+                {seleccionados.length === 1 ? "1 procedimiento seleccionado" : `${seleccionados.length} procedimientos seleccionados`}
+              </p>
+              <p className="text-xs text-gray-500 truncate">{seleccionados.map((p) => p.name).join(", ")}</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-sm font-bold text-[#3B6FCA]">${precioTotal.toFixed(2)}</p>
+              <p className="text-xs text-gray-400 flex items-center gap-1 justify-end"><Clock className="w-3 h-3" /> {duracionTotal} min</p>
+            </div>
+          </div>
+        )}
 
         {procedures.length === 0 && (
           <div className="flex items-start gap-2 bg-[#3B6FCA]/5 border border-[#3B6FCA]/10 rounded-xl p-4 mt-4">

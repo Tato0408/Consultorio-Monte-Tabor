@@ -394,7 +394,7 @@ const DashboardScreen = ({ navigation }) => {
               onReschedule={() => navigation.navigate("NewAppointment", {
                 reschedule: {
                   appointmentId: nextAppointment.appointment_id,
-                  procedureId: nextAppointment.procedure?._id || null,
+                  procedureIds: (nextAppointment.procedures || []).map((p) => p._id),
                 },
               })}
             />

@@ -14,7 +14,6 @@ import useSchedule from "../hooks/useSchedule";
 import useNurseSchedule from "../hooks/useNurseSchedule";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
-import ProcedureModal from "./ProcedureModal.jsx";
 import { formatTime12h as fmt12 } from "@/lib/timeFormat";
 
 // Formulario único para crear, ver y editar una cita. Se usa tanto
@@ -63,7 +62,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   const canUpdateAppt = hasPermission("calendar.appointments", "update");
 
   const { getAppointmentById, createAppointment, updateAppointment, submitting } = useAppointments();
-  const { patients, doctors, procedures, loadingData: loadingMedicalData, fetchMedicalData } = useMedicalData();
+  const { patients, doctors, procedures, loadingData: loadingMedicalData } = useMedicalData();
   const { getAvailableSlots, getSchedule } = useSchedule();
   const { getAvailableSlots: getNurseAvailableSlots, getSchedule: getNurseSchedule } = useNurseSchedule();
 
@@ -86,11 +85,14 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   // procedimiento elegido declaró como elegibles (ver procedure.appointment_type_ids,
   // eligibleAppointmentTypes más abajo). Usado solo para color y leyenda.
   const [appointmentType, setAppointmentType] = useState("");
-  // Tipo de procedimiento: el id de un procedimiento real del catálogo (incluida la
-  // Consulta Médica General, que ahora es un procedimiento normal, no un caso especial).
-  // Define el tipo, la duración, el precio y si la cita requiere enfermera.
-  const [procedure, setProcedure] = useState("");
-  const [isProcedureModalOpen, setIsProcedureModalOpen] = useState(false);
+  // Procedimientos: uno o más selectores, uno por elemento del array (cada elemento es un
+  // _id del catálogo, o "" en una fila que se agregó con el botón + y todavía no se eligió
+  // nada). La cita puede combinar varios: el tipo, la duración y el precio salen de sumar
+  // los realmente elegidos (selectedProcedureIds más abajo, sin las filas vacías; ver el
+  // efecto de auto relleno), y si requiere enfermera alcanza con que UNO lo requiera. El
+  // botón + ya no crea un procedimiento nuevo en el catálogo (eso se hace desde el módulo
+  // Procedimientos): agrega otra fila para elegir un procedimiento más para esta cita.
+  const [procedureSlots, setProcedureSlots] = useState([""]);
   const [date, setDate]                       = useState(() => {
     const param = new URLSearchParams(location.search).get("date");
     if (param && !id) {
@@ -172,11 +174,14 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
         nurse_id:   nurseId,
       });
       setAppointmentType(cita.appointment_type || "");
-      // Toda cita (incluida una Consulta Médica General) tiene ahora un procedure_id real.
-      // Una cita histórica de antes de esta migración puede no traerlo — queda sin
-      // procedimiento seleccionado, para que se vuelva a elegir explícitamente al editarla.
-      const procId = typeof cita.procedure_id === "object" ? cita.procedure_id?._id : cita.procedure_id;
-      setProcedure(procId || "");
+      // Toda cita (incluida una Consulta Médica General) tiene ahora al menos un
+      // procedure_id real (puede traer varios). Una cita histórica de antes de esta
+      // migración puede no traer ninguno — queda sin procedimiento seleccionado, para que
+      // se vuelva a elegir explícitamente al editarla.
+      const procIds = (Array.isArray(cita.procedure_id) ? cita.procedure_id : [cita.procedure_id])
+        .map((p) => (typeof p === "object" ? p?._id : p))
+        .filter(Boolean);
+      setProcedureSlots(procIds.length > 0 ? procIds : [""]);
       const loadedDate = cita.date ? new Date(cita.date) : new Date();
       setDate(loadedDate);
       setStatus(cita.status || "pending");
@@ -214,19 +219,25 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   }, [id]);
 
 
-  // Procedimiento seleccionado (objeto completo) y si exige asignar enfermera. Declarados
+  // Ids realmente elegidos, sin las filas vacías (procedureSlots puede traer "" en la
+  // última fila agregada con + mientras no se elija nada ahí todavía). Procedimientos
+  // seleccionados (objetos completos) y si el conjunto exige asignar enfermera. Declarados
   // antes del efecto de horario de abajo (que depende de requiresDoctorForProcedure): un
-  // const referenciado antes de su propia línea de declaración revienta con
-  // "Cannot access before initialization" en cada render, aunque esté más abajo en el
-  // mismo cuerpo de función — no es como una function declaration, que sí queda hoisted.
-  const selectedProcedure = procedures.find(p => p._id === procedure);
-  const isNurseRequired = !!selectedProcedure?.requires_nurse;
+  // const referenciado antes de su propia línea de declaración revienta con "Cannot access
+  // before initialization" en cada render, aunque esté más abajo en el mismo cuerpo de
+  // función — no es como una function declaration, que sí queda hoisted.
+  const selectedProcedureIds = procedureSlots.filter(Boolean);
+  const selectedProcedures = procedures.filter(p => selectedProcedureIds.includes(p._id));
+  // Alcanza con que UNO de los procedimientos elegidos lo requiera.
+  const isNurseRequired = selectedProcedures.some(p => !!p.requires_nurse);
   // Un procedimiento sin doctor (requires_doctor false) lo atiende una enfermera como
   // proveedora principal, sin doctor: ahí "Doctor asignado" se deshabilita y "Enfermera
   // asignada" pasa a ser el campo principal (elige primero, como el doctor en el resto de
-  // los casos), en vez de ser un apoyo elegido después del horario. Sin procedimiento
-  // elegido todavía, por defecto se asume que sí requiere doctor (undefined !== false).
-  const requiresDoctorForProcedure = selectedProcedure?.requires_doctor !== false;
+  // los casos), en vez de ser un apoyo elegido después del horario. Mezclar uno que
+  // requiere doctor con uno que no, el doctor pasa a ser el proveedor principal. Sin
+  // ningún procedimiento elegido todavía, por defecto se asume que sí requiere doctor.
+  const requiresDoctorForProcedure =
+    selectedProcedures.length === 0 || selectedProcedures.some(p => p.requires_doctor !== false);
 
   // Horario del proveedor principal de la cita: del doctor normalmente, o de la
   // enfermera cuando el procedimiento elegido no requiere doctor. Mismo dato
@@ -246,18 +257,20 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
     }
   }, [requiresDoctorForProcedure, formData.doctor_id, formData.nurse_id]);
 
-  // El procedimiento elegido define su propia duración y precio (incluida la Consulta
-  // Médica General, que ahora es un procedimiento real con estimated_duration/price
-  // propios en vez de un valor fijo en el código). El guard de justLoadedRef evita pisar
-  // los valores reales de una cita ya guardada justo después de cargarla (ver ese ref más
-  // arriba).
+  // Los procedimientos elegidos definen la duración y el precio: la cita combina la suma
+  // de todos (incluida la Consulta Médica General, que ahora es un procedimiento real con
+  // estimated_duration/price propios en vez de un valor fijo en el código). El guard de
+  // justLoadedRef evita pisar los valores reales de una cita ya guardada justo después de
+  // cargarla (ver ese ref más arriba).
   useEffect(() => {
     if (justLoadedRef.current) { justLoadedRef.current = false; return; }
-    if (selectedProcedure) {
-      setDuration(Number(selectedProcedure.estimated_duration) || 30);
-      setTotal(String(selectedProcedure.price ?? ""));
+    if (selectedProcedures.length > 0) {
+      const totalDuration = selectedProcedures.reduce((sum, p) => sum + (Number(p.estimated_duration) || 30), 0);
+      const totalPrice = selectedProcedures.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
+      setDuration(totalDuration);
+      setTotal(String(totalPrice));
     }
-  }, [procedure, selectedProcedure]);
+  }, [selectedProcedureIds.join(","), selectedProcedures.length]);
 
   // Si el procedimiento deja de requerir enfermera, se limpia la ya elegida. Un
   // procedimiento sin doctor siempre requiere enfermera (invariante del backend), así que
@@ -277,11 +290,13 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
     }
   }, [requiresDoctorForProcedure]);
 
-  // El tipo de cita (catálogo del admin) queda limitado a los que el propio procedimiento
+  // El tipo de cita (catálogo del admin) queda limitado a los que el PRIMER procedimiento
   // elegido declaró como elegibles (procedure.appointment_type_ids, ver el modelo): el
   // admin decide esto al crear o editar cada procedimiento, ya no se infiere comparando
-  // categorías contra un valor especial "general". Populado por el backend con name/color.
-  const eligibleAppointmentTypes = selectedProcedure?.appointment_type_ids || [];
+  // categorías contra un valor especial "general". appointment_type solo colorea el
+  // calendario (no afecta precio ni duración), así que basta con el primero elegido.
+  // Populado por el backend con name/color.
+  const eligibleAppointmentTypes = selectedProcedures[0]?.appointment_type_ids || [];
   // Autocompleta el tipo de cita al elegir procedimiento, en vez de solo limpiarlo cuando
   // deja de ser válido: usa el primer tipo elegible como valor por defecto. El usuario
   // sigue pudiendo elegir cualquier otro de la lista; esto solo decide el valor inicial.
@@ -367,24 +382,22 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
     return () => { cancelled = true; };
   }, [isNurseRequired, formData.doctor_id, date, selectedSlot, id]);
 
-  // Refresca el catálogo de procedimientos tras crear uno nuevo desde el modal, y lo deja
-  // seleccionado de una vez.
-  const handleProcedureCreated = async (created) => {
-    if (!created) return;
-    try {
-      await fetchMedicalData();
-      if (created._id) setProcedure(created._id);
-      showSuccess("Procedimiento creado. Ya puedes seleccionarlo en la lista.");
-    } catch (error) {
-      showError("El procedimiento se guardó pero hubo un problema al actualizar la lista.");
-    }
-  };
+  // Agrega una fila vacía más para elegir otro procedimiento, o quita la fila i (nunca
+  // deja el array vacío: si se quita la única fila que queda, la reemplaza por una vacía).
+  const agregarProcedimiento = () => setProcedureSlots(prev => [...prev, ""]);
+  const quitarProcedimiento = (i) => setProcedureSlots(prev => {
+    const next = prev.filter((_, idx) => idx !== i);
+    return next.length > 0 ? next : [""];
+  });
+  const elegirProcedimientoEnFila = (i, valor) => setProcedureSlots(prev =>
+    prev.map((id, idx) => (idx === i ? (valor ?? "") : id))
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
-    if (!procedure) {
-      showError("Debe seleccionar un tipo de procedimiento."); return;
+    if (selectedProcedureIds.length === 0) {
+      showError("Debe seleccionar al menos un procedimiento."); return;
     }
     if (!formData.patient_id || (requiresDoctorForProcedure ? !formData.doctor_id : !formData.nurse_id)) {
       showError(requiresDoctorForProcedure ? "Debe seleccionar un paciente y un doctor." : "Debe seleccionar un paciente y una enfermera."); return;
@@ -410,7 +423,8 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
         showError("Espera a que termine de cargar la lista de enfermeras."); return;
       }
       if (availableNurses.length > 0) {
-        showError(`El procedimiento "${selectedProcedure?.name}" requiere obligatoriamente asignar una enfermera.`); return;
+        const nombresConEnfermera = selectedProcedures.filter(p => p.requires_nurse).map(p => p.name).join(", ");
+        showError(`El procedimiento "${nombresConEnfermera}" requiere obligatoriamente asignar una enfermera.`); return;
       }
       const confirmed = await confirmProceedWithoutNurse();
       if (!confirmed) return;
@@ -422,12 +436,15 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       doctor_id:         requiresDoctorForProcedure ? formData.doctor_id : undefined,
       patient_id:        formData.patient_id,
       nurse_id:          formData.nurse_id || undefined,
-      procedure_id:      procedure,
+      procedure_ids:      selectedProcedureIds,
       schedule_id:       scheduleId,
       // "Consulta Médica General" ahora es un procedimiento real más (no un caso
       // especial): se identifica por nombre solo para mantener el mismo campo type de
-      // siempre (usado por los reportes para separar consultas de procedimientos).
-      type:              selectedProcedure?.name === "Consulta Médica General" ? "Consulta Médica General" : "Procedimiento",
+      // siempre (usado por los reportes para separar consultas de procedimientos). Con
+      // más de un procedimiento elegido, o con uno solo que no sea ese, es "Procedimiento"
+      // (mismo criterio que resolveProcedures en el backend, que además vuelve a validar
+      // esto — nunca se confía solo en lo que mande el cliente).
+      type:              selectedProcedureIds.length === 1 && selectedProcedures[0]?.name === "Consulta Médica General" ? "Consulta Médica General" : "Procedimiento",
       // appointment_type (el catálogo del admin) solo categoriza y
       // colorea la cita en la leyenda del calendario, es independiente
       // del tipo de procedimiento.
@@ -585,42 +602,66 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 disabled={!isEditing}
               />
 
-              {/* Tipo de procedimiento: define el tipo, la duración, el
-                  precio y si la cita requiere enfermera. El botón de
-                  agregar abre ProcedureModal para crear uno nuevo sin
-                  salir del formulario. */}
+              {/* Procedimientos: uno o más, definen el tipo, la duración y el precio
+                  totales (suma de todos) y si la cita requiere enfermera. Una fila por
+                  procedimiento (selección única cada una, como antes); el botón + de la
+                  última fila agrega otra para elegir uno más, en vez de crear un
+                  procedimiento nuevo en el catálogo (eso ahora se hace desde el módulo
+                  Procedimientos). */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tipo de procedimiento</label>
-                <div className="flex gap-2">
-                  <Combobox
-                    value={procedure ?? ""}
-                    onValueChange={v => setProcedure(v ?? "")}
-                    disabled={!isEditing}
-                  >
-                    <ComboboxTrigger
-                      size="lg"
-                      placeholder="Seleccione un procedimiento"
-                      className="h-[42px] flex-1 min-w-0 rounded-xl bg-white px-3 border-slate-200 focus-within:border-blue-400 focus-within:ring-blue-100"
-                    />
-                    <ComboboxContent className="max-h-72">
-                      {procedures.map(proc => (
-                        <ComboboxItem key={proc._id} value={proc._id}>{proc.name}</ComboboxItem>
-                      ))}
-                    </ComboboxContent>
-                  </Combobox>
-                  <button
-                    type="button"
-                    disabled={!isEditing}
-                    onClick={() => setIsProcedureModalOpen(true)}
-                    className="h-[42px] w-[42px] flex-shrink-0 flex items-center justify-center border border-slate-200 rounded-xl text-slate-500 hover:text-blue-600 hover:border-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Procedimientos</label>
+                <div className="flex flex-col gap-2">
+                  {procedureSlots.map((slotValue, i) => {
+                    const esUltima = i === procedureSlots.length - 1;
+                    return (
+                      <div className="flex gap-2" key={i}>
+                        <Combobox
+                          value={slotValue ?? ""}
+                          onValueChange={v => elegirProcedimientoEnFila(i, v)}
+                          disabled={!isEditing}
+                        >
+                          <ComboboxTrigger
+                            size="lg"
+                            placeholder={procedureSlots.length > 1 ? `Seleccione el procedimiento ${i + 1}` : "Seleccione un procedimiento"}
+                            className="h-[42px] flex-1 min-w-0 rounded-xl bg-white px-3 border-slate-200 focus-within:border-blue-400 focus-within:ring-blue-100"
+                          />
+                          <ComboboxContent className="max-h-72">
+                            {procedures
+                              .filter(proc => proc._id === slotValue || !procedureSlots.includes(proc._id))
+                              .map(proc => (
+                                <ComboboxItem key={proc._id} value={proc._id}>{proc.name}</ComboboxItem>
+                              ))}
+                          </ComboboxContent>
+                        </Combobox>
+                        {esUltima ? (
+                          <button
+                            type="button"
+                            disabled={!isEditing || !slotValue || procedureSlots.length >= procedures.length}
+                            onClick={agregarProcedimiento}
+                            title="Agregar otro procedimiento"
+                            className="h-[42px] w-[42px] flex-shrink-0 flex items-center justify-center border border-slate-200 rounded-xl text-slate-500 hover:text-blue-600 hover:border-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={!isEditing}
+                            onClick={() => quitarProcedimiento(i)}
+                            title="Quitar este procedimiento"
+                            className="h-[42px] w-[42px] flex-shrink-0 flex items-center justify-center border border-slate-200 rounded-xl text-slate-400 hover:text-red-600 hover:border-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                {selectedProcedure && (
+                {selectedProcedures.length > 0 && (
                   <p className="text-[11px] text-slate-400">
-                    Duración: {selectedProcedure.estimated_duration ?? 30} min · Precio: ${selectedProcedure.price ?? 0}
-                    {selectedProcedure.requires_nurse && " · Requiere enfermera"}
+                    Duración total: {duration} min · Precio total: ${total || 0}
+                    {isNurseRequired && " · Requiere enfermera"}
                   </p>
                 )}
               </div>
@@ -631,7 +672,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 onChange={setAppointmentType}
                 options={eligibleAppointmentTypes.map(t => ({ value: t.name, label: t.name }))}
                 placeholder={
-                  !selectedProcedure
+                  selectedProcedures.length === 0
                     ? "Elija primero un procedimiento"
                     : eligibleAppointmentTypes.length === 0
                       ? "Este procedimiento no tiene tipos de cita configurados"
@@ -929,12 +970,6 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
         </div>
         </fieldset>
       </form>
-
-      <ProcedureModal
-        isOpen={isProcedureModalOpen}
-        onClose={() => setIsProcedureModalOpen(false)}
-        onProcedureCreated={handleProcedureCreated}
-      />
     </div>
   );
 }

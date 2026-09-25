@@ -64,10 +64,15 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
     // Una enfermera solo puede continuar/tomar consultas de un procedimiento sin doctor
     // (ella es la proveedora principal ahí, ver requires_doctor en el procedimiento). Para
     // el resto de los roles con permiso (doctor, admin) no cambia nada.
+    // Una cita puede combinar varios procedimientos (procedure_id es un array): alcanza
+    // con que ALGUNO requiera doctor para que la cita entera lo requiera. Sin ninguno
+    // elegido, se asume que sí (mismo comportamiento de siempre).
+    const procedureRequiresDoctor = (appt) =>
+        !appt.procedure_id?.length || appt.procedure_id.some((p) => p.requires_doctor !== false);
+
     const canAttendRow = (appt) => {
         if (userType !== "nurse") return canAttend;
-        const requiresDoctor = !appt.procedure_id || appt.procedure_id.requires_doctor !== false;
-        return canAttend && !requiresDoctor;
+        return canAttend && !procedureRequiresDoctor(appt);
     };
     const canDelete = hasPermission("calendar.consultations", "delete");
     // Evita doble clic mientras se resuelve la auto-asignación de una
@@ -87,7 +92,7 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
         // Procedimiento sin doctor: la enfermera es la proveedora principal, se auto
         // asigna/toma con el mismo criterio de abajo pero contra nurse_id y el endpoint
         // de aceptación de enfermería.
-        const requiresDoctor = !appt.procedure_id || appt.procedure_id.requires_doctor !== false;
+        const requiresDoctor = procedureRequiresDoctor(appt);
         if (appt.status === "pending" && !requiresDoctor) {
             const assignedNurseId = appt.nurse_id?._id || appt.nurse_id || null;
             if (!assignedNurseId) {

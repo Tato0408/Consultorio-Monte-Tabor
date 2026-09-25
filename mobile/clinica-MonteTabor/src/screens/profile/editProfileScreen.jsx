@@ -19,6 +19,7 @@ import FormDateInput from "../../components/profile/FormDateInput";
 import apiClient from "../../lib/apiClient";
 import { showError, showSuccess } from "../../lib/toast";
 import { displayToIso } from "../../utils/date";
+import { NAME_REGEX, PHONE_REGEX, DUI_REGEX, maskName, maskDui, maskPhone } from "../../utils/validation";
 import styles from "../../styles/profile/editProfileStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
@@ -105,14 +106,25 @@ const EditProfileScreen = ({ navigation, route }) => {
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: null }));
   };
 
+  // Igual que setField, pero bloqueando números y caracteres especiales mientras se
+  // escribe (nombres y apellidos son el único caso que lo necesita en este formulario).
+  const setNameField = (key) => (value) => setField(key)(maskName(value));
+
+  // Mismas máscaras que RegisterScreen: solo dígitos, con guión automático.
+  const handleDuiChange = (value) => setField("dui")(maskDui(value));
+  const handlePhoneChange = (value) => setField("telefono")(maskPhone(value));
+
   const validate = () => {
     const next = {};
     if (!form.nombres.trim()) next.nombres = "Ingresa tus nombres";
+    else if (!NAME_REGEX.test(form.nombres.trim())) next.nombres = "Solo letras, sin números ni símbolos";
     if (!form.apellidos.trim()) next.apellidos = "Ingresa tus apellidos";
+    else if (!NAME_REGEX.test(form.apellidos.trim())) next.apellidos = "Solo letras, sin números ni símbolos";
     if (!/^\S+@\S+\.\S+$/.test(form.correo)) next.correo = "Correo no válido";
     if (!form.telefono.trim()) next.telefono = "Ingresa un teléfono";
+    else if (!PHONE_REGEX.test(form.telefono.trim())) next.telefono = "Formato: 7890-7890";
     // El DUI es opcional en el backend, pero si se escribe debe tener el formato correcto
-    if (form.dui.trim() && !/^\d{8}-\d$/.test(form.dui.trim())) {
+    if (form.dui.trim() && !DUI_REGEX.test(form.dui.trim())) {
       next.dui = "Formato: 12345678-9";
     }
     if (!form.fechaNacimiento) next.fechaNacimiento = "Ingresa tu fecha de nacimiento";
@@ -220,21 +232,22 @@ const EditProfileScreen = ({ navigation, route }) => {
           <FormInput
             label="Nombres"
             value={form.nombres}
-            onChangeText={setField("nombres")}
+            onChangeText={setNameField("nombres")}
             error={errors.nombres}
           />
           <FormInput
             label="Apellidos"
             value={form.apellidos}
-            onChangeText={setField("apellidos")}
+            onChangeText={setNameField("apellidos")}
             error={errors.apellidos}
           />
           <FormInput
             label="DUI (opcional)"
             value={form.dui}
-            onChangeText={setField("dui")}
+            onChangeText={handleDuiChange}
             placeholder="12345678-9"
             keyboardType="number-pad"
+            maxLength={10}
             error={errors.dui}
           />
           <FormDateInput
@@ -256,8 +269,9 @@ const EditProfileScreen = ({ navigation, route }) => {
           <FormInput
             label="Teléfono"
             value={form.telefono}
-            onChangeText={setField("telefono")}
+            onChangeText={handlePhoneChange}
             keyboardType="phone-pad"
+            maxLength={9}
             error={errors.telefono}
           />
           <FormInput

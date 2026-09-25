@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "844354116457",
+    "project_id": "expo2026-1b63e",
+    "storage_bucket": "expo2026-1b63e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:844354116457:android:eee456415790f92b897bf8",
+        "android_client_info": {
+          "package_name": "com.tatonoto02.clinicaMonteTabor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9w4jCtm7rvo_jdaJ8zqG4L0at2gKTa7k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

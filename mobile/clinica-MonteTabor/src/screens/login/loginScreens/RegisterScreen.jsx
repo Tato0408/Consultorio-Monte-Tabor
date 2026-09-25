@@ -13,7 +13,7 @@ import formStyles from "../../../styles/profile/editProfileStyle";
 import { colors } from "../../../styles/profile/profileStyle";
 import { useAuth } from "../../../context/AuthContext";
 import { showSuccess, showError } from "../../../lib/toast";
-import { EMAIL_REGEX, PHONE_REGEX, DUI_REGEX, maskDui, maskPhone, toISODate, getPasswordError } from "../../../utils/validation";
+import { EMAIL_REGEX, PHONE_REGEX, DUI_REGEX, NAME_REGEX, maskDui, maskPhone, maskName, toISODate, getPasswordError } from "../../../utils/validation";
 
 const GENDER_OPTIONS = ["Masculino", "Femenino"];
 
@@ -51,11 +51,23 @@ const RegisterScreen = ({ navigation }) => {
     clearError("phone");
   };
 
+  const handleNameChange = (text) => {
+    setName(maskName(text));
+    clearError("name");
+  };
+
+  const handleLastNameChange = (text) => {
+    setLastName(maskName(text));
+    clearError("lastName");
+  };
+
   const validateForm = () => {
     const next = {};
 
     if (!name.trim()) next.name = "El campo Nombres es requerido";
+    else if (!NAME_REGEX.test(name.trim())) next.name = "Solo letras, sin números ni símbolos";
     if (!lastName.trim()) next.lastName = "El campo Apellidos es requerido";
+    else if (!NAME_REGEX.test(lastName.trim())) next.lastName = "Solo letras, sin números ni símbolos";
     if (!birthDate.trim()) next.birthDate = "El campo Nacimiento es requerido";
 
     if (!phone.trim()) {
@@ -148,7 +160,7 @@ const RegisterScreen = ({ navigation }) => {
               label="Nombres"
               placeholder="Ingresa tus nombres"
               value={name}
-              onChangeText={(text) => { setName(text); clearError("name"); }}
+              onChangeText={handleNameChange}
               error={errors.name}
             />
 
@@ -156,7 +168,7 @@ const RegisterScreen = ({ navigation }) => {
               label="Apellidos"
               placeholder="Ingresa tus apellidos"
               value={lastName}
-              onChangeText={(text) => { setLastName(text); clearError("lastName"); }}
+              onChangeText={handleLastNameChange}
               error={errors.lastName}
             />
 

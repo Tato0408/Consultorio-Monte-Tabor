@@ -10,7 +10,15 @@ const appointmentsSchema = new Schema({
     // models/procedures/procedures.js: model("procedure", ...)); el ref
     // debe calzar exacto o cualquier .populate("procedure_id") revienta con
     // MissingSchemaError (pasaba en patientSelfController.getMyConsultations).
-    procedure_id: { type: mongoose.Schema.Types.ObjectId, ref: "procedure" },
+    //
+    // Array (una cita puede combinar varios procedimientos, ver
+    // utils/procedureAggregation.js): el nombre del campo se dejó igual a
+    // propósito, no se renombró a procedure_ids. Mongoose castea un valor
+    // escalar ya guardado en Mongo como un array de un elemento al leerlo
+    // (SchemaArray cast), así que las citas ya existentes (con un solo
+    // ObjectId guardado, de antes de este cambio) se siguen leyendo y
+    // poblando bien sin ninguna migración de datos.
+    procedure_id: { type: [mongoose.Schema.Types.ObjectId], ref: "procedure" },
     type: { type: String, required: true },
     // Nombre (denormalizado, no una referencia) de un AppointmentType del
     // catálogo global, usado solo para categorizar y colorear la cita en

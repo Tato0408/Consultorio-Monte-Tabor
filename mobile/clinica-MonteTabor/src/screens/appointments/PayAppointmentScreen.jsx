@@ -15,7 +15,7 @@ import { useAuth } from "../../context/AuthContext";
 import { showError } from "../../lib/toast";
 import {
   formatCardNumber, formatExpiry, formatCvv, detectarMarca, luhnValido, longitudValida,
-  expiryValida, cvvValido, nombreValido,
+  expiryValida, cvvValido, nombreValido, maskNombre,
 } from "../../lib/paymentValidators";
 import { formatTime12h } from "../../utils/date";
 import styles from "../../styles/appointments/payAppointmentStyle";
@@ -266,7 +266,7 @@ export default function PayAppointmentScreen({ route, navigation }) {
                 <Text style={styles.summaryDoctor} numberOfLines={1}>
                   {cita.doctor_id ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}` : "Por asignar"}
                 </Text>
-                <Text style={styles.summaryType} numberOfLines={1}>{cita.procedure_id?.name || cita.type}</Text>
+                <Text style={styles.summaryType} numberOfLines={1}>{(cita.procedure_id || []).map((p) => p.name).join(", ") || cita.type}</Text>
               </View>
             </View>
             <View style={{ alignItems: "flex-end" }}>
@@ -297,7 +297,7 @@ export default function PayAppointmentScreen({ route, navigation }) {
               <Text style={styles.fieldLabel}>Nombre completo</Text>
               <View style={[styles.inputBox, errors.nombreCliente && styles.inputBoxError]}>
                 <Ionicons name="person-outline" size={16} color="#94A3B8" />
-                <TextInput style={styles.input} value={form.nombreCliente} onChangeText={setCampo("nombreCliente")} placeholder="Como aparece en la tarjeta" placeholderTextColor="#94A3B8" />
+                <TextInput style={styles.input} value={form.nombreCliente} onChangeText={setCampoConMascara("nombreCliente", maskNombre)} placeholder="Como aparece en la tarjeta" placeholderTextColor="#94A3B8" />
               </View>
               {errors.nombreCliente ? <Text style={styles.errorText}>{errors.nombreCliente}</Text> : null}
             </View>

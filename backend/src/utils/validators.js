@@ -57,6 +57,10 @@ export const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g,
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PHONE_REGEX = /^\d{4}-\d{4}$/;
 export const DUI_REGEX = /^\d{8}-\d{1}$/;
+// Solo letras (con acentos/ñ) y un espacio simple entre palabras: nada de números ni
+// caracteres especiales. Mismo patrón que las máscaras del frontend (móvil y web), el
+// backend nunca debe confiar solo en que el cliente ya filtró la escritura.
+export const NAME_REGEX = /^[A-Za-zÁÉÍÓÚÑáéíóúñ]+(\s[A-Za-zÁÉÍÓÚÑáéíóúñ]+)*$/;
 
 // Edad mínima para el staff (doctores, recepcionistas, enfermeras,
 // admin). Los pacientes quedan fuera de esta regla a propósito, la
@@ -142,11 +146,15 @@ export const getMissingRequiredField = (fields, requiredKeys) => {
 // ignora lo que no venga, para no romper updates parciales (por ejemplo
 // agregar solo un signo vital a un paciente).
 export const validateUserFieldFormats = ({ name, last_name, phone, email, dui, birth_date }, { requireAdult = false } = {}) => {
-    if (name !== undefined && !String(name).trim()) {
-        return "El campo Nombres no puede estar vacío";
+    if (name !== undefined) {
+        const value = String(name).trim();
+        if (!value) return "El campo Nombres no puede estar vacío";
+        if (!NAME_REGEX.test(value)) return "El campo Nombres solo puede contener letras";
     }
-    if (last_name !== undefined && !String(last_name).trim()) {
-        return "El campo Apellidos no puede estar vacío";
+    if (last_name !== undefined) {
+        const value = String(last_name).trim();
+        if (!value) return "El campo Apellidos no puede estar vacío";
+        if (!NAME_REGEX.test(value)) return "El campo Apellidos solo puede contener letras";
     }
     if (phone !== undefined) {
         const value = String(phone).trim();

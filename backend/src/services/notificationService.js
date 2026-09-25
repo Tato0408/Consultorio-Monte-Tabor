@@ -112,8 +112,10 @@ async function countPendingNurseNotes(nurseId) {
         .lean();
     if (!appointments.length) return 0;
 
+    // Cada cita puede traer más de un procedimiento: se aplanan todos los ids de todas
+    // las citas antes de deduplicar y consultar cuáles exigen enfermera.
     const procedureIds = [
-        ...new Set(appointments.filter((a) => a.procedure_id).map((a) => String(a.procedure_id))),
+        ...new Set(appointments.flatMap((a) => (a.procedure_id || []).map(String))),
     ];
     const requiresNurse = new Set(
         (await proceduresModel
@@ -123,8 +125,9 @@ async function countPendingNurseNotes(nurseId) {
         ).map((p) => String(p._id))
     );
 
+    // La cita exige enfermera si ALGUNO de sus procedimientos lo exige.
     const appointmentIds = appointments
-        .filter((a) => a.procedure_id && requiresNurse.has(String(a.procedure_id)))
+        .filter((a) => (a.procedure_id || []).some((id) => requiresNurse.has(String(id))))
         .map((a) => a._id);
     if (!appointmentIds.length) return 0;
 

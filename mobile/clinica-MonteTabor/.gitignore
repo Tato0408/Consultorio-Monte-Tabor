@@ -41,3 +41,9 @@ yarn-error.*
 /android
 
 *.env
+
+# Clave de cuenta de servicio de Firebase (para subir a `eas credentials`, nunca al repo:
+# a diferencia de google-services.json, esta sí es secreta). Nombre por defecto que da
+# Firebase al descargarla.
+*firebase-adminsdk*.json
+serviceAccountKey.json

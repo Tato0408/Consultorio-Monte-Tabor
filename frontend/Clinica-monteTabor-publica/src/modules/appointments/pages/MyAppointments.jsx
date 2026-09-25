@@ -330,7 +330,7 @@ const MyAppointments = () => {
           // Una cita histórica de antes de que la Consulta Médica General fuera un
           // procedimiento real puede no traer procedure_id: queda sin tipo preseleccionado,
           // para que se vuelva a elegir explícitamente en el paso 1.
-          tipo: cita.procedure_id?._id || null,
+          tipos: (cita.procedure_id || []).map((p) => p._id),
           doctorId: cita.doctor_id?._id || null,
           // Un procedimiento sin doctor lo atiende una enfermera como proveedora
           // principal: sin esto, reagendar una cita así no restauraba ningún proveedor
@@ -349,7 +349,7 @@ const MyAppointments = () => {
       state: {
         reschedule: {
           appointmentId: cita._id,
-          tipo: cita.procedure_id?._id || null,
+          tipos: (cita.procedure_id || []).map((p) => p._id),
           doctorId: cita.doctor_id?._id || null,
           nurseId: cita.nurse_id?._id || null,
           motivo: cita.description || "",

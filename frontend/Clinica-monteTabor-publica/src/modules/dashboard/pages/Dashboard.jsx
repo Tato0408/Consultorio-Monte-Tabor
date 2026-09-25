@@ -11,12 +11,12 @@ import { showSuccess, showError, confirmAction, confirmActionWithReason } from "
 import NotificationsMenu from "@/components/NotificationsMenu";
 
 const Logo = () => (
-  <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: 31, height: 36 }}>
-    <svg viewBox="0 0 56 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0 w-full h-full">
-      <polygon points="28,2 54,17 54,47 28,62 2,47 2,17" fill="#3B6FCA" />
-    </svg>
-    <span className="relative z-10 text-white font-bold text-xs select-none">T</span>
-  </div>
+  <img
+    src="/logoAppSinFondo.png"
+    alt="Clínica Monte Tabor"
+    className="flex-shrink-0 object-contain"
+    style={{ width: 40, height: 40 }}
+  />
 );
 
 const fmt12 = (t) => {

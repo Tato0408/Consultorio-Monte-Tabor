@@ -147,7 +147,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
       });
       navigation.replace("NewAppointment", {
         prefill: {
-          procedureId: appointment.procedure_id?._id || null,
+          procedureIds: (appointment.procedure_id || []).map((p) => p._id),
           doctorId: appointment.doctor_id?._id || null,
           nurseId: appointment.nurse_id?._id || null,
           motivo: appointment.description || "",
@@ -208,7 +208,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
   }
 
   const doctor = appointment.doctor_id;
-  const service = appointment.procedure_id?.name || appointment.type;
+  const service = (appointment.procedure_id || []).map((p) => p.name).join(", ") || appointment.type;
   const status = STATUS[appointment.status];
   const initials = doctor ? `${doctor.name?.[0] || ""}${doctor.last_name?.[0] || ""}` : "?";
 
@@ -282,7 +282,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
               onPress={() => navigation.navigate("NewAppointment", {
                 reschedule: {
                   appointmentId: appointment._id,
-                  procedureId: appointment.procedure_id?._id || null,
+                  procedureIds: (appointment.procedure_id || []).map((p) => p._id),
                 },
               })}
             >

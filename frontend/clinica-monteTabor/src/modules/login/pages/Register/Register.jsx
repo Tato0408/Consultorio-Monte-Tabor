@@ -233,13 +233,13 @@ const Register = () => {
 
             {/* Logo y título */}
             <div className="flex flex-col items-center mb-5">
-              <div className="mb-2 relative flex items-center justify-center" style={{ width: "44px", height: "50px" }}>
-                <svg viewBox="0 0 56 64" fill="none" xmlns="http://www.w3.org/2000/svg"
-                  className="absolute inset-0 w-full h-full"
-                  style={{ filter: "drop-shadow(0 4px 12px rgba(59,111,202,0.35))" }}>
-                  <polygon points="28,2 54,17 54,47 28,62 2,47 2,17" fill="#3B6FCA" />
-                </svg>
-                <span className="relative z-10 text-white font-bold text-lg select-none">T</span>
+              <div className="mb-2 flex items-center justify-center" style={{ width: "44px", height: "50px" }}>
+                <img
+                  src="/logoConsultorioSInFondo.png"
+                  alt="Clínica Monte Tabor"
+                  className="w-full h-full object-contain"
+                  style={{ filter: "drop-shadow(0 4px 12px rgba(59,111,202,0.35))" }}
+                />
               </div>
               <h2 className="text-xl font-bold text-gray-800 tracking-tight">Crear cuenta</h2>
             </div>

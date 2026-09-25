@@ -17,12 +17,9 @@ import { runAppointmentAutoTransitions } from "../../controllers/appointments/ap
 import { getTransactionStatus } from "../../utils/wompi.js";
 import { RESCHEDULABLE_STATUSES, isCancelLockedForPatient } from "../../utils/appointmentStatus.js";
 import { deleteAppointmentCascade } from "../../services/consultationCascade.js";
+import { resolveProcedures, resolveProcedureFlags } from "../../utils/procedureAggregation.js";
 
 const patientPortalController = {};
-
-// Instrucciones de respaldo cuando un procedimiento no tiene las suyas propias
-// configuradas (pre_care_instructions vacío).
-const DEFAULT_INSTRUCTIONS = "Llega 10 minutos antes de tu cita con tu documento de identidad (DUI) a mano.";
 
 // Pagar en línea solo cobra un anticipo (para apartar la hora), no el total: el resto
 // se paga en recepción el día de la cita. Este anticipo no se reembolsa si se cancela.
@@ -343,6 +340,37 @@ async function notifyPendingRequestToProviders({
     }
 }
 
+// Convierte una cita recién pagada en una solicitud real: "pending_payment" -> "pending"
+// y recién ahí se notifica a los proveedores (ver notifyPendingRequestToProviders). La
+// llaman confirmAppointmentPayment (camino normal: el frontend confirma en cuanto termina
+// de cobrar) y wompiWebhookController (respaldo si esa llamada nunca llega). Idempotente:
+// si la cita ya estaba "pending" (o cualquier otro estado), no hace nada — evita notificar
+// dos veces si ambos caminos llegan a correr para el mismo pago.
+export async function activateAfterDeposit(appointment) {
+    if (appointment.status !== "pending_payment") return;
+
+    const procedures = await procedureModel.find({ _id: { $in: appointment.procedure_id } }).select("name requires_doctor");
+    const { requiresDoctor } = await resolveProcedureFlags(appointment.procedure_id);
+    const sinProveedorElegido = requiresDoctor ? !appointment.doctor_id : !appointment.nurse_id;
+
+    appointment.status = "pending";
+    await appointment.save();
+
+    await notifyPendingRequestToProviders({
+        appointmentId: appointment._id,
+        patientId: appointment.patient_id,
+        procedureName: procedures.map((p) => p.name).join(", ") || appointment.type,
+        dateStr: toDateStr(appointment.date),
+        dayStart: appointment.date,
+        start_time: appointment.start_time,
+        end_time: appointment.end_time,
+        requiresDoctor,
+        sinProveedorElegido,
+        doctor_id: appointment.doctor_id,
+        nurse_id: appointment.nurse_id,
+    });
+}
+
 // POST /api/patient-portal/appointments — el paciente logueado agenda su propia cita.
 // El tipo, duración y precio se calculan aquí en el servidor y NUNCA se toman del
 // frontend, para que un paciente no pueda manipular el monto a pagar.
@@ -353,7 +381,7 @@ async function notifyPendingRequestToProviders({
 // appointmentsController.insertAppointment, rama req.user.role === "patient").
 patientPortalController.bookAppointment = async (req, res) => {
     try {
-        const { doctor_id, nurse_id, date, start_time, procedure_id, payment_method } = req.body;
+        const { doctor_id, nurse_id, date, start_time, procedure_ids, payment_method } = req.body;
         const description = req.body.description?.trim();
         const pagaEnLinea = payment_method === "online";
 
@@ -368,25 +396,16 @@ patientPortalController.bookAppointment = async (req, res) => {
         // La Consulta Médica General es un procedimiento real más (con su propio
         // estimated_duration/price/requires_doctor/requires_nurse), ya no un caso especial
         // sin procedure_id: se arma tipo/duración/precio/indicaciones siempre a partir del
-        // catálogo.
-        if (!procedure_id) {
-            return res.status(400).json({ message: "Debes seleccionar un procedimiento." });
+        // catálogo. Se puede elegir más de uno: la duración y el precio de la cita son la
+        // suma de todos los elegidos (ver resolveProcedures).
+        const resolved = await resolveProcedures(procedure_ids);
+        if (!resolved) {
+            return res.status(404).json({ message: "Uno o más procedimientos seleccionados no existen o ya no están disponibles." });
         }
-        // $ne: false, no is_active: true: ver la nota en getProcedures más arriba.
-        const procedure = await procedureModel.findOne({ _id: procedure_id, is_active: { $ne: false } })
-            .populate("appointment_type_ids", "name");
-        if (!procedure) {
-            return res.status(404).json({ message: "El procedimiento seleccionado no existe o ya no está disponible." });
-        }
-        // Se identifica por nombre solo para mantener el mismo campo type de siempre (lo
-        // usan los reportes para separar consultas de procedimientos).
-        const type = procedure.name === "Consulta Médica General" ? "Consulta Médica General" : "Procedimiento";
-        const duration = Number(procedure.estimated_duration) || 30;
-        const total = Number(procedure.price) || 0;
-        const instructions = procedure.pre_care_instructions || DEFAULT_INSTRUCTIONS;
-        const procedureRef = procedure._id;
-        const requiresNurse = !!procedure.requires_nurse;
-        const requiresDoctor = procedure.requires_doctor !== false;
+        const { type, duration_minutes: duration, total, instructions, appointmentTypeName } = resolved;
+        const procedureRefs = resolved.procedure_ids;
+        const requiresNurse = resolved.requiresNurse;
+        const requiresDoctor = resolved.requiresDoctor;
 
         // Un procedimiento sin doctor (requires_doctor false) se agenda con una enfermera
         // como proveedora principal: doctor_id no aplica ahí, nurse_id toma su lugar. Con
@@ -408,11 +427,11 @@ patientPortalController.bookAppointment = async (req, res) => {
         }
 
         // El paciente nunca elige el tipo de cita del catálogo del admin (a diferencia
-        // del formulario del panel privado): se toma el primero que el propio
-        // procedimiento haya declarado como elegible (appointment_type_ids, el admin lo
-        // decide al crear/editar el procedimiento), para que la cita no quede con la
-        // etiqueta/color genéricos de respaldo en el calendario.
-        const appointmentTypeName = procedure.appointment_type_ids?.[0]?.name;
+        // del formulario del panel privado): se toma el primero que el primer
+        // procedimiento elegido haya declarado como elegible (appointment_type_ids, el
+        // admin lo decide al crear/editar el procedimiento), para que la cita no quede
+        // con la etiqueta/color genéricos de respaldo en el calendario. appointmentTypeName
+        // ya viene resuelto de resolveProcedures.
 
         const end_time = addMinutes(start_time, duration);
         const { start: dayStart, end: dayEnd } = getDayRange(date);
@@ -482,7 +501,7 @@ patientPortalController.bookAppointment = async (req, res) => {
             doctor_id: requiresDoctor && doctor_id ? doctor_id : undefined,
             nurse_id: !requiresDoctor && nurse_id ? nurse_id : undefined,
             patient_id: req.user.id,
-            procedure_id: procedureRef,
+            procedure_id: procedureRefs,
             type,
             appointment_type: appointmentTypeName,
             date: dayStart,
@@ -490,11 +509,19 @@ patientPortalController.bookAppointment = async (req, res) => {
             end_time,
             duration_minutes: duration,
             description: description || undefined,
-            // Toda cita creada desde el portal público queda "pending" sin importar el
-            // método de pago: el doctor o enfermera elegido debe aceptarla desde "Por
-            // aceptar" antes de que quede realmente agendada, igual que las solicitudes sin
-            // proveedor elegido.
-            status: "pending",
+            // Pagar en línea: la cita NO queda "pending" (real, visible en "Por aceptar")
+            // hasta que el anticipo se confirme de verdad — ver confirmAppointmentPayment /
+            // wompiWebhookController, que la pasan a "pending" y recién ahí notifican a los
+            // proveedores (activateAfterDeposit). Antes quedaba "pending" desde este mismo
+            // POST, antes de que el paciente llegara siquiera a la pantalla de pago: si
+            // abandonaba el pago, ya había un doctor notificado y un horario "solicitado"
+            // por una cita que nunca se iba a pagar. "pending_payment" no es un estado real
+            // de la máquina de estados de la cita (no aparece en ningún filtro de "Mis
+            // citas" ni de "Por aceptar" de ningún rol): es solo el resguardo del horario
+            // mientras el paciente está en la pantalla de tarjeta. Si nunca paga, se limpia
+            // solo (ver runAppointmentAutoTransitions). Pagar en recepción sigue igual: no
+            // hay pago que confirmar, así que queda "pending" desde ya.
+            status: pagaEnLinea ? "pending_payment" : "pending",
             total,
             // El pago en línea solo cobra el anticipo, no el total
             deposit_amount: pagaEnLinea ? calcDepositAmount(total) : undefined,
@@ -510,19 +537,23 @@ patientPortalController.bookAppointment = async (req, res) => {
             .populate("nurse_id", "name last_name img_url")
             .populate({ path: "procedure_id", model: "procedure", select: "name" });
 
-        await notifyPendingRequestToProviders({
-            appointmentId: newAppointment._id,
-            patientId: req.user.id,
-            procedureName: populated.procedure_id?.name || type,
-            dateStr: date,
-            dayStart,
-            start_time,
-            end_time,
-            requiresDoctor,
-            sinProveedorElegido,
-            doctor_id,
-            nurse_id,
-        });
+        // Pagar en línea: todavía no es una solicitud real (ver status arriba), así que
+        // nadie se notifica hasta que el anticipo se confirme (activateAfterDeposit).
+        if (!pagaEnLinea) {
+            await notifyPendingRequestToProviders({
+                appointmentId: newAppointment._id,
+                patientId: req.user.id,
+                procedureName: (populated.procedure_id || []).map((p) => p.name).join(", ") || type,
+                dateStr: date,
+                dayStart,
+                start_time,
+                end_time,
+                requiresDoctor,
+                sinProveedorElegido,
+                doctor_id,
+                nurse_id,
+            });
+        }
 
         return res.status(201).json({
             message: "Cita agendada correctamente",
@@ -649,13 +680,13 @@ patientPortalController.rescheduleMyAppointment = async (req, res) => {
             return res.status(400).json({ message: "Esta cita no se puede reagendar." });
         }
 
-        const procedure = await procedureModel.findById(appointment.procedure_id)
+        const procedures = await procedureModel.find({ _id: { $in: appointment.procedure_id } })
             .select("name requires_doctor requires_nurse");
-        if (!procedure) {
+        if (procedures.length === 0) {
             return res.status(400).json({ message: "El procedimiento de esta cita ya no está disponible." });
         }
-        const requiresDoctor = procedure.requires_doctor !== false;
-        const requiresNurse = !!procedure.requires_nurse;
+        const requiresDoctor = procedures.some((p) => p.requires_doctor !== false);
+        const requiresNurse = procedures.some((p) => !!p.requires_nurse);
 
         const end_time = addMinutes(start_time, appointment.duration_minutes);
         const { start: dayStart } = getDayRange(date);
@@ -714,7 +745,7 @@ patientPortalController.rescheduleMyAppointment = async (req, res) => {
         await notifyPendingRequestToProviders({
             appointmentId: appointment._id,
             patientId: req.user.id,
-            procedureName: procedure.name || appointment.type,
+            procedureName: procedures.map((p) => p.name).join(", ") || appointment.type,
             dateStr: date,
             dayStart,
             start_time,
@@ -988,6 +1019,10 @@ patientPortalController.confirmAppointmentPayment = async (req, res) => {
 
         appointment.deposit_paid = true;
         await appointment.save();
+
+        // Recién ahora la cita es una solicitud real: pasa a "pending" y se notifica a los
+        // proveedores (no hace nada si ya estaba "pending" por algún otro camino).
+        await activateAfterDeposit(appointment);
 
         return res.status(200).json({ status: appointment.status, appointment });
     } catch (error) {
