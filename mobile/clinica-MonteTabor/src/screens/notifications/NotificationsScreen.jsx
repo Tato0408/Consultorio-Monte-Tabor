@@ -6,6 +6,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../lib/apiClient";
 import { confirmDelete, showError, showSuccess } from "../../lib/toast";
 import { onNotificationPushed } from "../../lib/notificationEvents";
+import SwipeToDelete from "../../components/SwipeToDelete";
 import styles from "../../styles/notifications/notificationsStyle";
 
 const relativeDate = (value) => {
@@ -114,24 +115,32 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
+  // Borrado real contra el backend, sin pedir confirmación — lo usan tanto el botón de
+  // basura con confirmación (deleteNotification) como el gesto de deslizar (que, a
+  // diferencia de los medicamentos, sí elimina directo: es de bajo riesgo y de uso
+  // frecuente, pedir confirmación ahí sería más una molestia que una protección real).
+  const removeNotification = async (item, { onFail } = {}) => {
+    setDeletingId(item._id);
+    try {
+      await apiClient(`/notifications/${item._id}`, { method: "DELETE" });
+      setNotifications((current) => current.filter((entry) => entry._id !== item._id));
+      if (!item.read) setUnreadCount((current) => Math.max(0, current - 1));
+    } catch (error) {
+      showError(error.message || "No se pudo eliminar la notificación.");
+      onFail?.();
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const deleteNotification = async (item) => {
     const confirmed = await confirmDelete({
       title: "¿Eliminar esta notificación?",
       text: "Se quitará de tu historial de notificaciones.",
     });
     if (!confirmed) return;
-
-    setDeletingId(item._id);
-    try {
-      await apiClient(`/notifications/${item._id}`, { method: "DELETE" });
-      setNotifications((current) => current.filter((entry) => entry._id !== item._id));
-      if (!item.read) setUnreadCount((current) => Math.max(0, current - 1));
-      showSuccess("Notificación eliminada.");
-    } catch (error) {
-      showError(error.message || "No se pudo eliminar la notificación.");
-    } finally {
-      setDeletingId(null);
-    }
+    await removeNotification(item);
+    showSuccess("Notificación eliminada.");
   };
 
   const clearNotifications = async () => {
@@ -183,20 +192,27 @@ export default function NotificationsScreen({ navigation }) {
           <View key={label}>
             <Text style={styles.sectionTitle}>{label}</Text>
             {items.map((item) => (
-              <View key={item._id} style={[styles.card, !item.read && styles.cardUnread]}>
-                <TouchableOpacity activeOpacity={0.75} onPress={() => openNotification(item)} style={styles.cardOpenArea}>
-                  <View style={[styles.icon, !item.read && styles.iconUnread]}><Ionicons name="calendar-outline" size={20} color={item.read ? "#718096" : "#2F6BFF"} /></View>
-                  <View style={styles.cardText}>
-                    <View style={styles.cardMeta}><Text style={[styles.cardTitle, !item.read && styles.cardTitleUnread]}>{item.title || "Actualización de tu cita"}</Text>{!item.read ? <View style={styles.unreadDot} /> : null}</View>
-                    <Text style={styles.message}>{item.message}</Text>
-                    <Text style={styles.time}>{relativeDate(item.createdAt)}</Text>
-                  </View>
-                  {item.appointment_id ? <Ionicons name="chevron-forward" size={18} color="#A0AEC0" /> : null}
-                </TouchableOpacity>
-                <TouchableOpacity disabled={deletingId === item._id} onPress={() => deleteNotification(item)} style={styles.deleteButton} accessibilityLabel="Eliminar notificación">
-                  {deletingId === item._id ? <ActivityIndicator size="small" color="#DC2626" /> : <Ionicons name="trash-outline" size={19} color="#DC2626" />}
-                </TouchableOpacity>
-              </View>
+              <SwipeToDelete
+                key={item._id}
+                disabled={deletingId === item._id}
+                style={{ marginBottom: 10 }}
+                onDelete={(reset) => removeNotification(item, { onFail: reset })}
+              >
+                <View style={[styles.card, !item.read && styles.cardUnread, { marginBottom: 0 }]}>
+                  <TouchableOpacity activeOpacity={0.75} onPress={() => openNotification(item)} style={styles.cardOpenArea}>
+                    <View style={[styles.icon, !item.read && styles.iconUnread]}><Ionicons name="calendar-outline" size={20} color={item.read ? "#718096" : "#2F6BFF"} /></View>
+                    <View style={styles.cardText}>
+                      <View style={styles.cardMeta}><Text style={[styles.cardTitle, !item.read && styles.cardTitleUnread]}>{item.title || "Actualización de tu cita"}</Text>{!item.read ? <View style={styles.unreadDot} /> : null}</View>
+                      <Text style={styles.message}>{item.message}</Text>
+                      <Text style={styles.time}>{relativeDate(item.createdAt)}</Text>
+                    </View>
+                    {item.appointment_id ? <Ionicons name="chevron-forward" size={18} color="#A0AEC0" /> : null}
+                  </TouchableOpacity>
+                  <TouchableOpacity disabled={deletingId === item._id} onPress={() => deleteNotification(item)} style={styles.deleteButton} accessibilityLabel="Eliminar notificación">
+                    {deletingId === item._id ? <ActivityIndicator size="small" color="#DC2626" /> : <Ionicons name="trash-outline" size={19} color="#DC2626" />}
+                  </TouchableOpacity>
+                </View>
+              </SwipeToDelete>
             ))}
           </View>
         ))}

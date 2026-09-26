@@ -81,18 +81,13 @@ const NotFound = () => {
 
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-10">
         <div className="w-full max-w-md flex flex-col items-center text-center">
-          {/* Logo hexágono, igual al de Login/Recovery */}
-          <div className="mb-6 relative flex items-center justify-center" style={{ width: "44px", height: "50px" }}>
-            <svg
-              viewBox="0 0 56 64"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="absolute inset-0 w-full h-full"
+          <div className="mb-6 flex items-center justify-center" style={{ width: "44px", height: "50px" }}>
+            <img
+              src="/logoConsultorioSInFondo.png"
+              alt="Clínica Monte Tabor"
+              className="w-full h-full object-contain"
               style={{ filter: "drop-shadow(0 4px 12px rgba(59,111,202,0.35))" }}
-            >
-              <polygon points="28,2 54,17 54,47 28,62 2,47 2,17" fill="#3B6FCA" />
-            </svg>
-            <span className="relative z-10 text-white font-bold text-base select-none">T</span>
+            />
           </div>
 
           <h1 className="text-7xl font-extrabold text-[#3B6FCA] tracking-tight leading-none mb-4">

@@ -51,12 +51,11 @@ const MainLayout = () => {
                         >
                             <Menu className="w-5 h-5" />
                         </button>
-                        <div
-                            className="w-7 h-7 bg-[#0b66d6] text-white flex items-center justify-center font-bold text-sm"
-                            style={{ clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)" }}
-                        >
-                            T
-                        </div>
+                        <img
+                            src="/logoAppSinFondo.png"
+                            alt="Clínica Monte Tabor"
+                            className="w-7 h-7 object-contain flex-shrink-0"
+                        />
                         <span className="font-bold text-slate-800 text-sm">Monte Tabor</span>
                     </div>
                 </header>

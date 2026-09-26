@@ -30,6 +30,19 @@ import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import { formatTime12h } from "@/lib/timeFormat";
 
+// Una cita puede combinar varios procedimientos (procedure_id es un array). Estos 3
+// helpers reemplazan los accesos de siempre a un único procedure_id.requires_doctor/
+// requires_nurse/name: "requiere doctor" es true si ALGUNO de los procedimientos lo
+// requiere (sin ninguno elegido, se asume que sí, mismo comportamiento de siempre);
+// "requiere enfermera" igual, con ALGUNO alcanza.
+const procRequiresDoctor = (appt) => {
+    const procs = appt?.procedure_id || [];
+    if (procs.length === 0) return true;
+    return procs.some((p) => p.requires_doctor !== false);
+};
+const procRequiresNurse = (appt) => (appt?.procedure_id || []).some((p) => !!p.requires_nurse);
+const procNames = (appt) => (appt?.procedure_id || []).map((p) => p.name).join(", ");
+
 // Pantalla principal del módulo: lista de citas en tarjetas, con búsqueda,
 // filtros, orden, paginación y acciones (ver, editar, cancelar, eliminar).
 export default function AppointmentsGrid() {
@@ -211,10 +224,10 @@ export default function AppointmentsGrid() {
     const requestAccept = async (appointment) => {
         // Procedimiento sin doctor: la enfermera acepta directo, no hay enfermera de
         // apoyo que elegir aparte (ella misma es la proveedora principal).
-        if (appointment.procedure_id?.requires_doctor === false) {
+        if (!procRequiresDoctor(appointment)) {
             return handleAceptarComoEnfermera(appointment);
         }
-        if (!appointment.procedure_id?.requires_nurse) {
+        if (!procRequiresNurse(appointment)) {
             return handleAceptar(appointment);
         }
         setAppointmentToAccept(appointment);
@@ -278,7 +291,7 @@ export default function AppointmentsGrid() {
         setSelectedDoctorId("");
         setSelectedNurseId("");
 
-        if (appointment.procedure_id?.requires_doctor === false) {
+        if (!procRequiresDoctor(appointment)) {
             setLoadingNurses(true);
             try {
                 const response = await apiClient("/appointments/nurses-for-acceptance", {
@@ -308,7 +321,7 @@ export default function AppointmentsGrid() {
         }
         setLoadingDoctors(false);
 
-        if (appointment.procedure_id?.requires_nurse) {
+        if (procRequiresNurse(appointment)) {
             setLoadingNurses(true);
             try {
                 const response = await apiClient("/appointments/nurses-for-acceptance", {
@@ -658,7 +671,7 @@ export default function AppointmentsGrid() {
                                         <span className="text-slate-400">
                                             Tipo de procedimiento:
                                         </span>{" "}
-                                        {cita.procedure_id?.name || cita.type}
+                                        {procNames(cita) || cita.type}
                                     </p>
 
                                     <p>
@@ -739,9 +752,9 @@ export default function AppointmentsGrid() {
                                         <span className="text-xs font-semibold text-slate-700">
                                             {cita.doctor_id
                                                 ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name || ""}`
-                                                : cita.nurse_id && cita.procedure_id?.requires_doctor === false
+                                                : cita.nurse_id && !procRequiresDoctor(cita)
                                                     ? `${cita.nurse_id.name} ${cita.nurse_id.last_name || ""} (enfermera)`
-                                                    : cita.procedure_id?.requires_doctor === false
+                                                    : !procRequiresDoctor(cita)
                                                         ? "Enfermera no asignada"
                                                         : "Doctor no asignado"}
                                         </span>
@@ -751,7 +764,7 @@ export default function AppointmentsGrid() {
                                         mientras esté pendiente. Si no, se muestran eliminar, editar o
                                         cancelar según permisos. Ver siempre está disponible. */}
                                     <div className="flex items-center gap-1">
-                                        {(isDoctor || (isNurse && cita.procedure_id?.requires_doctor === false)) && cita.status === "pending" ? (
+                                        {(isDoctor || (isNurse && !procRequiresDoctor(cita))) && cita.status === "pending" ? (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -954,7 +967,7 @@ export default function AppointmentsGrid() {
                     </div>
                 </div>
             )}
-            {appointmentToAssign && appointmentToAssign.procedure_id?.requires_doctor === false ? (
+            {appointmentToAssign && !procRequiresDoctor(appointmentToAssign) ? (
                 // Procedimiento sin doctor: se asigna directo una enfermera como
                 // proveedora principal, no hay doctor que elegir.
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 overflow-y-auto">
@@ -999,7 +1012,7 @@ export default function AppointmentsGrid() {
                             labelClassName="hidden"
                             className="mt-5"
                         />
-                        {appointmentToAssign.procedure_id?.requires_nurse && (
+                        {procRequiresNurse(appointmentToAssign) && (
                             <>
                                 <p className="mt-4 text-sm text-slate-500">Este procedimiento requiere enfermera.</p>
                                 <DataCombobox
@@ -1023,7 +1036,7 @@ export default function AppointmentsGrid() {
                         )}
                         <div className="mt-6 flex justify-end gap-3">
                             <Button variant="outline" onClick={() => setAppointmentToAssign(null)}>Cancelar</Button>
-                            {appointmentToAssign.procedure_id?.requires_nurse && !loadingNurses && nurses.length === 0 ? (
+                            {procRequiresNurse(appointmentToAssign) && !loadingNurses && nurses.length === 0 ? (
                                 <Button
                                     disabled={!selectedDoctorId || loadingDoctors}
                                     onClick={() => handleAsignarSinEnfermera(appointmentToAssign._id, selectedDoctorId)}
@@ -1033,7 +1046,7 @@ export default function AppointmentsGrid() {
                                 </Button>
                             ) : (
                                 <Button
-                                    disabled={!selectedDoctorId || loadingDoctors || (appointmentToAssign.procedure_id?.requires_nurse && !selectedNurseId)}
+                                    disabled={!selectedDoctorId || loadingDoctors || (procRequiresNurse(appointmentToAssign) && !selectedNurseId)}
                                     onClick={() => handleAsignar(appointmentToAssign._id, selectedDoctorId, selectedNurseId || null)}
                                     className="bg-emerald-600 hover:bg-emerald-700"
                                 >
@@ -1058,7 +1071,7 @@ export default function AppointmentsGrid() {
                         </div>
                         <div className="mt-5 space-y-3 rounded-xl bg-slate-50 p-4 text-sm">
                             <p><span className="font-semibold text-slate-500">Paciente: </span>{pendingAppointmentDetails.patient_id ? `${pendingAppointmentDetails.patient_id.name} ${pendingAppointmentDetails.patient_id.last_name}` : "—"}</p>
-                            <p><span className="font-semibold text-slate-500">Servicio: </span>{pendingAppointmentDetails.procedure_id?.name || pendingAppointmentDetails.type}</p>
+                            <p><span className="font-semibold text-slate-500">Servicio: </span>{procNames(pendingAppointmentDetails) || pendingAppointmentDetails.type}</p>
                             <p><span className="font-semibold text-slate-500">Fecha: </span>{new Date(pendingAppointmentDetails.date).toLocaleDateString()}</p>
                             <p><span className="font-semibold text-slate-500">Horario: </span>{formatTime12h(pendingAppointmentDetails.start_time)} - {formatTime12h(pendingAppointmentDetails.end_time)}</p>
                             <p><span className="font-semibold text-slate-500">Duración: </span>{pendingAppointmentDetails.duration_minutes || 30} min</p>

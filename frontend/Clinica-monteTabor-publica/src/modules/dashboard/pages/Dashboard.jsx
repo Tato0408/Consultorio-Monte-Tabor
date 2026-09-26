@@ -11,12 +11,12 @@ import { showSuccess, showError, confirmAction, confirmActionWithReason } from "
 import NotificationsMenu from "@/components/NotificationsMenu";
 
 const Logo = () => (
-  <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: 31, height: 36 }}>
-    <svg viewBox="0 0 56 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0 w-full h-full">
-      <polygon points="28,2 54,17 54,47 28,62 2,47 2,17" fill="#3B6FCA" />
-    </svg>
-    <span className="relative z-10 text-white font-bold text-xs select-none">T</span>
-  </div>
+  <img
+    src="/logoAppSinFondo.png"
+    alt="Clínica Monte Tabor"
+    className="flex-shrink-0 object-contain"
+    style={{ width: 40, height: 40 }}
+  />
 );
 
 const fmt12 = (t) => {
@@ -294,9 +294,19 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* ── Tarjetas de estadísticas ── */}
+        {/* ── Tarjetas de estadísticas ──
+            Antes eran solo informativas (sin hover ni destino), inconsistente con el resto
+            de la página, donde cualquier tarjeta con esta misma pinta (accesos rápidos,
+            documentos recientes) sí navega a algún lado. Ahora cada una lleva a la pantalla
+            donde el paciente puede hacer algo con ese dato: "Próxima cita" y "Consultas
+            realizadas" llegan a Mis citas ya en el tab correspondiente (ver
+            TAB_KEYS/location.state en MyAppointments.jsx). */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 sm:mb-8">
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+          <Link
+            to="/mis-citas"
+            state={{ tab: "proximas" }}
+            className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm hover:border-[#3B6FCA]/40 hover:shadow-md transition-all"
+          >
             <div className="w-11 h-11 rounded-xl bg-[#3B6FCA]/10 flex items-center justify-center flex-shrink-0">
               <CalendarDays className="w-5 h-5 text-[#3B6FCA]" />
             </div>
@@ -311,20 +321,27 @@ const Dashboard = () => {
                 <p className="text-sm text-gray-400">Sin citas próximas</p>
               )}
             </div>
-          </div>
+          </Link>
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+          <Link
+            to="/mis-citas"
+            state={{ tab: "atendidas" }}
+            className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm hover:border-[#3B6FCA]/40 hover:shadow-md transition-all"
+          >
             <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
               <Stethoscope className="w-5 h-5 text-emerald-500" />
             </div>
             <div className="min-w-0">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Consultas realizadas</p>
               <p className="font-bold text-gray-900 text-xl leading-tight">{stats.consultas}</p>
-              <p className="text-xs text-gray-400">Historial completo</p>
+              <p className="text-xs text-gray-400">Ver historial</p>
             </div>
-          </div>
+          </Link>
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+          <Link
+            to="/medicamentos"
+            className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm hover:border-[#3B6FCA]/40 hover:shadow-md transition-all"
+          >
             <div className="w-11 h-11 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
               <Pill className="w-5 h-5 text-violet-500" />
             </div>
@@ -333,18 +350,26 @@ const Dashboard = () => {
               <p className="font-bold text-gray-900 text-xl leading-tight">{todayMedications.length}</p>
               <p className="text-xs text-gray-400">Tratamientos vigentes</p>
             </div>
-          </div>
+          </Link>
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+          <Link
+            to="/documentos"
+            className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm hover:border-[#3B6FCA]/40 hover:shadow-md transition-all"
+          >
             <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
               <FileText className="w-5 h-5 text-amber-500" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Documentos pendientes</p>
+              {/* Antes decía "Documentos pendientes" / "Por revisar o descargar": el
+                  número es prescriptions+sickLeaves+referrals TOTALES (ver
+                  getDashboardSummary en el backend), no hay ningún concepto de
+                  "pendiente" o "sin revisar" en el sistema. La etiqueta prometía algo
+                  que el dato no era. */}
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Documentos</p>
               <p className="font-bold text-gray-900 text-xl leading-tight">{stats.documentos}</p>
-              <p className="text-xs text-gray-400">Por revisar o descargar</p>
+              <p className="text-xs text-gray-400">Recetas, incapacidades y referencias</p>
             </div>
-          </div>
+          </Link>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -497,8 +522,16 @@ const Dashboard = () => {
                 <p className="text-sm text-gray-400 py-4 text-center">No tienes recordatorios pendientes.</p>
               ) : (
                 <div className="space-y-1">
+                  {/* Antes eran <div> sin onClick ni Link: tenían el hover y la flecha de
+                      "esto se puede abrir" pero tocarlas no hacía nada. Una cita lleva a
+                      Mis citas (tab Próximas); un medicamento, a Medicamentos. */}
                   {reminders.map((r, i) => (
-                    <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    <Link
+                      key={i}
+                      to={r.type === "cita" ? "/mis-citas" : "/medicamentos"}
+                      state={r.type === "cita" ? { tab: "proximas" } : undefined}
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
                       <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
                         {r.type === "cita" ? <CalendarDays className="w-4 h-4 text-[#3B6FCA]" /> : <Pill className="w-4 h-4 text-emerald-500" />}
                       </div>
@@ -507,7 +540,7 @@ const Dashboard = () => {
                         <p className="text-xs text-gray-400">{r.date}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}

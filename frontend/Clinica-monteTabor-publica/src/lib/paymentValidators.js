@@ -22,17 +22,23 @@ export const formatExpiry = (value) => {
 
 export const formatCvv = (value) => value.replace(/\D/g, "").slice(0, 4);
 
+// Máscara del nombre del titular: bloquea números y caracteres especiales mientras se
+// escribe, deja solo letras (con acentos/ñ) y espacios. nombreValido (más abajo) valida
+// además que haya nombre y apellido al enviar.
+export const maskNombre = (value) => value.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]/g, "");
+
 // Al reformatear el valor (ej. insertar el espacio o la "/"), React reemplaza el texto
 // del input y el navegador manda el cursor al final por defecto. Esta función calcula
-// dónde debería quedar el cursor en el texto YA formateado, contando cuántos dígitos
-// había antes del cursor en el valor original (sin formatear).
-export const posicionCursorTrasFormatear = (formateado, digitosAntesDelCursor) => {
-  if (digitosAntesDelCursor <= 0) return 0;
+// dónde debería quedar el cursor en el texto YA formateado, contando cuántos caracteres
+// "contados" (dígitos por defecto; letras para el nombre, ver esCaracterContado) había
+// antes del cursor en el valor original (sin formatear).
+export const posicionCursorTrasFormatear = (formateado, contadosAntesDelCursor, esCaracterContado = (c) => /\d/.test(c)) => {
+  if (contadosAntesDelCursor <= 0) return 0;
   let vistos = 0;
   for (let i = 0; i < formateado.length; i++) {
-    if (/\d/.test(formateado[i])) {
+    if (esCaracterContado(formateado[i])) {
       vistos++;
-      if (vistos === digitosAntesDelCursor) return i + 1;
+      if (vistos === contadosAntesDelCursor) return i + 1;
     }
   }
   return formateado.length;

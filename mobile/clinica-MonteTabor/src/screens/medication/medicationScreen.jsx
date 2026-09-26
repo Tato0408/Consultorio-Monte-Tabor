@@ -60,6 +60,10 @@ const MedicationsScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const [marcando, setMarcando] = useState(null);
+  // El historial de recetas crece sin límite con el tiempo: los finalizados quedan
+  // colapsados por defecto para que la lista no se haga eterna, y el paciente los
+  // despliega solo si quiere revisarlos.
+  const [showFinalizados, setShowFinalizados] = useState(false);
 
   const loadMedications = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -124,6 +128,15 @@ const MedicationsScreen = ({ navigation }) => {
     });
     return filas.sort((a, b) => new Date(b.receta.issued_at) - new Date(a.receta.issued_at));
   }, [historial]);
+
+  const filasEnCurso = useMemo(
+    () => filasHistorial.filter((fila) => fila.estado === "curso"),
+    [filasHistorial]
+  );
+  const filasFinalizadas = useMemo(
+    () => filasHistorial.filter((fila) => fila.estado === "finalizado"),
+    [filasHistorial]
+  );
 
   const renderHoy = () => {
     if (loading) {
@@ -191,6 +204,34 @@ const MedicationsScreen = ({ navigation }) => {
     });
   };
 
+  const renderFila = (fila) => (
+    <View key={fila.id} style={localStyles.historyRow}>
+      <View style={localStyles.rowInfo}>
+        <View style={[localStyles.rowIcon, { backgroundColor: "#EFF6FF" }]}>
+          <Ionicons name="medkit-outline" size={18} color="#3B82F6" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={localStyles.rowName} numberOfLines={1}>
+            {fila.medicamento.name} {fila.medicamento.dose}
+          </Text>
+          <Text style={localStyles.rowSub} numberOfLines={1}>
+            {fila.medicamento.frequency}
+            {fila.receta.doctor
+              ? ` · Dr(a). ${fila.receta.doctor.name} ${fila.receta.doctor.last_name}`
+              : ""}
+          </Text>
+          <Text style={localStyles.rowSub}>{fmtFecha(fila.receta.issued_at)}</Text>
+        </View>
+      </View>
+
+      <View style={[localStyles.statusChip, { backgroundColor: ESTADO_BG_COLOR[fila.estado] }]}>
+        <Text style={[localStyles.statusChipText, { color: ESTADO_TEXT_COLOR[fila.estado] }]}>
+          {ESTADO_LABEL[fila.estado]}
+        </Text>
+      </View>
+    </View>
+  );
+
   const renderHistorial = () => {
     if (loading) return null;
     if (!filasHistorial.length) {
@@ -202,33 +243,35 @@ const MedicationsScreen = ({ navigation }) => {
         />
       );
     }
-    return filasHistorial.map((fila) => (
-      <View key={fila.id} style={localStyles.historyRow}>
-        <View style={localStyles.rowInfo}>
-          <View style={[localStyles.rowIcon, { backgroundColor: "#EFF6FF" }]}>
-            <Ionicons name="medkit-outline" size={18} color="#3B82F6" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={localStyles.rowName} numberOfLines={1}>
-              {fila.medicamento.name} {fila.medicamento.dose}
-            </Text>
-            <Text style={localStyles.rowSub} numberOfLines={1}>
-              {fila.medicamento.frequency}
-              {fila.receta.doctor
-                ? ` · Dr(a). ${fila.receta.doctor.name} ${fila.receta.doctor.last_name}`
-                : ""}
-            </Text>
-            <Text style={localStyles.rowSub}>{fmtFecha(fila.receta.issued_at)}</Text>
-          </View>
-        </View>
+    return (
+      <>
+        {filasEnCurso.length > 0 ? (
+          filasEnCurso.map(renderFila)
+        ) : (
+          <Text style={localStyles.emptySectionText}>No tienes medicamentos en curso.</Text>
+        )}
 
-        <View style={[localStyles.statusChip, { backgroundColor: ESTADO_BG_COLOR[fila.estado] }]}>
-          <Text style={[localStyles.statusChipText, { color: ESTADO_TEXT_COLOR[fila.estado] }]}>
-            {ESTADO_LABEL[fila.estado]}
-          </Text>
-        </View>
-      </View>
-    ));
+        {filasFinalizadas.length > 0 && (
+          <>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={localStyles.toggleFinalizados}
+              onPress={() => setShowFinalizados((prev) => !prev)}
+            >
+              <Text style={localStyles.toggleFinalizadosText}>
+                {showFinalizados ? "Ocultar finalizados" : `Ver finalizados (${filasFinalizadas.length})`}
+              </Text>
+              <Ionicons
+                name={showFinalizados ? "chevron-up" : "chevron-down"}
+                size={16}
+                color="#64748B"
+              />
+            </TouchableOpacity>
+            {showFinalizados && filasFinalizadas.map(renderFila)}
+          </>
+        )}
+      </>
+    );
   };
 
   return (
@@ -326,6 +369,16 @@ const localStyles = StyleSheet.create({
   pillText: { fontSize: 11, fontWeight: "700", marginLeft: 4 },
   statusChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   statusChipText: { fontSize: 11, fontWeight: "700" },
+  emptySectionText: { fontSize: 13, color: "#94A3B8", marginBottom: 10 },
+  toggleFinalizados: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 6,
+  },
+  toggleFinalizadosText: { fontSize: 13, fontWeight: "600", color: "#64748B" },
 });
 
 export default MedicationsScreen;

@@ -149,7 +149,9 @@ const ConsultationForm = () => {
     // su propio endpoint (PATCH /consultations/:id/nurse-note) y no viaja con
     // el resto de la consulta. Solo la maneja la enfermera asignada.
     const isNurse = userType === "nurse";
-    const needsNurseNote = !!(appointment?.procedure_id?.requires_nurse && appointment?.nurse_id);
+    // Una cita puede combinar varios procedimientos (procedure_id es un array): alcanza
+    // con que ALGUNO requiera enfermera.
+    const needsNurseNote = !!((appointment?.procedure_id || []).some((p) => p.requires_nurse) && appointment?.nurse_id);
     const showNurseNote = isNurse && needsNurseNote;
     const [nurseNote, setNurseNote] = useState("");
     const [nurseNoteAt, setNurseNoteAt] = useState(null);

@@ -12,8 +12,12 @@ import { generarTokenWompi, tokenizarTarjeta, cobrarTarjeta } from "@/services/w
 import { showError, showWarning } from "@/lib/alerts";
 import {
   formatCardNumber, formatExpiry, formatCvv, detectarMarca, luhnValido, longitudValida,
-  expiryValida, cvvValido, nombreValido, posicionCursorTrasFormatear,
+  expiryValida, cvvValido, nombreValido, maskNombre, posicionCursorTrasFormatear,
 } from "@/lib/paymentValidators";
+
+// esCaracterContado del nombre: letras (con acentos/ñ), no dígitos como el resto de
+// campos con máscara (tarjeta/vencimiento/cvv) — ver setCampoConMascara más abajo.
+const esLetra = (c) => /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(c);
 import TicketCita from "../components/TicketCita";
 
 const INDICACIONES_GENERALES = "Llega 10 minutos antes de tu cita con tu documento de identidad (DUI) a mano.";
@@ -119,12 +123,14 @@ const PayAppointment = () => {
   // correcciones de cursor en cola pisándose entre sí
   const rafCursorRef = useRef(null);
 
-  // Campos con máscara (tarjeta, vencimiento, cvv): además de reformatear el valor,
-  // se recalcula dónde debe quedar el cursor para que no salte al final en cada tecla
-  const setCampoConMascara = (campo, formateador) => (e) => {
+  // Campos con máscara (tarjeta, vencimiento, cvv, nombre): además de reformatear el
+  // valor, se recalcula dónde debe quedar el cursor para que no salte al final en cada
+  // tecla. esCaracterContado decide qué cuenta como "carácter real" para ese campo:
+  // dígitos por defecto (tarjeta/vencimiento/cvv), letras para el nombre (ver esLetra).
+  const setCampoConMascara = (campo, formateador, esCaracterContado = (c) => /\d/.test(c)) => (e) => {
     const input = e.target;
     const cursorPos = input.selectionStart ?? input.value.length;
-    const digitosAntes = input.value.slice(0, cursorPos).replace(/\D/g, "").length;
+    const contadosAntes = [...input.value.slice(0, cursorPos)].filter(esCaracterContado).length;
     const formateado = formateador(input.value);
 
     setForm((f) => ({ ...f, [campo]: formateado }));
@@ -132,7 +138,7 @@ const PayAppointment = () => {
 
     if (rafCursorRef.current) cancelAnimationFrame(rafCursorRef.current);
     rafCursorRef.current = requestAnimationFrame(() => {
-      const nuevaPos = posicionCursorTrasFormatear(formateado, digitosAntes);
+      const nuevaPos = posicionCursorTrasFormatear(formateado, contadosAntes, esCaracterContado);
       input.setSelectionRange(nuevaPos, nuevaPos);
     });
   };
@@ -289,7 +295,7 @@ const PayAppointment = () => {
             doctor={cita.doctor_id}
             nurse={cita.nurse_id}
             tipoLabel={cita.type}
-            generalidades={cita.procedure_id?.name}
+            generalidades={(cita.procedure_id || []).map((p) => p.name).join(", ")}
             date={new Date(cita.date)}
             startTime={cita.start_time}
             endTime={cita.end_time}
@@ -424,7 +430,7 @@ const PayAppointment = () => {
                   id="nombreCliente"
                   icon={<User className="w-4 h-4" />}
                   value={form.nombreCliente}
-                  onChange={setCampo("nombreCliente")}
+                  onChange={setCampoConMascara("nombreCliente", maskNombre, esLetra)}
                   error={errors.nombreCliente}
                   placeholder="Como aparece en la tarjeta"
                 />

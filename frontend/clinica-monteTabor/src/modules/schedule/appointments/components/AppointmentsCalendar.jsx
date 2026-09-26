@@ -387,12 +387,14 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
     // confirmar, en vez de aceptar directo.
     // Un procedimiento sin doctor (requires_doctor false) invierte quién puede aceptar o
     // asignar: la enfermera en vez del doctor, ver acceptAppointmentAsNurse/assignNurse en
-    // el backend. La consulta médica general (sin procedure_id) siempre requiere doctor.
-    const procedureRequiresDoctor = !appt.procedure_id || appt.procedure_id.requires_doctor !== false;
+    // el backend. Sin ningún procedimiento (o la consulta médica general) siempre requiere
+    // doctor. Una cita puede combinar varios procedimientos (procedure_id es un array):
+    // alcanza con que ALGUNO requiera doctor/enfermera para que la cita entera lo requiera.
+    const procedureRequiresDoctor = !appt.procedure_id?.length || appt.procedure_id.some((p) => p.requires_doctor !== false);
     const isPendingAction = appt.status === "pending" && (
         procedureRequiresDoctor ? (isDoctor || isAdmin) : (isNurse || isAdmin)
     );
-    const nurseRequired = !!appt.procedure_id?.requires_nurse;
+    const nurseRequired = (appt.procedure_id || []).some((p) => !!p.requires_nurse);
     const [resolvingAccept, setResolvingAccept] = useState(false);
     const [needsNurseChoice, setNeedsNurseChoice] = useState(false);
     const [nurseOptions, setNurseOptions] = useState([]);

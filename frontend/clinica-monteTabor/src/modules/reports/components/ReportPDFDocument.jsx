@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, StyleSheet, Svg, Polygon, Polyline, Rect } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Polyline, Rect } from "@react-pdf/renderer";
 import { chartColor } from "../chartColors";
 
 // Plantilla de PDF compartida por los cuatro reportes: citas, pacientes,
@@ -31,17 +31,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   clinicRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  hexWrap: { width: 22, height: 26, position: "relative" },
-  hexLetter: {
-    position: "absolute",
-    top: 7,
-    left: 0,
-    width: 22,
-    textAlign: "center",
-    fontSize: 9,
-    color: "#ffffff",
-    fontFamily: "Helvetica-Bold",
-  },
+  clinicLogo: { width: 26, height: 26 },
   clinicName: { fontSize: 10, fontFamily: "Helvetica-Bold", color: COLORS.primary, lineHeight: 1.3 },
   reportTitle: { fontSize: 13, fontFamily: "Helvetica-Bold", color: COLORS.primary, textAlign: "right" },
   metaText: { fontSize: 8, color: COLORS.textGray, textAlign: "right", marginTop: 2 },
@@ -189,12 +179,7 @@ const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }
         {/* Encabezado: logo y nombre de la clínica a la izquierda, título del reporte a la derecha */}
         <View style={styles.headerRow}>
           <View style={styles.clinicRow}>
-            <View style={styles.hexWrap}>
-              <Svg width={22} height={26}>
-                <Polygon points="11,1 21,7 21,19 11,25 1,19 1,7" fill={COLORS.primary} />
-              </Svg>
-              <Text style={styles.hexLetter}>T</Text>
-            </View>
+            <Image style={styles.clinicLogo} src="/logoConsultorioSInFondo.png" />
             <View>
               <Text style={styles.clinicName}>Clínica Familia</Text>
               <Text style={styles.clinicName}>Monte Tabor</Text>

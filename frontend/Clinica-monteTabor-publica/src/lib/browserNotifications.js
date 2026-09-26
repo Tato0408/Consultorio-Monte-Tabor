@@ -18,7 +18,7 @@ export function showBrowserNotification(notification) {
     try {
         const toast = new Notification(notification.title || "Notificación", {
             body: notification.message,
-            icon: "/favicon.png",
+            icon: "/logoIconoAppRedondo.png",
             tag: notification._id, // evita duplicarla si llega dos veces (socket + poll de respaldo)
         });
         if (notification.action_url) {

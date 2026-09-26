@@ -72,10 +72,11 @@ const SideBar = ({ onClose = () => {} }) => {
         <aside className="w-65 h-screen bg-white border-r border-slate-100 flex flex-col p-4 select-none">
  
             <div className="flex items-center gap-3 px-2 py-4 mb-2">
-                <div className="w-10 h-10 bg-[#0b66d6] text-white flex items-center justify-center font-bold text-xl shadow-md shadow-blue-100 flex-shrink-0"
-                    style={{ clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)' }}>
-                    T
-                </div>
+                <img
+                    src="/logoAppSinFondo.png"
+                    alt="Clínica Monte Tabor"
+                    className="w-10 h-10 object-contain flex-shrink-0"
+                />
                 <span className="font-bold text-slate-800 text-lg tracking-wide flex-1">Monte Tabor</span>
                 <button
                     onClick={onClose}

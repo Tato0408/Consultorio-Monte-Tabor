@@ -727,15 +727,16 @@ patientSelfController.getMyConsultations = async (req, res) => {
                 type: appointment.type,
                 status: appointment.status,
                 reschedule_reason: appointment.reschedule_reason || null,
-                procedure: appointment.procedure_id
-                    ? {
-                        _id: appointment.procedure_id._id,
-                        name: appointment.procedure_id.name,
-                        requires_doctor: appointment.procedure_id.requires_doctor,
-                        estimated_duration: appointment.procedure_id.estimated_duration,
-                        price: appointment.procedure_id.price,
-                    }
-                    : null,
+                // Lista: una cita puede combinar varios procedimientos (ver
+                // procedureAggregation.js). DashboardScreen.jsx (móvil) usa el primero para
+                // el prefill de "reagendar".
+                procedures: (appointment.procedure_id || []).map((p) => ({
+                    _id: p._id,
+                    name: p.name,
+                    requires_doctor: p.requires_doctor,
+                    estimated_duration: p.estimated_duration,
+                    price: p.price,
+                })),
                 doctor_id_raw: appointment.doctor_id?._id || null,
                 doctor: appointment.doctor_id
                     ? {

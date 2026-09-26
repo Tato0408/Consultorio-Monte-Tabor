@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Activity,
   ArrowLeftRight,
   CalendarDays,
   ChevronLeft,
@@ -14,9 +15,28 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getPrescriptions, getSickLeaves, getReferrals, getLabOrders } from "@/services/patientPortalService";
+import { getMyProfile } from "@/services/profileService";
 import { showError } from "@/lib/alerts";
-import { descargarIncapacidadPdf, descargarRecetaPdf, descargarOrdenLaboratorioPdf, descargarReferenciaPdf } from "@/lib/pdf/patientDocuments";
+import {
+  descargarIncapacidadPdf,
+  descargarRecetaPdf,
+  descargarOrdenLaboratorioPdf,
+  descargarReferenciaPdf,
+  descargarHistorialClinicoPdf,
+} from "@/lib/pdf/patientDocuments";
 import { countSelectedTests } from "@/lib/labOrderCatalog";
+
+// Config del "botón especial" de historial clínico: mismo lenguaje visual que TIPOS,
+// pero no es una categoría con listado propio — al tocarlo descarga directo, igual que
+// "Descargar historial clínico" en Historia clínica (HealthHistory.jsx) y en la app móvil
+// (DocumentsHubScreen.jsx). Solo se muestra cuando ya hay signos vitales registrados
+// (después de la primera consulta), mismo criterio que esas dos pantallas.
+const HISTORIAL_CFG = {
+  label: "Historial clínico",
+  icon: Activity,
+  accent: "#0EA5E9",
+  iconBg: "bg-[#E7F6FE]",
+};
 
 // utc=true para los campos "solo fecha" (incapacidad, laboratorio, referencia), que el
 // backend guarda como medianoche UTC del día real (mismo criterio que isoDiaUTC más
@@ -183,6 +203,11 @@ const Documents = () => {
   const [tipo, setTipo] = useState(null);
   const [filtroFecha, setFiltroFecha] = useState("");
   const [descargandoId, setDescargandoId] = useState(null);
+  // Perfil completo (con clinical_history), a diferencia de patient del AuthContext
+  // (que solo trae los campos del documento raíz): se necesita para saber si ya hay
+  // signos vitales y para armar el PDF del historial clínico.
+  const [perfil, setPerfil] = useState(null);
+  const [descargandoHistorial, setDescargandoHistorial] = useState(false);
 
   useEffect(() => {
     // allSettled: si una categoría falla, las otras se muestran igual.
@@ -199,6 +224,25 @@ const Documents = () => {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    getMyProfile()
+      .then(setPerfil)
+      .catch(() => setPerfil(null));
+  }, []);
+
+  const hasVitals = !!perfil?.clinical_history?.vital_signs?.length;
+
+  const handleDescargarHistorial = async () => {
+    setDescargandoHistorial(true);
+    try {
+      await descargarHistorialClinicoPdf(perfil);
+    } catch (err) {
+      showError(err.message || "No se pudo generar tu historial clínico.");
+    } finally {
+      setDescargandoHistorial(false);
+    }
+  };
 
   const counts = {
     incapacidad: data.incapacidad.length,
@@ -331,6 +375,34 @@ const Documents = () => {
                   </button>
                 );
               })}
+              {hasVitals && (
+                <button
+                  type="button"
+                  onClick={handleDescargarHistorial}
+                  disabled={descargandoHistorial}
+                  className="group flex items-center gap-3.5 rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition hover:border-gray-200 hover:shadow-md disabled:opacity-60 sm:flex-col sm:items-start sm:gap-0 sm:p-5"
+                >
+                  <span className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${HISTORIAL_CFG.iconBg} sm:mb-3`}>
+                    <HISTORIAL_CFG.icon className="h-[22px] w-[22px]" style={{ color: HISTORIAL_CFG.accent }} strokeWidth={1.9} />
+                  </span>
+                  <span className="min-w-0 flex-1 sm:flex-none">
+                    <span className="block text-[15px] font-bold text-gray-900">{HISTORIAL_CFG.label}</span>
+                    <span className="mt-0.5 block text-xs text-gray-500">Descarga inmediata en PDF</span>
+                  </span>
+                  {descargandoHistorial ? (
+                    <Loader2 className="h-[18px] w-[18px] flex-shrink-0 animate-spin text-gray-300 sm:hidden" />
+                  ) : (
+                    <Download className="h-[18px] w-[18px] flex-shrink-0 text-gray-300 transition group-hover:translate-x-0.5 sm:hidden" />
+                  )}
+                  <span
+                    className="mt-3 hidden items-center gap-1 text-[12.5px] font-semibold sm:inline-flex"
+                    style={{ color: HISTORIAL_CFG.accent }}
+                  >
+                    {descargandoHistorial ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    Descargar
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -434,6 +506,24 @@ const Documents = () => {
                   </button>
                 );
               })}
+              {hasVitals && (
+                <button
+                  type="button"
+                  onClick={handleDescargarHistorial}
+                  disabled={descargandoHistorial}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-gray-50 disabled:opacity-60"
+                >
+                  <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${HISTORIAL_CFG.iconBg}`}>
+                    <HISTORIAL_CFG.icon className="h-[18px] w-[18px]" style={{ color: HISTORIAL_CFG.accent }} strokeWidth={1.9} />
+                  </span>
+                  <span className="flex-1 text-sm font-semibold text-gray-700">{HISTORIAL_CFG.label}</span>
+                  {descargandoHistorial ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5 text-gray-400" />
+                  )}
+                </button>
+              )}
             </div>
 
             <div className="my-3 h-px bg-gray-100" />

@@ -25,6 +25,11 @@ export const formatExpiry = (value) => {
 
 export const formatCvv = (value) => value.replace(/\D/g, "").slice(0, 4);
 
+// Máscara del nombre del titular: bloquea números y caracteres especiales mientras se
+// escribe, deja solo letras (con acentos/ñ) y espacios. nombreValido (más abajo) valida
+// además que haya nombre y apellido al enviar.
+export const maskNombre = (value) => value.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]/g, "");
+
 // Detecta la marca de la tarjeta a partir de los primeros dígitos
 export const detectarMarca = (numero) => {
   const n = numero.replace(/\D/g, "");

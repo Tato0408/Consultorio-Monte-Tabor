@@ -58,7 +58,7 @@ const LoginScreen = ({ navigation }) => {
         <View style={styles.body}>
           <View style={styles.logoBlock}>
             <View style={{ marginBottom: 12 }}>
-              <HexLogo size={46} />
+              <HexLogo full size={130} />
             </View>
             <Text style={styles.title}>Iniciar sesión</Text>
           </View>
