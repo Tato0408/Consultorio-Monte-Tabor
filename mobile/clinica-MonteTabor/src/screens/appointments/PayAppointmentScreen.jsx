@@ -177,8 +177,16 @@ export default function PayAppointmentScreen({ route, navigation }) {
       idTransaccionCobrada = resultado.idTransaccion;
 
       const confirmacion = await confirmarConReintentos(appointmentId, idTransaccionCobrada);
-      setCita(confirmacion.appointment);
-      setAprobada(true);
+      // Mismo resguardo que reintentarConfirmacion: confirm-payment respondiendo sin
+      // error no basta para dar el pago por hecho, hay que revisar que de verdad haya
+      // marcado el anticipo como pagado antes de mostrar la pantalla de éxito.
+      if (confirmacion.appointment?.deposit_paid) {
+        setCita(confirmacion.appointment);
+        setAprobada(true);
+      } else {
+        setCita(confirmacion.appointment);
+        setPagoSinConfirmar(idTransaccionCobrada);
+      }
     } catch (err) {
       if (idTransaccionCobrada) {
         setPagoSinConfirmar(idTransaccionCobrada);

@@ -41,7 +41,7 @@ wompiWebhookController.handle = async (req, res) => {
         }
 
         const appointment = await appointmentsModel.findById(appointmentId);
-        if (!appointment || appointment.deposit_paid) {
+        if (!appointment) {
             return res.status(200).json({ message: "Nada que actualizar" });
         }
 
@@ -52,6 +52,14 @@ wompiWebhookController.handle = async (req, res) => {
         // igual.
         if (!patientId || appointment.patient_id.toString() !== String(patientId)) {
             return res.status(200).json({ message: "Sin referencia, se ignora" });
+        }
+
+        if (appointment.deposit_paid) {
+            // Autorreparación: si el anticipo ya había quedado pagado pero activateAfterDeposit
+            // no llegó a completarse la vez anterior, esto le da otra oportunidad (no hace nada
+            // si ya no aplica, ver el chequeo de status al inicio de esa función).
+            await activateAfterDeposit(appointment);
+            return res.status(200).json({ message: "Nada que actualizar" });
         }
 
         // Se vuelve a consultar la transacción directamente a Wompi en vez de confiar
