@@ -18,7 +18,6 @@ export default function SplashScreen() {
                     style={styles.logo}
                     resizeMode="contain"
                 />
-                <Text style={styles.title}>Clínica Monte Tabor</Text>
                 <Text style={styles.slogan}>Tu salud es lo más importante</Text>
             </View>
 
@@ -85,12 +84,6 @@ const styles = StyleSheet.create({
         width: 140,
         height: 140,
         marginBottom: 18,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: "800",
-        color: colors.text,
-        textAlign: "center",
     },
     slogan: {
         fontSize: 13,

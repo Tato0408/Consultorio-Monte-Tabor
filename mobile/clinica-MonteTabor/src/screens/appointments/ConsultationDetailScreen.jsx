@@ -6,6 +6,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
 import { formatLongDate, formatTime12h } from "../../utils/date";
+import { asProcedureArray } from "../../utils/procedures";
 import { badgeTones } from "../../styles/appointments/appointmentsStyle";
 import styles from "../../styles/appointments/consultationDetailStyle";
 import { descargarIncapacidadPdf, descargarRecetaPdf } from "../../lib/pdf/patientDocuments";
@@ -161,7 +162,7 @@ export default function ConsultationDetailScreen({ navigation, route }) {
         <View style={styles.infoCard}>
           <DetailItem icon="calendar-outline" label="Fecha" value={appointment ? formatLongDate(appointment.date) : "—"} />
           <DetailItem icon="time-outline" label="Horario" value={appointment ? formatTime12h(appointment.start_time) : "—"} />
-          <DetailItem icon="medkit-outline" label="Servicio" value={(appointment?.procedure_id || []).map((p) => p.name).join(", ") || appointment?.type || "—"} />
+          <DetailItem icon="medkit-outline" label="Servicio" value={asProcedureArray(appointment?.procedure_id).map((p) => p.name).join(", ") || appointment?.type || "—"} />
         </View>
 
         <Section icon="clipboard-outline" title="Diagnóstico">

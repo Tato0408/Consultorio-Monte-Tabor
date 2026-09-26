@@ -18,6 +18,7 @@ import {
   expiryValida, cvvValido, nombreValido, maskNombre,
 } from "../../lib/paymentValidators";
 import { formatTime12h } from "../../utils/date";
+import { asProcedureArray } from "../../utils/procedures";
 import styles from "../../styles/appointments/payAppointmentStyle";
 
 const longDate = (iso) => new Date(iso).toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -266,7 +267,7 @@ export default function PayAppointmentScreen({ route, navigation }) {
                 <Text style={styles.summaryDoctor} numberOfLines={1}>
                   {cita.doctor_id ? `Dr. ${cita.doctor_id.name} ${cita.doctor_id.last_name}` : "Por asignar"}
                 </Text>
-                <Text style={styles.summaryType} numberOfLines={1}>{(cita.procedure_id || []).map((p) => p.name).join(", ") || cita.type}</Text>
+                <Text style={styles.summaryType} numberOfLines={1}>{asProcedureArray(cita.procedure_id).map((p) => p.name).join(", ") || cita.type}</Text>
               </View>
             </View>
             <View style={{ alignItems: "flex-end" }}>

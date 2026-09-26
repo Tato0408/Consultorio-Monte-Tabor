@@ -11,6 +11,7 @@ import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
 import { useMyConsultations } from "../../hooks/appointments/useMyConsultations";
 import { formatTime12h } from "../../utils/date";
+import { asProcedureArray } from "../../utils/procedures";
 import styles from "../../styles/appointments/appointmentsStyle";
 
 const STATUS = {
@@ -51,7 +52,7 @@ const AppointmentCard = ({ appointment, onPress }) => {
         <View style={styles.requestDateIcon}><Ionicons name="calendar-outline" size={21} color="#2F6BFF" /></View>
         <View style={styles.requestHeading}>
           <Text style={styles.requestDate}>{dateLabel(appointment.date)} · {formatTime12h(appointment.start_time)}</Text>
-          <Text style={styles.requestTitle}>{(appointment.procedure_id || []).map((p) => p.name).join(", ") || appointment.type}</Text>
+          <Text style={styles.requestTitle}>{asProcedureArray(appointment.procedure_id).map((p) => p.name).join(", ") || appointment.type}</Text>
           <Text style={styles.requestDoctor}>{doctor}</Text>
         </View>
         <View style={[styles.requestBadge, styles[`requestBadge_${status.tone}`]]}>
@@ -124,7 +125,7 @@ export default function AppointmentsScreen({ navigation, route }) {
       }
       if (!term) return true;
       const doctor = item.doctor_id ? `${item.doctor_id.name} ${item.doctor_id.last_name}` : "";
-      const procedureNames = (item.procedure_id || []).map((p) => p.name).join(" ") || item.type;
+      const procedureNames = asProcedureArray(item.procedure_id).map((p) => p.name).join(" ") || item.type;
       return `${procedureNames} ${doctor} ${item.description || ""}`.toLowerCase().includes(term);
     });
   }, [appointments, appointmentFilter, search]);
