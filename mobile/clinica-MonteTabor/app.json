@@ -12,7 +12,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/logoAppForegroundAdaptativo.png",
-        "backgroundColor": "#1066CF"
+        "backgroundColor": "#FFFFFF"
       },
       "softwareKeyboardLayoutMode": "pan",
       "package": "com.tatonoto02.clinicaMonteTabor",
