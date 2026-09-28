@@ -41,11 +41,15 @@ const SwipeToDelete = ({ children, onDelete, disabled = false, style }) => {
   ).current;
 
   return (
-    <View style={styles.wrap}>
+    // "style" (el marginBottom entre tarjetas de la lista) va en este contenedor externo,
+    // no en la tarjeta animada: si fuera al revés, el fondo rojo (absolute, top/bottom: 0)
+    // se estira para cubrir también ese margen y sobresale un poco por debajo de la
+    // tarjeta blanca aunque no se esté deslizando nada.
+    <View style={[styles.wrap, style]}>
       <View style={styles.deleteBackground}>
         <Ionicons name="trash-outline" size={20} color="#fff" />
       </View>
-      <Animated.View style={[{ transform: [{ translateX }] }, style]} {...panResponder.panHandlers}>
+      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         {children}
       </Animated.View>
     </View>
@@ -53,7 +57,9 @@ const SwipeToDelete = ({ children, onDelete, disabled = false, style }) => {
 };
 
 const styles = StyleSheet.create({
-  wrap: { justifyContent: "center" },
+  // overflow:"hidden" es el resguardo final: aunque algo vuelva a desalinear las alturas
+  // de la tarjeta y el fondo rojo, nunca se ve nada fuera de estos límites en reposo.
+  wrap: { justifyContent: "center", overflow: "hidden" },
   deleteBackground: {
     position: "absolute",
     right: 0,

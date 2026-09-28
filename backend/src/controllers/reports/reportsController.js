@@ -569,7 +569,7 @@ reportsController.getDoctorsReport = async (req, res) => {
         const divisor = range.mode === "promedio"
             ? averageMonthCount(range, await earliestDate(appointmentsModel, "date"))
             : 1;
-        const { base, cmpRow, cmpRowFmt, rateRow, statDiff, col2Label, col3Label } = buildComparisonHelpers(range, divisor);
+        const { base, cmpRow, cmpRowFmt, rateRow, statDiff, statDiffWithTone, col2Label, col3Label } = buildComparisonHelpers(range, divisor);
 
         const curFilter = dateFilter("date", start, end);
         const prevFilter = isGeneral ? {} : dateFilter("date", compareStart, compareEnd);
