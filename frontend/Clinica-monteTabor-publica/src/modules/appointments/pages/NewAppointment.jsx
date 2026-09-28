@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, ChevronDown, Clock, Stethoscope, CalendarDays, Timer, Wallet, CreditCard, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -142,6 +142,8 @@ const NewAppointment = () => {
   const [procedures, setProcedures] = useState([]);
   const [loadingCatalogo, setLoadingCatalogo] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  // Para el auto-scroll al botón Continuar en cuanto se elige un horario (ver elegirSlot).
+  const continuarRef = useRef(null);
 
   // Los _id de uno o más procedimientos del catálogo (incluida la Consulta Médica
   // General, que ya no es un caso especial). La duración, el precio y el anticipo de la
@@ -300,7 +302,18 @@ const NewAppointment = () => {
     setSlot(null);
   };
 
-  const elegirSlot = (valor) => setSlot(valor);
+  // Al elegir un horario (a diferencia del procedimiento, acá es una elección única, no
+  // hay nada que "seguir marcando" después) se baja el scroll hasta el botón Continuar,
+  // para que el paciente no tenga que buscarlo. El pequeño delay espera a que el aviso
+  // "Tu cita quedará pendiente..." (o el resumen) terminen de aparecer/reacomodarse
+  // antes de calcular la posición, si no el scroll apunta a donde el botón estaba antes
+  // de ese cambio de layout.
+  const elegirSlot = (valor) => {
+    setSlot(valor);
+    setTimeout(() => {
+      continuarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+  };
 
   // En modo reagendar el paso 1 (tipo de atención) queda bloqueado: el tipo lo define la
   // cita original y el backend lo ignora si se manda otro.
@@ -631,6 +644,7 @@ const NewAppointment = () => {
             <div className={`flex justify-end mt-6 ${step === totalSteps ? "max-w-xl mx-auto" : ""}`}>
               {step < totalSteps && (
                 <button
+                  ref={continuarRef}
                   disabled={!puedeContinuar}
                   onClick={handleContinuar}
                   className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

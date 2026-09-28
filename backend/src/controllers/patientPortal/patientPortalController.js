@@ -349,8 +349,16 @@ async function notifyPendingRequestToProviders({
 export async function activateAfterDeposit(appointment) {
     if (appointment.status !== "pending_payment") return;
 
-    const procedures = await procedureModel.find({ _id: { $in: appointment.procedure_id } }).select("name requires_doctor");
-    const { requiresDoctor } = await resolveProcedureFlags(appointment.procedure_id);
+    // procedure_id puede llegar poblado (confirmAppointmentPayment lo popula para armar
+    // la respuesta al cliente) o sin poblar (el webhook, que hace un findById sin
+    // populate): se normaliza a ids planos antes de usarlo en cualquier query, porque
+    // pasarle documentos completos a un $in revienta el cast a ObjectId — y como eso
+    // pasaba ANTES de guardar el status "pending", la cita quedaba pagada
+    // (deposit_paid) pero atascada en "pending_payment" para siempre.
+    const procedureIds = (appointment.procedure_id || []).map((p) => p?._id || p);
+
+    const procedures = await procedureModel.find({ _id: { $in: procedureIds } }).select("name requires_doctor");
+    const { requiresDoctor } = await resolveProcedureFlags(procedureIds);
     const sinProveedorElegido = requiresDoctor ? !appointment.doctor_id : !appointment.nurse_id;
 
     appointment.status = "pending";
@@ -994,6 +1002,12 @@ patientPortalController.confirmAppointmentPayment = async (req, res) => {
             return res.status(403).json({ message: "No puedes modificar esta cita." });
         }
         if (appointment.deposit_paid) {
+            // Autorreparación: si el anticipo ya había quedado marcado como pagado pero
+            // activateAfterDeposit no llegó a completarse la vez anterior (por ejemplo, el
+            // bug de cast a ObjectId que atascaba citas en "pending_payment" para siempre),
+            // esto le da otra oportunidad de terminar de activarla. No hace nada si ya no
+            // aplica (ver el chequeo de status al inicio de esa función).
+            await activateAfterDeposit(appointment);
             return res.status(200).json({ status: appointment.status, appointment });
         }
 

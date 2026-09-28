@@ -24,6 +24,15 @@ import styles from "../../styles/appointments/payAppointmentStyle";
 const longDate = (iso) => new Date(iso).toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 
+// El backend (Render, plan gratuito) se apaga solo tras un rato de inactividad: la
+// primera petición después de eso puede tardar mucho en "despertarlo", antes incluso de
+// llegar a Wompi (ver el mismo comentario en AuthContext.jsx sobre el WebSocket). Los 15s
+// por defecto de apiClient no alcanzan para este flujo de pago en frío, y como son 3
+// peticiones encadenadas (token -> tokenizar -> cobrar), cualquiera de las tres puede
+// pisar ese arranque — con el default, el pago fallaba siempre con "El servidor no
+// respondió" en vez de solo la primera vez que tarda en despertar.
+const WOMPI_TIMEOUT_MS = 45000;
+
 // Reintenta confirmar el pago varias veces antes de rendirse: confirm-payment nunca
 // vuelve a cobrar la tarjeta (solo le pregunta a Wompi si esa transacción ya quedó
 // aprobada), así que reintentarlo es seguro y ayuda a que un hipo de red no se
@@ -37,6 +46,7 @@ const confirmarConReintentos = async (idCita, idTransaccion) => {
     try {
       return await apiClient(`/patient-portal/appointments/${idCita}/confirm-payment`, {
         method: "POST",
+        timeout: WOMPI_TIMEOUT_MS,
         body: { transactionId: idTransaccion },
       });
     } catch (err) {
@@ -125,10 +135,11 @@ export default function PayAppointmentScreen({ route, navigation }) {
     setPagando(true);
     let idTransaccionCobrada = null;
     try {
-      const { access_token } = await apiClient("/wompi/token", { method: "POST" });
+      const { access_token } = await apiClient("/wompi/token", { method: "POST", timeout: WOMPI_TIMEOUT_MS });
 
       const tokenTarjeta = await apiClient("/wompi/tokenizar", {
         method: "POST",
+        timeout: WOMPI_TIMEOUT_MS,
         body: {
           token: access_token,
           formData: {
@@ -142,6 +153,7 @@ export default function PayAppointmentScreen({ route, navigation }) {
 
       const resultado = await apiClient("/wompi/paymentTest", {
         method: "POST",
+        timeout: WOMPI_TIMEOUT_MS,
         body: {
           token: access_token,
           formData: {
@@ -165,8 +177,16 @@ export default function PayAppointmentScreen({ route, navigation }) {
       idTransaccionCobrada = resultado.idTransaccion;
 
       const confirmacion = await confirmarConReintentos(appointmentId, idTransaccionCobrada);
-      setCita(confirmacion.appointment);
-      setAprobada(true);
+      // Mismo resguardo que reintentarConfirmacion: confirm-payment respondiendo sin
+      // error no basta para dar el pago por hecho, hay que revisar que de verdad haya
+      // marcado el anticipo como pagado antes de mostrar la pantalla de éxito.
+      if (confirmacion.appointment?.deposit_paid) {
+        setCita(confirmacion.appointment);
+        setAprobada(true);
+      } else {
+        setCita(confirmacion.appointment);
+        setPagoSinConfirmar(idTransaccionCobrada);
+      }
     } catch (err) {
       if (idTransaccionCobrada) {
         setPagoSinConfirmar(idTransaccionCobrada);

@@ -142,7 +142,15 @@ const DoctorDashboard = () => {
                 el modal y refrescan el dashboard, en vez de navegar a
                 /calendar/appointments. */}
             <Dialog open={isNewApptOpen} onOpenChange={(open) => !open && setIsNewApptOpen(false)}>
-                <DialogContent showCloseButton={false} className="max-w-4xl w-full max-h-[90vh] overflow-y-auto p-0 rounded-2xl border-0">
+                {/* w-[95vw] + sm:max-w-6xl (en vez de max-w-4xl): el formulario que reutilizamos
+                    acá (AppointmentsFormCalendar.jsx) trae su propia grilla de 3 columnas pensada
+                    para su ancho natural de página completa (max-w-5xl = 1024px). Con menos ancho
+                    que eso, esa grilla igual se activa (sus breakpoints leen el viewport, no el
+                    modal) pero sin espacio real para acomodarse, y cada columna queda aplastada con
+                    las etiquetas partidas en varias líneas. El "sm:" es a propósito: el default del
+                    componente Dialog trae "sm:max-w-sm", que si no se iguala el mismo breakpoint acá
+                    puede terminar ganando y angostando el modal de nuevo. */}
+                <DialogContent showCloseButton={false} className="w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl border-0">
                     {isNewApptOpen && (
                         <AppointmentsFormCalendar
                             onCloseOverride={() => setIsNewApptOpen(false)}

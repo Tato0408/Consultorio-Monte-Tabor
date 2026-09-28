@@ -92,13 +92,17 @@ const PayAppointment = () => {
     getMyAppointments()
       .then((lista) => {
         const encontrada = lista.find((a) => a._id === appointmentId) || null;
-        // Si el anticipo de esta cita ya quedó pagado (o la cita ya no está "pending",
-        // por ejemplo porque el doctor ya la aceptó o el paciente la canceló), no se
-        // debe mostrar el formulario de tarjeta de nuevo: volver a esta URL con el
-        // botón atrás del navegador, o refrescar tras un redirect fallido, cobraría el
-        // anticipo una segunda vez del lado de Wompi antes de que exista cualquier
-        // protección de idempotencia en el backend.
-        if (encontrada && (encontrada.deposit_paid || encontrada.status !== "pending")) {
+        // Si el anticipo de esta cita ya quedó pagado (o la cita ya no está
+        // "pending_payment", por ejemplo porque el doctor ya la aceptó, el paciente la
+        // canceló, o ya se activó tras pagar), no se debe mostrar el formulario de
+        // tarjeta de nuevo: volver a esta URL con el botón atrás del navegador, o
+        // refrescar tras un redirect fallido, cobraría el anticipo una segunda vez del
+        // lado de Wompi antes de que exista cualquier protección de idempotencia en el
+        // backend. Antes esto comparaba contra "pending" (el estado post-pago, cuando el
+        // doctor todavía no acepta) en vez de "pending_payment" (el estado real antes de
+        // pagar), así que expulsaba al paciente de esta pantalla siempre, con cualquier
+        // cita recién creada para pago en línea.
+        if (encontrada && (encontrada.deposit_paid || encontrada.status !== "pending_payment")) {
           showWarning("Esta cita ya no está pendiente de pago.");
           navigate("/mis-citas", { replace: true });
           return;
