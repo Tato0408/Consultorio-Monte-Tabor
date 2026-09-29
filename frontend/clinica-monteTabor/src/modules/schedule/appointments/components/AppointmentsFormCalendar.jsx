@@ -107,12 +107,13 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
   // estado que se elija aquí. status solo guarda el estado real ya
   // cargado, para mostrarlo de forma informativa al ver/editar.
   const [status, setStatus]                   = useState("scheduled");
-  // Reagendar aplica a una cita Programada o Pendiente: pendiente todavía no fue
-  // aceptada, pero el doctor/admin puede adelantar el cambio de fecha/hora antes de
-  // aceptarla; cancelada/completada/no_show/expired ya no se puede reagendar (ver también
-  // los botones de origen en AppointmentsGrid.jsx y AppointmentsCalendar.jsx, que aplican
-  // el mismo criterio).
-  const canReschedule = status === "scheduled" || status === "pending";
+  // Reagendar aplica a una cita Programada, Pendiente, Por reagendar o Vencida: ninguna
+  // tiene todavía una atención real comprometida — pending/needs_reschedule/expired nunca
+  // fueron aceptadas por nadie, así que el doctor/admin puede reasignarles fecha/hora/
+  // procedimiento antes de eso; cancelada/completada/no_show ya no se puede reagendar (ver
+  // también los botones de origen en AppointmentsGrid.jsx y AppointmentsCalendar.jsx, que
+  // aplican el mismo criterio).
+  const canReschedule = ["scheduled", "pending", "needs_reschedule", "expired"].includes(status);
   const [notes, setNotes]                     = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
   const [total, setTotal]                     = useState("");
@@ -207,11 +208,13 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       // la cita), así que el auto relleno de abajo puede aplicar con
       // normalidad.
       justLoadedRef.current = true;
-      // Una cita cancelada o completada ya no se puede reagendar (ver
-      // también los botones de origen en AppointmentsGrid.jsx y
-      // AppointmentsCalendar.jsx, que ni siquiera abren este formulario
-      // en modo edición para esos estados).
-      if (cita.status !== "scheduled") {
+      // Una cita cancelada, completada o no presentada ya no se puede reagendar (ver
+      // también los botones de origen en AppointmentsGrid.jsx y AppointmentsCalendar.jsx,
+      // que ni siquiera abren este formulario en modo edición para esos estados). Antes
+      // esta condición era "!== scheduled", así que también forzaba modo solo-lectura para
+      // "pending" — contradecía el propio botón "Editar" que el Grid ya mostraba para
+      // citas pendientes, nunca dejaba editarlas de verdad.
+      if (!["scheduled", "pending", "needs_reschedule", "expired"].includes(cita.status)) {
         setIsEditing(false);
       }
     }).catch(() => showError("No se pudo recuperar la información de la cita."))

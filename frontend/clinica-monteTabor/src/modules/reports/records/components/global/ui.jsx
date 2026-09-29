@@ -92,10 +92,16 @@ export function SectionCard({
           tabIndex={0}
           onClick={toggle}
           onKeyDown={onToggleKeyDown}
-          className="flex flex-1 min-w-0 items-center gap-2 cursor-pointer select-none"
+          // items-start (no items-center): un título largo (ej. "Resultados de laboratorio
+          // y exámenes") envuelve a 2-3 líneas en pantallas angostas; con items-center el
+          // chevron se centraba respecto a esa altura completa y terminaba flotando a mitad
+          // del texto en vez de alineado con la primera línea. mt-0.5 en el ícono compensa
+          // la diferencia entre su propia altura y la línea de texto para que quede a la
+          // misma altura que el inicio del título, no pegado arriba del todo.
+          className="flex flex-1 min-w-0 items-start gap-2 cursor-pointer select-none"
         >
           <ChevronDown
-            className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-300 ease-out ${
+            className={`mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform duration-300 ease-out ${
               isOpen ? "rotate-180" : ""
             }`}
           />

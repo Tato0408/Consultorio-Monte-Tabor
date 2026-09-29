@@ -26,6 +26,12 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg, paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0 },
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 100 },
+  // Mismo patrón que medicationStyle.js: flecha de volver a la izquierda, título
+  // centrado, campana de notificaciones a la derecha (mismo ancho que headerSide para
+  // que el título quede realmente centrado entre ambos).
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 12 },
+  headerSide: { width: 32 },
+  headerTitle: { flex: 1, textAlign: "center", fontSize: 16, fontWeight: "700", color: colors.text },
   title: { fontSize: 22, fontWeight: "800", color: colors.text },
   subtitle: { fontSize: 13, color: colors.muted, marginTop: 4, marginBottom: 18, lineHeight: 18 },
 

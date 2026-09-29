@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import BottomNav from "../../components/BottomNav";
+import NotificationBell from "../../components/NotificationBell";
 import ConsultationCard from "../../components/appointments/ConsultationCard";
 import { ErrorState } from "../../components/common/ScreenState";
 import apiClient from "../../lib/apiClient";
@@ -13,6 +14,7 @@ import { useMyConsultations } from "../../hooks/appointments/useMyConsultations"
 import { formatTime12h } from "../../utils/date";
 import { asProcedureArray } from "../../utils/procedures";
 import styles from "../../styles/appointments/appointmentsStyle";
+import { colors } from "../../styles/profile/profileStyle";
 
 const STATUS = {
   pending: { label: "Pendiente", tone: "amber" }, scheduled: { label: "Programada", tone: "blue" },
@@ -156,13 +158,23 @@ export default function AppointmentsScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      {/* Mismo patrón que medicationScreen.jsx: flecha de volver a la izquierda y
+          campana de notificaciones a la derecha — antes esta pantalla no tenía
+          ninguna de las dos, a diferencia de Agendar cita y Mis medicinas. */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerSide} activeOpacity={0.7} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Mis consultas</Text>
+        <NotificationBell navigation={navigation} color={colors.text} />
+      </View>
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        <Text style={styles.title}>Mis consultas</Text>
         <Text style={styles.subtitle}>Consulta tus próximas citas y el historial médico completado.</Text>
 
         <View style={styles.searchBar}>

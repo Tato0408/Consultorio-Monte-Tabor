@@ -932,16 +932,17 @@ appointmentsController.updateAppointment = async (req, res) => {
             return res.status(400).json({ message: inactivePartyError });
         }
 
-        // Reagendar aplica a una cita Programada o Pendiente (ver
-        // AppointmentsFormCalendar.jsx, que solo habilita el botón de editar para estos dos
-        // estados): una pendiente todavía no fue aceptada, pero el doctor/admin puede
-        // adelantar el cambio de fecha/hora antes de aceptarla; cancelada/completada/
-        // no_show/expired ya no se pueden modificar.
+        // Reagendar aplica a una cita Programada, Pendiente, Por reagendar o Vencida (ver
+        // AppointmentsFormCalendar.jsx, que solo habilita el botón de editar para estos
+        // estados): ninguna de las cuatro tiene todavía una atención real comprometida —
+        // pending/needs_reschedule/expired nunca fueron aceptadas por nadie, y el
+        // doctor/admin puede reasignarles fecha/hora/procedimiento antes de eso;
+        // cancelada/completada/no_show ya no se pueden modificar.
         const existing = await appointmentsModel.findById(req.params.id).select("status");
         if (!existing) {
             return res.status(404).json({ message: "Cita no encontrada" });
         }
-        if (!["scheduled", "pending"].includes(existing.status)) {
+        if (!["scheduled", "pending", "needs_reschedule", "expired"].includes(existing.status)) {
             return res.status(400).json({ message: "Esta cita ya no puede modificarse." });
         }
 

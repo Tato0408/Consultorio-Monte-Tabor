@@ -675,7 +675,7 @@ patientPortalController.deleteMyAppointmentRequest = async (req, res) => {
 // y el anticipo ya pagado, y vuelve a "pending" para que un proveedor la acepte otra vez.
 patientPortalController.rescheduleMyAppointment = async (req, res) => {
     try {
-        const { date, start_time, doctor_id, nurse_id } = req.body;
+        const { date, start_time, doctor_id, nurse_id, procedure_ids } = req.body;
         if (!date || !start_time) {
             return res.status(400).json({ message: "Debes elegir una nueva fecha y hora." });
         }
@@ -688,15 +688,18 @@ patientPortalController.rescheduleMyAppointment = async (req, res) => {
             return res.status(400).json({ message: "Esta cita no se puede reagendar." });
         }
 
-        const procedures = await procedureModel.find({ _id: { $in: appointment.procedure_id } })
-            .select("name requires_doctor requires_nurse");
-        if (procedures.length === 0) {
-            return res.status(400).json({ message: "El procedimiento de esta cita ya no está disponible." });
+        // El paciente ahora puede cambiar de procedimiento al reagendar (antes esta ruta
+        // solo dejaba mover fecha/hora); procedure_ids no viene = un cliente viejo, o el
+        // paciente no tocó el procedimiento: se resuelve igual que bookAppointment, sobre
+        // el(los) mismo(s) que ya tenía la cita.
+        const resolved = await resolveProcedures(procedure_ids?.length ? procedure_ids : appointment.procedure_id);
+        if (!resolved) {
+            return res.status(400).json({ message: "Uno o más procedimientos seleccionados no existen o ya no están disponibles." });
         }
-        const requiresDoctor = procedures.some((p) => p.requires_doctor !== false);
-        const requiresNurse = procedures.some((p) => !!p.requires_nurse);
+        const requiresDoctor = resolved.requiresDoctor;
+        const requiresNurse = resolved.requiresNurse;
 
-        const end_time = addMinutes(start_time, appointment.duration_minutes);
+        const end_time = addMinutes(start_time, resolved.duration_minutes);
         const { start: dayStart } = getDayRange(date);
 
         const [h, m] = start_time.split(":").map(Number);
@@ -746,14 +749,21 @@ patientPortalController.rescheduleMyAppointment = async (req, res) => {
         appointment.status = "pending";
         appointment.reschedule_reason = undefined;
         appointment.cancellation_reason = undefined;
-        // deposit_amount / deposit_paid / wompi_transaction_id / total NO se tocan: el
-        // anticipo ya pagado sigue en la misma cita reagendada.
+        // El procedimiento sí puede cambiar al reagendar: se actualizan procedure_id, tipo,
+        // duración y total con lo que resolvió resolveProcedures arriba. deposit_amount /
+        // deposit_paid / wompi_transaction_id NO se tocan nunca: el anticipo ya pagado sigue
+        // igual sin importar si el total cambió — reagendar nunca vuelve a cobrar.
+        appointment.procedure_id = resolved.procedure_ids;
+        appointment.type = resolved.type;
+        appointment.duration_minutes = resolved.duration_minutes;
+        appointment.total = resolved.total;
+        if (resolved.appointmentTypeName) appointment.appointment_type = resolved.appointmentTypeName;
         await appointment.save();
 
         await notifyPendingRequestToProviders({
             appointmentId: appointment._id,
             patientId: req.user.id,
-            procedureName: procedures.map((p) => p.name).join(", ") || appointment.type,
+            procedureName: resolved.names.join(", ") || appointment.type,
             dateStr: date,
             dayStart,
             start_time,

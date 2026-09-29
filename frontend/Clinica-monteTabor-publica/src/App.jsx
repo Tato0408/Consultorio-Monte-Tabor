@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ScrollToTop from './components/ScrollToTop';
 import Login from './modules/login/pages/login/Login';
 import Register from './modules/login/pages/register/Register';
 import VerifyEmail from './modules/login/pages/register/VerifyEmail';
@@ -20,6 +21,7 @@ function App() {
     <AuthProvider>
       <Toaster position="top-right" />
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Home />} />
 

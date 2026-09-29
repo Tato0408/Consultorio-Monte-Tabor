@@ -689,11 +689,11 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
                     >
                         Ver expediente
                     </button>
-                    {/* Reagendar aplica a una cita Programada o Pendiente: pendiente
-                        todavía no fue aceptada, pero se puede adelantar el cambio de
-                        fecha/hora antes de aceptarla. Cancelada/completada/no_show/
-                        expired ya no se puede reagendar. */}
-                    {canUpdateAppt && ["scheduled", "pending"].includes(appt.status) && (
+                    {/* Reagendar aplica a Programada, Pendiente, Por reagendar y Vencida:
+                        ninguna tiene todavía una atención real comprometida, se les puede
+                        adelantar el cambio de fecha/hora/procedimiento antes de eso.
+                        Cancelada/completada/no_show ya no se puede reagendar. */}
+                    {canUpdateAppt && ["scheduled", "pending", "needs_reschedule", "expired"].includes(appt.status) && (
                         <button
                             onClick={() => navigate(`/calendar/appointments/${appt._id}`, { state: { editMode: true, fromView: "calendar" } })}
                             className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium rounded-lg transition-colors"

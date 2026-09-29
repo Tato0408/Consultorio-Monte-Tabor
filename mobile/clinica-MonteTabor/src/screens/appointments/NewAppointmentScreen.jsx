@@ -15,6 +15,7 @@ import apiClient from "../../lib/apiClient";
 import { showError } from "../../lib/toast";
 import { formatTime12h } from "../../utils/date";
 import styles from "../../styles/appointments/newAppointmentStyle";
+import NotificationBell from "../../components/NotificationBell";
 
 const SERVICE_ICONS = ["medkit-outline", "heart-outline", "fitness-outline", "bandage-outline", "flask-outline"];
 const PAYMENT_METHODS = [
@@ -245,12 +246,12 @@ export default function NewAppointmentScreen({ navigation, route }) {
     apiClient("/appointments/patient/procedures")
       .then((response) => {
         setServices(response.data || []);
-        // Reagendar: el servicio ya viene fijado por la cita original, se salta directo
-        // al paso de fecha y hora (en modo "rápido": lo acepta cualquier profesional
-        // disponible, mismo criterio que agendar sin elegir doctor). En modo prellenado
-        // sin proveedor (procedimiento agregado) pasa lo mismo; con proveedor, el efecto
-        // de abajo avanza directo al paso 3 una vez que lo encuentra.
-        if (selectedIds.length > 0 && !prefill?.doctorId && !prefill?.nurseId) setStep(2);
+        // Modo reagendar (reschedule): el paciente rehace el flujo completo desde el
+        // paso 1 (puede cambiar de servicio), así que NO se salta — solo llega con
+        // selectedIds pre-marcado como punto de partida. Modo prellenado (prefill, cita
+        // "scheduled" cancelada+recreada) sigue saltando directo al paso de fecha y hora
+        // como antes, ya que ese camino queda fuera de este cambio.
+        if (!reschedule && selectedIds.length > 0 && !prefill?.doctorId && !prefill?.nurseId) setStep(2);
       })
       .catch((error) => showError(error.message || "No se pudieron cargar los servicios."))
       .finally(() => setLoading(false));
@@ -454,9 +455,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
   };
 
   const goBack = () => {
-    // En modo reagendar el paso 1 (servicio) queda bloqueado: lo define la cita original.
-    const minStep = rescheduleId ? 2 : 1;
-    if (step === minStep) navigation.goBack();
+    if (step === 1) navigation.goBack();
     else setStep((current) => current - 1);
   };
 
@@ -467,7 +466,13 @@ export default function NewAppointmentScreen({ navigation, route }) {
       if (rescheduleId) {
         const response = await apiClient(`/patient-portal/appointments/${rescheduleId}/reschedule`, {
           method: "PATCH",
-          body: { date, start_time: selectedSlot.start_time },
+          body: {
+            date,
+            start_time: selectedSlot.start_time,
+            procedure_ids: selectedIds,
+            doctor_id: requiresDoctorForService ? selectedDoctor?._id : undefined,
+            nurse_id: requiresDoctorForService ? undefined : selectedNurse?._id,
+          },
         });
         void response;
         setSuccess(true);
@@ -562,7 +567,10 @@ export default function NewAppointmentScreen({ navigation, route }) {
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.headerButton}><Ionicons name="arrow-back" size={22} color="#111827" /></TouchableOpacity>
         <Text style={styles.headerTitle}>{rescheduleId ? "Reagendar cita" : "Agendar cita"}</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}><Ionicons name="close" size={23} color="#111827" /></TouchableOpacity>
+        {/* Antes había una "X" que hacía exactamente lo mismo que la flecha de volver
+            (navigation.goBack() redundante) — se reemplaza por la campana de
+            notificaciones, igual que el resto de las pantallas. */}
+        <NotificationBell navigation={navigation} color="#111827" />
       </View>
       <Stepper step={step} modo={modo} requiresDoctor={requiresDoctorForService} />
 

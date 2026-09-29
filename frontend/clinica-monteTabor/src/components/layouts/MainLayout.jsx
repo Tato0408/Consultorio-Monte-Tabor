@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Outlet, Navigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import SideBar from "./SideBar";
 import NotificationBell from "./NotificationBell";
@@ -13,6 +13,18 @@ const MainLayout = () => {
     const { isLoggedIn, isLoading } = useAuth();
     // Controla la visibilidad de la barra lateral (Sidebar), únicamente en pantallas móviles.
     const [sideOpen, setSideOpen] = useState(false);
+    // El scroll de toda la interfaz vive dentro de <main> (overflow-y-auto), no en
+    // document/window (el contenedor raíz es h-dvh + overflow-hidden), así que
+    // window.scrollTo no sirve acá. React Router no resetea el scroll al cambiar de
+    // ruta por su cuenta: sin esto, entrar a una pantalla nueva después de haber
+    // scrolleado hacia abajo en la anterior mantenía esa misma posición en vez de
+    // empezar arriba.
+    const mainRef = useRef(null);
+    const location = useLocation();
+
+    useEffect(() => {
+        mainRef.current?.scrollTo(0, 0);
+    }, [location.pathname]);
 
     // Mientras se verifica el token o la cookie de sesión, detiene el
     // renderizado para evitar destellos visuales.
@@ -21,7 +33,9 @@ const MainLayout = () => {
     if (!isLoggedIn) return <Navigate to="/login" replace />;
 
     return (
-        <div className="flex h-screen bg-slate-50 overflow-hidden">
+        // h-dvh en vez de h-screen: mismo motivo que en SideBar.jsx, para que el alto de
+        // toda la interfaz coincida con el viewport realmente visible en el celular.
+        <div className="flex h-dvh bg-slate-50 overflow-hidden">
             {/* Mobile backdrop */}
             {sideOpen && (
                 <div
@@ -60,7 +74,7 @@ const MainLayout = () => {
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 relative">
+                <main ref={mainRef} className="flex-1 overflow-y-auto p-4 sm:p-6 relative">
                     <Outlet />
                 </main>
             </div>

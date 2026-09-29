@@ -185,13 +185,26 @@ const NewAppointment = () => {
   // atención, doctor y motivo de la cita cancelada, y salta directo al paso de fecha y
   // hora para que el paciente no tenga que volver a llenar todo desde cero.
   useEffect(() => {
-    // "reschedule" (reagendar una cita existente reusando su registro) y "prefill"
-    // (cancelar + agendar de nuevo) comparten los mismos campos para precargar el
-    // asistente; solo cambia que "reschedule" además fija rescheduleId.
     const reschedule = location.state?.reschedule;
-    const prefill = reschedule || location.state?.prefill;
-    if (!prefill) return;
-    if (reschedule?.appointmentId) setRescheduleId(reschedule.appointmentId);
+    const prefill = location.state?.prefill;
+    if (!reschedule && !prefill) return;
+
+    // Modo reagendar (reusa el mismo registro): el paciente rehace el asistente completo,
+    // como si fuera una cita nueva, así que solo se pre-marca el procedimiento y el motivo
+    // como punto de partida — se queda en el paso 1 (su valor inicial) en vez de saltarlo,
+    // y doctor/enfermera se eligen de nuevo (no se intenta restaurar el proveedor previo).
+    if (reschedule?.appointmentId) {
+      setRescheduleId(reschedule.appointmentId);
+      setMotivo(reschedule.motivo || "");
+      const tiposPrefill = reschedule.tipos?.length ? reschedule.tipos : reschedule.tipo ? [reschedule.tipo] : [];
+      if (tiposPrefill.length > 0) setTipos(tiposPrefill);
+      navigate(location.pathname, { replace: true, state: {} });
+      return;
+    }
+
+    // Modo prellenado (prefill, cita "scheduled" cancelada + agendada de cero): sigue
+    // igual que antes, salta directo al paso de fecha/hora y restaura doctor/enfermera si
+    // siguen disponibles.
     setMotivo(prefill.motivo || "");
     // Una cita histórica sin procedure_id (de antes de que la Consulta Médica General
     // fuera un procedimiento real) no trae con qué precargar el paso 1: se deja en el
@@ -315,9 +328,7 @@ const NewAppointment = () => {
     }, 50);
   };
 
-  // En modo reagendar el paso 1 (tipo de atención) queda bloqueado: el tipo lo define la
-  // cita original y el backend lo ignora si se manda otro.
-  const goBack = () => setStep((s) => Math.max(rescheduleId ? 2 : 1, s - 1));
+  const goBack = () => setStep((s) => Math.max(1, s - 1));
 
   const puedeContinuar =
     (step === 1 && tipos.length > 0) ||
@@ -352,6 +363,7 @@ const NewAppointment = () => {
         const { appointment } = await rescheduleAppointment(rescheduleId, {
           doctor_id: requiresDoctorForProcedure ? doctor?._id : undefined,
           nurse_id: requiresDoctorForProcedure ? undefined : nurse?._id,
+          procedure_ids: tipos,
           date: dateStr,
           start_time: slot.start_time,
         });

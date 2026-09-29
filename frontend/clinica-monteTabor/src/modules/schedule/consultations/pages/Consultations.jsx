@@ -17,15 +17,24 @@ const getTodayString = () => {
     return local.toISOString().split("T")[0];
 };
 
+// Mismo string que la pestaña "Todos" en AppointmentTable.jsx: nunca incluye
+// pending/needs_reschedule/expired/pending_payment (citas nunca confirmadas por
+// ambas partes). Se reusa tanto como filtro inicial como valor al que volver
+// cuando se "apaga" un filtro (ver handleStatCardClick) — apiClient descarta un
+// status "undefined" del request, y sin status en la query el backend no
+// restringe por estado, lo que dejaba pending visible otra vez ahí.
+const DEFAULT_STATUS = "scheduled,completed,cancelled,no_show";
+
 const Consultations =() => {
      const today = getTodayString();
      const { user } = useAuth();
 
    // Por defecto la tabla muestra todas las fechas (el filtro de fechas es
-    // secundario, se activa solo si se necesita) y todos los estados: el
-    // filtro de estado ya no es un valor inicial que "arranque estrecho" y
-    // necesite ampliarse después, el propio tab "Todos" (ver
-    // AppointmentTable.jsx) es el punto de partida.
+    // secundario, se activa solo si se necesita) y el estado inicial ya excluye
+    // pending/needs_reschedule/expired (citas nunca confirmadas): este módulo de
+    // Consultas no debe mostrarlas bajo ningún tab, solo Calendario → "Por aceptar" las
+    // muestra. Mismo string que la pestaña "Todos" en AppointmentTable.jsx — así arrancan
+    // sincronizados y esa pestaña queda resaltada desde el primer render.
     const {
         appointments,
         pagination,
@@ -37,6 +46,7 @@ const Consultations =() => {
         fetchAppointments,
     } = useAppointments({
         limit: 8,
+        status: DEFAULT_STATUS,
     });
 
     const { stats, isLoading: isLoadingStats } = useAppointmentStats(today);
@@ -65,7 +75,7 @@ const Consultations =() => {
     const handleStatCardClick = (statusValue) => {
         const isSameFilterActive = filters.status === statusValue && filters.doctor_id === user?.id;
         if (isSameFilterActive) {
-            updateFilters({ status: undefined, doctor_id: undefined });
+            updateFilters({ status: DEFAULT_STATUS, doctor_id: undefined });
         } else {
             updateFilters({ status: statusValue, doctor_id: user?.id });
         }
