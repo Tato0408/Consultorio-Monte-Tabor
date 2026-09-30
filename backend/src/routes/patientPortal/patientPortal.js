@@ -46,6 +46,11 @@ router.post("/appointments/:id/confirm-payment", patientPortalController.confirm
 // y recordatorios
 router.get("/dashboard", patientPortalController.getDashboardSummary);
 
+// Boleto de vida corta para autenticar el WebSocket de notificaciones (ver
+// getWsTicket): esta ruta sí pasa por el proxy de Vercel (mismo origen), así que la
+// cookie de sesión llega confiable incluso en Safari/iOS y ventanas de incógnito.
+router.get("/ws-ticket", patientPortalController.getWsTicket);
+
 // Recetas, incapacidades y referencias médicas del propio paciente.
 // (El expediente clínico completo NO se expone aquí: solo lo ve el personal
 // administrativo y los doctores desde el dashboard interno.)

@@ -103,8 +103,31 @@ export const AuthProvider = ({ children }) => {
         let reconnectTimer = null;
         let cerradoPorNosotros = false;
 
-        const conectar = () => {
-            socket = new WebSocket(WS_URL);
+        // Este socket siempre conecta directo a Render (el proxy de vercel.json no sabe
+        // hacer el upgrade de WebSocket), así que la cookie de sesión viajaría ahí como
+        // cross-site — justo lo que Safari/iOS y las ventanas de incógnito bloquean. Por
+        // eso primero se pide un "boleto" de un solo uso por /api/patient-portal/ws-ticket
+        // (esa sí pasa por el proxy de Vercel, mismo origen, cookie confiable en cualquier
+        // navegador) y se manda como ?token= al abrir el socket — mismo mecanismo que ya
+        // usa la app móvil (sin cookie jar), solo que acá se pide justo antes de cada
+        // conexión/reconexión en vez de guardarlo (dura 60s, ver getWsTicket).
+        const conectar = async () => {
+            let ticket;
+            try {
+                const data = await apiClient("/patient-portal/ws-ticket");
+                ticket = data?.ticket;
+            } catch {
+                // Sin ticket no hay forma de abrir el socket (red caída, sesión vencida,
+                // etc.): se reintenta con la misma espera que un cierre inesperado. Si la
+                // causa fue una sesión vencida, apiClient ya disparó "session-expired" y
+                // este efecto se desmonta solo cuando isLoggedIn pase a false.
+                if (!cerradoPorNosotros) reconnectTimer = setTimeout(conectar, 3000);
+                return;
+            }
+            // Nos desmontamos/deslogueamos mientras el ticket viajaba: no abrir nada.
+            if (cerradoPorNosotros || !ticket) return;
+
+            socket = new WebSocket(`${WS_URL}?token=${ticket}`);
 
             socket.onmessage = (event) => {
                 let data;

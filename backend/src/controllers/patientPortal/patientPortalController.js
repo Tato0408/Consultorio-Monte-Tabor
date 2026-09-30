@@ -18,6 +18,8 @@ import { getTransactionStatus } from "../../utils/wompi.js";
 import { RESCHEDULABLE_STATUSES, isCancelLockedForPatient } from "../../utils/appointmentStatus.js";
 import { deleteAppointmentCascade } from "../../services/consultationCascade.js";
 import { resolveProcedures, resolveProcedureFlags } from "../../utils/procedureAggregation.js";
+import jsonwebtoken from "jsonwebtoken";
+import { config } from "../../../config.js";
 
 const patientPortalController = {};
 
@@ -1053,6 +1055,27 @@ patientPortalController.confirmAppointmentPayment = async (req, res) => {
         console.log("error " + error);
         return res.status(500).json({ message: "Internal server error" });
     }
+};
+
+// Boleto de un solo uso para abrir el WebSocket de notificaciones en tiempo real
+// (roleSocket.js) desde el portal público web. Ese socket siempre conecta directo a
+// Render (el proxy de Vercel, vercel.json, no sabe hacer el upgrade de WebSocket), así
+// que la cookie de sesión viajaría ahí como cross-site — justo lo que Safari/iOS y las
+// ventanas de incógnito bloquean. Esta petición SÍ pasa por el proxy de Vercel (mismo
+// origen, /api/...), donde la cookie SÍ llega confiable sin importar el navegador; ya
+// autenticado por ella (authenticate(["patient"]) en el router), se emite un JWT aparte
+// de vida muy corta (60s, alcanza de sobra entre pedirlo y usarlo) que el frontend manda
+// como ?token= al conectar el socket — mismo mecanismo que ya usa la app móvil (sin
+// cookie jar, ver apiClient.js del móvil), solo que la web lo pide en el momento en vez
+// de guardarlo. jsonwebtoken.verify en roleSocket.js no distingue este token de uno de
+// sesión normal: ahí solo se leen decoded.id y decoded.userType.
+patientPortalController.getWsTicket = (req, res) => {
+    const ticket = jsonwebtoken.sign(
+        { id: req.user.id, userType: "patient" },
+        config.JWT.secret,
+        { expiresIn: "60s" }
+    );
+    return res.status(200).json({ ticket });
 };
 
 export default patientPortalController;
