@@ -434,7 +434,11 @@ const Dashboard = () => {
                       )}
                     </div>
                     <div className="flex flex-wrap gap-3 mt-4">
-                      <Link to="/mis-citas" className="px-4 py-2 rounded-lg bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold transition-colors">
+                      <Link
+                        to="/mis-citas"
+                        state={{ tab: "proximas", highlightId: nextAppointment._id }}
+                        className="px-4 py-2 rounded-lg bg-[#3B6FCA] hover:bg-[#2d5ab5] text-white text-sm font-semibold transition-colors"
+                      >
                         Ver detalles
                       </Link>
                       <button

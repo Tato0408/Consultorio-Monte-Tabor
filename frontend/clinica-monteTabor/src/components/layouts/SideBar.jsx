@@ -29,7 +29,7 @@ const SideBar = ({ onClose = () => {} }) => {
     // menú con un rol incorrecto o vacío en ese instante.
     if (isLoading) {
         return (
-            <aside className="w-65 h-screen bg-white border-r border-slate-100 flex flex-col p-4">
+            <aside className="w-65 h-dvh bg-white border-r border-slate-100 flex flex-col p-4">
                 <div className="flex items-center gap-3 px-2 py-4 mb-4">
                     <div className="w-10 h-10 bg-slate-100 rounded-xl animate-pulse" />
                     <div className="h-4 w-24 bg-slate-100 rounded animate-pulse" />
@@ -69,9 +69,18 @@ const SideBar = ({ onClose = () => {} }) => {
     }, []);
  
     return (
-        <aside className="w-65 h-screen bg-white border-r border-slate-100 flex flex-col p-4 select-none">
- 
-            <div className="flex items-center gap-3 px-2 py-4 mb-2">
+        // h-dvh (viewport dinámico) en vez de h-screen (100vh fijo): en el navegador del
+        // celular, 100vh se calcula sobre el viewport MÁS GRANDE posible (con la barra de
+        // direcciones oculta), más alto que el espacio realmente visible cuando esa barra
+        // está presente (el estado normal). Con h-screen, este <aside> quedaba más alto de
+        // lo visible y, al vivir dentro del contenedor "fixed inset-y-0" del drawer móvil en
+        // MainLayout.jsx, el área con scroll de abajo terminaba con menos alto útil real del
+        // que su propio cálculo de layout asumía — con varios acordeones abiertos (más
+        // contenido) esa diferencia alcanzaba para taparle el tramo final (Sistema) sin
+        // dejar hacerle scroll hasta ahí. h-dvh se ajusta al alto realmente visible.
+        <aside className="w-65 h-dvh bg-white border-r border-slate-100 flex flex-col p-4 select-none">
+
+            <div className="flex items-center gap-3 px-2 py-4 mb-2 shrink-0">
                 <img
                     src="/logoAppSinFondo.png"
                     alt="Clínica Monte Tabor"
@@ -86,8 +95,13 @@ const SideBar = ({ onClose = () => {} }) => {
                     <Icons.X className="w-4 h-4" />
                 </button>
             </div>
- 
-            <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+
+            {/* min-h-0 es necesario porque este div es un item de un flex-col (el <aside>):
+                sin él, un item flex no se encoge por debajo de la altura de su contenido
+                (min-height: auto por defecto), así que con muchos acordeones abiertos el
+                propio <aside> se estira más allá de su h-dvh en vez de quedarse fijo y dejar
+                que overflow-y-auto haga scroll internamente. */}
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                 <Accordion multiple defaultValue={defaultOpenValues} className="w-full space-y-1">
                     {filteredMenu.map((item, index) => {
                         const hasSubItems = item.subItems && item.subItems.length > 0;

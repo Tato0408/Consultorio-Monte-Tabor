@@ -161,7 +161,7 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
             )}
             {(patient.recetas ?? []).map((r) => (
               <div key={r.id} className="flex items-center gap-3 rounded-xl bg-slate-50 p-4">
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-800">{r.nombre}</p>
                   <p className="text-[11px] text-slate-400">{r.fecha} · {r.doctor}</p>
                 </div>
@@ -175,7 +175,7 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
                     }
                   }}
                   title="Descargar receta"
-                  className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+                  className="flex shrink-0 items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
                 >
                   <Download className="h-4 w-4" />
                 </button>
@@ -192,11 +192,11 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
           <div className="space-y-3">
             {(patient.incapacidades ?? []).map((it, i) => (
               <div key={i} className="flex items-start justify-between gap-2 rounded-xl bg-slate-50 p-4">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-800">{it.nombre}</p>
                   <p className="text-[11px] text-slate-400">{it.fecha}</p>
                 </div>
-                <Badge tone="gray">{it.estado}</Badge>
+                <Badge tone="gray" className="shrink-0">{it.estado}</Badge>
               </div>
             ))}
           </div>
@@ -210,11 +210,11 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
           <div className="space-y-3">
             {(patient.referencias ?? []).map((rf, i) => (
               <div key={i} className="flex items-start justify-between gap-2 rounded-xl bg-slate-50 p-4">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-800">{rf.nombre}</p>
                   <p className="text-[11px] text-slate-400">{rf.fecha}</p>
                 </div>
-                <Badge tone="blue">{rf.estado}</Badge>
+                <Badge tone="blue" className="shrink-0">{rf.estado}</Badge>
               </div>
             ))}
           </div>
@@ -231,31 +231,38 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
             <p className="text-sm text-slate-400">Sin órdenes de laboratorio registradas.</p>
           )}
           {(patient.laboratorios ?? []).map((l, i) => (
-            <div key={l.id || i} className="flex items-center gap-4 rounded-xl bg-slate-50 px-4 py-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-400 shadow-sm">
+            // flex-wrap + el badge/botón agrupados con shrink-0: en pantallas angostas ya no
+            // caben icono + nombre + badge + botón "Descargar" en una sola fila sin
+            // comprimirse; antes el botón se recortaba a la mitad ("Descar...") porque nada
+            // impedía que se encogiera. Ahora, si no caben, ese grupo baja a su propia línea
+            // completo en vez de partirse.
+            <div key={l.id || i} className="flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-400 shadow-sm shrink-0">
                 <FlaskConical className="h-4 w-4" />
               </div>
-              <div className="flex-1">
+              <div className="min-w-[140px] flex-1">
                 <p className="text-sm font-medium text-slate-800">{l.nombre}</p>
                 <p className="text-[11px] text-slate-400">{l.fecha}</p>
               </div>
-              <Badge tone="blue">{l.estado}</Badge>
-              {l.labOrder && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await descargarOrdenLaboratorio(l.labOrder);
-                    } catch (err) {
-                      showError(err?.message || "No se pudo generar la orden de laboratorio.");
-                    }
-                  }}
-                  title="Descargar orden de laboratorio"
-                  className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
-                >
-                  <Download className="h-4 w-4" /> Descargar
-                </button>
-              )}
+              <div className="flex shrink-0 items-center gap-3">
+                <Badge tone="blue">{l.estado}</Badge>
+                {l.labOrder && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await descargarOrdenLaboratorio(l.labOrder);
+                      } catch (err) {
+                        showError(err?.message || "No se pudo generar la orden de laboratorio.");
+                      }
+                    }}
+                    title="Descargar orden de laboratorio"
+                    className="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    <Download className="h-4 w-4" /> Descargar
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

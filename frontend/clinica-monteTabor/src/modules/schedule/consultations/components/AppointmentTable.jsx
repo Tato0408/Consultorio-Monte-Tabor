@@ -3,20 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { Trash2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
-import { showError, showSuccess, confirmDelete, confirmTakeOverAppointment } from "@/lib/alerts";
+import { showError, showSuccess, confirmDelete } from "@/lib/alerts";
 import { formatTime12h } from "@/lib/timeFormat";
 
-// El ciclo real de una cita es pending, scheduled, completed o
-// cancelled (ver AppointmentsForm.jsx). scheduled (Programada)
-// equivale a en espera. Usa las mismas etiquetas que STATUS_OPTIONS
-// en AppointmentFilters.jsx, para que el filtro y la insignia de
-// estado de esta misma tabla usen exactamente el mismo texto en
-// español.
-// "Agendado (sin confirmar)" para pending es intencional en este módulo de Consultas
-// (va emparejado con la pestaña de filtro "Sin confirmar" de más abajo), a diferencia
-// del módulo de Citas/Agenda, que usa el texto genérico "Pendiente" para el mismo
-// estado — no es una divergencia accidental, cada uno describe el mismo estado con el
-// nivel de detalle que le sirve a esa pantalla.
+// El ciclo real de una cita es pending, scheduled, completed o cancelled (ver
+// AppointmentsForm.jsx). scheduled (Programada) equivale a en espera. Usa las mismas
+// etiquetas que STATUS_OPTIONS en AppointmentFilters.jsx, para que el filtro y la
+// insignia de estado de esta misma tabla usen exactamente el mismo texto en español.
+// "pending" ya no llega nunca a esta tabla (ver TABS más abajo, y el comentario en
+// Consultations.jsx): una cita nunca confirmada no se muestra en ningún tab de
+// Consultas, solo en Calendario → "Por aceptar". La entrada queda como resguardo por si
+// algún dato inesperado llegara igual, nunca debería usarse en la práctica.
 const STATUS_BADGE = {
     pending: { label: "Agendado (sin confirmar)", className: "bg-slate-100 text-slate-600" },
     scheduled: { label: "En espera", className: "bg-amber-100 text-amber-700" },
@@ -42,17 +39,23 @@ const formatPersonName = (person) =>
 // card. Se define una sola vez para que el encabezado y las filas
 // usen exactamente la misma plantilla y las columnas coincidan
 // siempre entre sí.
-const ROW_GRID = "grid grid-cols-[1fr_1.3fr_1.3fr_1fr_0.9fr] gap-x-6 px-8";
+// minmax(...) en Estado y Acciones les pone un piso: un track en fr puro se puede encoger
+// hasta 0 si el resto de columnas reclama más espacio, y ahí el badge de estado (con una
+// etiqueta larga) o el botón "Continuar" terminaban desbordándose uno sobre el otro en vez
+// de quedarse cada uno dentro de su propia columna.
+const ROW_GRID = "grid grid-cols-[1fr_1.3fr_1.3fr_minmax(110px,1fr)_minmax(96px,0.9fr)] gap-x-6 px-8";
 
 // Mismas pestañas que antes vivían como <select> en AppointmentFilters.jsx,
-// ahora como tabs (mismo estilo que TreatmentsPatientsTable.jsx). "" es
-// "Todos los estados", el punto de partida por defecto.
+// ahora como tabs (mismo estilo que TreatmentsPatientsTable.jsx).
+// "Todos" ya NO significa "sin filtro de estado" (antes mandaba status vacío y el backend
+// devolvía cualquier estado, incluidas citas pending sin confirmar): acá manda la lista
+// explícita de estados que sí corresponden a este módulo, para que una cita nunca
+// confirmada no pueda aparecer en ninguna pestaña de Consultas — solo se acepta desde
+// Calendario → "Por aceptar", que sigue mostrando pending igual que siempre.
 const TABS = [
-    { key: "", label: "Todos" },
+    { key: "scheduled,completed,cancelled,no_show", label: "Todos" },
     { key: "completed", label: "Atendido" },
-    { key: "pending, scheduled", label: "Agendados" },
     { key: "scheduled", label: "En espera" },
-    { key: "pending", label: "Sin confirmar" },
     { key: "cancelled", label: "Cancelado" },
     { key: "no_show", label: "No presentado" },
 ];
@@ -75,59 +78,14 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
         return canAttend && !procedureRequiresDoctor(appt);
     };
     const canDelete = hasPermission("calendar.consultations", "delete");
-    // Evita doble clic mientras se resuelve la auto-asignación de una
-    // consulta sin médico (ver más abajo), por fila para no bloquear
-    // el resto de la tabla mientras tanto.
-    const [claimingId, setClaimingId] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
 
-    // Si la consulta está agendada sin confirmar (pending) y no tiene
-    // médico asignado, quien le dé clic a Continuar pasa a ser
-    // automáticamente su médico atendiente. Si ya tiene un médico
-    // asignado y es otro el que hace clic, se le pide confirmar que
-    // coordinó con ese médico y el paciente antes de seguir; no se
-    // reasigna nada en ese caso, es solo un aviso. Las canceladas
-    // nunca llegan aquí (el botón ni se muestra, ver más abajo).
-    const handleContinue = async (appt) => {
-        // Procedimiento sin doctor: la enfermera es la proveedora principal, se auto
-        // asigna/toma con el mismo criterio de abajo pero contra nurse_id y el endpoint
-        // de aceptación de enfermería.
-        const requiresDoctor = procedureRequiresDoctor(appt);
-        if (appt.status === "pending" && !requiresDoctor) {
-            const assignedNurseId = appt.nurse_id?._id || appt.nurse_id || null;
-            if (!assignedNurseId) {
-                setClaimingId(appt._id);
-                try {
-                    await apiClient(`/appointments/${appt._id}/accept-nurse`, { method: "PATCH" });
-                } catch (err) {
-                    showError(err.message || "No se pudo tomar esta consulta.");
-                    return;
-                } finally {
-                    setClaimingId(null);
-                }
-            } else if (assignedNurseId !== user?.id) {
-                const confirmed = await confirmTakeOverAppointment(formatPersonName(appt.nurse_id));
-                if (!confirmed) return;
-            }
-        } else if (appt.status === "pending") {
-            const assignedDoctorId = appt.doctor_id?._id || appt.doctor_id || null;
-            if (!assignedDoctorId) {
-                setClaimingId(appt._id);
-                try {
-                    await apiClient(`/appointments/${appt._id}/accept`, { method: "PATCH" });
-                } catch (err) {
-                    showError(err.message || "No se pudo tomar esta consulta.");
-                    return;
-                } finally {
-                    setClaimingId(null);
-                }
-            } else if (assignedDoctorId !== user?.id) {
-                const confirmed = await confirmTakeOverAppointment(formatPersonName(appt.doctor_id));
-                if (!confirmed) return;
-            }
-        }
-        // Navega al formulario de consulta. El cambio de estado a
-        // completed ocurre al guardar la consulta, no en este click.
+    // Ya no llega ninguna fila "pending" a esta tabla (ver TABS más arriba): "Continuar"
+    // solo aparece para citas "scheduled", que siempre tienen doctor/enfermera ya
+    // asignados. La auto-asignación/toma de una consulta sin médico (que antes vivía acá)
+    // ahora solo aplica desde Calendario → "Por aceptar", que es la única pantalla donde
+    // una cita pending es visible.
+    const handleContinue = (appt) => {
         navigate(`/calendar/consultations/${appt._id}`);
     };
 
@@ -291,10 +249,9 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
                                     ) : canAttendRow(appt) ? (
                                         <button
                                             onClick={() => handleContinue(appt)}
-                                            disabled={claimingId === appt._id}
-                                            className="bg-[#0b66d6] text-white rounded-lg px-4 py-1.5 text-xs font-medium hover:bg-[#0a59ba] disabled:opacity-60 disabled:cursor-not-allowed"
+                                            className="bg-[#0b66d6] text-white rounded-lg px-4 py-1.5 text-xs font-medium hover:bg-[#0a59ba]"
                                         >
-                                            {claimingId === appt._id ? "Tomando..." : "Continuar"}
+                                            Continuar
                                         </button>
                                     ) : null}
                                 </div>

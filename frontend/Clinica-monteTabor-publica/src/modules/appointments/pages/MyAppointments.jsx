@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   ChevronLeft, ChevronDown, Plus, CalendarDays, Clock, History, XCircle,
@@ -114,7 +114,7 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, rea
   const deshabilitado = cancelando || reagendando || eliminando;
 
   return (
-    <div className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-6 ${necesitaReagendar ? "border-orange-200" : "border-gray-100"}`}>
+    <div id={`cita-${cita._id}`} className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-6 ${necesitaReagendar ? "border-orange-200" : "border-gray-100"}`}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="inline-block px-2.5 py-1 rounded-full bg-[#3B6FCA]/10 text-[#3B6FCA] text-xs font-semibold">{badge}</span>
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[cita.status] || "bg-gray-100 text-gray-500"}`}>
@@ -278,7 +278,11 @@ const MyAppointments = () => {
   // dashboard: "Próxima cita" -> state:{tab:"proximas"}, "Consultas realizadas" ->
   // state:{tab:"atendidas"}). Si no viene nada, o viene una clave inválida, cae a "todas".
   const [tab, setTab] = useState(TAB_KEYS.includes(location.state?.tab) ? location.state.tab : "todas");
-  const [expandedId, setExpandedId] = useState(null);
+  // Se puede llegar con una cita puntual a resaltar (ej. "Ver detalles" de "Tu próxima
+  // cita" en el dashboard, state:{highlightId}): arranca ya expandida, y el efecto de
+  // abajo hace scroll hasta ella en cuanto termina de cargar la lista.
+  const [expandedId, setExpandedId] = useState(location.state?.highlightId || null);
+  const highlightId = useRef(location.state?.highlightId || null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const cargar = () => {
@@ -291,6 +295,21 @@ const MyAppointments = () => {
   useEffect(() => {
     cargar();
   }, []);
+
+  // Hace scroll hasta la cita puntual con la que se llegó (ver highlightId arriba), una vez
+  // que la lista ya cargó y el DOM tuvo tiempo de pintar esa tarjeta. Se limpia el state de
+  // navegación después, para que un refresh o volver con el botón atrás no repita el scroll.
+  useEffect(() => {
+    if (loading || !highlightId.current) return;
+    const id = highlightId.current;
+    highlightId.current = null;
+    const timer = setTimeout(() => {
+      document.getElementById(`cita-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    navigate(location.pathname, { replace: true, state: {} });
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   const grupos = useMemo(() => {
     const atendidas = appointments

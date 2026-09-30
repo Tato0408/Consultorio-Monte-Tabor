@@ -12,7 +12,11 @@ const StatCard = ({ icon: Icon, iconBg, label, value, isLoading, onClick, isActi
         <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
             <Icon className="text-white" size={20} />
         </div>
-        <div>
+        {/* min-w-0: sin esto, en un celular angosto la etiqueta ("Completados", "En
+            espera") no se encoge para caber junto al ícono y se sale por el borde derecho
+            de la card en vez de envolver — mismo bug que en las cards de Enfermeras/
+            Pacientes (NurseStatCards.jsx/PatientStatCards.jsx). */}
+        <div className="min-w-0 flex-1 text-left">
             <p className="text-sm text-slate-500">{label}</p>
             <p className="text-2xl font-semibold text-slate-800">
                 {isLoading ? "—" : value}
@@ -35,15 +39,19 @@ const AppointmentStatsCards = ({ stats, isLoading, onFilterClick, activeFilter }
         Boolean(activeFilter?.doctor_id) && activeFilter?.status === statusValue;
 
     return (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        // grid-cols-1 en el celular más angosto: con 2 columnas para 4 cards, cada una
+        // quedaba tan angosta que la etiqueta ("En espera", "Completados") apenas cabía
+        // envuelta junto al ícono y el valor, viéndose apretada/solapada. Con una sola
+        // columna cada card usa el ancho completo de la pantalla.
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard
                 icon={Calendar}
                 iconBg="bg-[#6d4ed1]"
                 label="Agendados"
                 value={stats.scheduled}
                 isLoading={isLoading}
-                onClick={() => onFilterClick?.("pending, scheduled")}
-                isActive={isCardActive("pending, scheduled")}
+                onClick={() => onFilterClick?.("scheduled,completed")}
+                isActive={isCardActive("scheduled,completed")}
             />
             <StatCard
                 icon={Clock}

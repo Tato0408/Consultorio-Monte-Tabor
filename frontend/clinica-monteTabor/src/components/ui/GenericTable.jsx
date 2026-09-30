@@ -183,7 +183,20 @@ const GenericTable = ({
       {/* CONTENEDOR DE LA TABLA */}
       <div ref={tableContainerRef} className="w-full overflow-hidden bg-white border border-gray-100 rounded-xl shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse" style={evenColumns ? { tableLayout: "fixed" } : undefined}>
+          <table
+            className="w-full text-left border-collapse"
+            style={
+              evenColumns
+                ? // table-layout: fixed reparte el ancho en partes iguales sin importar el
+                  // contenido; sin un min-width, en contenedores angostos cada columna se
+                  // encoge por debajo de lo que su padding + texto necesitan y el texto se
+                  // envuelve en varias líneas, "chocando" visualmente con la fila/columna de
+                  // al lado. El min-width fuerza a que, llegado ese punto, entre en juego el
+                  // overflow-x-auto del contenedor (scroll horizontal) en vez de comprimir.
+                  { tableLayout: "fixed", minWidth: `${columns.length * 140}px` }
+                : undefined
+            }
+          >
             <thead>
               <tr
                 className={
@@ -196,6 +209,8 @@ const GenericTable = ({
                   <th
                     key={idx}
                     className={`${stripedHeader ? "py-3 font-semibold" : "py-4 font-normal text-gray-400"} ${
+                      evenColumns ? "whitespace-nowrap" : ""
+                    } ${
                       col.align === "right" ? "text-right pr-6 pl-4" : col.align === "center" ? "text-center px-8" : "pl-4"
                     }`}
                   >
@@ -210,11 +225,17 @@ const GenericTable = ({
                   const openUpwards = rowIndex >= currentItems.length - 2 && currentItems.length > 2;
 
                   return (
-                    <tr key={item._id || rowIndex} onClick={() => onRowClick && onRowClick(item)} className="hover:bg-gray-50/50 transition-colors">
+                    <tr
+                      key={item._id || rowIndex}
+                      onClick={() => onRowClick && onRowClick(item)}
+                      className={`hover:bg-gray-50/50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
+                    >
                       {columns.map((col, colIdx) => (
                         <td
                           key={colIdx}
-                          className={`py-4 ${col.align === "right" ? "text-right pr-6 pl-4 relative" : col.align === "center" ? "text-center px-8" : "pl-4"}`}
+                          className={`py-4 ${evenColumns ? "whitespace-nowrap" : ""} ${
+                            col.align === "right" ? "text-right pr-6 pl-4 relative" : col.align === "center" ? "text-center px-8" : "pl-4"
+                          }`}
                         >
                           {col.render
                             ? col.render(item, rowIndex, openUpwards)

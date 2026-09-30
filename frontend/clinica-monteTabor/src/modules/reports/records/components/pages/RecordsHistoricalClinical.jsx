@@ -43,43 +43,50 @@ function AntecedentesTable({ headers, rows, onEdit, onDelete, canUpdate, canDele
   const showAction = canUpdate || canDelete;
   return (
     <div className="text-sm">
-      <div className={`${cols} rounded-lg bg-slate-50 px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400`}>
-        <span>{headers[0]}</span>
-        <span>{headers[1]}</span>
-        <span>{headers[2]}</span>
-        <span>{showAction ? "Acción" : ""}</span>
-      </div>
-      {rows.map((r) => (
-        <div key={r.id} className={`${cols} items-center border-b border-slate-50 px-2 py-3 text-center last:border-0`}>
-          <span className="text-slate-700 break-words">{r.a}</span>
-          <span className="text-slate-600 break-words">{r.b}</span>
-          <span className="flex justify-center">
-            <Badge tone={toneFor(r.tipo)} className="whitespace-normal break-words text-center">{r.tipo}</Badge>
-          </span>
-          <div className="flex items-center justify-center gap-1">
-            {canUpdate && (
-              <button
-                type="button"
-                onClick={() => onEdit(r)}
-                title="Editar"
-                className="p-1.5 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {canDelete && (
-              <button
-                type="button"
-                onClick={() => onDelete(r)}
-                title="Eliminar"
-                className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            )}
+      {/* overflow-x-auto + min-w evita que, al vivir dentro de la columna angosta
+          del grid lg:grid-cols-2 de abajo, las 4 columnas se compriman hasta
+          encimarse — mismo patrón que RecordsProcedures.jsx/RecordsDocuments.jsx. */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[480px]">
+          <div className={`${cols} rounded-lg bg-slate-50 px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400`}>
+            <span>{headers[0]}</span>
+            <span>{headers[1]}</span>
+            <span>{headers[2]}</span>
+            <span>{showAction ? "Acción" : ""}</span>
           </div>
+          {rows.map((r) => (
+            <div key={r.id} className={`${cols} items-center border-b border-slate-50 px-2 py-3 text-center last:border-0`}>
+              <span className="text-slate-700 break-words">{r.a}</span>
+              <span className="text-slate-600 break-words">{r.b}</span>
+              <span className="flex justify-center">
+                <Badge tone={toneFor(r.tipo)} className="whitespace-normal break-words text-center">{r.tipo}</Badge>
+              </span>
+              <div className="flex items-center justify-center gap-1">
+                {canUpdate && (
+                  <button
+                    type="button"
+                    onClick={() => onEdit(r)}
+                    title="Editar"
+                    className="p-1.5 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => onDelete(r)}
+                    title="Eliminar"
+                    className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
       {rows.length === 0 && (
         <p className="py-4 text-xs text-slate-400">No hay antecedentes registrados de este tipo.</p>
       )}

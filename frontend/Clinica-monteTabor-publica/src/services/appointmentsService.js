@@ -64,10 +64,10 @@ export const cancelAppointment = (id, reason) =>
 // "pending" que el paciente quiere mover: reusa el mismo registro (conserva el anticipo
 // ya pagado) y la deja de nuevo "pending" a la espera de que un doctor la acepte.
 // doctor_id / nurse_id son opcionales: sin ellos la cita queda sin asignar.
-export const rescheduleAppointment = (id, { date, start_time, doctor_id, nurse_id }) =>
+export const rescheduleAppointment = (id, { date, start_time, doctor_id, nurse_id, procedure_ids }) =>
   apiClient(`/patient-portal/appointments/${id}/reschedule`, {
     method: "PATCH",
-    body: { date, start_time, doctor_id, nurse_id },
+    body: { date, start_time, doctor_id, nurse_id, procedure_ids },
   });
 
 // Elimina por completo una solicitud que nunca llegó a confirmarse (pending,

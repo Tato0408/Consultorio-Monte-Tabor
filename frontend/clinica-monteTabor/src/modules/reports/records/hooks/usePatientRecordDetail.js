@@ -259,15 +259,15 @@ const usePatientRecordDetail = (patientId, patientName) => {
 
       const [consultations, appointmentsRes, sickLeaves, labOrders] = await Promise.all([
         apiClient("/consultations", { params: { patient_id: patientId } }),
-        // Todos los estados salvo "completed" (esas ya vienen representadas
-        // arriba por su consulta real, con datos clínicos completos). Sin
-        // esto, la pestaña Consultas del expediente nunca mostraba las citas
-        // canceladas o no presentadas del paciente, aunque sí quedaban
-        // guardadas en la base de datos.
+        // "completed" ya viene representada arriba por su consulta real, con datos
+        // clínicos completos. pending/needs_reschedule/expired se excluyen a propósito:
+        // son solicitudes que ningún doctor/enfermera aceptó nunca, no una consulta real
+        // (mismo criterio que el módulo de Consultas, ver AppointmentTable.jsx) — mostrarlas
+        // acá con un botón "Continuar" invitaba a "atender" una cita sin proveedor asignado.
         apiClient("/appointments", {
           params: {
             patient_id: patientId,
-            status: "pending,scheduled,cancelled,no_show,needs_reschedule,expired",
+            status: "scheduled,cancelled,no_show",
             limit: 500,
           },
         }),

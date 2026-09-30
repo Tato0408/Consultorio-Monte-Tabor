@@ -164,9 +164,18 @@ const RecepcionistDashboard = () => {
                 />
             </div>
 
-            {/* Agenda y registro rápido de citas */}
+            {/* Agenda y registro rápido de citas.
+                Antes eran 2 divs con flex-col propio (Agenda+Pacientes a la izquierda,
+                Citas+Próximas+Pendientes a la derecha): en celular (una sola columna) eso
+                aplanaba al orden Agenda -> Pacientes -> Citas, porque cada columna se
+                vuelca completa antes de pasar a la siguiente. Con los 5 bloques como
+                hijos directos del mismo grid y su posición de escritorio puesta a mano
+                (col-start/row-start, solo con lg:), el orden en celular pasa a ser
+                simplemente el orden en que están escritos acá: Agenda -> Citas ->
+                Pacientes -> Próximas -> Pendientes. En escritorio (lg:) la posición
+                explícita reproduce el mismo acomodo de 2 columnas que había antes. */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-                <div className="lg:col-span-2 flex flex-col gap-4">
+                <div className="lg:col-start-1 lg:col-span-2 lg:row-start-1">
                     <DoctorsAgendaSection
                         agenda={agenda}
                         date={agendaDate}
@@ -176,10 +185,9 @@ const RecepcionistDashboard = () => {
                         procedureChosen={procedureInfo.procedureChosen}
                         requiresDoctorForProcedure={procedureInfo.requiresDoctorForProcedure}
                     />
-                    <QuickPatientForm ref={patientFormRef} createPatient={createPatient} onCreated={refreshAfterPatient} />
                 </div>
 
-                <div className="flex flex-col gap-4">
+                <div className="lg:col-start-3 lg:row-start-1">
                     <QuickAppointmentForm
                         medicalData={medicalData}
                         prefill={prefill}
@@ -187,10 +195,20 @@ const RecepcionistDashboard = () => {
                         onRequestNewPatient={() => patientFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
                         onProcedureInfoChange={handleProcedureInfoChange}
                     />
+                </div>
+
+                <div className="lg:col-start-1 lg:col-span-2 lg:row-start-2">
+                    <QuickPatientForm ref={patientFormRef} createPatient={createPatient} onCreated={refreshAfterPatient} />
+                </div>
+
+                <div className="lg:col-start-3 lg:row-start-2">
                     <UpcomingAppointmentsList
                         appointments={upcoming}
                         onViewAll={() => navigate("/calendar/appointments")}
                     />
+                </div>
+
+                <div className="lg:col-start-3 lg:row-start-3">
                     <PendingConfirmationsPanel
                         data={pending}
                         onChanged={refreshAll}

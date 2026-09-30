@@ -804,8 +804,10 @@ export default function AppointmentsGrid() {
                                                     pueda regresar exactamente ahí. En "Mis citas" del doctor se
                                                     oculta: el botón de visualizar ya lleva a una pantalla que
                                                     incluye su propio botón de editar, así que este sería
-                                                    redundante ahí. Reagendar solo aplica a una cita Programada. */}
-                                                {canUpdate && !((isDoctor || isNurse) && activeTab === "mine") && cita.status === "scheduled" && (
+                                                    redundante ahí. Reagendar aplica a Programada, Por reagendar y
+                                                    Vencida (pending tiene su propio botón más abajo, porque acá ese
+                                                    espacio ya lo ocupa Aceptar/Asignar). */}
+                                                {canUpdate && !((isDoctor || isNurse) && activeTab === "mine") && ["scheduled", "needs_reschedule", "expired"].includes(cita.status) && (
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"

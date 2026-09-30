@@ -4,9 +4,11 @@ import {
 } from "lucide-react";
 import { Badge, Card } from "../global/ui";
 
-// Mismos estados y etiquetas que la tabla de Consultas
-// (AppointmentTable.jsx), para que el badge diga y se vea igual sin
-// importar desde dónde se mire una cita.
+// Mismos estados y etiquetas que la tabla de Consultas (AppointmentTable.jsx), para que el
+// badge diga y se vea igual sin importar desde dónde se mire una cita. pending/
+// needs_reschedule/expired quedan como resguardo por si algún dato inesperado llegara
+// igual (ver el mismo comentario en AppointmentTable.jsx) — usePatientRecordDetail.js ya
+// no pide esos estados al backend, nunca deberían aparecer acá en la práctica.
 const ESTADO_STYLES = {
   pending:   { label: "Agendado (sin confirmar)", tone: "gray" },
   scheduled: { label: "En espera", tone: "blue" },
@@ -17,24 +19,19 @@ const ESTADO_STYLES = {
   expired:   { label: "Vencida", tone: "gray" },
 };
 
-// Mismas pestañas y mismo orden que AppointmentTable.jsx (tabla de
-// Consultas): Todos, Atendido, Agendados, En espera, Sin confirmar,
-// Cancelado, No presentado.
+// Mismas pestañas y mismo criterio que la tabla de Consultas (AppointmentTable.jsx): una
+// cita que nadie aceptó no es una consulta real, así que no tiene pestaña propia acá
+// tampoco — "Todos" ya no incluye pending/needs_reschedule/expired.
 const TABS = [
   { key: "todos", label: "Todos" },
   { key: "atendido", label: "Atendido" },
-  { key: "agendados", label: "Agendados" },
   { key: "scheduled", label: "En espera" },
-  { key: "pending", label: "Sin confirmar" },
   { key: "cancelled", label: "Cancelado" },
   { key: "no_show", label: "No presentado" },
 ];
 
-// "Agendados" agrupa pending + scheduled, igual que en la tabla de
-// Consultas; el resto de las pestañas calzan 1 a 1 con el estado real.
 const matchesTab = (estado, tabKey) => {
   if (tabKey === "todos") return true;
-  if (tabKey === "agendados") return estado === "pending" || estado === "scheduled";
   return estado === tabKey;
 };
 
@@ -159,10 +156,19 @@ const ConsultasDelDia = ({
 
       {/* Tabla */}
       <div className="overflow-x-auto">
-        {/* table-fixed reparte las 5 columnas en anchos iguales; el encabezado usa la
-            misma franja gris (bg-slate-50 + texto en mayúsculas) que las tablas de los
-            reportes, y tanto títulos como datos van centrados. */}
-        <table className="w-full min-w-[560px] text-sm table-fixed">
+        {/* Anchos por columna vía colgroup (no table-fixed parejo): Paciente/Médico
+            necesitan más espacio que Hora/Estado/Acciones. min-w-[720px] (igual que la
+            tabla de Consultas, AppointmentTable.jsx) evita que, en un celular angosto, el
+            badge de Estado o los botones de Acciones se compriman hasta desbordarse sobre
+            la columna vecina — si no caben, entra a jugar el scroll horizontal en su lugar. */}
+        <table className="w-full min-w-[720px] text-sm table-fixed">
+          <colgroup>
+            <col className="w-[70px]" />
+            <col className="w-[170px]" />
+            <col className="w-[170px]" />
+            <col className="w-[160px]" />
+            <col className="w-[150px]" />
+          </colgroup>
           <thead>
             <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               <th className="py-2.5 px-2 font-semibold text-center">Hora</th>
@@ -187,13 +193,23 @@ const ConsultasDelDia = ({
               return (
                 <tr key={c.id} className="border-t border-slate-100">
                   <td className="py-4 px-2 text-center text-slate-700 whitespace-nowrap">{c.hora}</td>
-                  <td className="py-4 px-2 text-center text-slate-700">{c.paciente}</td>
-                  <td className="py-4 px-2 text-center text-slate-700">{c.medico}</td>
+                  <td className="py-4 px-2 text-center text-slate-700">
+                    <span className="block truncate" title={c.paciente}>{c.paciente}</span>
+                  </td>
+                  <td className="py-4 px-2 text-center text-slate-700">
+                    <span className="block truncate" title={c.medico}>{c.medico}</span>
+                  </td>
+                  {/* Sin whitespace-nowrap a propósito: con table-fixed, el ancho de esta
+                      columna es fijo pase lo que pase (a diferencia de un flex/grid, no se
+                      ensancha solo por su contenido) — forzar una sola línea en una
+                      etiqueta larga ("Agendado (sin confirmar)") la hacía desbordarse
+                      sobre la columna de Acciones, tapando el botón "Continuar". Dejarla
+                      envolver en 2 líneas queda contenida dentro de su propia columna. */}
                   <td className="py-4 px-2 text-center">
-                    <Badge tone={est.tone}>{est.label}</Badge>
+                    <Badge tone={est.tone} className="whitespace-normal text-center">{est.label}</Badge>
                   </td>
                   <td className="py-4 px-2 text-center">
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
                       {atendido ? (
                         <button
                           onClick={() => onVerRegistro?.(c)}
@@ -203,7 +219,7 @@ const ConsultasDelDia = ({
                         </button>
                       ) : noDisponible ? (
                         <>
-                          <span className="text-xs text-slate-400 italic">No disponible</span>
+                          <span className="text-xs text-slate-400 italic whitespace-nowrap">No disponible</span>
                           {canDelete && (
                             <button
                               onClick={() => onEliminar?.(c)}
