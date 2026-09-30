@@ -3,6 +3,8 @@ import doctorModel from "../../models/doctors/doctors.js";
 import adminModel from "../../models/admin/admins.js";
 import recepcionistModel from "../../models/receptionist/receptionist.js";
 import patientsModel from "../../models/patients/patients.js";
+import jsonwebtoken from "jsonwebtoken";
+import { config } from "../../../config.js";
 
 // authController se ejecuta cada vez que el usuario recarga la página,
 // abre una pestaña nueva o cambia de ruta. Permite mantener la sesión
@@ -82,6 +84,22 @@ authController.getCurrentUser = async (req, res) => {
         console.log(error);
         return res.status(500).json({ message: "Error interno del servidor" });
     }
+};
+
+// Boleto de un solo uso para abrir el WebSocket de tiempo real (roleSocket.js) desde el
+// panel privado (admin/doctor/enfermera/recepción). Ese socket siempre conecta directo a
+// Render (el proxy de vercel.json no sabe hacer el upgrade de WebSocket), así que la
+// cookie de sesión viajaría ahí como cross-site — lo que Chrome en incógnito y Safari/iOS
+// bloquean. Esta petición SÍ pasa por el proxy de Vercel (mismo origen, /api/...), donde
+// la cookie llega confiable; ya autenticado por ella, se emite un JWT aparte de vida muy
+// corta (60s) que el frontend manda como ?token= al conectar el socket — mismo mecanismo
+// que ya usa la app móvil (sin cookie jar) y el portal público (ver getWsTicket en
+// patientPortalController.js). roleSocket.js no distingue este token de uno de sesión
+// normal: ahí solo se leen decoded.id y decoded.userType.
+authController.getWsTicket = (req, res) => {
+    const { id, userType } = req.user;
+    const ticket = jsonwebtoken.sign({ id, userType }, config.JWT.secret, { expiresIn: "60s" });
+    return res.status(200).json({ ticket });
 };
 
 export default authController;
