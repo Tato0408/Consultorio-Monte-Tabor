@@ -135,8 +135,22 @@ export async function runAppointmentAutoTransitions() {
     );
 
     // 2) Solicitudes que ningún proveedor aceptó a tiempo -> por reagendar.
+    // requested_at (no createdAt) marca desde cuándo espera la solicitud ACTUAL: se
+    // reinicia al reagendar (ver rescheduleMyAppointment), a diferencia de createdAt, que
+    // sigue siendo la fecha de creación original del registro. Comparar contra createdAt
+    // revertía a needs_reschedule una cita recién reagendada que ya había pasado por ahí
+    // antes (su createdAt original, de la primera solicitud, ya tenía más de 48h). El
+    // segundo término del $or es compatibilidad con citas de antes de que este campo
+    // existiera (requested_at sin valor): esas siguen comparándose contra createdAt.
     const notAccepted = await appointmentsModel
-        .find({ status: "pending", $or: [...pastEndTime, { createdAt: { $lt: staleCutoff } }] })
+        .find({
+            status: "pending",
+            $or: [
+                ...pastEndTime,
+                { requested_at: { $lt: staleCutoff } },
+                { requested_at: { $exists: false }, createdAt: { $lt: staleCutoff } },
+            ],
+        })
         .select("_id patient_id");
 
     if (notAccepted.length > 0) {

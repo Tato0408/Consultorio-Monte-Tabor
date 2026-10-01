@@ -749,6 +749,13 @@ patientPortalController.rescheduleMyAppointment = async (req, res) => {
         appointment.doctor_id = requiresDoctor && doctor_id ? doctor_id : null;
         appointment.nurse_id = !requiresDoctor && nurse_id ? nurse_id : null;
         appointment.status = "pending";
+        // Reinicia el reloj de las 48h que usa runAppointmentAutoTransitions para decidir
+        // si una solicitud pending lleva demasiado tiempo sin que nadie la acepte — sin
+        // esto, seguía comparando contra la fecha de creación ORIGINAL de la cita (de la
+        // primera vez que se pidió, antes de llegar a needs_reschedule), así que la
+        // siguiente carga la revertía a "por reagendar" de inmediato, aunque se acabara de
+        // reagendar en ese mismo instante.
+        appointment.requested_at = new Date();
         appointment.reschedule_reason = undefined;
         appointment.cancellation_reason = undefined;
         // El procedimiento sí puede cambiar al reagendar: se actualizan procedure_id, tipo,
