@@ -116,6 +116,11 @@ export default function AppointmentsGrid() {
     const [doctors, setDoctors] = useState([]);
     const [selectedDoctorId, setSelectedDoctorId] = useState("");
     const [loadingDoctors, setLoadingDoctors] = useState(false);
+    // Los botones de confirmar Aceptar/Asignar solo se deshabilitaban por
+    // !selectedNurseId/!selectedDoctorId, sin ningún estado de "enviando" — un doble
+    // clic en red lenta podía disparar acceptAppointment/assignDoctor dos veces antes de
+    // que la primera respuesta siquiera llegara.
+    const [procesandoAccion, setProcesandoAccion] = useState(false);
 
     // Catálogo del filtro Doctor: solo doctores que ya tienen al menos
     // una cita registrada (no el catálogo completo), para que el
@@ -172,6 +177,8 @@ export default function AppointmentsGrid() {
     // isSelected en ApptDot/ApptCard más abajo), para que el doctor la vea
     // agendada de una vez en vez de tener que ir a buscarla él mismo.
     const handleAceptar = async (appointment, nurseId, confirmNoNurse = false) => {
+        if (procesandoAccion) return;
+        setProcesandoAccion(true);
         try {
             await acceptAppointment(appointment._id, nurseId, confirmNoNurse);
             showSuccess("Cita aceptada correctamente");
@@ -182,6 +189,8 @@ export default function AppointmentsGrid() {
             });
         } catch (err) {
             showError(err.message || "No se pudo aceptar la cita");
+        } finally {
+            setProcesandoAccion(false);
         }
     };
 
@@ -198,6 +207,8 @@ export default function AppointmentsGrid() {
     // procedimiento sin doctor (ella es la proveedora principal, no hay enfermera de
     // apoyo que elegir aparte).
     const handleAceptarComoEnfermera = async (appointment) => {
+        if (procesandoAccion) return;
+        setProcesandoAccion(true);
         try {
             await acceptAppointmentAsNurse(appointment._id);
             showSuccess("Cita aceptada correctamente");
@@ -206,6 +217,8 @@ export default function AppointmentsGrid() {
             });
         } catch (err) {
             showError(err.message || "No se pudo aceptar la cita");
+        } finally {
+            setProcesandoAccion(false);
         }
     };
 
@@ -250,6 +263,8 @@ export default function AppointmentsGrid() {
     // backend revalida el horario para ese doctor igual que en la
     // aceptación normal.
     const handleAsignar = async (id, doctorId, nurseId, confirmNoNurse = false) => {
+        if (procesandoAccion) return;
+        setProcesandoAccion(true);
         try {
             await assignDoctor(id, doctorId, nurseId, confirmNoNurse);
             showSuccess("Cita asignada correctamente");
@@ -258,6 +273,8 @@ export default function AppointmentsGrid() {
             setSelectedNurseId("");
         } catch (err) {
             showError(err.message || "No se pudo asignar la cita");
+        } finally {
+            setProcesandoAccion(false);
         }
     };
 
@@ -272,6 +289,8 @@ export default function AppointmentsGrid() {
     // Mismo flujo de arriba, pero para asignar directamente una enfermera como
     // proveedora principal (procedimiento sin doctor).
     const handleAsignarEnfermera = async (id, nurseId) => {
+        if (procesandoAccion) return;
+        setProcesandoAccion(true);
         try {
             await assignNurse(id, nurseId);
             showSuccess("Cita asignada correctamente");
@@ -279,6 +298,8 @@ export default function AppointmentsGrid() {
             setSelectedNurseId("");
         } catch (err) {
             showError(err.message || "No se pudo asignar la cita");
+        } finally {
+            setProcesandoAccion(false);
         }
     };
 
@@ -963,7 +984,7 @@ export default function AppointmentsGrid() {
                             {!loadingNurses && nurses.length === 0 ? (
                                 <Button onClick={() => handleAceptarSinEnfermera(appointmentToAccept)} className="bg-amber-500 hover:bg-amber-600">Continuar sin enfermera</Button>
                             ) : (
-                                <Button disabled={!selectedNurseId || loadingNurses} onClick={() => handleAceptar(appointmentToAccept, selectedNurseId)} className="bg-emerald-600 hover:bg-emerald-700">Aceptar cita</Button>
+                                <Button disabled={!selectedNurseId || loadingNurses || procesandoAccion} onClick={() => handleAceptar(appointmentToAccept, selectedNurseId)} className="bg-emerald-600 hover:bg-emerald-700">Aceptar cita</Button>
                             )}
                         </div>
                     </div>
@@ -988,7 +1009,7 @@ export default function AppointmentsGrid() {
                         <div className="mt-6 flex justify-end gap-3">
                             <Button variant="outline" onClick={() => setAppointmentToAssign(null)}>Cancelar</Button>
                             <Button
-                                disabled={!selectedNurseId || loadingNurses}
+                                disabled={!selectedNurseId || loadingNurses || procesandoAccion}
                                 onClick={() => handleAsignarEnfermera(appointmentToAssign._id, selectedNurseId)}
                                 className="bg-emerald-600 hover:bg-emerald-700"
                             >
@@ -1040,7 +1061,7 @@ export default function AppointmentsGrid() {
                             <Button variant="outline" onClick={() => setAppointmentToAssign(null)}>Cancelar</Button>
                             {procRequiresNurse(appointmentToAssign) && !loadingNurses && nurses.length === 0 ? (
                                 <Button
-                                    disabled={!selectedDoctorId || loadingDoctors}
+                                    disabled={!selectedDoctorId || loadingDoctors || procesandoAccion}
                                     onClick={() => handleAsignarSinEnfermera(appointmentToAssign._id, selectedDoctorId)}
                                     className="bg-amber-500 hover:bg-amber-600"
                                 >
@@ -1048,7 +1069,7 @@ export default function AppointmentsGrid() {
                                 </Button>
                             ) : (
                                 <Button
-                                    disabled={!selectedDoctorId || loadingDoctors || (procRequiresNurse(appointmentToAssign) && !selectedNurseId)}
+                                    disabled={!selectedDoctorId || loadingDoctors || procesandoAccion || (procRequiresNurse(appointmentToAssign) && !selectedNurseId)}
                                     onClick={() => handleAsignar(appointmentToAssign._id, selectedDoctorId, selectedNurseId || null)}
                                     className="bg-emerald-600 hover:bg-emerald-700"
                                 >

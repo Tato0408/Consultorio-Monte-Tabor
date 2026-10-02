@@ -80,6 +80,11 @@ export default function NotificationsMenu({ reminders = [] }) {
     }
     if (item.appointment_id) {
       try {
+        // GET /api/appointments/patient/:id (appointmentsController.getPatientAppointmentById):
+        // ruta real y válida para el portal de pacientes (requirePatientRole la limita al
+        // paciente dueño de la cita), confirmado leyendo appointments.js/appointmentsController.js
+        // del backend — no hace falta traer el listado completo solo para confirmar que
+        // una cita puntual sigue existiendo.
         await apiClient(`/appointments/patient/${item.appointment_id}`);
       } catch (err) {
         // Solo un 404 real significa "la cita ya no existe". Cualquier otro error

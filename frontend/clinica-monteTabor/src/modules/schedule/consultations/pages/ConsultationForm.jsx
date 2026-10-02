@@ -208,8 +208,12 @@ const ConsultationForm = () => {
             // vuelve a donde se abrió esta consulta (listado o expediente del paciente).
             goBack();
         } catch (err) {
+            // err.consultationSaved (ver useConsultation.js): el PUT/POST de la consulta sí
+            // tuvo éxito, solo falló el PATCH que la marca como completada — el título y el
+            // mensaje reflejan que los datos clínicos no se perdieron, en vez de sonar a
+            // fallo total e invitar a reintentar todo desde cero sin necesidad.
             showError(
-                "Error al guardar",
+                err?.consultationSaved ? "Guardado parcial" : "Error al guardar",
                 err?.message || "No se pudo conectar con el servidor. Inténtalo de nuevo."
             );
         }

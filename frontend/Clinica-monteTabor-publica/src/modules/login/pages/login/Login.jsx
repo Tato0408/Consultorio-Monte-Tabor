@@ -185,6 +185,10 @@ const Login = () => {
                 disabled={isLoading}
               />
 
+              <Link to="/recovery" className="text-right text-sm text-[#3B6FCA] font-medium hover:underline -mt-2">
+                ¿Olvidaste tu contraseña?
+              </Link>
+
               <button
                 type="submit"
                 disabled={isLoading}

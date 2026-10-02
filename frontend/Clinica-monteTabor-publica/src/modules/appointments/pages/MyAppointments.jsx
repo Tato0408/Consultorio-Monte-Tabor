@@ -10,9 +10,15 @@ import { getMyAppointments, cancelAppointment, deleteAppointmentRequest } from "
 import { showSuccess, showError, confirmAction, confirmActionWithReason } from "@/lib/alerts";
 import NotificationsMenu from "@/components/NotificationsMenu";
 
-const STATUS_LABELS = { pending: "Pendiente", scheduled: "Programada", completed: "Completada", cancelled: "Cancelada", no_show: "No se presentó", needs_reschedule: "Por reagendar", expired: "Por reagendar" };
-const STATUS_COLORS = { pending: "bg-amber-100 text-amber-700", scheduled: "bg-emerald-100 text-emerald-700", completed: "bg-slate-100 text-slate-600", cancelled: "bg-red-100 text-red-600", no_show: "bg-gray-100 text-gray-500", needs_reschedule: "bg-orange-100 text-orange-700", expired: "bg-orange-100 text-orange-700" };
-const STATUS_DOT = { pending: "bg-amber-500", scheduled: "bg-emerald-500", completed: "bg-slate-400", cancelled: "bg-red-500", no_show: "bg-gray-400", needs_reschedule: "bg-orange-500", expired: "bg-orange-500" };
+// pending_payment: anticipo en línea creado pero sin confirmar todavía (ver
+// activateAfterDeposit en el backend) — antes no tenía entrada acá, caía al fallback
+// genérico y además quedaba fuera de todos los grupos de abajo (ver grupos useMemo),
+// invisible para el paciente incluso en "Todas". Se autoelimina sola a los 30 min si
+// nunca se paga (runAppointmentAutoTransitions), así que mientras exista solo tiene
+// sentido ofrecer pagarla, no cancelarla ni eliminarla.
+const STATUS_LABELS = { pending: "Pendiente", pending_payment: "Pago pendiente", scheduled: "Programada", completed: "Completada", cancelled: "Cancelada", no_show: "No se presentó", needs_reschedule: "Por reagendar", expired: "Por reagendar" };
+const STATUS_COLORS = { pending: "bg-amber-100 text-amber-700", pending_payment: "bg-amber-100 text-amber-700", scheduled: "bg-emerald-100 text-emerald-700", completed: "bg-slate-100 text-slate-600", cancelled: "bg-red-100 text-red-600", no_show: "bg-gray-100 text-gray-500", needs_reschedule: "bg-orange-100 text-orange-700", expired: "bg-orange-100 text-orange-700" };
+const STATUS_DOT = { pending: "bg-amber-500", pending_payment: "bg-amber-500", scheduled: "bg-emerald-500", completed: "bg-slate-400", cancelled: "bg-red-500", no_show: "bg-gray-400", needs_reschedule: "bg-orange-500", expired: "bg-orange-500" };
 
 // Estados en los que el paciente puede (y debe) reagendar la cita reusando el mismo
 // registro: ningún doctor la aceptó a tiempo ("no_aceptada") o el cupo se lo asignaron
@@ -88,7 +94,7 @@ const TABS = [
 // ven mezcladas ahí, en vez de mostrar siempre la insignia fija del tab activo.
 const clasificarCita = (cita) => {
   if (cita.status === "completed") return "atendidas";
-  if (["pending", "scheduled"].includes(cita.status)) return "proximas";
+  if (["pending", "pending_payment", "scheduled"].includes(cita.status)) return "proximas";
   if (REAGENDABLES.includes(cita.status)) return "porReagendar";
   if (cita.status === "no_show") return "pasadas";
   return "canceladas";
@@ -97,7 +103,7 @@ const BADGE_POR_TAB = Object.fromEntries(TABS.map((t) => [t.key, t.badge]));
 
 const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, reagendando, onEliminar, eliminando, onPagar, expandedId, setExpandedId }) => {
   const expandida = expandedId === cita._id;
-  const depositoPendiente = cita.status === "pending" && cita.deposit_amount != null && !cita.deposit_paid;
+  const depositoPendiente = ["pending", "pending_payment"].includes(cita.status) && cita.deposit_amount != null && !cita.deposit_paid;
   const depositoPagado = cita.deposit_paid && cita.deposit_amount != null;
   const necesitaReagendar = REAGENDABLES.includes(cita.status);
   const puedeEliminar = ELIMINABLES.includes(cita.status);
@@ -128,7 +134,7 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, rea
         )}
       </div>
       {depositoPagado && (
-        <p className="text-xs text-emerald-600 font-medium mt-1">Anticipo pagado · resta ${Number(cita.total - cita.deposit_amount).toFixed(2)}</p>
+        <p className="text-xs text-emerald-600 font-medium mt-1">Anticipo pagado · resta ${Math.max(0, Number(cita.total) - Number(cita.deposit_amount)).toFixed(2)}</p>
       )}
 
       {necesitaReagendar && (
@@ -315,8 +321,12 @@ const MyAppointments = () => {
     const atendidas = appointments
       .filter((a) => a.status === "completed")
       .sort((a, b) => new Date(b.date) - new Date(a.date));
+    // pending_payment entra acá: aunque técnicamente todavía no es una solicitud
+    // confirmada, es lo más parecido a "próxima" desde la perspectiva del paciente —
+    // antes no calzaba en ningún filtro de este objeto y desaparecía de la lista
+    // incluso en "Todas" (ver STATUS_LABELS arriba).
     const proximas = appointments
-      .filter((a) => ["pending", "scheduled"].includes(a.status))
+      .filter((a) => ["pending", "pending_payment", "scheduled"].includes(a.status))
       .sort((a, b) => new Date(a.date) - new Date(b.date) || a.start_time.localeCompare(b.start_time));
     const porReagendar = appointments
       .filter((a) => REAGENDABLES.includes(a.status))
@@ -372,6 +382,12 @@ const MyAppointments = () => {
           doctorId: cita.doctor_id?._id || null,
           nurseId: cita.nurse_id?._id || null,
           motivo: cita.description || "",
+          // Para que el ticket de confirmación muestre "anticipo ya pagado" en vez del
+          // monto completo como si no se hubiera pagado nada (ver TicketCita en
+          // NewAppointment.jsx) — el anticipo viaja con el mismo registro al reagendar,
+          // nunca se vuelve a cobrar.
+          depositPaid: Boolean(cita.deposit_paid),
+          depositAmount: cita.deposit_amount ?? null,
         },
       },
     });
@@ -439,10 +455,19 @@ const MyAppointments = () => {
       irAReagendarReusando(cita);
       return;
     }
-    const confirmado = await confirmAction(
-      "¿Deseas reagendar esta cita? Se cancelará esta cita para que puedas elegir una nueva fecha y hora.",
-      { confirmLabel: "Sí, reagendar" }
-    );
+    // Esta rama SÍ cancela la cita actual y agenda una nueva desde cero (a diferencia de
+    // la rama de arriba, que reusa el mismo registro y conserva el anticipo): si ya se
+    // pagó un anticipo, se pierde igual que al cancelar directo, y antes esto no avisaba
+    // nada — el paciente podía perder el anticipo sin saberlo por tocar "Reagendar" en
+    // vez de "Cancelar". Mismo criterio de aviso que handleCancelar.
+    const mensaje = cita.deposit_paid
+      ? `Ya pagaste un anticipo de $${Number(cita.deposit_amount).toFixed(2)} para esta cita. Reagendar cancela la cita actual y, por política de la clínica, ese anticipo no se reembolsa — deberás pagar uno nuevo si eliges pago en línea otra vez. ¿Deseas continuar?`
+      : "¿Deseas reagendar esta cita? Se cancelará esta cita para que puedas elegir una nueva fecha y hora.";
+    const confirmado = await confirmAction(mensaje, {
+      confirmLabel: "Sí, reagendar",
+      cancelLabel: cita.deposit_paid ? "No, conservar la cita" : undefined,
+      danger: cita.deposit_paid,
+    });
     if (!confirmado) return;
     setReagendandoId(cita._id);
     try {

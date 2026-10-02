@@ -7,8 +7,11 @@ const handleResponse = async (res) => {
 };
 
 const useInsumos = () => {
-  const getInsumos = (params = {}) =>
-    apiClient("/inventory", { params });
+  // signal opcional: permite cancelar una carga en vuelo cuando el usuario cambia de
+  // filtro antes de que la anterior respondiera (ver InventoryTable.jsx), mismo patrón
+  // que useAppointment.js.
+  const getInsumos = (params = {}, signal) =>
+    apiClient("/inventory", { params, signal });
 
   const getInsumoById = (id) =>
     apiClient(`/inventory/${id}`);

@@ -217,7 +217,14 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
       if (!["scheduled", "pending", "needs_reschedule", "expired"].includes(cita.status)) {
         setIsEditing(false);
       }
-    }).catch(() => showError("No se pudo recuperar la información de la cita."))
+    }).catch(() => {
+      showError("No se pudo recuperar la información de la cita.");
+      // Si el formulario arrancó en modo edición (location.state?.editMode), sin esto
+      // quedaba editable con el formulario vacío/con los valores por defecto (ninguno de
+      // los set... de arriba llegó a correr) — un estado confuso que invitaba a escribir
+      // sobre datos que nunca se cargaron, en vez de reflejar que no hay nada que editar.
+      setIsEditing(false);
+    })
       .finally(() => setLoading(false));
   }, [id]);
 

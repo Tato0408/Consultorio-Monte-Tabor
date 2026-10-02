@@ -331,11 +331,25 @@ function useConsultation(appointmentId) {
         }
 
         if (markCompleted) {
-          // Marca la cita como completada.
-          await apiClient(`/appointments/${appointmentId}/status`, {
-            method: "PATCH",
-            body: { status: "completed" },
-          });
+          // Marca la cita como completada. Va en su PROPIO try/catch: si esto falla
+          // DESPUÉS de que el PUT/POST de arriba ya tuvo éxito, los datos clínicos SÍ
+          // quedaron guardados — antes, ambos pasos compartían el mismo catch de abajo y
+          // ConsultationForm.jsx mostraba el mismo "No se pudo guardar la consulta" sin
+          // importar cuál de los dos pasos había fallado, dándole al doctor la impresión
+          // de que nada se guardó (y el riesgo de reintentar innecesariamente) cuando en
+          // realidad solo faltó marcarla como completada.
+          try {
+            await apiClient(`/appointments/${appointmentId}/status`, {
+              method: "PATCH",
+              body: { status: "completed" },
+            });
+          } catch (statusErr) {
+            const err = new Error(
+              statusErr.message || "La consulta se guardó, pero no se pudo marcar la cita como completada. Inténtalo de nuevo."
+            );
+            err.consultationSaved = true;
+            throw err;
+          }
         }
 
         return response;

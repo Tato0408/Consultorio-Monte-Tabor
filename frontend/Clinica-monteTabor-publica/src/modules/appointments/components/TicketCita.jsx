@@ -83,13 +83,20 @@ const TicketCita = ({ doctor, nurse, requiresDoctor = true, tipoLabel, generalid
                 {depositPagado ? <CheckCircle2 className="w-4 h-4" /> : <DollarSign className="w-4 h-4" />}
                 {depositPagado ? "Anticipo pagado" : "Anticipo a pagar ahora"}
               </span>
-              <span className="text-xs text-emerald-600/80">50% del total, para apartar tu hora</span>
+              <span className="text-xs text-emerald-600/80">
+                {depositPagado ? "Ya cubierto al agendar esta cita" : "50% del total, para apartar tu hora"}
+              </span>
             </div>
             <span className="text-xl font-bold text-emerald-700">${Number(deposit).toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5">
             <span className="text-xs text-gray-500">Resto a pagar en recepción</span>
-            <span className="text-sm font-semibold text-gray-700">${Number(total - deposit).toFixed(2)}</span>
+            {/* Math.max(0, ...): al reagendar, el anticipo ya pagado queda fijo aunque el
+                total cambie (ver rescheduleMyAppointment en el backend); si el paciente
+                cambia a un procedimiento más barato que su anticipo ya pagado, total -
+                deposit da negativo — mostrar "-$5.00" de resto a pagar es confuso, se
+                muestra $0.00 en su lugar (ya está cubierto, no se le debe nada). */}
+            <span className="text-sm font-semibold text-gray-700">${Math.max(0, Number(total) - Number(deposit)).toFixed(2)}</span>
           </div>
           <p className="text-xs text-gray-400 px-1">El anticipo no es reembolsable si cancelas la cita.</p>
         </div>

@@ -24,8 +24,17 @@ const ESTADO_LABEL = { curso: "En curso", finalizado: "Finalizado" };
 const ESTADO_TEXT_COLOR = { curso: "#B45309", finalizado: "#64748B" };
 const ESTADO_BG_COLOR = { curso: "#FEF3C7", finalizado: "#F1F5F9" };
 
+// Duración "indefinida": sin esto, una receta escrita como "indefinido", "de por
+// vida" o "uso continuo" (ninguna tiene un número) caía al fallback de 7 días de
+// abajo, y calcularEstado la marcaba "Finalizado" a la semana de emitida aunque el
+// doctor quisiera que el paciente la siguiera tomando permanentemente — podía
+// llevar a que el paciente dejara un tratamiento continuo pensando que ya terminó.
+const INDEFINITE_DURATION_WORDS = /indefinid|permanent|de por vida|continu[oa]/i;
+
 const parseDurationDays = (duration) => {
-  const match = String(duration || "").match(/\d+/);
+  const texto = String(duration || "");
+  if (INDEFINITE_DURATION_WORDS.test(texto)) return Infinity;
+  const match = texto.match(/\d+/);
   return match ? Number(match[0]) : 7;
 };
 
@@ -35,6 +44,11 @@ const parseDurationDays = (duration) => {
 const calcularEstado = (issuedAt, duration) => {
   if (!issuedAt) return "curso";
   const dias = parseDurationDays(duration);
+  // dias=Infinity (duración indefinida, ver parseDurationDays) nunca debe considerarse
+  // "finalizado": fin.setDate(fin.getDate() + Infinity) produciría una fecha inválida
+  // (Invalid Date), y comparar hoy < Invalid Date siempre da false — exactamente el
+  // resultado contrario al que se busca acá (quedaría "finalizado" de inmediato).
+  if (!Number.isFinite(dias)) return "curso";
   const inicio = new Date(issuedAt);
   inicio.setHours(0, 0, 0, 0);
   const fin = new Date(inicio);

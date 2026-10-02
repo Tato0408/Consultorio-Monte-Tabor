@@ -297,11 +297,18 @@ appointmentsController.getAppointments = async (req, res) => {
         }
 
         // "pending_payment" es un estado transitorio interno (anticipo en línea creado
-        // pero todavía sin confirmar, ver bookAppointment/activateAfterDeposit): nunca
-        // llegó a ser una solicitud real, así que no debe listarse en ningún rol ni
-        // filtro como si la cita ya existiera — se excluye siempre, sin importar qué
-        // status se haya pedido.
-        filters.$and = (filters.$and || []).concat([{ status: { $ne: "pending_payment" } }]);
+        // pero todavía sin confirmar, ver bookAppointment/activateAfterDeposit): para
+        // CUALQUIER rol de staff (doctor/enfermera/admin/recepción) no debe listarse como
+        // si la cita ya existiera, ya que nunca llegó a ser una solicitud real que alguien
+        // deba atender. El propio paciente es la excepción: esta misma ruta
+        // (GET /appointments/patient, ver appointments.js) es la que usa la app móvil para
+        // "Mis consultas" — sin poder ver su propia cita en pending_payment, no tenía
+        // forma de reintentar un pago que quedó a medias (se iba a enterar solo cuando esa
+        // cita se autoeliminara sola a los 30 min, ver runAppointmentAutoTransitions). El
+        // alcance por patient_id de más abajo ya evita que un paciente vea las de otro.
+        if (req.user.role !== "patient") {
+            filters.$and = (filters.$and || []).concat([{ status: { $ne: "pending_payment" } }]);
+        }
 
         if (doctor_id) {
             filters.doctor_id = doctor_id;
@@ -797,6 +804,26 @@ appointmentsController.insertAppointment = async (req, res) => {
         // tomado: las solicitudes de pacientes que competían por ese mismo horario pasan a
         // "por reagendar".
         if (newAppointment.status === "scheduled") {
+            // Revalida DESPUÉS de guardar (excluyendo la propia cita recién creada): el
+            // chequeo de arriba (líneas 747-754) y este insertAppointment no son atómicos
+            // entre sí — dos requests casi simultáneas pueden pasar ambas el chequeo antes
+            // de que cualquiera haya guardado, y terminar las dos con una cita "scheduled"
+            // para el mismo doctor/enfermera en el mismo horario (doble-reserva real). Si
+            // esta revalidación encuentra que el horario YA NO está libre, significa que
+            // la otra ganó la carrera primero: se revierte esta (en vez de dejar dos citas
+            // scheduled chocando) y se avisa al cliente para que reintente con otro
+            // horario, igual que si el chequeo original hubiera fallado.
+            const dobleReservaDoctor = doctor_id
+                ? !(await isSlotFreeForDoctor(doctor_id, dateStr, start_time, end_time, newAppointment._id)).free
+                : false;
+            const dobleReservaEnfermera = nurse_id
+                ? !(await isSlotFreeForNurse(nurse_id, dateStr, start_time, end_time, appointmentsModel, newAppointment._id)).free
+                : false;
+            if (dobleReservaDoctor || dobleReservaEnfermera) {
+                await appointmentsModel.deleteOne({ _id: newAppointment._id });
+                return res.status(409).json({ message: "Ese horario se acaba de ocupar. Elige otro horario e inténtalo de nuevo." });
+            }
+
             await bumpCompetingRequests(newAppointment).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
         }
 
@@ -952,7 +979,9 @@ appointmentsController.updateAppointment = async (req, res) => {
         // pending/needs_reschedule/expired nunca fueron aceptadas por nadie, y el
         // doctor/admin puede reasignarles fecha/hora/procedimiento antes de eso;
         // cancelada/completada/no_show ya no se pueden modificar.
-        const existing = await appointmentsModel.findById(req.params.id).select("status");
+        // Se trae completa (no solo el status) para poder revertir el update más abajo si
+        // la revalidación post-guardado encuentra una doble-reserva.
+        const existing = await appointmentsModel.findById(req.params.id);
         if (!existing) {
             return res.status(404).json({ message: "Cita no encontrada" });
         }
@@ -983,6 +1012,41 @@ appointmentsController.updateAppointment = async (req, res) => {
 
         if (!appointmentUpdated) {
             return res.status(404).json({ message: "Cita no encontrada" });
+        }
+
+        // Mismo motivo que en insertAppointment: el chequeo de isSlotFreeForDoctor/Nurse
+        // de más arriba y este findByIdAndUpdate no son atómicos entre sí, así que dos
+        // ediciones casi simultáneas hacia el mismo doctor/enfermera+horario podían pasar
+        // ambas el chequeo y dejar dos citas "scheduled" chocando. Si al revalidar
+        // DESPUÉS de guardar (excluyendo esta misma cita) el horario ya no está libre,
+        // se revierte el cambio a como estaba antes y se avisa para reintentar.
+        if (appointmentUpdated.status === "scheduled") {
+            const dateStr2 = `${appointmentUpdated.date.getFullYear()}-${String(appointmentUpdated.date.getMonth() + 1).padStart(2, "0")}-${String(appointmentUpdated.date.getDate()).padStart(2, "0")}`;
+            const dobleReservaDoctor = appointmentUpdated.doctor_id
+                ? !(await isSlotFreeForDoctor(appointmentUpdated.doctor_id, dateStr2, appointmentUpdated.start_time, appointmentUpdated.end_time, appointmentUpdated._id)).free
+                : false;
+            const dobleReservaEnfermera = appointmentUpdated.nurse_id
+                ? !(await isSlotFreeForNurse(appointmentUpdated.nurse_id, dateStr2, appointmentUpdated.start_time, appointmentUpdated.end_time, appointmentsModel, appointmentUpdated._id)).free
+                : false;
+            if (dobleReservaDoctor || dobleReservaEnfermera) {
+                await appointmentsModel.findByIdAndUpdate(req.params.id, {
+                    doctor_id: existing.doctor_id,
+                    patient_id: existing.patient_id,
+                    nurse_id: existing.nurse_id,
+                    procedure_id: existing.procedure_id,
+                    type: existing.type,
+                    appointment_type: existing.appointment_type,
+                    date: existing.date,
+                    start_time: existing.start_time,
+                    end_time: existing.end_time,
+                    duration_minutes: existing.duration_minutes,
+                    description: existing.description,
+                    status: existing.status,
+                    total: existing.total,
+                    cancellation_reason: existing.cancellation_reason,
+                });
+                return res.status(409).json({ message: "Ese horario se acaba de ocupar. Elige otro horario e inténtalo de nuevo." });
+            }
         }
 
         await notifyAppointmentRecipients(appointmentUpdated, {
@@ -1379,6 +1443,24 @@ appointmentsController.acceptAppointment = async (req, res) => {
             return res.status(409).json({ message: "Esta cita ya fue tomada por otro doctor." });
         }
 
+        // El findOneAndUpdate de arriba solo evita que ESTA MISMA cita se acepte dos
+        // veces (dos doctores tomándola a la vez); no evita que, en la misma ventana de
+        // carrera, otra cita DISTINTA para el mismo doctor y un horario que se solapa
+        // también termine aceptada — isSlotFreeForDoctor/Nurse de más arriba se revisó
+        // ANTES de este accept, no hay nada atómico que ligue esa lectura con la
+        // escritura. Se revalida DESPUÉS (excluyendo esta propia cita) y, si alguien más
+        // ganó la carrera, se revierte esta aceptación a como estaba antes.
+        const dobleReservaDoctor = !(await isSlotFreeForDoctor(req.user.id, dateStr, appointment.start_time, appointment.end_time, accepted._id)).free;
+        const dobleReservaEnfermera = accepted.nurse_id
+            ? !(await isSlotFreeForNurse(accepted.nurse_id, dateStr, appointment.start_time, appointment.end_time, appointmentsModel, accepted._id)).free
+            : false;
+        if (dobleReservaDoctor || dobleReservaEnfermera) {
+            await appointmentsModel.findByIdAndUpdate(accepted._id, {
+                $set: { status: "pending", doctor_id: appointment.doctor_id || null, nurse_id: appointment.nurse_id || null },
+            });
+            return res.status(409).json({ message: "Ese horario se acaba de ocupar con otra cita. Elige otra solicitud o espera un momento." });
+        }
+
         // El cupo de este doctor a esta hora quedó tomado: las demás solicitudes del
         // mismo doctor que se solapan pasan a "por reagendar".
         await bumpCompetingRequests(accepted).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
@@ -1494,6 +1576,20 @@ appointmentsController.assignDoctor = async (req, res) => {
             return res.status(409).json({ message: "Esta cita ya fue tomada por un doctor." });
         }
 
+        // Mismo motivo que en acceptAppointment: el findOneAndUpdate de arriba solo evita
+        // asignar ESTA MISMA cita dos veces, no que otra cita distinta para el mismo
+        // doctor/horario también se haya colado en la misma ventana de carrera.
+        const dobleReservaDoctor = !(await isSlotFreeForDoctor(doctor_id, dateStr, appointment.start_time, appointment.end_time, assigned._id)).free;
+        const dobleReservaEnfermera = assigned.nurse_id
+            ? !(await isSlotFreeForNurse(assigned.nurse_id, dateStr, appointment.start_time, appointment.end_time, appointmentsModel, assigned._id)).free
+            : false;
+        if (dobleReservaDoctor || dobleReservaEnfermera) {
+            await appointmentsModel.findByIdAndUpdate(assigned._id, {
+                $set: { status: "pending", doctor_id: appointment.doctor_id || null, nurse_id: appointment.nurse_id || null },
+            });
+            return res.status(409).json({ message: "Ese horario se acaba de ocupar con otra cita. Elige otra solicitud o espera un momento." });
+        }
+
         await bumpCompetingRequests(assigned).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
 
         await notifyAppointmentRecipients(assigned, {
@@ -1571,6 +1667,17 @@ appointmentsController.acceptAppointmentAsNurse = async (req, res) => {
         );
         if (!accepted) {
             return res.status(409).json({ message: "Esta cita ya fue tomada por otra enfermera." });
+        }
+
+        // Mismo motivo que en acceptAppointment: revalida DESPUÉS de aceptar, excluyendo
+        // esta misma cita, por si otra cita distinta para la misma enfermera/horario se
+        // coló en la misma ventana de carrera.
+        const dobleReservaEnfermera = !(await isSlotFreeForNurse(req.user.id, dateStr, appointment.start_time, appointment.end_time, appointmentsModel, accepted._id)).free;
+        if (dobleReservaEnfermera) {
+            await appointmentsModel.findByIdAndUpdate(accepted._id, {
+                $set: { status: "pending", nurse_id: appointment.nurse_id || null },
+            });
+            return res.status(409).json({ message: "Ese horario se acaba de ocupar con otra cita. Elige otra solicitud o espera un momento." });
         }
 
         await bumpCompetingRequests(accepted).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
@@ -1651,6 +1758,16 @@ appointmentsController.assignNurse = async (req, res) => {
         );
         if (!assigned) {
             return res.status(409).json({ message: "Esta cita ya fue tomada por otra enfermera." });
+        }
+
+        // Mismo motivo que en acceptAppointment/assignDoctor: revalida DESPUÉS de
+        // asignar, excluyendo esta misma cita.
+        const dobleReservaEnfermera = !(await isSlotFreeForNurse(nurse_id, dateStr, appointment.start_time, appointment.end_time, appointmentsModel, assigned._id)).free;
+        if (dobleReservaEnfermera) {
+            await appointmentsModel.findByIdAndUpdate(assigned._id, {
+                $set: { status: "pending", nurse_id: appointment.nurse_id || null },
+            });
+            return res.status(409).json({ message: "Ese horario se acaba de ocupar con otra cita. Elige otra solicitud o espera un momento." });
         }
 
         await bumpCompetingRequests(assigned).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));

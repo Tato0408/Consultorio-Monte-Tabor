@@ -351,20 +351,40 @@ async function notifyPendingRequestToProviders({
 export async function activateAfterDeposit(appointment) {
     if (appointment.status !== "pending_payment") return;
 
+    // Update atómico condicionado a que SIGA en pending_payment (en vez de leer
+    // appointment.status en memoria y luego guardar por separado): confirmAppointmentPayment
+    // y el webhook de Wompi pueden llegar casi al mismo tiempo para el mismo pago, cada
+    // uno con su propia copia en memoria (ambas con status "pending_payment", ninguna
+    // había guardado todavía) — con el chequeo+save de antes, los DOS pasaban el if de
+    // arriba y los DOS llamaban a notifyPendingRequestToProviders, duplicando el aviso a
+    // doctores/enfermeras. Con este findOneAndUpdate solo UNO de los dos consigue
+    // reclamar el cambio (el otro ve que el filtro ya no calza y claimed sale null).
+    const claimed = await appointmentsModel.findOneAndUpdate(
+        { _id: appointment._id, status: "pending_payment" },
+        { $set: { status: "pending" } },
+        { new: true }
+    );
+    if (!claimed) return;
+    // Se refleja también en el objeto que mandó el caller (no solo en "claimed"):
+    // confirmAppointmentPayment devuelve appointment.status en su respuesta al cliente
+    // justo después de llamar a esta función — si solo se actualizara la variable local
+    // "claimed", esa respuesta seguiría mostrando "pending_payment" aunque la base de
+    // datos ya hubiera quedado en "pending".
+    appointment.status = "pending";
+
     // procedure_id puede llegar poblado (confirmAppointmentPayment lo popula para armar
     // la respuesta al cliente) o sin poblar (el webhook, que hace un findById sin
-    // populate): se normaliza a ids planos antes de usarlo en cualquier query, porque
-    // pasarle documentos completos a un $in revienta el cast a ObjectId — y como eso
-    // pasaba ANTES de guardar el status "pending", la cita quedaba pagada
+    // populate, y ahora también "claimed", el resultado de findOneAndUpdate de arriba):
+    // se usa el procedure_id de "appointment" (conserva el populate si lo había) para no
+    // perder esa información en la respuesta, normalizado a ids planos antes de la query
+    // de abajo porque pasarle documentos completos a un $in revienta el cast a ObjectId
+    // — y como eso pasaba ANTES de guardar el status "pending", la cita quedaba pagada
     // (deposit_paid) pero atascada en "pending_payment" para siempre.
-    const procedureIds = (appointment.procedure_id || []).map((p) => p?._id || p);
+    const procedureIds = (appointment.procedure_id || claimed.procedure_id || []).map((p) => p?._id || p);
 
     const procedures = await procedureModel.find({ _id: { $in: procedureIds } }).select("name requires_doctor");
     const { requiresDoctor } = await resolveProcedureFlags(procedureIds);
     const sinProveedorElegido = requiresDoctor ? !appointment.doctor_id : !appointment.nurse_id;
-
-    appointment.status = "pending";
-    await appointment.save();
 
     await notifyPendingRequestToProviders({
         appointmentId: appointment._id,
@@ -920,11 +940,16 @@ patientPortalController.getDashboardSummary = async (req, res) => {
     try {
         const patientId = req.user.id;
         const hoy = new Date();
-        // Construido explícitamente en UTC (Date.UTC + getters UTC), no con getters locales
-        // del proceso: se compara contra appointment.date, que se guarda como medianoche UTC
-        // real. Antes funcionaba solo porque Render corre el proceso en UTC, una dependencia
-        // implícita de la zona horaria del entorno en vez de una construcción explícita.
-        const inicioHoy = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate()));
+        // Construido con getters LOCALES (no UTC): appointment.date se guarda como
+        // medianoche LOCAL de El Salvador (TZ=America/El_Salvador forzado para todo el
+        // proceso, ver backend/timezone.js y getDayRange en appointmentsController.js),
+        // que en UTC es 06:00, no 00:00. La versión anterior (Date.UTC + getters UTC)
+        // calculaba la medianoche UTC real: como El Salvador es UTC-6, desde las 6pm hora
+        // local en adelante esa medianoche UTC ya es la del día SIGUIENTE — un instante
+        // posterior a los 06:00 UTC de la cita de HOY ya guardada, así que el filtro de
+        // abajo (>= inicioHoy) excluía la propia cita del paciente de "próxima cita" todas
+        // las tardes/noches, aunque siguiera viéndose bien en "Mis citas".
+        const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
 
         // Mismas transiciones perezosas que corren al listar las citas: así el aviso de
         // "citas por reagendar" del dashboard aparece aunque el paciente entre directo aquí.
