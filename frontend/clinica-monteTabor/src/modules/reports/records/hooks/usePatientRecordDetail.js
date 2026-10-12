@@ -257,7 +257,14 @@ const usePatientRecordDetail = (patientId, patientName) => {
       setLoading(true);
       setError(null);
 
-      const [consultations, appointmentsRes, sickLeaves, labOrders] = await Promise.all([
+      // Promise.allSettled (no Promise.all): /appointments y /consultations exigen
+      // permisos propios (calendar.appointments:view, calendar.consultations:view)
+      // DISTINTOS del reports.records:view que ya gatea esta pantalla completa — un rol
+      // con acceso a Expediente pero sin esos otros dos permisos recibía 403 en una de
+      // estas peticiones, y con Promise.all eso rechazaba TODO el combinado, tumbando la
+      // página entera en vez de solo la sección afectada (mismo bug ya corregido antes en
+      // InventoryDashboard.jsx, ver ese comentario, nunca replicado acá).
+      const [consultationsRes, appointmentsRes, sickLeavesRes, labOrdersRes] = await Promise.allSettled([
         apiClient("/consultations", { params: { patient_id: patientId } }),
         // "completed" ya viene representada arriba por su consulta real, con datos
         // clínicos completos. pending/needs_reschedule/expired se excluyen a propósito:
@@ -272,13 +279,18 @@ const usePatientRecordDetail = (patientId, patientName) => {
           },
         }),
         apiClient("/sick-leaves", { params: { patient_id: patientId } }),
-        apiClient("/lab-orders", { params: { patient_id: patientId } }).catch(() => []),
+        apiClient("/lab-orders", { params: { patient_id: patientId } }),
       ]);
+
+      const consultations = consultationsRes.status === "fulfilled" ? consultationsRes.value : [];
+      const appointmentsData = appointmentsRes.status === "fulfilled" ? appointmentsRes.value?.data : [];
+      const sickLeaves = sickLeavesRes.status === "fulfilled" ? sickLeavesRes.value : [];
+      const labOrders = labOrdersRes.status === "fulfilled" ? labOrdersRes.value : [];
 
       setExtra(
         buildExtra(
           Array.isArray(consultations) ? consultations : [],
-          Array.isArray(appointmentsRes?.data) ? appointmentsRes.data : [],
+          Array.isArray(appointmentsData) ? appointmentsData : [],
           Array.isArray(sickLeaves) ? sickLeaves : [],
           Array.isArray(labOrders) ? labOrders : [],
           patientName

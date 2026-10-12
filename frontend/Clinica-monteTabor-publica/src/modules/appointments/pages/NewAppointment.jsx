@@ -168,6 +168,14 @@ const NewAppointment = () => {
   // bloqueado), no se vuelve a cobrar (el anticipo ya pagado viaja con el mismo registro) y
   // al confirmar se llama a rescheduleAppointment en vez de bookAppointment.
   const [rescheduleId, setRescheduleId] = useState(null);
+  // Si la cita que se reagenda ya tenía un anticipo pagado (ver irAReagendarReusando en
+  // MyAppointments.jsx): antes el ticket de confirmación mostraba siempre "monto a pagar
+  // en recepción: $total completo", como si no se hubiera pagado nada, aunque sí quedara
+  // un anticipo ya cubierto de antes — monto engañoso. Con esto, TicketCita recibe los
+  // mismos props que usaría un pago en línea normal (pagoOnline/deposit/depositPagado),
+  // mostrando "Anticipo pagado" y el resto real a pagar en recepción.
+  const [depositoYaPagado, setDepositoYaPagado] = useState(false);
+  const [montoDepositoYaPagado, setMontoDepositoYaPagado] = useState(0);
   // Motivo de consulta: opcional, el backend lo acepta y lo guarda (ver
   // patientPortalController.bookAppointment) pero este asistente nunca lo pedía —
   // a diferencia de la app móvil, un doctor nunca veía por qué el paciente agendó.
@@ -198,6 +206,8 @@ const NewAppointment = () => {
       setMotivo(reschedule.motivo || "");
       const tiposPrefill = reschedule.tipos?.length ? reschedule.tipos : reschedule.tipo ? [reschedule.tipo] : [];
       if (tiposPrefill.length > 0) setTipos(tiposPrefill);
+      setDepositoYaPagado(Boolean(reschedule.depositPaid));
+      setMontoDepositoYaPagado(Number(reschedule.depositAmount) || 0);
       navigate(location.pathname, { replace: true, state: {} });
       return;
     }
@@ -347,6 +357,12 @@ const NewAppointment = () => {
   };
 
   const handleConfirmar = async () => {
+    // Guardia explícita además de disabled={submitting} en el botón: disabled solo surte
+    // efecto después de que React confirme el re-render de ese setSubmitting(true), así
+    // que dos toques muy seguidos (common en móvil/doble clic) podían disparar esta
+    // función dos veces antes de que el botón alcanzara a deshabilitarse, duplicando la
+    // cita creada o el intento de pago.
+    if (submitting) return;
     const motivoLimpio = motivo.trim();
     if (motivoLimpio && (motivoLimpio.length < 3 || motivoLimpio.length > 500)) {
       setMotivoError("El motivo debe tener entre 3 y 500 caracteres.");
@@ -439,6 +455,14 @@ const NewAppointment = () => {
             endTime={confirmada.end_time}
             total={confirmada.total}
             instructions={indicaciones}
+            // confirmada vuelve directo del backend (bookAppointment/rescheduleAppointment),
+            // así que deposit_paid/deposit_amount reflejan el estado real guardado — antes
+            // esta pantalla de éxito mostraba siempre "Monto a pagar: $total completo" sin
+            // importar si ya había un anticipo pagado (pago en línea recién hecho, o uno
+            // anterior conservado al reagendar), monto engañoso en ambos casos.
+            pagoOnline={Boolean(confirmada.deposit_paid) && confirmada.deposit_amount != null}
+            deposit={confirmada.deposit_amount}
+            depositPagado={Boolean(confirmada.deposit_paid)}
           />
 
           <div className="flex gap-3 mt-6">
@@ -563,8 +587,12 @@ const NewAppointment = () => {
                   endTime={slot.end_time}
                   total={total}
                   instructions={indicaciones}
-                  pagoOnline={!rescheduleId && metodoPago === "online"}
-                  deposit={deposito}
+                  // Reagendando una cita que ya tenía anticipo pagado: se muestra igual que
+                  // un pago en línea, pero como "ya pagado" (ver depositoYaPagado arriba) en
+                  // vez del monto completo como si nada se hubiera pagado antes.
+                  pagoOnline={(!rescheduleId && metodoPago === "online") || depositoYaPagado}
+                  deposit={depositoYaPagado ? montoDepositoYaPagado : deposito}
+                  depositPagado={depositoYaPagado}
                 />
 
                 {rescheduleId ? (

@@ -211,7 +211,15 @@ export default function NewAppointmentScreen({ navigation, route }) {
   // StepFechaHora.jsx en la web).
   const todayKey = toDateKey(new Date());
   const visibleSlots = date === todayKey ? slots.filter(isFutureSlot) : slots;
-  const selectedSlot = visibleSlots.find((slot) => slot.start_time === selectedTime);
+  // Importante: se busca en "slots" (la lista completa, solo cambia cuando se vuelve a
+  // pedir al backend), no en "visibleSlots" (se recalcula en cada render contra la hora
+  // actual). Si no, un horario de HOY elegido con poca anticipación podía vencer
+  // mientras el paciente seguía en el paso de confirmar (ej. escribiendo el motivo) o ya
+  // en la pantalla de éxito: ese re-render lo sacaba de "visibleSlots" y selectedSlot
+  // pasaba a undefined, reventando el .start_time de abajo sin ningún ErrorBoundary que
+  // lo atajara (pantalla en blanco). Después de elegido, el horario ya no debe
+  // desaparecer solo porque pasó el tiempo.
+  const selectedSlot = slots.find((slot) => slot.start_time === selectedTime);
   // Un servicio con requires_doctor === false lo atiende una enfermera como proveedora
   // principal en el modo "doctor". Mezclar uno que requiere doctor con uno que no, el
   // doctor pasa a ser el proveedor principal. Sin ningún servicio elegido todavía, por
@@ -532,7 +540,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
             {selectedDoctor && <SummaryRow icon="person-outline" label="Doctor" value={`Dr. ${selectedDoctor.name} ${selectedDoctor.last_name}`} />}
             {selectedNurse && <SummaryRow icon="person-outline" label="Enfermera" value={`${selectedNurse.name} ${selectedNurse.last_name}`} />}
             <SummaryRow icon="calendar-outline" label="Fecha" value={longDate(date)} />
-            <SummaryRow icon="time-outline" label="Hora" value={`${selectedSlot.start_time} – ${selectedSlot.end_time}`} />
+            <SummaryRow icon="time-outline" label="Hora" value={`${selectedSlot?.start_time ?? "—"} – ${selectedSlot?.end_time ?? "—"}`} />
             <SummaryRow icon="hourglass-outline" label="Estado" value="Pendiente de asignación" />
           </View>
           {/* tabSwitch: false explícito: sin esto, si el usuario llegó aquí después de tocar
@@ -714,7 +722,7 @@ export default function NewAppointmentScreen({ navigation, route }) {
               {selectedDoctor && <SummaryRow icon="person-outline" label="Doctor" value={`Dr. ${selectedDoctor.name} ${selectedDoctor.last_name}`} />}
               {selectedNurse && <SummaryRow icon="person-outline" label="Enfermera" value={`${selectedNurse.name} ${selectedNurse.last_name}`} />}
               <SummaryRow icon="calendar-outline" label="Fecha" value={longDate(date)} />
-              <SummaryRow icon="time-outline" label="Hora" value={`${selectedSlot.start_time} – ${selectedSlot.end_time}`} />
+              <SummaryRow icon="time-outline" label="Hora" value={`${selectedSlot?.start_time ?? "—"} – ${selectedSlot?.end_time ?? "—"}`} />
               <SummaryRow icon="cash-outline" label="Costo" value={money(serviceTotal)} />
               <SummaryRow icon="hourglass-outline" label="Estado inicial" value="Pendiente de asignación" />
             </View>

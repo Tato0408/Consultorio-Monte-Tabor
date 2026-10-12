@@ -77,6 +77,10 @@ const Medications = () => {
   }, []);
 
   const toggleTomado = async (medicationId, tomadoActual) => {
+    // disabled={marcando === m.medication_id} en el botón no alcanza a bloquear un
+    // segundo toque muy rápido sobre el mismo medicamento (antes de que React confirme
+    // el re-render), duplicando el PATCH de marcar tomado/pendiente.
+    if (marcando === medicationId) return;
     setMarcando(medicationId);
     try {
       await markMedicationTaken(medicationId, !tomadoActual);
@@ -105,7 +109,12 @@ const Medications = () => {
         filas.push({ id: `${receta._id}-${m._id}`, receta, medicamento: m, estado: calcularEstado(receta.issued_at, m.duration) });
       });
     });
-    return filas.sort((a, b) => new Date(b.receta.issued_at) - new Date(a.receta.issued_at));
+    // issued_at ausente (receta vieja sin esa fecha registrada) daba new Date(undefined)
+    // = Invalid Date, y la resta de dos Invalid Date es NaN — un comparador de sort que
+    // devuelve NaN deja el orden de esas filas inestable. Sin fecha se trata como la más
+    // antigua posible (0 = época unix), nunca NaN.
+    const fechaOrden = (f) => (f.receta.issued_at ? new Date(f.receta.issued_at).getTime() : 0);
+    return filas.sort((a, b) => fechaOrden(b) - fechaOrden(a));
   }, [historial]);
 
   const filtradas = filtroEstado === "todos" ? filasHistorial : filasHistorial.filter((f) => f.estado === filtroEstado);

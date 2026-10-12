@@ -122,7 +122,15 @@ const InventoryDashboard = () => {
     if (!confirmed) return;
     try {
       await deleteInsumo(product._id);
-      setSelectedProduct(null);
+      // No se limpia selectedProduct acá a propósito: el efecto de auto-selección de
+      // arriba corre con cada cambio de "products" Y "selectedProduct" — limpiarlo ANTES
+      // de que termine el refetch de triggerRefresh() disparaba ese efecto contra la
+      // lista todavía VIEJA (con el producto recién borrado todavía adentro), así que a
+      // veces volvía a "seleccionar" products[0] cuando ese products[0] era justo el que
+      // se acababa de eliminar — un instante con los botones Editar/Eliminar de
+      // ProductDetailCard apuntando a un producto que ya no existe. Dejar selectedProduct
+      // tal cual hasta que llegue la lista fresca evita ese hueco: el efecto reacciona una
+      // sola vez, ya con datos reales, y ahí sí nota que ya no está y elige otro.
       triggerRefresh();
     } catch (err) {
       showError(err.message || "No se pudo eliminar el producto.");

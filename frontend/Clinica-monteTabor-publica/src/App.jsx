@@ -6,6 +6,10 @@ import ScrollToTop from './components/ScrollToTop';
 import Login from './modules/login/pages/login/Login';
 import Register from './modules/login/pages/register/Register';
 import VerifyEmail from './modules/login/pages/register/VerifyEmail';
+import Recovery from './modules/login/pages/recovery/Recovery';
+import VerifyCode from './modules/login/pages/recovery/VerifyCode';
+import NewPassword from './modules/login/pages/recovery/NewPassword';
+import PasswordUpdated from './modules/login/pages/recovery/PasswordUpdated';
 import Dashboard from './modules/dashboard/pages/Dashboard';
 import Home from './modules/home/pages/Home';
 import NewAppointment from './modules/appointments/pages/NewAppointment';
@@ -28,6 +32,10 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/register/verify" element={<VerifyEmail />} />
+          <Route path="/recovery" element={<Recovery />} />
+          <Route path="/verify-code" element={<VerifyCode />} />
+          <Route path="/new-password" element={<NewPassword />} />
+          <Route path="/password-updated" element={<PasswordUpdated />} />
 
           <Route
             path="/dashboard"

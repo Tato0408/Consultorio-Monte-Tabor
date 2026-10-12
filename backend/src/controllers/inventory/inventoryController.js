@@ -5,6 +5,53 @@ import { getNonNegativeError, escapeRegex } from "../../utils/validators.js";
 
 const inventoryController = {};
 
+// Cambia el stock de un insumo de forma ATÓMICA, evitando un "lost update": antes,
+// adjustStock/stockEntry/manualUsage/discountMaterialsForProcedure leían el insumo con
+// findById, calculaban el nuevo stock en memoria y lo guardaban con item.save() — si dos
+// requests tocaban el mismo insumo casi al mismo tiempo (ej. dos enfermeras registrando
+// uso del mismo insumo desechable), ambas leían el mismo stock de partida, y la segunda
+// en guardar pisaba el resultado de la primera sin tomarlo en cuenta: el insumo quedaba
+// mostrando más stock del que de verdad había, con dos movimientos en la bitácora que no
+// cuadraban contra el stock final.
+//
+// delta puede ser positivo (entrada/aumento) o negativo (uso/disminución). Para un delta
+// negativo, igual que antes, si se pide descontar más de lo que hay solo se descuenta lo
+// que existe (nunca queda negativo) — "applied" es la cantidad realmente aplicada, para
+// que la bitácora y el mensaje de "stock insuficiente" sigan reflejando la realidad.
+//
+// La atomicidad viene de condicionar el update al valor de stock leído (findOneAndUpdate
+// con stock: current.stock en el filtro): si otra escritura concurrente ya cambió el
+// documento, el filtro no calza, updated sale null, y se reintenta releyendo el stock
+// real más reciente — optimistic concurrency, sin necesitar una transacción de Mongo.
+async function applyStockDelta(itemId, delta, { setLastUsed = false } = {}) {
+  // 20 intentos alcanza de sobra para el tráfico real (unas pocas personas tocando el
+  // mismo insumo casi al mismo tiempo); la espera aleatoria entre reintentos (en vez de
+  // reintentar inmediato) separa a los que están chocando para que no seguir
+  // colisionando en el siguiente intento.
+  const MAX_ATTEMPTS = 20;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 10 + Math.random() * 40));
+    }
+    const current = await inventoryModel.findById(itemId);
+    if (!current) return null;
+
+    const applied = delta < 0 ? -Math.min(-delta, current.stock) : delta;
+    const update = { $set: { stock: current.stock + applied } };
+    if (setLastUsed) update.$set.last_used = new Date();
+
+    const updated = await inventoryModel.findOneAndUpdate(
+      { _id: itemId, stock: current.stock },
+      update,
+      { new: true }
+    );
+    if (updated) return { item: updated, applied };
+    // Otra escritura concurrente cambió el stock entre el read y el write de arriba:
+    // se reintenta con el valor real más reciente en vez de pisarlo a ciegas.
+  }
+  throw new Error("No se pudo actualizar el stock: demasiados cambios simultáneos sobre el mismo insumo. Intenta de nuevo.");
+}
+
 // GET todos, con paginación y filtros.
 inventoryController.getAll = async (req, res) => {
   try {
@@ -126,7 +173,15 @@ inventoryController.update = async (req, res) => {
       || getNonNegativeError(req.body.min_stock, "El stock mínimo");
     if (numberError) return res.status(400).json({ message: numberError });
 
-    const updateData = { ...req.body };
+    // Whitelist de campos editables (igual que los que acepta create): antes era
+    // { ...req.body } completo, sin filtrar — cualquier caller con permiso de editar
+    // inventario podía mandar cualquier campo del esquema en el body (mass assignment),
+    // no solo los que el formulario de edición realmente expone.
+    const EDITABLE_FIELDS = ["name", "description", "category", "stock", "unit_measure", "price", "min_stock", "expiration_date", "supplier"];
+    const updateData = {};
+    for (const field of EDITABLE_FIELDS) {
+      if (req.body[field] !== undefined) updateData[field] = req.body[field];
+    }
     if (updateData.stock)           updateData.stock           = Number(updateData.stock);
     if (updateData.price)           updateData.price           = Number(updateData.price);
     if (updateData.min_stock)       updateData.min_stock       = Number(updateData.min_stock);
@@ -332,22 +387,15 @@ inventoryController.adjustStock = async (req, res) => {
     const quantityError = getNonNegativeError(quantity, "La cantidad");
     if (quantityError) return res.status(400).json({ message: quantityError });
 
-    const item = await inventoryModel.findById(id);
-    if (!item) return res.status(404).json({ message: "Insumo no encontrado" });
-
     const qty = Number(quantity);
-    // Con "disminuir", si se pide más de lo que hay, solo se puede descontar lo
-    // que existe: el stock nunca debe quedar negativo. La bitácora antes
-    // igual registraba la cantidad PEDIDA (qty), no la aplicada, dejando un
-    // movimiento que no correspondía a ningún cambio real de stock.
-    const appliedQty = adjustType === "aumentar" ? qty : Math.min(qty, item.stock);
-    if (adjustType === "aumentar") {
-      item.stock += appliedQty;
-    } else {
-      item.stock -= appliedQty;
-    }
+    const delta = adjustType === "aumentar" ? qty : -qty;
+    const result = await applyStockDelta(id, delta);
+    if (!result) return res.status(404).json({ message: "Insumo no encontrado" });
+    const { item, applied: appliedDelta } = result;
+    // appliedQty siempre positivo (lo que ya esperan el mensaje/la bitácora de abajo),
+    // applyStockDelta devuelve el delta con signo.
+    const appliedQty = Math.abs(appliedDelta);
 
-    await item.save();
     await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
 
     await new movementModel({
@@ -408,10 +456,15 @@ inventoryController.stockEntry = async (req, res) => {
     }
 
     if (item) {
-      item.stock += qty;
-      item.price  = cost;
-      if (minStock !== null) item.min_stock = minStock;
-      await item.save();
+      // El stock se incrementa de forma atómica (ver applyStockDelta) para no perder un
+      // aumento si dos entradas de stock del mismo insumo se registran casi al mismo
+      // tiempo. price/min_stock no tienen ese problema (es "pisar con el valor nuevo",
+      // no "sumar sobre el valor viejo"), se actualizan aparte.
+      const result = await applyStockDelta(item._id, qty);
+      item = result.item;
+      const fieldsToUpdate = { price: cost };
+      if (minStock !== null) fieldsToUpdate.min_stock = minStock;
+      item = await inventoryModel.findByIdAndUpdate(item._id, { $set: fieldsToUpdate }, { new: true });
       await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
     } else {
       item = await new inventoryModel({
@@ -447,20 +500,19 @@ inventoryController.manualUsage = async (req, res) => {
 
     const cappedItems = [];
     for (const entry of items) {
-      const item = await inventoryModel.findById(entry.insumoId);
-      if (!item) continue;
-
-      // Si se pide más de lo que hay, solo se puede descontar lo que existe.
+      const requested = Number(entry.quantity);
+      // applyStockDelta descuenta de forma atómica y ya capa a lo que de verdad hay
+      // disponible (ver su comentario) — evita que dos usos manuales del mismo insumo
+      // casi simultáneos se pisen entre sí.
+      const result = await applyStockDelta(entry.insumoId, -requested, { setLastUsed: true });
+      if (!result) continue;
+      const { item, applied: appliedDelta } = result;
+      const applied = -appliedDelta;
       // Antes la bitácora igual registraba la cantidad PEDIDA, no la
       // aplicada: con 3 en stock y un uso de 10, el stock quedaba en 0 pero
       // el historial decía "-10 uds", una cantidad que nunca existió.
-      const requested = Number(entry.quantity);
-      const applied = Math.min(requested, item.stock);
       if (applied < requested) cappedItems.push({ name: item.name, requested, applied });
 
-      item.stock     = item.stock - applied;
-      item.last_used = new Date();
-      await item.save();
       await notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
 
       await new movementModel({
@@ -498,21 +550,20 @@ inventoryController.discountMaterialsForProcedure = async ({ materials, patientN
     const quantity = Number(material.quantity) || 0;
     if (!material.insumo || quantity <= 0) continue;
 
-    const item = await inventoryModel.findById(material.insumo);
-    if (!item) continue;
-
-    // Si se pide más de lo que hay, solo se descuenta lo que existe. La
-    // bitácora debe registrar esa cantidad real, no la pedida por el
+    // applyStockDelta descuenta de forma atómica y ya capa a lo que de verdad hay
+    // disponible (ver su comentario) — evita que dos procedimientos que usan el mismo
+    // insumo, registrados casi al mismo tiempo, se pisen entre sí.
+    const result = await applyStockDelta(material.insumo, -quantity, { setLastUsed: true });
+    if (!result) continue;
+    const { item, applied: appliedDelta } = result;
+    const applied = -appliedDelta;
+    // La bitácora debe registrar esa cantidad real, no la pedida por el
     // catálogo del procedimiento (antes quedaba, por ejemplo, "-10 uds" con
     // solo 3 en stock, una cantidad que nunca existió).
-    const applied = Math.min(quantity, item.stock);
     if (applied < quantity) {
-      console.log(`Inventario insuficiente para "${item.name}": se pidieron ${quantity}, solo había ${item.stock}.`);
+      console.log(`Inventario insuficiente para "${item.name}": se pidieron ${quantity}, solo había ${item.stock - applied}.`);
     }
 
-    item.stock = item.stock - applied;
-    item.last_used = new Date();
-    await item.save();
     notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
 
     await new movementModel({

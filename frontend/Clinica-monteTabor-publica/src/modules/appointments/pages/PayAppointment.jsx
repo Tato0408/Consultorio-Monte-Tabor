@@ -171,6 +171,10 @@ const PayAppointment = () => {
 
   const handlePagar = async (e) => {
     e.preventDefault();
+    // Guardia explícita: disabled={pagando} en el botón no alcanza a bloquear un segundo
+    // toque muy rápido (antes de que React confirme el re-render), lo que podía disparar
+    // un segundo cobro con la misma tarjeta.
+    if (pagando) return;
     if (!cita) return;
 
     const erroresValidacion = validar();

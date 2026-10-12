@@ -34,6 +34,13 @@ const appointmentsSchema = new Schema({
     duration_minutes: { type: Number, required: true },
     description: { type: String },
     status: { type: String, required: true },
+    // Desde cuándo esta solicitud (en estado "pending") está esperando que un
+    // doctor/enfermera la acepte. Arranca en la creación (default) y se reinicia al
+    // reagendar (ver rescheduleMyAppointment): si no se reiniciara, runAppointmentAutoTransitions
+    // seguiría comparando contra la fecha de creación ORIGINAL, y una cita que ya pasó por
+    // needs_reschedule una vez (por definición con más de 48h desde esa fecha) volvía a
+    // marcarse "por reagendar" en la siguiente carga, aunque se acabara de reagendar.
+    requested_at: { type: Date, default: Date.now },
     total: { type: Number, required: true },
     cancellation_reason: { type: String },
     // Cuando status === "needs_reschedule": por qué quedó así.

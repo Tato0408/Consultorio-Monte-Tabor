@@ -18,6 +18,11 @@ import { colors } from "../../styles/profile/profileStyle";
 
 const STATUS = {
   pending: { label: "Pendiente", tone: "amber" }, scheduled: { label: "Programada", tone: "blue" },
+  // Anticipo en línea creado pero sin confirmar (ver activateAfterDeposit en el backend):
+  // antes el backend (GET /appointments/patient) la excluía para cualquier rol, staff o
+  // paciente por igual, así que el paciente no tenía forma de verla ni de retomar un pago
+  // que quedó a medias — solo le quedaba esperar a que se autoeliminara sola a los 30 min.
+  pending_payment: { label: "Pago pendiente", tone: "amber" },
   completed: { label: "Completada", tone: "green" }, cancelled: { label: "Cancelada", tone: "red" },
   // Mismo texto que appointmentsStyle.js (este mismo módulo) y que el panel
   // privado/portal público para el mismo estado: antes decía "No asistió" solo acá.
@@ -28,7 +33,7 @@ const STATUS = {
 // Estados que se listan en la pestaña de citas (las demás, canceladas/no_show, viven en el
 // historial de consultas). "completed" no entra aquí: tiene su propio filtro "Atendidas"
 // más abajo, que sí se le suma a esta lista solo cuando ese filtro está activo.
-const OPEN_STATUSES = ["pending", "scheduled", "needs_reschedule", "expired"];
+const OPEN_STATUSES = ["pending", "pending_payment", "scheduled", "needs_reschedule", "expired"];
 const REAGENDABLES = ["needs_reschedule", "expired"];
 
 const APPOINTMENT_FILTERS = [

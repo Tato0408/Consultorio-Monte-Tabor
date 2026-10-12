@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import useInsumos from "../hooks/useInsumos";
 import GenericTable from "@/components/ui/GenericTable";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -42,8 +42,18 @@ const InventoryTable = ({ refreshTrigger, onTableOffsetChange, onSelectItem, onI
   const [category, setCategory] = useState("Todas");
   const [status, setStatus] = useState("Todos");
   const [expiry, setExpiry] = useState("Todas");
+  // Cancela la petición anterior si seguía en curso: sin esto, cambiar de filtro rápido
+  // (Categoría/Caducidad/Estado) antes de que la carga previa respondiera podía dejar la
+  // tabla mostrando el resultado de un filtro VIEJO si esa respuesta vieja llegaba
+  // después que la más reciente (orden de red no garantizado) — mismo patrón que
+  // useAppointment.js.
+  const abortControllerRef = useRef(null);
 
   const load = useCallback(async () => {
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     try {
       const params = {
@@ -53,14 +63,15 @@ const InventoryTable = ({ refreshTrigger, onTableOffsetChange, onSelectItem, onI
         status: status !== "Todos" ? status : undefined,
         expiry: expiry !== "Todas" ? expiry : undefined,
       };
-      const data = await getInsumos(params);
+      const data = await getInsumos(params, controller.signal);
       setItems(data.insumos || []);
       onItemsChange?.(data.insumos || []);
-    } catch {
+    } catch (err) {
+      if (err?.name === "AbortError") return;
       setItems([]);
       onItemsChange?.([]);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, [refreshTrigger, category, status, expiry]);
 

@@ -24,6 +24,12 @@ import styles from "../../styles/appointments/appointmentDetailStyle";
 const STATUS = {
   // Mismo texto que AppointmentsScreen.jsx (el listado) para el mismo estado.
   pending: { label: "Pendiente", color: "#A16207", bg: "#FFF7D6" },
+  // Anticipo en línea creado pero sin confirmar todavía (ver activateAfterDeposit en el
+  // backend) — antes esta pantalla ni siquiera dejaba abrir el detalle para este estado
+  // (caía en el bloque de "otra sección" más abajo), así que si el paciente abandonaba el
+  // pago no tenía ninguna forma de volver a intentarlo: solo le quedaba esperar a que la
+  // cita se autoeliminara sola a los 30 min.
+  pending_payment: { label: "Pago pendiente", color: "#A16207", bg: "#FFF7D6" },
   scheduled: { label: "Programada", color: "#245CE0", bg: "#E8EFFF" },
   needs_reschedule: { label: "Por reagendar", color: "#C2410C", bg: "#FFEDD5" },
   expired: { label: "Por reagendar", color: "#C2410C", bg: "#FFEDD5" },
@@ -192,7 +198,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
     return <SafeAreaView style={styles.safe}><ActivityIndicator size="large" color="#2F6BFF" style={styles.loader} /></SafeAreaView>;
   }
 
-  if (!["pending", "scheduled", "needs_reschedule", "expired"].includes(appointment.status)) {
+  if (!["pending", "pending_payment", "scheduled", "needs_reschedule", "expired"].includes(appointment.status)) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
@@ -224,7 +230,14 @@ export default function AppointmentDetailScreen({ navigation, route }) {
           {doctor?.img_url ? <Image source={{ uri: doctor.img_url }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarInitials}>{initials}</Text></View>}
           <View style={styles.doctorText}>
             <Text style={styles.doctorName}>{doctor ? `Dr. ${doctor.name} ${doctor.last_name || ""}` : "Doctor por asignar"}</Text>
-            <Text style={styles.specialty}>{doctor?.specialty || (appointment.status === "pending" ? "Tu solicitud está esperando aceptación" : "Médico asignado")}</Text>
+            <Text style={styles.specialty}>
+              {doctor?.specialty
+                || (appointment.status === "pending_payment"
+                  ? "Falta confirmar tu pago para que sea una solicitud real"
+                  : appointment.status === "pending"
+                    ? "Tu solicitud está esperando aceptación"
+                    : "Médico asignado")}
+            </Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: status.bg }]}><Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text></View>
         </View>
@@ -248,7 +261,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
             name={
               ["needs_reschedule", "expired"].includes(appointment.status)
                 ? "alert-circle-outline"
-                : appointment.status === "pending"
+                : ["pending", "pending_payment"].includes(appointment.status)
                   ? "hourglass-outline"
                   : "checkmark-circle-outline"
             }
@@ -258,13 +271,23 @@ export default function AppointmentDetailScreen({ navigation, route }) {
           <Text style={[styles.noticeText, { color: status.color }]}>
             {["needs_reschedule", "expired"].includes(appointment.status)
               ? RESCHEDULE_REASON_TEXT[appointment.reschedule_reason] || "Esta cita quedó sin confirmar. Elige una nueva fecha y hora."
-              : appointment.status === "pending"
-                ? "La solicitud aún debe ser aceptada por un doctor."
-                : "Tu cita fue aceptada y está programada."}
+              : appointment.status === "pending_payment"
+                ? "Si no completas el pago, esta solicitud se elimina sola en unos minutos."
+                : appointment.status === "pending"
+                  ? "La solicitud aún debe ser aceptada por un doctor."
+                  : "Tu cita fue aceptada y está programada."}
           </Text>
         </View>
 
-        {RESCHEDULABLE.includes(appointment.status) ? (
+        {appointment.status === "pending_payment" ? (
+          <TouchableOpacity
+            style={styles.rescheduleButton}
+            onPress={() => navigation.navigate("PayAppointment", { appointmentId: appointment._id, tabSwitch: false })}
+          >
+            <Ionicons name="card-outline" size={20} color="#FFF" />
+            <Text style={styles.rescheduleButtonText}>Pagar anticipo</Text>
+          </TouchableOpacity>
+        ) : RESCHEDULABLE.includes(appointment.status) ? (
           <>
             <TouchableOpacity
               style={styles.cancelButton}

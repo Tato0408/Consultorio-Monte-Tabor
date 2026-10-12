@@ -1,6 +1,10 @@
 import dotenv from "dotenv";
 
-dotenv.config();
+// quiet: true solo apaga el log cosmético que imprime dotenv al cargar el .env (un tip
+// promocional aleatorio de sus propios productos, dotenvx.com/vestauth.com) — no cambia
+// en nada el parseo ni el llenado de process.env, ni el manejo de errores si falta el
+// archivo (ver node_modules/dotenv/lib/main.js: quiet solo envuelve esa única línea).
+dotenv.config({ quiet: true });
 
 export const config = {
     db: {
