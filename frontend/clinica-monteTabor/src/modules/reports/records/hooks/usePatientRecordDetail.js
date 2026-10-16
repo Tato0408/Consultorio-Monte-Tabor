@@ -75,6 +75,8 @@ const buildExtra = (consultations, appointments, sickLeaves, labOrders, patientN
       paciente: patientName || "—",
       medico: getDoctorName(a.doctor_id, a.nurse_id),
       estado: a.status,
+      // Cita completa para saber a quién pertenece al atenderla.
+      appointmentRaw: a,
     }));
 
   const consultas = [...atendidas, ...otras].sort(
@@ -120,6 +122,9 @@ const buildExtra = (consultations, appointments, sickLeaves, labOrders, patientN
         o.consultation_id?.appointment_id?.doctor_id,
         o.consultation_id?.appointment_id?.nurse_id
       ),
+      doctorId: o.consultation_id?.appointment_id?.doctor_id?._id
+        ? String(o.consultation_id.appointment_id.doctor_id._id)
+        : null,
       labOrder: o,
     };
   });
@@ -276,6 +281,9 @@ const usePatientRecordDetail = (patientId, patientName) => {
             patient_id: patientId,
             status: "scheduled,cancelled,no_show",
             limit: 500,
+            // La enfermera con permiso de Ingreso también ve las citas de
+            // otros proveedores de este paciente.
+            include_others: "true",
           },
         }),
         apiClient("/sick-leaves", { params: { patient_id: patientId } }),

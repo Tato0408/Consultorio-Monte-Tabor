@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getMyAppointments, cancelAppointment, deleteAppointmentRequest } from "@/services/appointmentsService";
 import { showSuccess, showError, confirmAction, confirmActionWithReason } from "@/lib/alerts";
 import NotificationsMenu from "@/components/NotificationsMenu";
+import ConsultationSummary from "../components/ConsultationSummary";
 
 // pending_payment: anticipo en línea creado pero sin confirmar todavía (ver
 // activateAfterDeposit en el backend) — antes no tenía entrada acá, caía al fallback
@@ -191,7 +192,13 @@ const AppointmentCard = ({ cita, badge, onCancelar, cancelando, onReagendar, rea
         </div>
       </div>
 
-      {expandida && (
+      {expandida && cita.status === "completed" && (
+        <div className="mt-4 pt-4 border-t border-gray-50 text-sm text-gray-600">
+          <ConsultationSummary appointmentId={cita._id} />
+        </div>
+      )}
+
+      {expandida && cita.status !== "completed" && (
         <div className="mt-4 pt-4 border-t border-gray-50 text-sm text-gray-600 space-y-1.5">
           {cita.description && <p>{cita.description}</p>}
           {cita.status === "cancelled" && cita.cancellation_reason && (

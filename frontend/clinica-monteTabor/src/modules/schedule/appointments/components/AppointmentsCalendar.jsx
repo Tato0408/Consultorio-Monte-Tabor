@@ -394,6 +394,10 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
     const isPendingAction = appt.status === "pending" && (
         procedureRequiresDoctor ? (isDoctor || isAdmin) : (isNurse || isAdmin)
     );
+    // El admin asigna solo las solicitudes sin doctor definido. Si el
+    // paciente ya eligió doctor, en su listado siempre es él mismo (su
+    // doctor espejo), y entonces la acepta igual que un doctor.
+    const admin_assigns = isAdmin && !appt.doctor_id;
     const nurseRequired = (appt.procedure_id || []).some((p) => !!p.requires_nurse);
     const [resolvingAccept, setResolvingAccept] = useState(false);
     const [needsNurseChoice, setNeedsNurseChoice] = useState(false);
@@ -624,7 +628,7 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
 
                     {isPendingAction && needsNurseChoice ? (
                         <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 space-y-2.5">
-                            {isAdmin && procedureRequiresDoctor && (
+                            {admin_assigns && procedureRequiresDoctor && (
                                 <DataCombobox
                                     value={chosenDoctorId}
                                     onChange={setChosenDoctorId}
@@ -661,11 +665,11 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
                                     disabled={
                                         confirming
                                         || ((procedureRequiresDoctor ? nurseRequired : true) && !chosenNurseId)
-                                        || (procedureRequiresDoctor && isAdmin && !chosenDoctorId)
+                                        || (procedureRequiresDoctor && admin_assigns && !chosenDoctorId)
                                     }
                                     onClick={() => {
                                         if (!procedureRequiresDoctor) return finishAssignNurse(chosenNurseId);
-                                        return isAdmin ? finishAssign(chosenDoctorId, chosenNurseId) : finishAccept(chosenNurseId);
+                                        return admin_assigns ? finishAssign(chosenDoctorId, chosenNurseId) : finishAccept(chosenNurseId);
                                     }}
                                     className="flex-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
                                 >
@@ -675,11 +679,11 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
                         </div>
                     ) : isPendingAction ? (
                         <button
-                            onClick={isAdmin ? handleAssignClick : handleAcceptClick}
+                            onClick={admin_assigns ? handleAssignClick : handleAcceptClick}
                             disabled={resolvingAccept}
                             className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60"
                         >
-                            {resolvingAccept ? "Cargando..." : isAdmin ? "Asignar cita" : "Aceptar cita"}
+                            {resolvingAccept ? "Cargando..." : admin_assigns ? "Asignar cita" : "Aceptar cita"}
                         </button>
                     ) : null}
 

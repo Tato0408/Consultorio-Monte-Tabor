@@ -4,7 +4,7 @@ import doctorsModel from "../../models/doctors/doctors.js";
 import notificationModel from "../../models/notifications/notification.js";
 import { isSlotFreeForDoctor } from "../schedule/scheduleController.js";
 import { isNurseAvailable, isSlotFreeForNurse, anyNurseAvailable } from "../schedule/nurseScheduleController.js";
-import { notifyAppointmentRecipients } from "../../services/notificationService.js";
+import { notifyAppointmentRecipients, find_admin_mirror_id } from "../../services/notificationService.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import nursesModel from "../../models/nurses/nurses.js";
 import consultationsModel from "../../models/consultations/consultation.js";
@@ -13,6 +13,7 @@ import { RESCHEDULE_REASONS, isCancelLockedForPatient } from "../../utils/appoin
 import { buildActivePartiesAppointmentFilter, assertActiveParties } from "../../utils/activeScope.js";
 import { deleteAppointmentCascade } from "../../services/consultationCascade.js";
 import { resolveProcedures, resolveProcedureFlags } from "../../utils/procedureAggregation.js";
+import { getModulePermission } from "../../services/roleCache.js";
 
 const appointmentsController = {};
 
@@ -272,6 +273,9 @@ appointmentsController.getAppointments = async (req, res) => {
         } = req.query;
 
         const filters = {};
+        // Indica que el listado de la enfermera mezcla sus citas con las de
+        // otros proveedores y que las suyas deben ir primero.
+        let nurse_own_first = false;
 
         // Filtro por un día exacto.
         if (date) {
@@ -374,10 +378,33 @@ appointmentsController.getAppointments = async (req, res) => {
             // enfermera la elige el doctor/admin al aceptar/asignar, no hay solicitud propia
             // que la enfermera deba tomar ella misma.
             const nurseOnlyProcedures = await proceduresModel.find({ requires_doctor: false }).select("_id");
+            const nurse_scope = [
+                { nurse_id: req.user.id },
+                { nurse_id: null, status: "pending", procedure_id: { $in: nurseOnlyProcedures.map(p => p._id) } },
+            ];
+            // El módulo de Consultas pide include_others: si el rol de enfermera
+            // tiene permiso de Ingreso en Consultas, también ve las citas ya
+            // aceptadas de los demás proveedores para poder atenderlas en su
+            // nombre. Sus propias citas siempre se listan primero (ver
+            // nurse_own_first más abajo).
+            if (req.query.include_others === "true" && getModulePermission("nurse", "calendar.consultations")?.create) {
+                nurse_scope.push({ status: { $ne: "pending" } });
+                nurse_own_first = true;
+            }
+            filters.$and = (filters.$and || []).concat([{ $or: nurse_scope }]);
+        } else if (req.user.role === "admin") {
+            // En las solicitudes pendientes el admin solo ve dos casos: las
+            // agendadas con su doctor espejo (las acepta o reagenda él mismo)
+            // y las que el paciente pidió sin doctor ni enfermera definidos
+            // (las asigna a quien corresponda). Una solicitud dirigida a otro
+            // doctor o enfermera solo la atiende ese proveedor. El resto de
+            // estados se listan completos.
+            const mirror_id = await find_admin_mirror_id(req.user.id);
             filters.$and = (filters.$and || []).concat([{
                 $or: [
-                    { nurse_id: req.user.id },
-                    { nurse_id: null, status: "pending", procedure_id: { $in: nurseOnlyProcedures.map(p => p._id) } },
+                    { status: { $ne: "pending" } },
+                    { doctor_id: null, nurse_id: null },
+                    ...(mirror_id ? [{ doctor_id: mirror_id }] : []),
                 ],
             }]);
         } else if (req.user.role === "patient") {
@@ -409,20 +436,44 @@ appointmentsController.getAppointments = async (req, res) => {
         // Orden por fecha: ascendente por defecto, descendente si se pide.
         const dateDirection = sortOrder === "asc" ? 1 : -1;
 
-        const [appointments, total] = await Promise.all([
-            appointmentsModel
-                .find(filters)
-                .populate("doctor_id", "name last_name specialty img_url")
-                .populate("nurse_id", "name last_name img_url")
-                .populate({ path: "patient_id", model: "Patients", select: "name last_name" })
-                .populate({ path: "procedure_id", model: "procedure", select: "name requires_nurse requires_doctor" })
-                // createdAt asc como desempate: si dos solicitudes son para la misma
-                // fecha y hora, en "Por aceptar" aparece primero la que se solicitó antes.
-                .sort({ date: dateDirection, start_time: dateDirection, createdAt: 1 })
-                .skip(skip)
-                .limit(limitNumber),
-            appointmentsModel.countDocuments(filters),
-        ]);
+        // Consulta paginada con los datos poblados que usa el frontend.
+        // createdAt asc como desempate: si dos solicitudes son para la misma
+        // fecha y hora, en "Por aceptar" aparece primero la que se solicitó antes.
+        const find_page = (query_filter, page_skip, page_limit) => appointmentsModel
+            .find(query_filter)
+            .populate("doctor_id", "name last_name specialty img_url is_admin_mirror")
+            .populate("nurse_id", "name last_name img_url")
+            .populate({ path: "patient_id", model: "Patients", select: "name last_name" })
+            .populate({ path: "procedure_id", model: "procedure", select: "name requires_nurse requires_doctor" })
+            .sort({ date: dateDirection, start_time: dateDirection, createdAt: 1 })
+            .skip(page_skip)
+            .limit(page_limit);
+
+        let appointments;
+        let total;
+        if (nurse_own_first) {
+            // Dos bloques paginados como uno solo: primero todas las citas de
+            // la enfermera y después las de los demás proveedores, cada bloque
+            // en su orden normal por fecha.
+            const own_filter = { $and: [filters, { nurse_id: req.user.id }] };
+            const others_filter = { $and: [filters, { nurse_id: { $ne: req.user.id } }] };
+            const [own_total, others_total] = await Promise.all([
+                appointmentsModel.countDocuments(own_filter),
+                appointmentsModel.countDocuments(others_filter),
+            ]);
+            total = own_total + others_total;
+            const own_page = skip < own_total ? await find_page(own_filter, skip, limitNumber) : [];
+            const remaining = limitNumber - own_page.length;
+            const others_page = remaining > 0
+                ? await find_page(others_filter, Math.max(skip - own_total, 0), remaining)
+                : [];
+            appointments = [...own_page, ...others_page];
+        } else {
+            [appointments, total] = await Promise.all([
+                find_page(filters, skip, limitNumber),
+                appointmentsModel.countDocuments(filters),
+            ]);
+        }
 
         // Para la enfermera: marca cada cita cuya consulta ya registrada le
         // falta la nota de enfermería (procedimiento que exige enfermera y
@@ -1351,7 +1402,8 @@ appointmentsController.updateAppointmentStatus = async (req, res) => {
 // horario siga libre desde que se creó la cita.
 appointmentsController.acceptAppointment = async (req, res) => {
     try {
-        if (req.user.role !== "doctor") {
+        const is_admin = req.user.role === "admin";
+        if (req.user.role !== "doctor" && !is_admin) {
             return res.status(403).json({ message: "Solo un doctor puede aceptar una cita." });
         }
 
@@ -1361,7 +1413,19 @@ appointmentsController.acceptAppointment = async (req, res) => {
             return res.status(404).json({ message: "Appointment not found" });
         }
 
-        if (appointment.doctor_id && appointment.doctor_id.toString() !== req.user.id) {
+        // Id del doctor que acepta. El admin acepta como su doctor espejo y
+        // solo las citas que el paciente agendó con él: una solicitud sin
+        // doctor definido no se acepta, se asigna (ver assignDoctor).
+        let provider_id = String(req.user.id);
+        if (is_admin) {
+            const mirror_id = await find_admin_mirror_id(req.user.id);
+            if (!mirror_id || !appointment.doctor_id || appointment.doctor_id.toString() !== String(mirror_id)) {
+                return res.status(403).json({ message: "Solo puedes aceptar las citas agendadas contigo. Las solicitudes sin doctor se asignan." });
+            }
+            provider_id = String(mirror_id);
+        }
+
+        if (appointment.doctor_id && appointment.doctor_id.toString() !== provider_id) {
             return res.status(403).json({ message: "No puedes aceptar una cita asignada a otro doctor." });
         }
 
@@ -1380,7 +1444,7 @@ appointmentsController.acceptAppointment = async (req, res) => {
         const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
         const { free, reason } = await isSlotFreeForDoctor(
-            req.user.id,
+            provider_id,
             dateStr,
             appointment.start_time,
             appointment.end_time,
@@ -1434,9 +1498,9 @@ appointmentsController.acceptAppointment = async (req, res) => {
             {
                 _id: appointment._id,
                 status: "pending",
-                doctor_id: appointment.doctor_id ? req.user.id : null,
+                doctor_id: appointment.doctor_id ? provider_id : null,
             },
-            { $set: { doctor_id: req.user.id, nurse_id: assignedNurse?._id || null, status: "scheduled" } },
+            { $set: { doctor_id: provider_id, nurse_id: assignedNurse?._id || null, status: "scheduled" } },
             { new: true }
         );
         if (!accepted) {
@@ -1450,7 +1514,7 @@ appointmentsController.acceptAppointment = async (req, res) => {
         // ANTES de este accept, no hay nada atómico que ligue esa lectura con la
         // escritura. Se revalida DESPUÉS (excluyendo esta propia cita) y, si alguien más
         // ganó la carrera, se revierte esta aceptación a como estaba antes.
-        const dobleReservaDoctor = !(await isSlotFreeForDoctor(req.user.id, dateStr, appointment.start_time, appointment.end_time, accepted._id)).free;
+        const dobleReservaDoctor = !(await isSlotFreeForDoctor(provider_id, dateStr, appointment.start_time, appointment.end_time, accepted._id)).free;
         const dobleReservaEnfermera = accepted.nurse_id
             ? !(await isSlotFreeForNurse(accepted.nurse_id, dateStr, appointment.start_time, appointment.end_time, appointmentsModel, accepted._id)).free
             : false;
@@ -1465,7 +1529,7 @@ appointmentsController.acceptAppointment = async (req, res) => {
         // mismo doctor que se solapan pasan a "por reagendar".
         await bumpCompetingRequests(accepted).catch((e) => console.log("Error bumpeando solicitudes rivales:", e));
 
-        const acceptingDoctor = await doctorsModel.findById(req.user.id).select("name last_name").lean();
+        const acceptingDoctor = await doctorsModel.findById(provider_id).select("name last_name").lean();
         const doctorName = acceptingDoctor
             ? `Dr. ${acceptingDoctor.name} ${acceptingDoctor.last_name || ""}`.trim()
             : "El doctor";
@@ -1506,6 +1570,13 @@ appointmentsController.assignDoctor = async (req, res) => {
 
         if (appointment.status !== "pending") {
             return res.status(400).json({ message: "Esta cita ya no está pendiente de asignación." });
+        }
+
+        // La asignación solo aplica a solicitudes que el paciente hizo sin
+        // doctor definido. Si eligió un doctor, solo ese doctor la acepta o
+        // la reagenda, aunque ese doctor sea el propio admin.
+        if (appointment.doctor_id) {
+            return res.status(400).json({ message: "Esta cita ya tiene un doctor elegido por el paciente. Solo ese doctor puede aceptarla o reagendarla." });
         }
 
         const doctor = await doctorsModel.findById(doctor_id).select("_id is_active");
@@ -1568,7 +1639,7 @@ appointmentsController.assignDoctor = async (req, res) => {
         }
 
         const assigned = await appointmentsModel.findOneAndUpdate(
-            { _id: appointment._id, status: "pending" },
+            { _id: appointment._id, status: "pending", doctor_id: null },
             { $set: { doctor_id, nurse_id: assignedNurse?._id || null, status: "scheduled" } },
             { new: true }
         );
@@ -1724,6 +1795,12 @@ appointmentsController.assignNurse = async (req, res) => {
             return res.status(400).json({ message: "Esta cita ya no está pendiente de asignación." });
         }
 
+        // Mismo criterio que assignDoctor: si el paciente eligió una
+        // enfermera, solo ella acepta la solicitud.
+        if (appointment.nurse_id) {
+            return res.status(400).json({ message: "Esta cita ya tiene una enfermera elegida por el paciente. Solo esa enfermera puede aceptarla o reagendarla." });
+        }
+
         const nurse = await nursesModel.findById(nurse_id).select("_id");
         if (!nurse) {
             return res.status(400).json({ message: "La enfermera seleccionada no existe." });
@@ -1752,7 +1829,7 @@ appointmentsController.assignNurse = async (req, res) => {
         }
 
         const assigned = await appointmentsModel.findOneAndUpdate(
-            { _id: appointment._id, status: "pending" },
+            { _id: appointment._id, status: "pending", nurse_id: null },
             { $set: { nurse_id, status: "scheduled" } },
             { new: true }
         );

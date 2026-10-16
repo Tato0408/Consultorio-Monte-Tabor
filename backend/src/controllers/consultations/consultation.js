@@ -10,7 +10,7 @@ import { getVitalSignsError, getRequiredConsultationFieldsError } from "../../ut
 import appointmentsModel from "../../models/appointments/appointments.js";
 import { assertActiveParties, isPatientInactive } from "../../utils/activeScope.js";
 import { getModulePermission } from "../../services/roleCache.js";
-import { refreshNurseNotePendingNotification } from "../../services/notificationService.js";
+import { refreshNurseNotePendingNotification, insert_staff_notifications } from "../../services/notificationService.js";
 import { sync_treatment_from_consultation } from "../../services/treatmentSync.js";
 import { resolve_actor } from "../../utils/resolveActor.js";
 import { cascadeDeleteConsultation, deleteAppointmentCascade } from "../../services/consultationCascade.js";
@@ -43,6 +43,55 @@ const sanitizeTreatmentPlanForActor = (treatment_plan, req) => {
   if (!treatment_plan?.create) return treatment_plan;
   const canCreateTreatment = !!getModulePermission(req.user?.role, "inventory.treatments")?.create;
   return canCreateTreatment ? treatment_plan : { ...treatment_plan, create: false };
+};
+
+// Convierte una hora "HH:mm" al formato de 12 horas usado en los avisos.
+const format_time_12h = (time) => {
+  const [hours, minutes] = String(time || "").split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return time || "";
+  const suffix = hours >= 12 ? "PM" : "AM";
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${suffix}`;
+};
+
+// Avisa al proveedor dueño de la cita cuando una enfermera o una
+// recepcionista registra la consulta en su nombre. El dueño es el doctor si
+// algún procedimiento de la cita requiere doctor, o la enfermera principal si
+// no. Recibe la cita (con date, start_time, patient_id, doctor_id, nurse_id y
+// procedure_id) y la petición, de donde salen el rol y el nombre de quien
+// atendió. Best effort, nunca corta la respuesta.
+const notify_owner_if_attended_by_other = async (appointment, req) => {
+  try {
+    if (!appointment || !["nurse", "receptionist"].includes(req.user?.role)) return;
+
+    const { requiresDoctor } = await resolveProcedureFlags(appointment.procedure_id);
+    const owner = requiresDoctor
+      ? { role: "doctor", id: appointment.doctor_id }
+      : { role: "nurse", id: appointment.nurse_id };
+    if (!owner.id || String(owner.id) === String(req.user.id)) return;
+
+    const [actor, patient] = await Promise.all([
+      resolve_actor(req),
+      patientsModel.findById(appointment.patient_id).select("name last_name").lean(),
+    ]);
+    const role_label = req.user.role === "nurse" ? "La enfermera" : "La recepcionista";
+    const actor_name = String(actor?.name || "").replace(/^Enf\.\s*/, "") || "del personal";
+    const patient_name = patient ? `${patient.name} ${patient.last_name || ""}`.trim() : "un paciente";
+    const date_text = appointment.date
+      ? new Intl.DateTimeFormat("es-SV", { day: "2-digit", month: "long", timeZone: "UTC" }).format(new Date(appointment.date))
+      : "";
+
+    await insert_staff_notifications({
+      recipient_role: owner.role,
+      recipient_id: owner.id,
+      title: "Tu cita fue atendida por otra persona",
+      type: "general",
+      message: `${role_label} ${actor_name} atendió tu cita del ${date_text} a las ${format_time_12h(appointment.start_time)} con el paciente ${patient_name}.`,
+      appointment_id: appointment._id,
+      action_url: `/calendar/consultations/${appointment._id}`,
+    });
+  } catch (error) {
+    console.log("Error notificando consulta atendida por otra persona:", error);
+  }
 };
 
 // Refresca la notificación de notas de enfermería pendientes cuando la cita
@@ -351,8 +400,22 @@ consultationController.insertConsultation = async (req, res) => {
     // No se registra una consulta de un paciente inactivo ni de una cita
     // asignada a un doctor inactivo: esa consulta no seria visible despues.
     const consultationAppointment = appointment_id
-      ? await appointmentsModel.findById(appointment_id).select("doctor_id nurse_id procedure_id").lean()
+      ? await appointmentsModel.findById(appointment_id).select("doctor_id nurse_id procedure_id status date start_time patient_id").lean()
       : null;
+
+    // Una cita cancelada (por el paciente o desde el panel) o marcada como no
+    // presentada ya no admite una consulta nueva, aunque el formulario se haya
+    // abierto antes de que cambiara su estado.
+    if (consultationAppointment && ["cancelled", "no_show"].includes(consultationAppointment.status)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: consultationAppointment.status === "cancelled"
+          ? "Esta cita fue cancelada, ya no se puede registrar la consulta."
+          : "Esta cita quedó como no presentada, ya no se puede registrar la consulta.",
+      });
+    }
+
     const inactivePartyError = await assertActiveParties({
       patientId: patient_id,
       doctorId: consultationAppointment?.doctor_id,
@@ -500,6 +563,7 @@ consultationController.insertConsultation = async (req, res) => {
     // El doctor puede finalizar sin la nota de enfermería: si el
     // procedimiento la exige, la enfermera asignada recibe el aviso.
     await notifyNurseNoteIfNeeded(consultationAppointment);
+    await notify_owner_if_attended_by_other(consultationAppointment, req);
 
     return res.status(200).json({ message: "Consulta guardada" });
   } catch (error) {

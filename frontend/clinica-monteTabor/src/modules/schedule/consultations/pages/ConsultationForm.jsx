@@ -27,7 +27,7 @@ import { showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
 import apiClient from "@/lib/apiClient";
 import { useAuth } from "@/context/AuthContext";
-import { useMySignatureAssets } from "@/lib/useMySignatureAssets";
+import { useDocumentSignature } from "@/lib/useDocumentSignature";
 
 // Borrador de la consulta en curso, guardado en sessionStorage al salir a
 // "Generar orden de laboratorio" para no perder lo que el doctor llevaba
@@ -79,7 +79,6 @@ const ConsultationForm = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { hasPermission, userType } = useAuth();
-    const { signatureUrl, sealUrl } = useMySignatureAssets();
 
     // Esta consulta se abrió desde la pestaña Consultas del expediente de un
     // paciente (RecordDetailPage.jsx manda fromRecords en location.state).
@@ -130,6 +129,12 @@ const ConsultationForm = () => {
     const { appointment, defaultValues, save, isLoading, isSaving, error, hasExistingRecord, consultationId, activeTreatment } =
         useConsultation(appointmentId);
 
+    // Los PDF salen a nombre del doctor asignado a la cita, con su firma y
+    // sello solo si quien descarga es ese doctor o el admin.
+    const { signatureUrl, sealUrl } = useDocumentSignature(
+        appointment?.doctor_id?._id || appointment?.doctor_id
+    );
+
     // El formulario queda en solo lectura si se pidió explícitamente
     // (mode=view), o si el rol no puede registrar la consulta (cuando es
     // nueva) ni editarla (cuando ya existe). En solo lectura, el botón de
@@ -175,6 +180,15 @@ const ConsultationForm = () => {
                 // de esta pantalla.
                 goBack();
             });
+        } else if (!isLoading && !hasExistingRecord && ["cancelled", "no_show"].includes(appointment?.status)) {
+            // Una cita cancelada o no presentada ya no se atiende, aunque se
+            // llegue aquí por un enlace o una lista abierta desde antes.
+            showError(
+                "Consulta no disponible",
+                appointment.status === "cancelled"
+                    ? "Esta cita fue cancelada, ya no se puede registrar la consulta."
+                    : "Esta cita quedó como no presentada, ya no se puede registrar la consulta."
+            ).then(() => goBack());
         } else {
             // Si el doctor venía de "Generar orden de laboratorio", se restaura lo
             // que llevaba escrito sin guardar; si no, carga normalmente.

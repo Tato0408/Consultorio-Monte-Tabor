@@ -1,6 +1,6 @@
 import inventoryModel from "../../models/inventory/inventory.js";
 import movementModel from "../../models/inventory/movements.js";
-import { notifyLowStockAdmins } from "../../services/notificationService.js";
+import { notifyLowStockAdmins, notify_expiry_admins } from "../../services/notificationService.js";
 import { getNonNegativeError, escapeRegex } from "../../utils/validators.js";
 
 const inventoryController = {};
@@ -142,6 +142,7 @@ inventoryController.create = async (req, res) => {
 
     await newItem.save();
     await notifyLowStockAdmins(newItem).catch((error) => console.log("Error notificando inventario:", error));
+    await notify_expiry_admins(newItem).catch((error) => console.log("Error notificando vencimiento:", error));
 
     // Registrar movimiento inicial si hay stock
     if (Number(stock) > 0) {
@@ -190,6 +191,7 @@ inventoryController.update = async (req, res) => {
 
     const updatedItem = await inventoryModel.findByIdAndUpdate(id, updateData, { new: true });
     await notifyLowStockAdmins(updatedItem).catch((error) => console.log("Error notificando inventario:", error));
+    await notify_expiry_admins(updatedItem).catch((error) => console.log("Error notificando vencimiento:", error));
     return res.status(200).json({ message: "Insumo actualizado", item: updatedItem });
   } catch (error) {
     return res.status(500).json({ message: "Error al actualizar", error: error.message });

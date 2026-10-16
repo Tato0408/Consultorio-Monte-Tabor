@@ -229,7 +229,19 @@ export default function AppointmentsScreen({ navigation, route }) {
           <AppointmentCard
             key={appointment._id}
             appointment={appointment}
-            onPress={() => navigation.navigate("AppointmentDetail", { appointmentId: appointment._id })}
+            onPress={() => {
+              // Una cita atendida abre el detalle de su consulta, igual que la pestaña
+              // "Consultas completadas". Si la consulta aún no aparece en la lista,
+              // AppointmentDetail la busca y redirige por su cuenta.
+              const consultation = appointment.status === "completed"
+                ? consultations.find((item) => String(item.appointment_id) === String(appointment._id))
+                : null;
+              if (consultation?.consultation_id) {
+                navigation.navigate("ConsultationDetail", { consultationId: consultation.consultation_id });
+                return;
+              }
+              navigation.navigate("AppointmentDetail", { appointmentId: appointment._id });
+            }}
           />
         ))}
 

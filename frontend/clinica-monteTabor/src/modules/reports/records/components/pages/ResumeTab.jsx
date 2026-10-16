@@ -10,13 +10,18 @@ import { downloadPdf } from "@/modules/schedule/consultations/pdf/downloadPdf";
 import { openPdfInNewTab } from "@/modules/schedule/consultations/pdf/openPdfInNewTab";
 import { pdfDateTime } from "@/modules/schedule/consultations/pdf/pdfDate";
 import { calculateAge } from "@/lib/validators";
+import { useAuth } from "@/context/AuthContext";
+import { get_document_signature } from "@/lib/documentSignature";
 
 // Arma y abre en una pestaña nueva el PDF de una receta (mismo documento que
 // se descarga desde la pestaña de Documentos, ver RecordsDocuments.jsx). Al
 // generarse desde el expediente, la fecha y la hora son las de cuando se
-// emitió la receta (issued_at), no las de ahora.
-const descargarReceta = async (patient, receta) => {
+// emitió la receta (issued_at), no las de ahora. session es { user, userType }
+// y decide si el PDF lleva la firma y el sello del doctor asignado (ver
+// get_document_signature).
+const descargarReceta = async (patient, receta, session) => {
   const { date: dateFormatted, time: timeFormatted, fileSafe } = pdfDateTime(receta.issuedAtRaw);
+  const { signatureUrl, sealUrl } = await get_document_signature(receta.doctorId, session);
   const patientFullName = `${patient.nombre || ""} ${patient.apellido || ""}`.trim();
   await openPdfInNewTab(
     <RecetaDocument
@@ -25,6 +30,8 @@ const descargarReceta = async (patient, receta) => {
       dui={patient.dui}
       age={calculateAge(patient.birthDate)}
       doctorName={receta.doctorName}
+      signatureUrl={signatureUrl}
+      sealUrl={sealUrl}
       date={dateFormatted}
       time={timeFormatted}
       medications={receta.medicationsRaw}
@@ -35,8 +42,9 @@ const descargarReceta = async (patient, receta) => {
 
 // Arma y descarga el PDF de una orden de laboratorio guardada (misma plantilla
 // que usa la pantalla de consulta). Los datos del paciente y del médico vienen
-// poblados desde GET /lab-orders.
-const descargarOrdenLaboratorio = async (labOrder) => {
+// poblados desde GET /lab-orders. session decide la firma igual que en
+// descargarReceta.
+const descargarOrdenLaboratorio = async (labOrder, session) => {
   const p = labOrder.patient_id || {};
   const appt = labOrder.consultation_id?.appointment_id || {};
   const provider = appt.doctor_id || appt.nurse_id || null;
@@ -44,6 +52,7 @@ const descargarOrdenLaboratorio = async (labOrder) => {
   const doctorName = provider ? `${provider.name || ""} ${provider.last_name || ""}`.trim() : "";
   const dateSource = labOrder.consultation_id?.date || labOrder.issued_at || labOrder.createdAt;
   const { date: dateFormatted, time: timeFormatted, fileSafe } = pdfDateTime(dateSource);
+  const { signatureUrl, sealUrl } = await get_document_signature(appt.doctor_id?._id || appt.doctor_id, session);
 
   await downloadPdf(
     <LabOrderDocument
@@ -53,6 +62,8 @@ const descargarOrdenLaboratorio = async (labOrder) => {
       gender={p.gender}
       dui={p.dui}
       doctorName={doctorName}
+      signatureUrl={signatureUrl}
+      sealUrl={sealUrl}
       date={dateFormatted}
       time={timeFormatted}
       weight={labOrder.weight}
@@ -83,6 +94,7 @@ function VitalCard({ label, value, unit, badge }) {
 }
 
 export default function ResumenTab({ patient = {}, onNavigateTab }) {
+  const { user, userType } = useAuth();
   const v = patient.signosVitales ?? {};
 
   return (
@@ -169,7 +181,7 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
                   type="button"
                   onClick={async () => {
                     try {
-                      await descargarReceta(patient, r);
+                      await descargarReceta(patient, r, { user, userType });
                     } catch (err) {
                       showError(err?.message || "No se pudo generar la receta.");
                     }
@@ -251,7 +263,7 @@ export default function ResumenTab({ patient = {}, onNavigateTab }) {
                     type="button"
                     onClick={async () => {
                       try {
-                        await descargarOrdenLaboratorio(l.labOrder);
+                        await descargarOrdenLaboratorio(l.labOrder, { user, userType });
                       } catch (err) {
                         showError(err?.message || "No se pudo generar la orden de laboratorio.");
                       }

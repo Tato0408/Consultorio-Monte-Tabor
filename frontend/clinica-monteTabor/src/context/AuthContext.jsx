@@ -203,6 +203,15 @@ export const AuthProvider = ({ children }) => {
             setUser(response.user);
             setUserType(response.userType);
             setIsLoggedIn(true);
+            // Reemplaza el usuario con el perfil completo de /auth/me, que
+            // incluye firma, sello y teléfono. Así la firma y el sello
+            // guardados aparecen en el perfil y en los PDF desde el login.
+            try {
+                const current = await apiClient("/auth/me");
+                if (current?.user) setUser(current.user);
+            } catch {
+                // Si falla se conserva el usuario que devolvió el login.
+            }
             await fetchPermissions();
             // El toast de bienvenida lo muestra Login.jsx de forma
             // personalizada. No se repite aquí para evitar una notificación

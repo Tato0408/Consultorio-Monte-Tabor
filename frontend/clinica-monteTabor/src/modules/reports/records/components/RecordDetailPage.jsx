@@ -14,6 +14,7 @@ import SignosVitalesTab from "./pages/RecordsVitalSigns";
 import ConsultasTab from "./pages/RecordsConsultations";
 import DocumentosTab from "./pages/RecordsDocuments";
 import usePatientRecordDetail from "../hooks/usePatientRecordDetail";
+import { confirm_attend_for_owner } from "@/lib/appointmentOwner";
 
 const TAB_LABELS = ["Resumen", "Historia clínica", "Procedimientos", "Signos vitales", "Consultas", "Documentos"];
 
@@ -37,7 +38,7 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated, initialTab }) => {
   const fullName = `${record?.nombre || ""} ${record?.apellido || ""}`.trim();
   const { extra, loading, error, refetch } = usePatientRecordDetail(record?.id, fullName);
   const navigate = useNavigate();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user, userType } = useAuth();
   // Atender/registrar una consulta desde el expediente exige "crear" tanto en
   // Consultas como en Expediente (mismo criterio que aplica el formulario).
   const canAttend =
@@ -162,15 +163,16 @@ const RecordDetailPage = ({ record, onBack, onPatientUpdated, initialTab }) => {
           canAttend={canAttend}
           canDelete={canDeleteConsulta}
           deletingId={deletingConsultaId}
-          onContinuar={(c) =>
-            c.appointmentId &&
+          onContinuar={async (c) => {
+            if (!c.appointmentId) return;
+            if (!(await confirm_attend_for_owner(c.appointmentRaw, { user, userType }))) return;
             navigate(`/calendar/consultations/${c.appointmentId}`, {
               // fromRecords + patientId dejan que el botón de volver de
               // ConsultationForm.jsx regrese exactamente a este expediente (y a su
               // pestaña Consultas), en vez de mandar siempre al listado global.
               state: { fromRecords: true, patientId: patient.id },
-            })
-          }
+            });
+          }}
           onVerRegistro={(c) =>
             c.appointmentId &&
             navigate(`/calendar/consultations/${c.appointmentId}`, {

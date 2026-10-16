@@ -73,13 +73,14 @@ const AdminDashboard = () => {
                     <h2 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest mb-3">
                         Resumen general
                     </h2>
-                    {/* La clase grid-cols-5 hace que la tarjeta de ingresos ocupe dos
-                        columnas, más ancha y horizontal como en el diseño de referencia,
-                        y que las otras tres ocupen una columna cada una. Entre las
-                        cuatro tarjetas suman las cinco columnas de la grilla, así que
-                        siempre caben en una sola fila sin desbordarse a la siguiente
-                        línea. */}
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                    {/* La grilla responde al ancho real de la sección (container
+                        query) y no al de la pantalla, porque el menú lateral le quita
+                        260px desde md. Angosta: ingresos arriba y las otras tres en dos
+                        columnas. Media: ingresos arriba y las otras tres en una fila.
+                        Ancha: las cuatro en una fila, con ingresos ocupando dos
+                        columnas. */}
+                    <div className="@container">
+                    <div className="grid grid-cols-2 @lg:grid-cols-3 @4xl:grid-cols-5 gap-4 [&>*:last-child]:col-span-2 @lg:[&>*:last-child]:col-span-1">
                         <StatCard
                             featured
                             icon={<DollarSign className="w-5 h-5 text-white" />}
@@ -121,6 +122,7 @@ const AdminDashboard = () => {
                             sparkline={s.totalPatients?.sparkline ?? []}
                             sparklineColor="#ec4899"
                         />
+                    </div>
                     </div>
                 </section>
 

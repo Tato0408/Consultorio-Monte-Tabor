@@ -233,15 +233,15 @@ export const confirmDischarge = async () => {
   return result.isConfirmed;
 };
 
-// Se muestra cuando un doctor distinto al ya asignado le da clic a
-// Continuar sobre una consulta agendada sin confirmar (ver
-// AppointmentTable.jsx). Solo es un aviso de coordinación: continuar
-// no reasigna la cita, simplemente permite seguir con la acción ya
-// enterado de que otro médico la solicitó o la está atendiendo.
-export const confirmTakeOverAppointment = async (doctorName) => {
+// Se muestra cuando una enfermera o una recepcionista le da clic a
+// Continuar sobre una cita que pertenece a otro proveedor (ver
+// appointmentOwner.js). Solo es un aviso de coordinación: continuar no
+// reasigna la cita, la consulta sigue quedando a nombre de su dueño.
+// ownerLabel ya trae el artículo y el nombre ("el Dr(a). Ana López").
+export const confirmTakeOverAppointment = async (ownerLabel) => {
   const result = await Swal.fire({
-    title: "Cita con médico asignado",
-    text: `Este paciente solicitó ser atendido por el Dr(a). ${doctorName}, o ya está siendo atendido por este médico. Por favor, coordine con el médico y el paciente antes de continuar con esta acción.`,
+    title: "Esta cita no es tuya",
+    text: `Esta cita pertenece a ${ownerLabel}. Antes de atenderla debiste ponerte de acuerdo con ese profesional. La consulta quedará registrada a su nombre y se le notificará que la atendiste. ¿Deseas continuar?`,
     icon: "warning",
     iconColor: "#fbbf24",
     showCancelButton: true,

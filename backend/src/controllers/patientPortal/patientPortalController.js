@@ -18,6 +18,7 @@ import { getTransactionStatus } from "../../utils/wompi.js";
 import { RESCHEDULABLE_STATUSES, isCancelLockedForPatient } from "../../utils/appointmentStatus.js";
 import { deleteAppointmentCascade } from "../../services/consultationCascade.js";
 import { resolveProcedures, resolveProcedureFlags } from "../../utils/procedureAggregation.js";
+import { insert_staff_notifications, notifyAppointmentRecipients } from "../../services/notificationService.js";
 import jsonwebtoken from "jsonwebtoken";
 import { config } from "../../../config.js";
 
@@ -296,17 +297,18 @@ async function notifyPendingRequestToProviders({
             const mensaje = sinProveedorElegido
                 ? `El paciente ${patientName} solicitó una cita de ${tipoLabel} sin doctor asignado para el ${fechaFormateada} en el horario de ${start_time}. Cualquier doctor puede aceptarla.`
                 : `El paciente ${patientName} ha agendado una cita de ${tipoLabel} para el ${fechaFormateada} en el horario de ${start_time}.`;
+            // insert_staff_notifications entrega al admin lo dirigido a su doctor
+            // espejo: una cita sin doctor le llega para asignarla, y una cita
+            // agendada con él le llega solo a él para aceptarla.
             if (sinProveedorElegido) {
                 const doctoresActivos = await doctorsModel.find({ is_active: true }).select("_id");
-                if (doctoresActivos.length > 0) {
-                    await notificationModel.insertMany(doctoresActivos.map((d) => ({
-                        recipient_role: "doctor", recipient_id: d._id,
-                        title: "Nueva solicitud de cita sin asignar", type: "appointment_created",
-                        message: mensaje, appointment_id: appointmentId, action_url,
-                    })));
-                }
+                await insert_staff_notifications(doctoresActivos.map((d) => ({
+                    recipient_role: "doctor", recipient_id: d._id,
+                    title: "Nueva solicitud de cita sin asignar", type: "appointment_created",
+                    message: mensaje, appointment_id: appointmentId, action_url,
+                })));
             } else {
-                await notificationModel.create({
+                await insert_staff_notifications({
                     recipient_role: "doctor", recipient_id: doctor_id,
                     title: "Nueva cita por aceptar", type: "appointment_created",
                     message: mensaje, appointment_id: appointmentId, action_url,
@@ -657,6 +659,20 @@ patientPortalController.cancelMyAppointment = async (req, res) => {
         appointment.cancellation_reason = reasonEnviado || "Cancelada por el paciente";
         await appointment.save();
 
+        // Mismo aviso que la cancelación desde la app móvil
+        // (appointmentsController.cancelPatientAppointment): el doctor o la
+        // enfermera de la cita se entera y su lista de consultas se actualiza.
+        if (appointment.doctor_id || appointment.nurse_id) {
+            await notifyAppointmentRecipients(appointment, {
+                doctorMessage: "El paciente canceló una cita asignada a ti.",
+                nurseMessage: "El paciente canceló una cita asignada a ti.",
+                doctorTitle: "Cita cancelada por el paciente",
+                nurseTitle: "Cita cancelada por el paciente",
+                type: "appointment_cancelled",
+                actor: req.user,
+            }).catch((error) => console.log("Error notificando cancelación del paciente:", error));
+        }
+
         return res.status(200).json({ message: "Cita cancelada correctamente" });
     } catch (error) {
         console.log("error " + error);
@@ -899,6 +915,54 @@ patientPortalController.getReferrals = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
+// Días hacia atrás en que se buscan recetas para el barrido de recordatorios.
+// Cubre tratamientos largos sin recorrer todo el historial de recetas.
+const medication_sweep_window_days = 120;
+
+// Hora local a partir de la cual se envía el recordatorio diario, para no
+// despertar al paciente con una notificación de madrugada.
+const medication_reminder_hour = 7;
+
+// Genera el recordatorio diario de medicamentos de todos los pacientes con
+// tratamientos activos hoy, sin esperar a que abran la app. Se ejecuta en
+// segundo plano (ver index.js). notifyPendingMedicationsIfAny ya deduplica
+// por día, así que llamarla varias veces el mismo día no repite el aviso.
+// Nunca lanza.
+export async function run_medication_reminders_sweep() {
+    try {
+        if (new Date().getHours() < medication_reminder_hour) return;
+
+        const since = new Date(Date.now() - medication_sweep_window_days * 24 * 60 * 60 * 1000);
+        const prescriptions = await prescriptionsModel
+            .find({ issued_at: { $gte: since } })
+            .select("_id consultation_id issued_at medications")
+            .lean();
+        if (prescriptions.length === 0) return;
+
+        const consultation_ids = [...new Set(prescriptions.map((p) => String(p.consultation_id)).filter(Boolean))];
+        const consultations = await consultationsModel
+            .find({ _id: { $in: consultation_ids } })
+            .select("_id patient_id")
+            .lean();
+        const patient_by_consultation = new Map(consultations.map((c) => [String(c._id), String(c.patient_id)]));
+
+        const prescriptions_by_patient = new Map();
+        for (const prescription of prescriptions) {
+            const patient_id = patient_by_consultation.get(String(prescription.consultation_id));
+            if (!patient_id) continue;
+            if (!prescriptions_by_patient.has(patient_id)) prescriptions_by_patient.set(patient_id, []);
+            prescriptions_by_patient.get(patient_id).push(prescription);
+        }
+
+        for (const [patient_id, patient_prescriptions] of prescriptions_by_patient) {
+            const meds = await fetchTodayMedications(patient_id, patient_prescriptions);
+            await notifyPendingMedicationsIfAny(patient_id, meds);
+        }
+    } catch (error) {
+        console.log("Error en el barrido de recordatorios de medicamentos:", error);
+    }
+}
 
 // GET /api/patient-portal/medications/today — medicamentos activos hoy, con su estado tomado/pendiente
 patientPortalController.getTodayMedications = async (req, res) => {

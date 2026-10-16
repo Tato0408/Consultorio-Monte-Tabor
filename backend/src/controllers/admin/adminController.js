@@ -63,7 +63,7 @@ adminController.updateAdmin = async (req, res) => {
 
         //Valida formato de los campos que vengan presentes (no exige que vengan todos, para no
         //romper actualizaciones parciales), incluyendo que la fecha de nacimiento sea de un mayor de edad
-        const formatError = validateUserFieldFormats({ name, last_name, email, dui, birth_date }, { requireAdult: true });
+        const formatError = validateUserFieldFormats({ name, last_name, email, dui, birth_date, gender }, { requireAdult: true });
         if (formatError) {
             return res.status(400).json({ message: formatError });
         }

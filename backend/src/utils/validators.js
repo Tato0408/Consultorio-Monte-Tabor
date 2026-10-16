@@ -61,6 +61,8 @@ export const DUI_REGEX = /^\d{8}-\d{1}$/;
 // caracteres especiales. Mismo patrón que las máscaras del frontend (móvil y web), el
 // backend nunca debe confiar solo en que el cliente ya filtró la escritura.
 export const NAME_REGEX = /^[A-Za-zÁÉÍÓÚÑáéíóúñ]+(\s[A-Za-zÁÉÍÓÚÑáéíóúñ]+)*$/;
+// Valores de género que acepta el sistema, los mismos del select del frontend.
+export const valid_genders = ["Masculino", "Femenino"];
 
 // Edad mínima para el staff (doctores, recepcionistas, enfermeras,
 // admin). Los pacientes quedan fuera de esta regla a propósito, la
@@ -140,12 +142,12 @@ export const getMissingRequiredField = (fields, requiredKeys) => {
 };
 
 // Valida el formato de los campos básicos que vengan presentes en el
-// body (name, last_name, phone, email, dui, birth_date). No exige que
+// body (name, last_name, phone, email, dui, birth_date, gender). No exige que
 // existan, eso lo decide cada controller aparte con
 // getMissingRequiredField en creación. En actualización simplemente se
 // ignora lo que no venga, para no romper updates parciales (por ejemplo
 // agregar solo un signo vital a un paciente).
-export const validateUserFieldFormats = ({ name, last_name, phone, email, dui, birth_date }, { requireAdult = false } = {}) => {
+export const validateUserFieldFormats = ({ name, last_name, phone, email, dui, birth_date, gender }, { requireAdult = false } = {}) => {
     if (name !== undefined) {
         const value = String(name).trim();
         if (!value) return "El campo Nombres no puede estar vacío";
@@ -180,6 +182,9 @@ export const validateUserFieldFormats = ({ name, last_name, phone, email, dui, b
             const ageError = getAdultAgeError(value);
             if (ageError) return ageError;
         }
+    }
+    if (gender !== undefined && !valid_genders.includes(gender)) {
+        return "El campo Género debe ser Masculino o Femenino";
     }
     return null;
 };

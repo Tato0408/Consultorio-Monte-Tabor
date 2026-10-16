@@ -88,6 +88,18 @@ export default function AppointmentDetailScreen({ navigation, route }) {
     setLoading(true);
     try {
       const response = await apiClient(`/appointments/patient/${appointmentId}`);
+      // Una cita atendida se muestra con el detalle de su consulta (diagnóstico,
+      // receta, documentos), el mismo que abre la pestaña "Consultas completadas".
+      // Cubre también la llegada desde una notificación con el id de la cita.
+      if (response.data?.status === "completed") {
+        const consultations = await apiClient("/patientAccount/consultations").catch(() => []);
+        const match = (Array.isArray(consultations) ? consultations : [])
+          .find((item) => String(item.appointment_id) === String(appointmentId));
+        if (match?.consultation_id) {
+          navigation.replace("ConsultationDetail", { consultationId: match.consultation_id });
+          return;
+        }
+      }
       setAppointment(response.data);
     } catch (error) {
       showError(error.message || "No se pudo cargar la cita.");
@@ -207,8 +219,14 @@ export default function AppointmentDetailScreen({ navigation, route }) {
         </View>
         <View style={styles.unavailable}>
           <Ionicons name="document-text-outline" size={40} color="#94A3B8" />
-          <Text style={styles.unavailableTitle}>Este detalle corresponde a otra sección</Text>
-          <Text style={styles.unavailableText}>Los detalles de citas completadas se mostrarán en la pantalla de consulta clínica.</Text>
+          <Text style={styles.unavailableTitle}>
+            {appointment.status === "completed" ? "Consulta en proceso de registro" : `Cita ${STATUS[appointment.status]?.label?.toLowerCase() || "cerrada"}`}
+          </Text>
+          <Text style={styles.unavailableText}>
+            {appointment.status === "completed"
+              ? "Tu cita ya fue atendida, pero el médico aún no ha terminado de registrar la consulta. Vuelve a revisarla en unos minutos."
+              : "Esta cita ya no está activa, por lo que no tiene acciones disponibles."}
+          </Text>
         </View>
       </SafeAreaView>
     );

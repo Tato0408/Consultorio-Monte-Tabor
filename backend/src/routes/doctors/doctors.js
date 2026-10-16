@@ -77,6 +77,14 @@ router
   .route("/profile/seal")
   .put(authenticate(["doctor"]), upload.single("sealImage"), doctorsController.updateOwnSeal);
 
+// Firma y sello del doctor asignado a un documento, para estamparlos en un PDF
+// generado a su nombre. Solo el admin y el propio doctor los reciben: enfermería
+// y recepción descargan los documentos sin firma ni sello (ver
+// doctorsController.getSignatureAssets).
+router
+  .route("/:id/signature-assets")
+  .get(authenticate(["admin", "doctor"]), doctorsController.getSignatureAssets);
+
 router
   .route("/:id")
   .put(

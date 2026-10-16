@@ -28,16 +28,17 @@ const DonutCard = ({
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
 
-            {/* Encabezado */}
+            {/* Encabezado: si la tarjeta es angosta, el total baja a una segunda
+                línea en vez de montarse sobre el título. */}
             <div className="px-5 pt-5 pb-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
                             {icon}
                         </div>
-                        <p className="text-sm font-semibold text-slate-700">{title}</p>
+                        <p className="text-sm font-semibold text-slate-700 truncate">{title}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right ml-auto">
                         <p className="text-xl font-bold text-slate-800 leading-none">{tot.toLocaleString()}</p>
                         <p className="text-xs text-slate-400 mt-0.5">registrados</p>
                     </div>
@@ -97,13 +98,13 @@ const DonutCard = ({
                 <div className="grid grid-cols-2 gap-2">
                     <div className="flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl bg-slate-50">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: firstColor }} />
-                        <p className="text-xs text-slate-500 font-medium">{firstLabel}</p>
+                        <p className="text-xs text-slate-500 font-medium text-center break-words">{firstLabel}</p>
                         <p className="text-base font-bold text-slate-800 leading-none">{f.toLocaleString()}</p>
                         <p className="text-xs font-semibold" style={{ color: firstColor }}>{pct0}%</p>
                     </div>
                     <div className="flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl bg-slate-50">
                         <span className="w-2 h-2 rounded-full bg-slate-300" />
-                        <p className="text-xs text-slate-500 font-medium">{secondLabel}</p>
+                        <p className="text-xs text-slate-500 font-medium text-center break-words">{secondLabel}</p>
                         <p className="text-base font-bold text-slate-800 leading-none">{s.toLocaleString()}</p>
                         <p className="text-xs font-semibold text-slate-400">{pct1}%</p>
                     </div>
@@ -112,10 +113,10 @@ const DonutCard = ({
                 {/* Botón */}
                 <button
                     onClick={() => navigate(route)}
-                    className="flex items-center justify-between px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-colors"
+                    className="flex items-center justify-between gap-2 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-colors"
                 >
-                    {btnLabel}
-                    <ChevronRight className="w-4 h-4" />
+                    <span className="truncate">{btnLabel}</span>
+                    <ChevronRight className="w-4 h-4 flex-shrink-0" />
                 </button>
             </div>
         </div>
@@ -136,7 +137,11 @@ const UserManagementSection = ({ data }) => {
                 <h2 className="text-base font-bold text-slate-800">Gestión de usuarios</h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Columnas según el ancho real de la sección (container query):
+                una en celular, dos cuando caben (la tercera ocupa la fila
+                completa) y tres cuando cada tarjeta tiene espacio suficiente. */}
+            <div className="@container">
+            <div className="grid grid-cols-1 @lg:grid-cols-2 @2xl:grid-cols-3 gap-4 @lg:[&>*:last-child]:col-span-2 @2xl:[&>*:last-child]:col-span-1">
                 <DonutCard
                     icon={<Users className="w-4 h-4 text-blue-600" />}
                     iconBg="bg-blue-100"
@@ -182,6 +187,7 @@ const UserManagementSection = ({ data }) => {
                     btnLabel="Gestionar recepcionistas"
                     gradId="dg-violet"
                 />
+            </div>
             </div>
         </div>
     );
