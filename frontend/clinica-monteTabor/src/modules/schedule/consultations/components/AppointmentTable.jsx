@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import { showError, showSuccess, confirmDelete } from "@/lib/alerts";
 import { formatTime12h } from "@/lib/timeFormat";
+import { confirm_attend_for_owner } from "@/lib/appointmentOwner";
 
 // El ciclo real de una cita es pending, scheduled, completed o cancelled (ver
 // AppointmentsForm.jsx). scheduled (Programada) equivale a en espera. Usa las mismas
@@ -63,20 +64,11 @@ const TABS = [
 const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, completedCount, statusFilter, onStatusChange, onDeleted }) => {
     const navigate = useNavigate();
     const { user, userType, hasPermission } = useAuth();
+    // Con permiso de Ingreso en Consultas cualquier rol puede atender la cita,
+    // también una enfermera o una recepcionista sobre la cita de otro
+    // proveedor. En ese caso se pide confirmación antes (ver handleContinue).
     const canAttend = hasPermission("calendar.consultations", "create");
-    // Una enfermera solo puede continuar/tomar consultas de un procedimiento sin doctor
-    // (ella es la proveedora principal ahí, ver requires_doctor en el procedimiento). Para
-    // el resto de los roles con permiso (doctor, admin) no cambia nada.
-    // Una cita puede combinar varios procedimientos (procedure_id es un array): alcanza
-    // con que ALGUNO requiera doctor para que la cita entera lo requiera. Sin ninguno
-    // elegido, se asume que sí (mismo comportamiento de siempre).
-    const procedureRequiresDoctor = (appt) =>
-        !appt.procedure_id?.length || appt.procedure_id.some((p) => p.requires_doctor !== false);
-
-    const canAttendRow = (appt) => {
-        if (userType !== "nurse") return canAttend;
-        return canAttend && !procedureRequiresDoctor(appt);
-    };
+    const canAttendRow = () => canAttend;
     const canDelete = hasPermission("calendar.consultations", "delete");
     const [deletingId, setDeletingId] = useState(null);
 
@@ -85,7 +77,9 @@ const AppointmentsTable = ({ appointments, isLoading, error, waitingCount, compl
     // asignados. La auto-asignación/toma de una consulta sin médico (que antes vivía acá)
     // ahora solo aplica desde Calendario → "Por aceptar", que es la única pantalla donde
     // una cita pending es visible.
-    const handleContinue = (appt) => {
+    const handleContinue = async (appt) => {
+        const confirmed = await confirm_attend_for_owner(appt, { user, userType });
+        if (!confirmed) return;
         navigate(`/calendar/consultations/${appt._id}`);
     };
 

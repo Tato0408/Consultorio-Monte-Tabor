@@ -64,17 +64,18 @@ authController.getCurrentUser = async (req, res) => {
                 email: userFound.email,
                 dui: userFound.dui,
                 birth_date: userFound.birth_date,
-                gender: userFound.gender,
+                phone: userFound.phone || null,
+                gender: userFound.gender || null,
                 // La imagen: cada modelo usa un nombre de campo distinto,
                 // se devuelve el primero que exista.
                 image: userFound.image || userFound.img_url || userFound.doctorImage || null,
                 public_id: userFound.public_id || userFound.img_public_id || null,
                 is_active: userFound.is_active,
                 is_verified: userFound.is_verified,
-                // Solo doctor y admin tienen estos campos en su propio modelo (ver
-                // updateOwnSignature/updateOwnSeal); para el resto de roles quedan en null.
-                // Como id sale de req.user (nunca del cliente), esto es siempre la firma y
-                // el sello del propio usuario autenticado, jamás los de otro doctor.
+                // Firma y sello: solo doctor y admin los guardan (ver
+                // updateOwnSignature y updateOwnSeal), para el resto de roles
+                // quedan en null. Como id sale de req.user y nunca del
+                // cliente, siempre son los del propio usuario autenticado.
                 signature_url: userFound.signature_url || null,
                 seal_url: userFound.seal_url || null,
             },

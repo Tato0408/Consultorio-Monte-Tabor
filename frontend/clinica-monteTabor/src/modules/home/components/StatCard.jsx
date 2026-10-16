@@ -58,7 +58,7 @@ const FeaturedStatCard = ({ icon, label, value, growth, growthLabel, sparkline, 
     const gradId     = `sk-${sparklineColor.replace("#", "")}-f`;
 
     return (
-        <div className="rounded-2xl p-4 sm:p-5 flex flex-col bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] shadow-lg shadow-blue-500/20 sm:col-span-2">
+        <div className="rounded-2xl p-4 sm:p-5 flex flex-col bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] shadow-lg shadow-blue-500/20 col-span-2 @lg:col-span-3 @4xl:col-span-2">
             <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
                     <p className="text-xs font-medium leading-tight text-white/70">{label}</p>
@@ -109,15 +109,19 @@ const StatCard = ({ icon, iconBg, label, value, growth, growthLabel, sparkline, 
     const hasData    = raw.some((v) => v > 0);
     const gradId     = `sk-${sparklineColor.replace("#", "")}`;
 
+    // La tarjeta es su propio contenedor (container query): cuando es angosta
+    // el ícono va arriba y la etiqueta debajo con todo el ancho, y cuando hay
+    // espacio el ícono vuelve a quedar a la izquierda. Así la etiqueta nunca
+    // se encoge hasta salirse de la tarjeta.
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 sm:p-5 flex flex-col">
+        <div className="@container bg-white rounded-2xl border border-slate-100 shadow-sm p-3 sm:p-5 flex flex-col min-w-0">
             {/* Ícono, etiqueta y valor */}
-            <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
+            <div className="flex flex-col items-start gap-2 mb-2 sm:mb-3 @[15rem]:flex-row @[15rem]:gap-3">
                 <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
                     {icon}
                 </div>
-                <div className="min-w-0 flex-1">
-                    <p className="text-xs text-slate-400 font-medium leading-tight">{label}</p>
+                <div className="min-w-0 w-full @[15rem]:flex-1">
+                    <p className="text-xs text-slate-400 font-medium leading-tight break-words">{label}</p>
                     <p className="text-xl sm:text-2xl font-bold text-slate-800 mt-0.5 leading-none truncate">{value}</p>
                 </div>
             </div>

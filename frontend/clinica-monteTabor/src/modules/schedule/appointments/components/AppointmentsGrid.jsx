@@ -55,9 +55,14 @@ export default function AppointmentsGrid() {
     // El doctor tiene su propio flujo dentro de Citas (aceptar y ver
     // las suyas), distinto del CRUD normal de admin o recepcionista.
     const isDoctor = userType === "doctor";
-    // El admin tiene el mismo flujo de por aceptar, pero en vez de
-    // aceptar la cita él mismo, la asigna a un doctor.
+    // El admin tiene el mismo flujo de por aceptar con dos casos: acepta o
+    // reagenda las citas agendadas con él (su doctor espejo) y asigna a un
+    // doctor las solicitudes sin doctor definido. El backend no le lista
+    // las solicitudes dirigidas a otro doctor.
     const isAdmin = userType === "admin";
+    // Indica si el admin acepta la cita en vez de asignarla: solo cuando el
+    // paciente ya eligió doctor, que en su listado siempre es él mismo.
+    const admin_accepts = (cita) => isAdmin && Boolean(cita?.doctor_id);
     // Mismo criterio que isDoctor arriba, pero para citas de un procedimiento sin doctor
     // (requires_doctor false): ahí la enfermera acepta en vez del doctor.
     const isNurse = userType === "nurse";
@@ -380,7 +385,7 @@ export default function AppointmentsGrid() {
         : isNurse
             ? (nurseTab === "pending" ? "No tienes citas pendientes por aceptar." : "No tienes citas programadas todavía.")
             : isAdmin
-                ? (adminTab === "pending" ? "No hay citas pendientes por asignar." : "No hay citas asignadas todavía.")
+                ? (adminTab === "pending" ? "No hay citas pendientes por aceptar o asignar." : "No hay citas asignadas todavía.")
                 : (hasActiveFilters ? "No se encontraron citas con los filtros aplicados." : "No hay citas registradas en este momento.");
 
     // Elimina la cita por completo. Pide confirmación por ser
@@ -785,7 +790,7 @@ export default function AppointmentsGrid() {
                                         mientras esté pendiente. Si no, se muestran eliminar, editar o
                                         cancelar según permisos. Ver siempre está disponible. */}
                                     <div className="flex items-center gap-1">
-                                        {(isDoctor || (isNurse && !procRequiresDoctor(cita))) && cita.status === "pending" ? (
+                                        {(isDoctor || (isNurse && !procRequiresDoctor(cita)) || admin_accepts(cita)) && cita.status === "pending" ? (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -1121,12 +1126,12 @@ export default function AppointmentsGrid() {
                                 onClick={() => {
                                     const appointment = pendingAppointmentDetails;
                                     setPendingAppointmentDetails(null);
-                                    if (isAdmin) requestAssign(appointment);
+                                    if (isAdmin && !admin_accepts(appointment)) requestAssign(appointment);
                                     else requestAccept(appointment);
                                 }}
                                 className="bg-emerald-600 hover:bg-emerald-700"
                             >
-                                {isAdmin ? "Asignar cita" : "Aceptar cita"}
+                                {isAdmin && !admin_accepts(pendingAppointmentDetails) ? "Asignar cita" : "Aceptar cita"}
                             </Button>
                         </div>
                     </div>

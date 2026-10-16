@@ -134,7 +134,8 @@ loginController.loginCommonRole = async (req, res) => {
         last_name: userFound.last_name,
         dui: userFound.dui,
         birth_date: userFound.birth_date,
-        gender: userFound.gender,
+        phone: userFound.phone || null,
+        gender: userFound.gender || null,
         is_active: userFound.is_active,
         is_verified: userFound.is_verified,
         // Cada modelo usa un nombre de campo distinto para la foto
@@ -144,6 +145,10 @@ loginController.loginCommonRole = async (req, res) => {
         // el login sin esperar a un refresh.
         image: userFound.image || userFound.img_url || null,
         public_id: userFound.public_id || userFound.img_public_id || null,
+        // Firma y sello guardados del doctor o admin, para que el perfil y
+        // los PDF los tengan desde el inicio de sesión.
+        signature_url: userFound.signature_url || null,
+        seal_url: userFound.seal_url || null,
       },
     });
   } catch (error) {

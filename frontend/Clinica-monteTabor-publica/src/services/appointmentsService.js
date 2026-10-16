@@ -83,3 +83,9 @@ export const confirmPayment = (appointmentId, transactionId) =>
     method: "POST",
     body: { transactionId },
   });
+// Historial de consultas del paciente (una tarjeta por cita, con consultation_id si ya fue
+// atendida) y el detalle completo de una consulta: diagnóstico, signos vitales, examen
+// físico, receta, referencia e incapacidad. Mismas rutas que usa la app móvil.
+export const getMyConsultations = () => apiClient("/patientAccount/consultations");
+export const getMyConsultationById = (consultationId) =>
+  apiClient(`/patientAccount/consultations/${consultationId}`);

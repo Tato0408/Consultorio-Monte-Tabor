@@ -51,8 +51,8 @@ const ReportCard = ({
                         {icon}
                     </div>
                     <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-700 leading-tight">{title}</p>
-                        <p className="text-xs text-slate-400 leading-tight">{subtitle}</p>
+                        <p className="text-sm font-semibold text-slate-700 leading-tight break-words">{title}</p>
+                        <p className="text-xs text-slate-400 leading-tight break-words">{subtitle}</p>
                     </div>
                 </div>
 
@@ -145,7 +145,11 @@ const ReportStatsSection = ({ data }) => {
                 <h2 className="text-base font-bold text-slate-800">Reportes y estadísticas</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Columnas según el ancho real de la sección (container query) y no
+                el de la pantalla: desde md el menú lateral le quita espacio y tres
+                columnas quedaban tan angostas que los títulos se salían. */}
+            <div className="@container">
+            <div className="grid grid-cols-1 @2xl:grid-cols-3 gap-4">
                 <ReportCard
                     icon={<CalendarDays className="w-5 h-5 text-blue-600" />}
                     iconBg="bg-blue-100"
@@ -185,6 +189,7 @@ const ReportStatsSection = ({ data }) => {
                     navigateTo="/reports/patients"
                     gradId="orange"
                 />
+            </div>
             </div>
         </div>
     );

@@ -295,13 +295,13 @@ receptionistController.updateOwnProfile = async (req, res) => {
     
     //Obtiene toda la informacion enviada desde el formulario del perfil
     //los datos vienen dentro del body de la peticion
-    const { name, last_name, dui, birth_date, phone, email, password, current_password } = req.body;
+    const { name, last_name, dui, birth_date, phone, gender, email, password, current_password } = req.body;
 
     // Mismas dos validaciones que ya hace updateReceptionist (edición desde administración):
     // sin ellas, esta ruta ni siquiera validaba el formato de correo/teléfono/DUI, y un
     // recepcionista podía cambiar su propio correo o DUI a uno ya usado por otro miembro del
     // staff sin ningún aviso.
-    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date, gender }, { requireAdult: true });
     if (formatError) {
       return res.status(400).json({ message: formatError });
     }
@@ -318,6 +318,7 @@ receptionistController.updateOwnProfile = async (req, res) => {
       dui,
       birth_date,
       phone,
+      gender,
       email,
     };
 

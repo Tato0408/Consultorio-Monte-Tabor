@@ -67,6 +67,8 @@ const syncAdminMirrorDoctor = async (admin) => {
     is_active: admin.is_active !== false,
     is_admin_mirror: true,
     linked_admin_id: admin._id,
+    // El género se copia solo cuando el admin ya lo registró en su perfil.
+    ...(admin.gender ? { gender: admin.gender } : {}),
   };
 
   if (mirror) {
@@ -645,9 +647,9 @@ doctorController.updateOwnProfile = async (req, res) => {
       return res.status(404).json({ message: "Perfil del doctor no encontrado" });
     }
 
-    const { name, last_name, dui, birth_date, phone, email, password, current_password } = req.body;
+    const { name, last_name, dui, birth_date, phone, gender, email, password, current_password } = req.body;
 
-    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date }, { requireAdult: true });
+    const formatError = validateUserFieldFormats({ name, last_name, phone, email, dui, birth_date, gender }, { requireAdult: true });
     if (formatError) {
       return res.status(400).json({ message: formatError });
     }
@@ -662,7 +664,7 @@ doctorController.updateOwnProfile = async (req, res) => {
       return res.status(400).json(staffDuplicate);
     }
 
-    const updatedData = { name, last_name, dui, birth_date, phone, email };
+    const updatedData = { name, last_name, dui, birth_date, phone, gender, email };
 
     // Si viene una nueva contraseña, la validamos y encriptamos (mismo criterio que
     // doctorController.updateDoctors / adminController.updateAdmin)
@@ -784,6 +786,45 @@ doctorController.updateOwnSeal = async (req, res) => {
   } catch (error) {
     console.log("error " + error);
     return res.status(500).json({ message: "Error interno del servidor al guardar el sello" });
+  }
+};
+
+// Devuelve la firma y el sello del doctor indicado para estamparlos en un PDF
+// emitido a su nombre. El admin recibe los de cualquier doctor, y si el doctor
+// es su espejo (is_admin_mirror) recibe los guardados en su propio perfil de
+// admin, que es donde viven. Un doctor solo recibe los suyos. Cualquier otro
+// rol queda fuera desde la ruta. Responde { signature_url, seal_url }, con null
+// en lo que no exista.
+doctorController.getSignatureAssets = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.user.role === "doctor" && String(req.user.id) !== String(id)) {
+      return res.status(403).json({ message: "Solo puedes usar tu propia firma y sello." });
+    }
+
+    const doctor = await doctorsModel
+      .findById(id)
+      .select("signature_url seal_url is_admin_mirror linked_admin_id")
+      .lean();
+    if (!doctor) {
+      return res.status(404).json({ message: "Doctor no encontrado" });
+    }
+
+    if (doctor.is_admin_mirror && doctor.linked_admin_id) {
+      const admin = await adminModel.findById(doctor.linked_admin_id).select("signature_url seal_url").lean();
+      return res.status(200).json({
+        signature_url: admin?.signature_url || null,
+        seal_url: admin?.seal_url || null,
+      });
+    }
+
+    return res.status(200).json({
+      signature_url: doctor.signature_url || null,
+      seal_url: doctor.seal_url || null,
+    });
+  } catch (error) {
+    console.log("error " + error);
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

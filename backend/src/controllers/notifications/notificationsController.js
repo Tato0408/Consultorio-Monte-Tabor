@@ -1,4 +1,5 @@
 import notificationModel from "../../models/notifications/notification.js";
+import { run_inventory_alerts_check } from "../../services/notificationService.js";
 
 const notificationsController = {};
 
@@ -15,6 +16,13 @@ const inferLegacyTitle = (message = "") => {
 // Trae las notificaciones del usuario autenticado (por su propio rol + id).
 notificationsController.getMyNotifications = async (req, res) => {
     try {
+        // Para el admin se generan antes las alertas de inventario pendientes,
+        // así un insumo que venció mientras el servidor dormía aparece en la
+        // campana. La revisión se limita a una cada 10 minutos.
+        if (req.user.role === "admin") {
+            await run_inventory_alerts_check();
+        }
+
         const notifications = await notificationModel
             .find({ recipient_role: req.user.role, recipient_id: req.user.id })
             .sort({ createdAt: -1 })

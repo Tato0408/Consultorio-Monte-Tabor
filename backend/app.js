@@ -176,4 +176,10 @@ app.use("/api/webhooks/wompi", wompiWebhookRoutes);
 // recién desactivado podía seguir tokenizando tarjetas y cobrando).
 app.use("/api/wompi", authenticate(["patient"]), requireActiveUser, wompiRoutes);
 
+// Endpoint liviano para un monitor externo (por ejemplo UptimeRobot o
+// cron-job.org) que lo consulte cada 10 minutos. En el plan gratuito de Render
+// el servidor se duerme tras 15 minutos sin tráfico, y dormido no puede
+// enviar recordatorios ni notificaciones push.
+app.get("/api/health", (req, res) => res.status(200).json({ status: "ok" }));
+
 export default app;

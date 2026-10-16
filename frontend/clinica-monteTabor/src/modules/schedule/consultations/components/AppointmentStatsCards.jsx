@@ -1,23 +1,26 @@
 import { Calendar, Clock, CheckCircle2, Stethoscope } from "lucide-react";
 import { formatTime12h } from "@/lib/timeFormat";
 
+/*
+ * Tarjeta de estadística con ícono, etiqueta y valor. Cuando la tarjeta es
+ * angosta (celular con dos columnas, o escritorio con cuatro columnas junto
+ * al menú lateral) el ícono va arriba y el texto debajo, así la etiqueta
+ * usa todo el ancho de la tarjeta y nunca se sale del borde. Con espacio
+ * suficiente (sm y xl) el ícono vuelve a quedar a la izquierda del texto.
+ */
 const StatCard = ({ icon: Icon, iconBg, label, value, isLoading, onClick, isActive }) => (
     <button
         type="button"
         onClick={onClick}
-        className={`flex items-center gap-4 bg-white border rounded-xl px-5 py-4 shadow-sm text-left transition-colors ${
+        className={`flex min-w-0 flex-col items-start gap-3 bg-white border rounded-xl px-4 py-4 shadow-sm text-left transition-colors sm:flex-row sm:items-center sm:gap-4 sm:px-5 lg:flex-col lg:items-start lg:gap-3 xl:flex-row xl:items-center xl:gap-4 ${
             onClick ? "cursor-pointer hover:border-[#0b66d6]/40 hover:shadow-md" : "cursor-default"
         } ${isActive ? "border-[#0b66d6] ring-1 ring-[#0b66d6]/30" : "border-slate-100"}`}
     >
-        <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+        <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
             <Icon className="text-white" size={20} />
         </div>
-        {/* min-w-0: sin esto, en un celular angosto la etiqueta ("Completados", "En
-            espera") no se encoge para caber junto al ícono y se sale por el borde derecho
-            de la card en vez de envolver — mismo bug que en las cards de Enfermeras/
-            Pacientes (NurseStatCards.jsx/PatientStatCards.jsx). */}
-        <div className="min-w-0 flex-1 text-left">
-            <p className="text-sm text-slate-500">{label}</p>
+        <div className="min-w-0 w-full text-left">
+            <p className="text-sm leading-tight text-slate-500 break-words">{label}</p>
             <p className="text-2xl font-semibold text-slate-800">
                 {isLoading ? "—" : value}
             </p>
@@ -39,11 +42,9 @@ const AppointmentStatsCards = ({ stats, isLoading, onFilterClick, activeFilter }
         Boolean(activeFilter?.doctor_id) && activeFilter?.status === statusValue;
 
     return (
-        // grid-cols-1 en el celular más angosto: con 2 columnas para 4 cards, cada una
-        // quedaba tan angosta que la etiqueta ("En espera", "Completados") apenas cabía
-        // envuelta junto al ícono y el valor, viéndose apretada/solapada. Con una sola
-        // columna cada card usa el ancho completo de la pantalla.
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        // Dos columnas desde el celular más angosto y cuatro en escritorio. Cada
+        // tarjeta acomoda su contenido al ancho disponible (ver StatCard).
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <StatCard
                 icon={Calendar}
                 iconBg="bg-[#6d4ed1]"
@@ -72,14 +73,14 @@ const AppointmentStatsCards = ({ stats, isLoading, onFilterClick, activeFilter }
                 isActive={isCardActive("completed")}
             />
 
-            {/* Card destacada de próxima cita */}
-            <div className="bg-[#0b66d6] rounded-xl px-5 py-4 shadow-md shadow-blue-100 relative overflow-hidden text-white">
+            {/* Tarjeta destacada de la próxima cita. */}
+            <div className="min-w-0 bg-[#0b66d6] rounded-xl px-4 py-4 sm:px-5 shadow-md shadow-blue-100 relative overflow-hidden text-white">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-blue-100 mb-1">
                     Próxima cita
                 </div>
                 {next ? (
                     <>
-                        <p className="text-xl font-bold leading-tight">{formatTime12h(next.start_time)} - {formatTime12h(next.end_time)}</p>
+                        <p className="text-base sm:text-xl font-bold leading-tight break-words">{formatTime12h(next.start_time)} - {formatTime12h(next.end_time)}</p>
                         <p className="text-sm font-medium truncate">{formatPatientName(next.patient_id)}</p>
                         <p className="text-xs text-blue-100 truncate">{next.type}</p>
                     </>

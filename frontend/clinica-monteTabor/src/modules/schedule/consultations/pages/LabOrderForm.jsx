@@ -16,7 +16,7 @@ import {
 import { showSuccess, showError } from "@/lib/alerts";
 import { calculateAge } from "@/lib/validators";
 import { maskClinicalText } from "@/lib/inputMasks";
-import { useMySignatureAssets } from "@/lib/useMySignatureAssets";
+import { useDocumentSignature } from "@/lib/useDocumentSignature";
 
 const OTHER_TESTS_MAX = 300;
 
@@ -27,7 +27,6 @@ const LabOrderForm = () => {
     const location = useLocation();
 
     const readOnly = searchParams.get("mode") === "view";
-    const { signatureUrl, sealUrl } = useMySignatureAssets();
     // Reenvía el mismo location.state con el que se llegó acá (ver
     // ConsultationForm.jsx), así la consulta a la que se vuelve conserva de
     // dónde se abrió originalmente (lista de consultas o expediente del
@@ -37,6 +36,12 @@ const LabOrderForm = () => {
 
     const { appointment, labOrder, triageWeight, triageHeight, save, isLoading, isSaving, error } =
         useLabOrder(appointmentId);
+
+    // La orden sale a nombre del doctor asignado a la cita, con su firma y
+    // sello solo si quien descarga es ese doctor o el admin.
+    const { signatureUrl, sealUrl } = useDocumentSignature(
+        appointment?.doctor_id?._id || appointment?.doctor_id
+    );
 
     // Exámenes marcados como Set de claves "panel:test".
     const [selected, setSelected] = useState(() => new Set());

@@ -5,16 +5,16 @@ import { getMaxAdultBirthDate, validateAdultBirthDate } from "@/lib/validators";
 import useProfile from "../hooks/useProfile";
 import SignatureSealModal from "./SignatureSealModal";
 
-// Firma y sello: solo doctor y admin los pueden guardar (el admin también puede actuar como
-// "doctor espejo" para agendarse citas, ver is_admin_mirror en el modelo Doctors). Enfermería
-// y recepción nunca ven este botón.
-const CAN_SIGN_ROLES = ["doctor", "admin"];
+// Roles que pueden guardar firma y sello: doctor y admin (el admin también
+// atiende citas como doctor espejo, ver is_admin_mirror en el modelo
+// Doctors). Enfermería y recepción nunca ven este botón.
+const can_sign_roles = ["doctor", "admin"];
 
-const maskDui = (raw) => {
+const mask_dui = (raw) => {
     const digits = raw.replace(/\D/g, "").slice(0, 9);
     return digits.length > 8 ? `${digits.slice(0, 8)}-${digits.slice(8)}` : digits;
 };
-const maskPhone = (raw) => {
+const mask_phone = (raw) => {
     const digits = raw.replace(/\D/g, "").slice(0, 8);
     return digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
 };
@@ -23,25 +23,25 @@ const maskPhone = (raw) => {
 // respectivos endpoints de autoservicio
 // (doctorsController.updateOwnProfile, nursesController.updateOwnProfile,
 // receptionistController.updateOwnProfile, adminController.updateAdmin).
-// Ninguno acepta correo ni contraseña por esta vía: el correo del
-// admin dispara un flujo de verificación aparte (código al nuevo
-// correo), y la contraseña ya tiene su propio botón de modificar
-// contraseña, por lo que no tiene sentido mezclar esos dos flujos con
-// una edición rápida de datos personales.
-const ROLE_FIELDS = {
-    doctor:       ["name", "last_name", "dui", "birth_date", "phone"],
-    nurse:        ["name", "last_name", "dui", "birth_date", "phone"],
-    receptionist: ["name", "last_name", "dui", "birth_date", "phone"],
+// Todos los roles editan el género. El admin no tiene teléfono en su
+// modelo, por eso es el único sin ese campo. Ninguno acepta correo ni
+// contraseña por esta vía: el correo del admin dispara un flujo de
+// verificación aparte (código al nuevo correo), y la contraseña ya tiene
+// su propio botón de modificar contraseña.
+const role_fields = {
+    doctor:       ["name", "last_name", "dui", "birth_date", "phone", "gender"],
+    nurse:        ["name", "last_name", "dui", "birth_date", "phone", "gender"],
+    receptionist: ["name", "last_name", "dui", "birth_date", "phone", "gender"],
     admin:        ["name", "last_name", "dui", "birth_date", "gender"],
 };
 
 const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
-    const fields = ROLE_FIELDS[userType] || [];
+    const fields = role_fields[userType] || [];
     const [form, setForm] = useState({});
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
-    const canSign = CAN_SIGN_ROLES.includes(userType);
+    const canSign = can_sign_roles.includes(userType);
     const {
         submitting: signatureSubmitting,
         saveSignatureFile,
@@ -194,7 +194,7 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
                                         maxLength={10}
                                         placeholder="00000000-0"
                                         value={form.dui || ""}
-                                        onChange={(e) => set("dui", maskDui(e.target.value))}
+                                        onChange={(e) => set("dui", mask_dui(e.target.value))}
                                         className={inputClass(errors.dui)}
                                     />
                                     <div className="flex items-start justify-between gap-2">
@@ -212,7 +212,7 @@ const EditProfileModal = ({ isOpen, onClose, user, userType, onSave }) => {
                                         maxLength={9}
                                         placeholder="0000-0000"
                                         value={form.phone || ""}
-                                        onChange={(e) => set("phone", maskPhone(e.target.value))}
+                                        onChange={(e) => set("phone", mask_phone(e.target.value))}
                                         className={inputClass(errors.phone)}
                                     />
                                     <div className="flex items-start justify-between gap-2">

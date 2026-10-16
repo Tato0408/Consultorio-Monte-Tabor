@@ -27,7 +27,7 @@ const DEFAULT_STATUS = "scheduled,completed,cancelled,no_show";
 
 const Consultations =() => {
      const today = getTodayString();
-     const { user } = useAuth();
+     const { user, userType } = useAuth();
 
    // Por defecto la tabla muestra todas las fechas (el filtro de fechas es
     // secundario, se activa solo si se necesita) y el estado inicial ya excluye
@@ -47,9 +47,34 @@ const Consultations =() => {
     } = useAppointments({
         limit: 8,
         status: DEFAULT_STATUS,
+        // La enfermera con permiso de Ingreso también ve las citas de los
+        // demás proveedores, con las suyas siempre primero (ver
+        // getAppointments en el backend). Para los demás roles no aplica.
+        include_others: userType === "nurse" ? "true" : undefined,
     });
 
-    const { stats, isLoading: isLoadingStats } = useAppointmentStats(today);
+    const { stats, isLoading: isLoadingStats, refetch: refetchStats } = useAppointmentStats(today);
+
+    // Mantiene la tabla al día sin recargar la página: cuando el paciente
+    // cancela una cita aceptada (llega como notificación por WebSocket) o al
+    // volver a esta pestaña del navegador, se piden de nuevo las citas y las
+    // tarjetas. Así una cita cancelada o no presentada pasa a su estado real
+    // y deja de ofrecer el botón Continuar.
+    React.useEffect(() => {
+        const refresh_list = () => {
+            fetchAppointments();
+            refetchStats();
+        };
+        const handle_notification = (event) => {
+            if (event.detail?.appointment_id) refresh_list();
+        };
+        window.addEventListener("app:notification", handle_notification);
+        window.addEventListener("focus", refresh_list);
+        return () => {
+            window.removeEventListener("app:notification", handle_notification);
+            window.removeEventListener("focus", refresh_list);
+        };
+    }, [fetchAppointments, refetchStats]);
     const { history, isLoading: isLoadingHistory, error: historyError } = useAppointmentHistory(today, 5);
  
     const waitingCount = appointments.filter((a) => a.status === "scheduled").length;

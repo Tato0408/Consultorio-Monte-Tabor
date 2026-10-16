@@ -17,7 +17,7 @@ import IncapacidadDocument from "@/modules/schedule/consultations/pdf/Incapacida
 import RecetaDocument from "@/modules/schedule/consultations/pdf/RecetaDocument";
 import LabOrderDocument from "@/modules/schedule/consultations/pdf/LabOrderDocument";
 import ReferenciaDocument from "@/modules/schedule/consultations/pdf/ReferenciaDocument";
-import { useMySignatureAssets } from "@/lib/useMySignatureAssets";
+import { get_document_signature } from "@/lib/documentSignature";
 
 // Configuración de cada tipo de documento: de dónde sale su lista dentro de
 // patient (armada por usePatientRecordDetail.js), su icono/color y cómo
@@ -66,7 +66,6 @@ const ORDEN = ["incapacidad", "receta", "laboratorio", "referencia"];
 // categoría elegida.
 export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControlado, onTipoChange }) {
   const { hasPermission, user, userType } = useAuth();
-  const { signatureUrl, sealUrl } = useMySignatureAssets();
   const canCreate = hasPermission("reports.records", "create");
   const canUpdate = hasPermission("reports.records", "update");
   const canDelete = hasPermission("reports.records", "delete");
@@ -140,17 +139,15 @@ export default function DocumentosTab({ patient = {}, onSaved, tipo: tipoControl
     }
   };
 
-  // Quien firma el PDF: si es doctor, admin o enfermera, firma con su propio
-  // nombre (ej. un admin reimprimiendo un documento emitido por otro
-  // doctor); recepción no firma nada clínico, así que ahí se mantiene el
-  // nombre de quien realmente atendió al paciente.
-  const signatureFor = (originalDoctorName) =>
-    userType === "doctor" || userType === "admin" || userType === "nurse"
-      ? `${user?.name || ""} ${user?.last_name || ""}`.trim() || originalDoctorName
-      : originalDoctorName;
+  // El PDF siempre sale a nombre del doctor asignado a la cita del
+  // documento, sin importar quién lo descarga.
+  const signatureFor = (originalDoctorName) => originalDoctorName;
 
   const handleGeneratePdf = async (row) => {
     try {
+      // Firma y sello del doctor asignado: solo los recibe ese doctor o el
+      // admin. Enfermería y recepción descargan el documento sin ellos.
+      const { signatureUrl, sealUrl } = await get_document_signature(row.doctorId, { user, userType });
       // El documento se genera desde el expediente: la fecha y la hora son las
       // del momento en que se emitió (issued_at, start_date, referred_date),
       // no las de ahora.

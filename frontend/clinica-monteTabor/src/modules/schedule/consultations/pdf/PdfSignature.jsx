@@ -31,13 +31,11 @@ const styles = StyleSheet.create({
     },
 });
 
-// Espacio para la firma y el sello del médico. Por defecto se completan a mano sobre el
-// documento ya impreso (comportamiento de siempre). Si quien genera el PDF es un doctor o
-// admin que guardó su propia firma/sello (ver EditProfileModal.jsx > SignatureSealModal,
-// y useMySignatureAssets.js para cómo se resuelven), esas imágenes se estampan encima del
-// espacio correspondiente — nunca las de otro doctor, siempre las de quien genera el
-// documento en este momento, sin importar de qué consulta se trate. doctorName sigue
-// saliendo de donde ya salía (la cita/consulta), esto no cambia esa lógica.
+// Espacio para la firma y el sello del doctor asignado a la cita, cuyo nombre
+// recibe en doctorName. Si llegan signatureUrl y sealUrl, las imágenes se
+// estampan encima del espacio. Solo llegan cuando quien descarga es ese
+// doctor o el admin (ver documentSignature.js); para enfermería y recepción
+// el espacio queda en blanco para firmar y sellar a mano.
 const PdfSignature = ({ doctorName, signatureUrl, sealUrl }) => (
     <View style={styles.container}>
         {signatureUrl && <Image src={signatureUrl} style={styles.signatureImg} />}
