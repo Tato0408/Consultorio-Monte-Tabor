@@ -5,6 +5,7 @@ import { showSuccess, showError, confirmProceedWithoutNurse } from "@/lib/alerts
 import { Combobox, ComboboxTrigger, ComboboxContent, ComboboxItem } from "@/components/ui/combobox";
 import DataCombobox from "@/components/ui/DataCombobox";
 import { patientLabel, doctorLabel, nurseLabel } from "@/modules/schedule/appointments/lib/personLabels";
+import { max_procedures_per_appointment } from "@/modules/schedule/appointments/lib/appointmentLimits";
 
 const todayStr = () => {
     const d = new Date();
@@ -354,11 +355,15 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                         {procedures.map((p) => {
                                             const idStr = p._id?.toString();
                                             const checked = form.procedureIds.includes(idStr);
+                                            // Con el máximo de procedimientos ya elegido, los demás
+                                            // quedan deshabilitados hasta quitar alguno.
+                                            const blocked = !checked && form.procedureIds.length >= max_procedures_per_appointment;
                                             return (
-                                                <label key={p._id} className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-slate-50 cursor-pointer">
+                                                <label key={p._id} className={`flex items-center gap-2 px-3 py-1.5 text-xs ${blocked ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-50 cursor-pointer"}`}>
                                                     <input
                                                         type="checkbox"
                                                         checked={checked}
+                                                        disabled={blocked}
                                                         onChange={() => {
                                                             setForm((f) => ({
                                                                 ...f,
@@ -382,6 +387,9 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                         {selectedProcedures.length > 0 && (
                             <p className="text-[11px] text-slate-400 mt-1">
                                 Duración total: {duration} min · Precio total: ${selectedProcedures.reduce((sum, p) => sum + (Number(p.price) || 0), 0)}
+                                {form.procedureIds.length >= max_procedures_per_appointment && (
+                                    <span className="text-amber-600"> · Límite de procedimientos por consulta alcanzado</span>
+                                )}
                             </p>
                         )}
                     </div>

@@ -9,6 +9,7 @@ import {
 import { showSuccess, showError, confirmAction } from "@/lib/alerts";
 import { descargarHistorialClinicoPdf } from "@/lib/pdf/patientDocuments";
 
+import { maskClinicalText } from "@/lib/clinicalText";
 const PARENTESCOS = [
   "Madre", "Padre", "Hermano/a", "Abuelo/a materno", "Abuelo/a paterno",
   "Tío/a", "Primo/a", "Hijo/a",
@@ -81,6 +82,10 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
   const [errors, setErrors] = useState({});
 
   const h = patient?.clinical_history || {};
+  // Procedimiento con la fecha más reciente del historial, o null si no hay ninguno.
+  const lastProcedure = [...(h.procedures || [])]
+    .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0))
+    .at(-1) || null;
 
   const eliminar = async (kind, entry, label) => {
     const ok = await confirmAction(`¿Eliminar "${label}"?`, { confirmLabel: "Sí, eliminar", danger: true });
@@ -209,7 +214,7 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
             <InputField
               label="Nombre de la enfermedad"
               value={enf.disease}
-              onChange={(e) => { setEnf((p) => ({ ...p, disease: e.target.value })); setErrors({}); }}
+              onChange={(e) => { setEnf((p) => ({ ...p, disease: maskClinicalText(e.target.value) })); setErrors({}); }}
               placeholder="Ej. Hipertensión arterial"
               error={errors.disease}
             />
@@ -218,7 +223,7 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
                 label="Diagnóstico (opcional)"
                 value={enf.diagnosis}
                 maxLength={50}
-                onChange={(e) => { setEnf((p) => ({ ...p, diagnosis: e.target.value.slice(0, 50) })); setErrors({}); }}
+                onChange={(e) => { setEnf((p) => ({ ...p, diagnosis: maskClinicalText(e.target.value).slice(0, 50) })); setErrors({}); }}
                 placeholder="Ej. Confirmado en 2019"
                 error={errors.diagnosis}
               />
@@ -261,7 +266,7 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
             <InputField
               label="Condición o enfermedad"
               value={ant.condition}
-              onChange={(e) => { setAnt((p) => ({ ...p, condition: e.target.value })); setErrors({}); }}
+              onChange={(e) => { setAnt((p) => ({ ...p, condition: maskClinicalText(e.target.value) })); setErrors({}); }}
               placeholder="Ej. Diabetes tipo 2"
               error={errors.condition}
             />
@@ -287,7 +292,7 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
             rows={3}
             maxLength={MAX}
             value={estilo.non_pathological}
-            onChange={(e) => setEstilo((p) => ({ ...p, non_pathological: e.target.value }))}
+            onChange={(e) => setEstilo((p) => ({ ...p, non_pathological: maskClinicalText(e.target.value) }))}
             placeholder="Ej. No fumo, camino 30 minutos al día, dieta balanceada."
             className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-gray-200 bg-white resize-none outline-none focus:border-[#3B6FCA] focus:ring-2 focus:ring-[#3B6FCA]/20 transition-all"
           />
@@ -299,7 +304,7 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
             rows={3}
             maxLength={MAX}
             value={estilo.ecologycal_social}
-            onChange={(e) => setEstilo((p) => ({ ...p, ecologycal_social: e.target.value }))}
+            onChange={(e) => setEstilo((p) => ({ ...p, ecologycal_social: maskClinicalText(e.target.value) }))}
             placeholder="Ej. Casa de sistema mixto, agua potable, vivo con 3 personas y un perro."
             className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-gray-200 bg-white resize-none outline-none focus:border-[#3B6FCA] focus:ring-2 focus:ring-[#3B6FCA]/20 transition-all"
           />
@@ -398,16 +403,15 @@ const HealthHistory = ({ patient, onChanged, onGoBloodType }) => {
         <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
       </button>
 
-      <SectionHead title="Procedimientos" />
-      {h.procedures?.length ? (
-        h.procedures.map((item, i) => (
-          <Item
-            key={item._id || i}
-            icon={Stethoscope}
-            title={item.procedure_name}
-            meta={[fmtFecha(item.date), item.doctor_name].filter(Boolean).join(" · ")}
-          />
-        ))
+      {/* Se toma el procedimiento de fecha más reciente: el historial se guarda en
+          el orden en que se registró, así que el último no siempre queda al final. */}
+      <SectionHead title="Último procedimiento realizado" />
+      {lastProcedure ? (
+        <Item
+          icon={Stethoscope}
+          title={lastProcedure.procedure_name}
+          meta={[fmtFecha(lastProcedure.date), lastProcedure.doctor_name].filter(Boolean).join(" · ")}
+        />
       ) : (
         <p className="text-sm text-gray-400 py-2">Aún no tienes procedimientos registrados.</p>
       )}

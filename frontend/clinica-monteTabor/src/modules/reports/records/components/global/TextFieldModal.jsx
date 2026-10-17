@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Loader2, NotebookText } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
+import { maskClinicalText } from "@/lib/inputMasks";
 
 // Modal minúsculo para editar un solo campo de texto libre del
 // expediente (por ejemplo, antecedentes no patológicos, que en
@@ -62,7 +63,7 @@ const TextFieldModal = ({ isOpen, onClose, patientId, title, bodyKey, currentVal
             rows={5}
             maxLength={1000}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => setValue(maskClinicalText(e.target.value, 1000))}
             placeholder="Escribe aquí..."
             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors resize-none"
           />

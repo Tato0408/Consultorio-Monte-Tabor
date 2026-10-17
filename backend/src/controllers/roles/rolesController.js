@@ -37,6 +37,25 @@ const LOCKED_TRUE_PERMISSIONS = {
     },
 };
 
+// Permisos que una pantalla necesita de otros módulos para no fallar con
+// 403, por acción. Es la misma lista que MODULE_DEPENDENCIES_BY_ACTION en
+// el frontend (rolesConfig.js): el Expediente carga pacientes, consultas y
+// citas, elimina consultas desde su pestaña Consultas, y el formulario de
+// consulta carga la cita completa.
+const MODULE_DEPENDENCIES = {
+    view: {
+        "reports.records": ["users.patients", "calendar.consultations", "calendar.appointments"],
+        "calendar.consultations": ["calendar.appointments"],
+        "inventory.products": ["inventory.reports", "inventory.movements", "procedures"],
+    },
+    update: {
+        "reports.records": ["users.patients"],
+    },
+    delete: {
+        "reports.records": ["calendar.consultations"],
+    },
+};
+
 // Al revés de LOCKED_TRUE_PERMISSIONS: acciones que un rol nunca puede tener en true.
 // La recepción puede consultar horarios (los necesita para agendar con un doctor
 // disponible), pero jamás modificarlos. Eso es exclusivo de cada doctor o enfermera
@@ -160,6 +179,23 @@ export const updateRolePermissions = async (req, res) => {
                 return res.status(400).json({
                     message: `No se puede activar "Crear", "Editar" o "Eliminar" en "${moduleKey}" mientras "Ver" está desactivado.`,
                 });
+            }
+        }
+
+        // Revisa las dependencias entre módulos en el estado final, solo para
+        // las reglas que involucran algún módulo tocado en este batch, así un
+        // rol con una combinación antigua no bloquea cambios ajenos a ella.
+        const permissionOf = (moduleKey) => role.permissions.find((p) => p.moduleKey === moduleKey) || {};
+        for (const [action, rules] of Object.entries(MODULE_DEPENDENCIES)) {
+            for (const [dependent, required] of Object.entries(rules)) {
+                const involved = touchedModuleKeys.has(dependent) || required.some((key) => touchedModuleKeys.has(key));
+                if (!involved || !permissionOf(dependent)[action]) continue;
+                const missing = required.filter((key) => !permissionOf(key)[action]);
+                if (missing.length > 0) {
+                    return res.status(400).json({
+                        message: `Para "${action}" en "${dependent}" también hace falta "${action}" en: ${missing.join(", ")}.`,
+                    });
+                }
             }
         }
 

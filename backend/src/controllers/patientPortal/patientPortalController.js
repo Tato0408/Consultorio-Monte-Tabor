@@ -17,7 +17,7 @@ import { runAppointmentAutoTransitions } from "../../controllers/appointments/ap
 import { getTransactionStatus } from "../../utils/wompi.js";
 import { RESCHEDULABLE_STATUSES, isCancelLockedForPatient } from "../../utils/appointmentStatus.js";
 import { deleteAppointmentCascade } from "../../services/consultationCascade.js";
-import { resolveProcedures, resolveProcedureFlags } from "../../utils/procedureAggregation.js";
+import { resolveProcedures, resolveProcedureFlags, getProcedureCountError } from "../../utils/procedureAggregation.js";
 import { insert_staff_notifications, notifyAppointmentRecipients } from "../../services/notificationService.js";
 import jsonwebtoken from "jsonwebtoken";
 import { config } from "../../../config.js";
@@ -430,6 +430,10 @@ patientPortalController.bookAppointment = async (req, res) => {
         // sin procedure_id: se arma tipo/duración/precio/indicaciones siempre a partir del
         // catálogo. Se puede elegir más de uno: la duración y el precio de la cita son la
         // suma de todos los elegidos (ver resolveProcedures).
+        const procedureCountError = getProcedureCountError(procedure_ids);
+        if (procedureCountError) {
+            return res.status(400).json({ message: procedureCountError });
+        }
         const resolved = await resolveProcedures(procedure_ids);
         if (!resolved) {
             return res.status(404).json({ message: "Uno o más procedimientos seleccionados no existen o ya no están disponibles." });
@@ -730,6 +734,10 @@ patientPortalController.rescheduleMyAppointment = async (req, res) => {
         // solo dejaba mover fecha/hora); procedure_ids no viene = un cliente viejo, o el
         // paciente no tocó el procedimiento: se resuelve igual que bookAppointment, sobre
         // el(los) mismo(s) que ya tenía la cita.
+        const procedureCountError = procedure_ids?.length ? getProcedureCountError(procedure_ids) : null;
+        if (procedureCountError) {
+            return res.status(400).json({ message: procedureCountError });
+        }
         const resolved = await resolveProcedures(procedure_ids?.length ? procedure_ids : appointment.procedure_id);
         if (!resolved) {
             return res.status(400).json({ message: "Uno o más procedimientos seleccionados no existen o ya no están disponibles." });

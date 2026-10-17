@@ -18,6 +18,7 @@ import { showError, showSuccess } from "../../lib/toast";
 import styles from "../../styles/profile/healthStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
+import { maskClinicalText } from "../../utils/validation";
 const PARENTESCOS = [
   "Madre", "Padre", "Hermano/a", "Abuelo/a materno", "Abuelo/a paterno",
   "Tío/a", "Primo/a", "Hijo/a",
@@ -98,7 +99,7 @@ const AddHereditaryScreen = ({ navigation }) => {
             label="Nombre"
             value={condition}
             onChangeText={(value) => {
-              setCondition(value);
+              setCondition(maskClinicalText(value));
               if (errors.condition) setErrors((prev) => ({ ...prev, condition: null }));
             }}
             placeholder="Ej. Diabetes tipo 2"

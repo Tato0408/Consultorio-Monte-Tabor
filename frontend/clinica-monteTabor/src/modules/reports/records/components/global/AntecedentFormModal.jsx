@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Loader2, Info } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { showSuccess, showError } from "@/lib/alerts";
+import { maskClinicalText } from "@/lib/inputMasks";
 
 // Modal genérico y compacto para agregar o editar un antecedente
 // hereditario o patológico, del mismo tamaño que IncapacidadFormModal y
@@ -22,11 +23,9 @@ import { showSuccess, showError } from "@/lib/alerts";
 // entero en un campo pensado para dos o tres palabras cortas.
 const MAX_FIELD_LENGTH = 30;
 
-// Permite solo letras (con acentos y eñe), espacios, apóstrofes y
-// guiones, mismo criterio que el resto de los formularios de personas y
-// datos del sistema (Doctors, Nurses, Receptionist, Patients Form,
-// EditPatientModal).
-const maskText = (raw) => raw.replace(/[^A-Za-zÀ-ÿ\s'-]/g, "").slice(0, MAX_FIELD_LENGTH);
+// Texto de historia clínica: letras, números (Diabetes tipo 2, COVID-19)
+// y puntuación de oración, sin símbolos como + o * (ver maskClinicalText).
+const maskText = (raw) => maskClinicalText(raw, MAX_FIELD_LENGTH);
 
 const AntecedentFormModal = ({ isOpen, onClose, patientId, title, editTitle, bodyKey, fields, editEntry, onSaved }) => {
   const emptyValues = Object.fromEntries(fields.map((f) => [f.key, ""]));

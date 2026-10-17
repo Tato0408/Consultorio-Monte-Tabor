@@ -14,7 +14,11 @@ import {
   DEFAULT_ROLE_PERMISSIONS,
   MODULE_VIEW_DEPENDENCIES,
   MODULE_UPDATE_DEPENDENCIES,
+  MODULE_DELETE_DEPENDENCIES,
+  MODULE_DEPENDENCIES_BY_ACTION,
   MODULE_LABEL_BY_KEY,
+  LOCKED_TRUE_PERMISSIONS,
+  LOCKED_FALSE_PERMISSIONS,
 } from "../rolesConfig.js";
 
 // Iconos de respaldo si el campo icon del rol, guardado en la base de
@@ -27,6 +31,60 @@ const ROLE_ICON_FALLBACK = {
 };
 
 const EMPTY_PERMISSION = { view: false, create: false, update: false, delete: false };
+const ACTION_KEYS = ["view", "create", "update", "delete"];
+const ACTION_LABELS = { view: "Ver", create: "Crear", update: "Editar", delete: "Eliminar" };
+
+/*
+ * Aplica el cambio de un módulo junto con sus dependencias (ver
+ * MODULE_DEPENDENCIES_BY_ACTION en rolesConfig.js). Activar una acción
+ * activa también esa acción en los módulos que la pantalla necesita, y
+ * desactivarla en un módulo requerido desactiva esa acción en los módulos
+ * que dependen de él. Así ningún rol queda con una pantalla que falla con
+ * 403. Respeta los permisos con candado del rol. Recibe el mapa completo de
+ * permisos, el módulo cambiado, sus permisos nuevos y el roleKey; devuelve
+ * { permissions, enabled, disabled } con el mapa resultante y la lista de
+ * lo que se cambió automáticamente.
+ */
+const apply_with_dependencies = (current, moduleKey, updated, roleKey) => {
+  const next = { ...current, [moduleKey]: { ...(current[moduleKey] || EMPTY_PERMISSION), ...updated } };
+  const enabled = [];
+  const disabled = [];
+  const is_locked_true = (mod, action) => (LOCKED_TRUE_PERMISSIONS[roleKey]?.[mod] || []).includes(action);
+  const is_locked_false = (mod, action) => (LOCKED_FALSE_PERMISSIONS[roleKey]?.[mod] || []).includes(action);
+  const label_of = (mod) => MODULE_LABEL_BY_KEY[mod] || mod;
+
+  const enable = (mod, action) => {
+    for (const dep of MODULE_DEPENDENCIES_BY_ACTION[action]?.[mod] || []) {
+      const target = next[dep.moduleKey] || EMPTY_PERMISSION;
+      if (target[action] || is_locked_false(dep.moduleKey, action)) continue;
+      // Cualquier acción distinta de Ver exige también Ver en ese módulo.
+      next[dep.moduleKey] = { ...target, [action]: true, ...(action !== "view" ? { view: true } : {}) };
+      enabled.push(`${ACTION_LABELS[action]} en ${label_of(dep.moduleKey)}`);
+      enable(dep.moduleKey, action);
+      if (action !== "view") enable(dep.moduleKey, "view");
+    }
+  };
+
+  const disable = (mod, action) => {
+    for (const [dependent, deps] of Object.entries(MODULE_DEPENDENCIES_BY_ACTION[action] || {})) {
+      if (!deps.some((dep) => dep.moduleKey === mod)) continue;
+      const target = next[dependent] || EMPTY_PERMISSION;
+      if (!target[action] || is_locked_true(dependent, action)) continue;
+      // Quitar Ver deja al módulo sin ninguna acción, igual que al destildarlo a mano.
+      const turned_off = action === "view" ? ACTION_KEYS.filter((a) => target[a]) : [action];
+      next[dependent] = { ...target, ...Object.fromEntries(turned_off.map((a) => [a, false])) };
+      disabled.push(`${ACTION_LABELS[action]} en ${label_of(dependent)}`);
+      turned_off.forEach((a) => disable(dependent, a));
+    }
+  };
+
+  const before = current[moduleKey] || EMPTY_PERMISSION;
+  for (const action of ACTION_KEYS) {
+    if (next[moduleKey][action] && !before[action]) enable(moduleKey, action);
+    if (!next[moduleKey][action] && before[action]) disable(moduleKey, action);
+  }
+  return { permissions: next, enabled, disabled };
+};
 
 // Convierte el array de permisos de la API, uno por moduleKey, en un
 // objeto indexado por moduleKey.
@@ -90,27 +148,34 @@ const RolesPage = () => {
 
   const hasPendingChanges = Object.keys(pendingChanges).length > 0;
 
-  // Calcula, para el módulo que cambió, solo los campos que son
-  // distintos respecto a lo guardado en la base de datos.
+  // Aplica el cambio del módulo con sus dependencias y guarda como
+  // pendientes solo los campos distintos respecto a lo guardado en la base
+  // de datos, en todos los módulos que hayan cambiado. Avisa lo que se
+  // activó o desactivó automáticamente.
   const handleModuleChange = (moduleKey, updatedPermissions) => {
     if (!selectedRoleRaw || selectedRoleRaw.isProtected) return;
-    const saved = basePermissions[moduleKey] || EMPTY_PERMISSION;
-    const diff = {};
-    Object.keys(updatedPermissions).forEach((action) => {
-      if (updatedPermissions[action] !== saved[action]) {
-        diff[action] = updatedPermissions[action];
-      }
-    });
+    const { permissions, enabled, disabled } = apply_with_dependencies(
+      effectivePermissions,
+      moduleKey,
+      updatedPermissions,
+      selectedRoleRaw.roleKey
+    );
 
-    setPendingChanges((prev) => {
-      const next = { ...prev };
-      if (Object.keys(diff).length === 0) {
-        delete next[moduleKey];
-      } else {
-        next[moduleKey] = diff;
-      }
-      return next;
-    });
+    const nextPending = {};
+    for (const [key, values] of Object.entries(permissions)) {
+      const saved = basePermissions[key] || EMPTY_PERMISSION;
+      const diff = Object.fromEntries(ACTION_KEYS.filter((a) => !!values[a] !== !!saved[a]).map((a) => [a, !!values[a]]));
+      if (Object.keys(diff).length) nextPending[key] = diff;
+    }
+    setPendingChanges(nextPending);
+
+    const moduleLabel = MODULE_LABEL_BY_KEY[moduleKey] || moduleKey;
+    if (enabled.length) {
+      toast(`${moduleLabel} lo necesita, así que también se activó: ${enabled.join(", ")}.`);
+    }
+    if (disabled.length) {
+      toast(`Sin este permiso, también se desactivó: ${disabled.join(", ")}.`);
+    }
   };
 
   const handleSelectRole = (key) => {
@@ -149,7 +214,17 @@ const RolesPage = () => {
       }))
       .filter((entry) => entry.missingLabels.length > 0);
 
-    const problems = [...viewProblems, ...updateProblems];
+    // Mismo chequeo para Eliminar (ver MODULE_DELETE_DEPENDENCIES).
+    const deleteProblems = Object.entries(MODULE_DELETE_DEPENDENCIES)
+      .filter(([moduleKey]) => permissions[moduleKey]?.delete)
+      .map(([moduleKey, deps]) => ({
+        moduleLabel: MODULE_LABEL_BY_KEY[moduleKey] || moduleKey,
+        action: "Eliminar",
+        missingLabels: deps.filter((dep) => !permissions[dep.moduleKey]?.delete).map((dep) => dep.label),
+      }))
+      .filter((entry) => entry.missingLabels.length > 0);
+
+    const problems = [...viewProblems, ...updateProblems, ...deleteProblems];
     if (problems.length === 0) return null;
 
     return problems

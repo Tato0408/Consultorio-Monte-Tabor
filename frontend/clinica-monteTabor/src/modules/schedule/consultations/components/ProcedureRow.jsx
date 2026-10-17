@@ -1,6 +1,7 @@
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 import { maskClinicalText } from "@/lib/inputMasks";
+import { showWarning } from "@/lib/alerts";
 
 // Clase del borde de un campo: rojo cuando el campo tiene un error de
 // validación pendiente, gris en cualquier otro caso.
@@ -10,6 +11,18 @@ const borderClass = (hasError) => (hasError ? "border-red-400" : "border-slate-2
 // sola vez ahí, no por cada fila): antes cada fila tenía su propia copia de estos 3
 // hooks/fetches, así que una consulta con 4 procedimientos disparaba 4 peticiones
 // idénticas a cada endpoint.
+// Un insumo vencido (fecha de vencimiento hoy o antes) o sin stock no se
+// puede usar en una consulta, así que no se ofrece en el selector. Solo se
+// muestra, deshabilitado, si ya estaba elegido en una consulta guardada.
+const is_expired = (item) => {
+    if (!item?.expiration_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(item.expiration_date) <= today;
+};
+const is_usable_item = (item) => Number(item?.stock) > 0 && !is_expired(item);
+const unusable_reason = (item) => (is_expired(item) ? "vencido" : "agotado");
+
 const ProcedureRow = ({
     index, onRemove, readOnly,
     inventory, isLoadingInventory,
@@ -52,11 +65,20 @@ const ProcedureRow = ({
         const yaTieneMaterialesElegidos = (getValues(`procedure.${index}.material_used`) || [])
             .some((m) => m?.inventory_id);
         if (procedure?.materials?.length && !yaTieneMaterialesElegidos) {
-            replaceMaterials(
-                procedure.materials
-                    .filter((m) => m?.insumo?._id)
-                    .map((m) => ({ inventory_id: m.insumo._id, quantity: m.quantity || 1 }))
-            );
+            // Los insumos del catálogo que hoy están vencidos o agotados no se
+            // agregan, y se avisa cuáles se omitieron.
+            const catalog = procedure.materials.filter((m) => m?.insumo?._id);
+            const find_item = (m) => inventory.find((item) => String(item._id) === String(m.insumo._id));
+            const usable = catalog.filter((m) => !find_item(m) || is_usable_item(find_item(m)));
+            const skipped = catalog.filter((m) => find_item(m) && !is_usable_item(find_item(m)));
+            replaceMaterials(usable.map((m) => ({ inventory_id: m.insumo._id, quantity: m.quantity || 1 })));
+            if (skipped.length) {
+                showWarning(
+                    `No se agregaron estos insumos porque están vencidos o agotados: ${skipped
+                        .map((m) => `${find_item(m).name} (${unusable_reason(find_item(m))})`)
+                        .join(", ")}.`
+                );
+            }
         }
     };
 
@@ -147,11 +169,13 @@ const ProcedureRow = ({
                                 <option value="">
                                     {isLoadingInventory ? "Cargando insumos..." : "Selecciona un insumo"}
                                 </option>
-                                {inventory.map((item) => (
-                                    <option key={item._id} value={item._id}>
-                                        {item.name} (stock: {item.stock} {item.unit_measure})
-                                    </option>
-                                ))}
+                                {inventory
+                                    .filter((item) => is_usable_item(item) || String(item._id) === String(watch(`procedure.${index}.material_used.${materialIndex}.inventory_id`)))
+                                    .map((item) => (
+                                        <option key={item._id} value={item._id} disabled={!is_usable_item(item)}>
+                                            {item.name} (stock: {item.stock} {item.unit_measure}){!is_usable_item(item) ? ` - ${unusable_reason(item)}` : ""}
+                                        </option>
+                                    ))}
                             </select>
                         </div>
 

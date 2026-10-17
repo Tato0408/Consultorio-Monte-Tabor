@@ -3,6 +3,21 @@ import Swal from "sweetalert2";
 import { useAuth } from "../../../context/AuthContext";
 import apiClient from "../../../lib/apiClient";
 
+// Convierte el error de una subida de imagen en la causa que se le muestra al
+// usuario. El backend ya manda la causa en message (ver uploadErrorHandler.js);
+// aquí solo se cubren los casos sin mensaje útil: sin conexión, o un error del
+// servidor que llegó sin explicación.
+const describeUploadError = (err) => {
+  if (err instanceof TypeError) {
+    return "No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.";
+  }
+  const message = String(err?.message || "");
+  if (!message || /^Error \d+$/.test(message) || message === "Error interno del servidor") {
+    return "El servidor no pudo procesar la imagen. Inténtalo de nuevo en unos minutos.";
+  }
+  return message;
+};
+
 const useProfile = () => {
   const { refetchUser, user, userType, logout } = useAuth();
   const [submitting, setSubmitting] = useState(false);
@@ -66,11 +81,12 @@ const useProfile = () => {
       await refetchUser();
       return true;
     } catch (err) {
-      setError(err.message || "Error al subir la imagen");
+      const cause = describeUploadError(err);
+      setError(`Error al actualizar la foto de perfil: ${cause}`);
       Swal.fire({
         icon: "error",
-        title: "Error",
-        text: err.message || "Ocurrió un error al subir la foto.",
+        title: "Error al actualizar la foto de perfil",
+        text: cause,
         confirmButtonColor: "#2563eb",
       });
       return false;

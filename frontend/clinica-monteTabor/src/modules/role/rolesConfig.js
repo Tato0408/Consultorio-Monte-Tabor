@@ -156,6 +156,14 @@ export const MODULE_VIEW_DEPENDENCIES = {
     { moduleKey: "calendar.consultations", label: "Consultas" },
     { moduleKey: "calendar.appointments", label: "Citas" },
   ],
+  // El formulario de consulta carga la cita completa (GET /appointments/:id)
+  // antes de mostrar nada, así que ver Consultas exige ver Citas. Los
+  // catálogos de procedimientos e insumos que usa ese formulario ya se
+  // permiten con solo ver Consultas (ver routes/procedures y
+  // /inventory/consultation-catalog en el backend).
+  "calendar.consultations": [
+    { moduleKey: "calendar.appointments", label: "Citas" },
+  ],
   // Mismo caso: la pantalla de Inventario abre con solo Ver en
   // inventory.products, pero sus tarjetas de estadísticas y gráficas piden
   // aparte a inventory.reports (GET /inventory/stats y /inventory/charts), la
@@ -182,6 +190,23 @@ export const MODULE_UPDATE_DEPENDENCIES = {
   "reports.records": [
     { moduleKey: "users.patients", label: "Pacientes" },
   ],
+};
+
+// Mismo mecanismo para Eliminar: eliminar una consulta desde la pestaña
+// Consultas del expediente llama a DELETE /consultations, que exige
+// eliminar en Consultas.
+export const MODULE_DELETE_DEPENDENCIES = {
+  "reports.records": [
+    { moduleKey: "calendar.consultations", label: "Consultas" },
+  ],
+};
+
+// Dependencias por acción, en el formato que usa RolesPage para activar
+// solo lo requerido y para validar antes de guardar.
+export const MODULE_DEPENDENCIES_BY_ACTION = {
+  view: MODULE_VIEW_DEPENDENCIES,
+  update: MODULE_UPDATE_DEPENDENCIES,
+  delete: MODULE_DELETE_DEPENDENCIES,
 };
 
 // Permisos que, para ciertos roles, el propio dashboard de ese rol

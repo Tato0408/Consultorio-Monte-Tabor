@@ -51,6 +51,10 @@ const Consultations =() => {
         // demás proveedores, con las suyas siempre primero (ver
         // getAppointments en el backend). Para los demás roles no aplica.
         include_others: userType === "nurse" ? "true" : undefined,
+        // En la pestaña "Todos" el backend ordena por estado: En espera,
+        // Atendido, Cancelado y No se presentó. En las demás pestañas no
+        // cambia nada porque solo traen un estado.
+        status_order: "consultations",
     });
 
     const { stats, isLoading: isLoadingStats, refetch: refetchStats } = useAppointmentStats(today);

@@ -10,7 +10,7 @@ import sickLeavesModel from "../../models/sickLeaves/sickLeave.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import { runAppointmentAutoTransitions } from "../appointments/appointmentsController.js";
 import { config } from "../../../config.js";
-import { validateUserFieldFormats, getMissingRequiredField, getPasswordError } from "../../utils/validators.js";
+import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, getClinicalTextError } from "../../utils/validators.js";
 
 // Controller de autoservicio para pacientes: a diferencia de
 // patientsController.js (usado por el panel administrativo, donde el
@@ -417,6 +417,10 @@ patientSelfController.updateLifestyle = async (req, res) => {
         if (denyIfNotPatient(req, res)) return;
 
         const { non_pathological, ecologycal_social } = req.body;
+        const clinicalTextError = getClinicalTextError({ "Hábitos": non_pathological, "Entorno y vivienda": ecologycal_social });
+        if (clinicalTextError) {
+            return res.status(400).json({ message: clinicalTextError });
+        }
 
         const fieldsToSet = {};
         // Se acepta la cadena vacía a propósito: es como el paciente
@@ -455,6 +459,10 @@ patientSelfController.addHereditary = async (req, res) => {
         if (denyIfNotPatient(req, res)) return;
 
         const { relationship, condition, type } = req.body;
+        const clinicalTextError = getClinicalTextError({ Parentesco: relationship, "Condición": condition, Tipo: type });
+        if (clinicalTextError) {
+            return res.status(400).json({ message: clinicalTextError });
+        }
 
         if (!relationship?.trim()) {
             return res.status(400).json({ message: "Indica el parentesco" });
@@ -523,6 +531,10 @@ patientSelfController.updateHereditary = async (req, res) => {
         if (denyIfNotPatient(req, res)) return;
 
         const { relationship, condition, type } = req.body;
+        const clinicalTextError = getClinicalTextError({ Parentesco: relationship, "Condición": condition, Tipo: type });
+        if (clinicalTextError) {
+            return res.status(400).json({ message: clinicalTextError });
+        }
         if (!relationship?.trim()) {
             return res.status(400).json({ message: "Indica el parentesco" });
         }
@@ -562,6 +574,10 @@ patientSelfController.addPathological = async (req, res) => {
         if (denyIfNotPatient(req, res)) return;
 
         const { disease, diagnosis, type } = req.body;
+        const clinicalTextError = getClinicalTextError({ Enfermedad: disease, "Diagnóstico": diagnosis, Tipo: type });
+        if (clinicalTextError) {
+            return res.status(400).json({ message: clinicalTextError });
+        }
 
         if (!disease?.trim()) {
             return res.status(400).json({ message: "Indica la enfermedad" });
@@ -633,6 +649,10 @@ patientSelfController.updatePathological = async (req, res) => {
         if (denyIfNotPatient(req, res)) return;
 
         const { disease, diagnosis, type } = req.body;
+        const clinicalTextError = getClinicalTextError({ Enfermedad: disease, "Diagnóstico": diagnosis, Tipo: type });
+        if (clinicalTextError) {
+            return res.status(400).json({ message: clinicalTextError });
+        }
         if (!disease?.trim()) {
             return res.status(400).json({ message: "Indica la enfermedad" });
         }

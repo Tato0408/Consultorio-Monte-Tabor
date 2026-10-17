@@ -17,6 +17,7 @@ import { showError, showSuccess } from "../../lib/toast";
 import styles from "../../styles/profile/healthStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
+import { maskClinicalText } from "../../utils/validation";
 // El diagnóstico es texto libre corto (ej. "Confirmado en 2019"), no una
 // fecha: se guarda tal cual como string.
 const DIAGNOSIS_MAX = 50;
@@ -81,7 +82,7 @@ const AddPathologicalScreen = ({ navigation }) => {
             label="Nombre"
             value={disease}
             onChangeText={(value) => {
-              setDisease(value);
+              setDisease(maskClinicalText(value));
               if (errors.disease) setErrors((prev) => ({ ...prev, disease: null }));
             }}
             placeholder="Ej. Hipertensión arterial"
@@ -95,7 +96,7 @@ const AddPathologicalScreen = ({ navigation }) => {
           <FormInput
             label="Diagnóstico"
             value={diagnosis}
-            onChangeText={(value) => setDiagnosis(value.slice(0, DIAGNOSIS_MAX))}
+            onChangeText={(value) => setDiagnosis(maskClinicalText(value).slice(0, DIAGNOSIS_MAX))}
             placeholder="Ej. Confirmado en 2019"
             maxLength={DIAGNOSIS_MAX}
           />

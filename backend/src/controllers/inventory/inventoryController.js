@@ -596,6 +596,36 @@ const sumMaterialUsage = (procedureRows) => {
   return totals;
 };
 
+// Revisa, antes de guardar una consulta, que cada insumo que se va a usar
+// de más (respecto de lo que la consulta ya tenía) exista, no esté vencido y
+// tenga stock suficiente. Un insumo vencido o agotado no puede usarse en una
+// consulta. Recibe las filas de procedimiento anteriores y nuevas y devuelve
+// el mensaje del primer problema encontrado, o null si todo está bien.
+inventoryController.getMaterialUsageError = async ({ previousProcedureRows, procedureRows }) => {
+  const previousTotals = sumMaterialUsage(previousProcedureRows);
+  const newTotals = sumMaterialUsage(procedureRows);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (const [inventoryId, quantity] of newTotals) {
+    const delta = quantity - (previousTotals.get(inventoryId) || 0);
+    if (delta <= 0) continue;
+
+    const item = await inventoryModel.findById(inventoryId).select("name stock unit_measure expiration_date").lean();
+    if (!item) return "Uno de los insumos seleccionados ya no existe en el inventario.";
+    if (item.expiration_date && new Date(item.expiration_date) <= today) {
+      return `El insumo "${item.name}" está vencido y no puede usarse en la consulta.`;
+    }
+    if (Number(item.stock) <= 0) {
+      return `El insumo "${item.name}" está agotado y no puede usarse en la consulta.`;
+    }
+    if (delta > Number(item.stock)) {
+      return `No hay suficiente "${item.name}": se piden ${delta} y solo quedan ${item.stock} ${item.unit_measure || "unidades"}.`;
+    }
+  }
+  return null;
+};
+
 // Se llama directamente desde consultationController (no por HTTP) al
 // crear o editar una consulta, para que material_used descuente
 // stock de verdad. Compara lo que la consulta usaba antes contra lo
@@ -650,6 +680,24 @@ inventoryController.applyMaterialUsageDelta = async ({
     // Fuera de la transacción a propósito: si notificar falla, no debe tumbar el guardado
     // de la consulta (mismo criterio que el resto de este controlador).
     notifyLowStockAdmins(item).catch((error) => console.log("Error notificando inventario:", error));
+  }
+};
+
+// GET, catálogo de insumos para el formulario de consulta: nombre, stock,
+// unidad y fecha de vencimiento de todos los insumos, ordenados por nombre.
+// Incluye los vencidos y agotados para poder mostrar el nombre de un insumo
+// ya usado en una consulta guardada; el formulario los deja deshabilitados y
+// getMaterialUsageError impide usarlos de nuevo.
+inventoryController.getConsultationCatalog = async (req, res) => {
+  try {
+    const items = await inventoryModel
+      .find({})
+      .select("name stock unit_measure expiration_date")
+      .sort({ name: 1 })
+      .lean();
+    return res.status(200).json(items);
+  } catch (error) {
+    return res.status(500).json({ message: "Error al obtener los insumos", error: error.message });
   }
 };
 

@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Calendar, Phone, IdCard, CheckCircle2, Circle } from "lucide-react";
+import { User, Mail, Lock, Phone, IdCard, CheckCircle2, Circle } from "lucide-react";
 import InputField from "@/components/ui/InputField";
 import FooterLogin from "../../components/Footer";
 import { useAuth } from "@/context/AuthContext";
 import { showSuccess, showError } from "@/lib/alerts";
 
+import DatePickerField from "@/components/ui/DatePickerField";
 // Tope máximo seleccionable en el input de fecha (hoy), para no dejar elegir una fecha futura
 const HOY_STR = new Date().toISOString().split("T")[0];
 
@@ -200,9 +201,9 @@ const Register = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <InputField label="Fecha de nacimiento" id="birthdate" type="date" max={HOY_STR}
+                <DatePickerField label="Fecha de nacimiento" id="birthdate" max={HOY_STR}
                   value={formData.birthdate} onChange={handleChange("birthdate")}
-                  icon={<Calendar className="w-4 h-4" />} error={errors.birthdate} disabled={isLoading} />
+                  error={errors.birthdate} disabled={isLoading} />
 
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="gender" className="text-sm font-medium text-gray-700">Género</label>

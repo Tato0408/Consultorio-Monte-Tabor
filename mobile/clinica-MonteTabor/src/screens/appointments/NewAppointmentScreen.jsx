@@ -166,6 +166,9 @@ const ModeToggle = ({ modo, onChange, requiresDoctor = true }) => (
   </View>
 );
 
+// Máximo de procedimientos que se pueden elegir en una misma cita.
+const MAX_PROCEDIMIENTOS_POR_CITA = 3;
+
 export default function NewAppointmentScreen({ navigation, route }) {
   // Modo reagendar: llega desde "Reagendar cita" (detalle de una cita "pendiente" o "por
   // reagendar"). Reusa el mismo registro (conserva el anticipo), no se puede cambiar el
@@ -426,8 +429,14 @@ export default function NewAppointmentScreen({ navigation, route }) {
   // (requiresDoctorForService), un proveedor de la selección anterior podía quedar
   // "pegado" y mostrarse junto al nuevo en la confirmación y en la pantalla de éxito
   // (mismo criterio que elegirTipo en el portal público).
+  // Una cita admite como máximo 3 procedimientos: al elegir un cuarto se quita el que se
+  // eligió primero, así siempre quedan los 3 más recientes. Mismo límite que valida el
+  // backend (MAX_PROCEDURES_PER_APPOINTMENT).
   const elegirServicio = (id) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]));
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((sid) => sid !== id);
+      return [...prev, id].slice(-MAX_PROCEDIMIENTOS_POR_CITA);
+    });
     setSelectedDoctor(null);
     setSelectedNurse(null);
     setDate(toDateKey(new Date()));

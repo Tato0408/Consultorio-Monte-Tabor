@@ -15,6 +15,7 @@ import useNurseSchedule from "../hooks/useNurseSchedule";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/apiClient";
 import { formatTime12h as fmt12 } from "@/lib/timeFormat";
+import { max_procedures_per_appointment } from "../lib/appointmentLimits";
 
 // Formulario único para crear, ver y editar una cita. Se usa tanto
 // desde la pestaña Calendario como desde la pestaña Citas, e incluye
@@ -394,7 +395,10 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
 
   // Agrega una fila vacía más para elegir otro procedimiento, o quita la fila i (nunca
   // deja el array vacío: si se quita la única fila que queda, la reemplaza por una vacía).
-  const agregarProcedimiento = () => setProcedureSlots(prev => [...prev, ""]);
+  // Agrega una fila para otro procedimiento, sin pasar del máximo por cita.
+  const agregarProcedimiento = () => setProcedureSlots(prev =>
+    prev.length >= max_procedures_per_appointment ? prev : [...prev, ""]
+  );
   const quitarProcedimiento = (i) => setProcedureSlots(prev => {
     const next = prev.filter((_, idx) => idx !== i);
     return next.length > 0 ? next : [""];
@@ -603,13 +607,15 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
 
           <SectionCard title="Participantes" icon={User}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Al reagendar o editar una cita existente el paciente queda fijo: cambiarlo
+                  convertiría la cita de una persona en la de otra. */}
               <DataCombobox
                 label="Paciente"
                 value={formData.patient_id}
                 onChange={v => setFormData(p => ({ ...p, patient_id: v }))}
                 options={patients.map(p => ({ value: p._id, label: patientLabel(p) }))}
                 placeholder="Seleccione un paciente"
-                disabled={!isEditing}
+                disabled={!isEditing || Boolean(id)}
               />
 
               {/* Procedimientos: uno o más, definen el tipo, la duración y el precio
@@ -646,7 +652,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                         {esUltima ? (
                           <button
                             type="button"
-                            disabled={!isEditing || !slotValue || procedureSlots.length >= procedures.length}
+                            disabled={!isEditing || !slotValue || procedureSlots.length >= procedures.length || procedureSlots.length >= max_procedures_per_appointment}
                             onClick={agregarProcedimiento}
                             title="Agregar otro procedimiento"
                             className="h-[42px] w-[42px] flex-shrink-0 flex items-center justify-center border border-slate-200 rounded-xl text-slate-500 hover:text-blue-600 hover:border-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -672,6 +678,9 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                   <p className="text-[11px] text-slate-400">
                     Duración total: {duration} min · Precio total: ${total || 0}
                     {isNurseRequired && " · Requiere enfermera"}
+                    {procedureSlots.length >= max_procedures_per_appointment && (
+                      <span className="text-amber-600"> · Límite de procedimientos por consulta alcanzado</span>
+                    )}
                   </p>
                 )}
               </div>

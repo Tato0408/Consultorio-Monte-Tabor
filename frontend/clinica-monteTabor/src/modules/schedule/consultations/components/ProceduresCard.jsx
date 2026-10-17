@@ -3,7 +3,6 @@ import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus } from "lucide-react";
 import SectionCard from "./SectionCard";
 import ProcedureRow from "./ProcedureRow";
-import useInventory from "@/modules/inventory/hooks/useInventory";
 import useProcedures from "@/modules/procedures/hooks/useProcedures";
 import apiClient from "@/lib/apiClient";
 
@@ -16,14 +15,23 @@ const ProceduresCard = ({ readOnly }) => {
         name: "procedure",
     });
 
-    // Antes cada ProcedureRow traía su propio inventario, catálogo de procedimientos y
-    // catálogo de doctores por separado: una consulta con 4 procedimientos disparaba 4
-    // peticiones idénticas a cada endpoint (hasta 1000 insumos cada vez). Se traen una
-    // sola vez acá y se pasan como props a cada fila.
-    const { inventory, isLoading: isLoadingInventory } = useInventory();
+    // El inventario, el catálogo de procedimientos y el de doctores se traen
+    // una sola vez aquí y se pasan como props a cada fila. Los insumos salen
+    // del catálogo de consulta (GET /inventory/consultation-catalog), que solo
+    // exige ver Consultas, para no obligar a dar acceso al módulo de
+    // inventario completo a quien atiende.
+    const [inventory, setInventory] = useState([]);
+    const [isLoadingInventory, setIsLoadingInventory] = useState(true);
     const { procedures, loading: isLoadingProcedures, getProcedureById } = useProcedures();
     const [doctors, setDoctors] = useState([]);
     const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+
+    useEffect(() => {
+        apiClient("/inventory/consultation-catalog")
+            .then((items) => setInventory(Array.isArray(items) ? items : []))
+            .catch(() => setInventory([]))
+            .finally(() => setIsLoadingInventory(false));
+    }, []);
 
     useEffect(() => {
         apiClient("/doctors/catalog")

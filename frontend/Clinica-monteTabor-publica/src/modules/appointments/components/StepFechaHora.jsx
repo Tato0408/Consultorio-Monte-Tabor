@@ -164,12 +164,16 @@ const StepFechaHora = ({ procedureId, duration, doctor, nurse, date, slot, onSel
   // Una excepción de tipo vacaciones o día no laborable bloquea ese rango de fechas
   // completo. "special_hours" no bloquea el día, solo cambia el horario dentro de él
   // (eso ya lo resuelve el propio cálculo de slots del servidor).
+  // Las fechas de la excepción llegan como medianoche UTC ("2026-10-20T00:00:00Z"):
+  // se toma la parte de fecha tal cual. Convertirlas con la hora local corría el
+  // bloqueo al día anterior en El Salvador (UTC-6) y dejaba libre el día no laboral.
+  const exceptionDay = (value) => String(value || "").slice(0, 10);
   const fechaDentroDeExcepcionBloqueante = (d) => {
     const str = toDateStr(d);
     return exceptions.some((ex) => {
       if (ex.type === "special_hours") return false;
-      const desde = toDateStr(new Date(ex.date));
-      const hasta = ex.end_date ? toDateStr(new Date(ex.end_date)) : desde;
+      const desde = exceptionDay(ex.date);
+      const hasta = ex.end_date ? exceptionDay(ex.end_date) : desde;
       return str >= desde && str <= hasta;
     });
   };

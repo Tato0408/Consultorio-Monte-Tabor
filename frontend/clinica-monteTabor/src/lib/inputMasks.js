@@ -21,14 +21,16 @@ export const maskDigitsOnly = (raw, maxLength) => {
 export const maskAlnum = (raw, maxLength = 30) =>
   raw.replace(/[^A-Za-zÀ-ÿ0-9\s'-]/g, "").slice(0, maxLength);
 
-// Permite letras, dígitos, espacios y la puntuación normal de un texto redactado (punto,
-// coma, punto y coma, dos puntos, comillas, paréntesis, guion, diagonal y signo de
-// porcentaje). Bloquea símbolos sueltos que no pertenecen a una nota clínica en prosa
-// (<, >, {, }, [, ], \, |, ^, ~, `, @, #, $, &, *, =, _, +). Se usa en notas de evolución,
-// recetas, procedimientos y antecedentes: campos de texto libre que sí necesitan números
-// (dosis, edades, fechas en prosa) pero no símbolos ajenos a la redacción.
+// Permite letras (con tildes, ñ y ü), dígitos, espacios, saltos de línea y la puntuación
+// normal de una oración: punto, coma, punto y coma, dos puntos, comillas, paréntesis,
+// corchetes, guion, diagonal, signos de interrogación y exclamación, y porcentaje. Bloquea
+// símbolos que no se usan al redactar (+, *, =, #, @, $, &, _, <, >, {, }, |, \, ^, ~, `,
+// × y ÷). Los números se permiten porque hay diagnósticos que los llevan (Diabetes tipo 2,
+// COVID-19, VIH-1, Trisomía 21). Misma regla que CLINICAL_TEXT_REGEX en el backend, el
+// portal público y la app móvil. Se usa en notas de evolución, recetas, procedimientos y
+// antecedentes de la historia clínica.
 export const maskClinicalText = (raw, maxLength) => {
-  const cleaned = raw.replace(/[^A-Za-zÀ-ÿ0-9\s.,;:'"()\-/%]/g, "");
+  const cleaned = raw.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ0-9\s.,;:'"()[\]\-/¿?¡!%]/g, "");
   return maxLength ? cleaned.slice(0, maxLength) : cleaned;
 };
 

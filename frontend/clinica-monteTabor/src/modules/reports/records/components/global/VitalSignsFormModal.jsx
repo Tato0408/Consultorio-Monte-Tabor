@@ -60,6 +60,20 @@ const getFieldErrors = (form) => {
   return errors;
 };
 
+// Devuelve un error por cada campo vacío o con un número inválido (por
+// ejemplo un punto suelto, que la máscara permite al escribir decimales).
+// Todos los campos son obligatorios: una toma con campos en blanco aparecía
+// vacía en la gráfica y en la tabla del expediente.
+const getMissingErrors = (form) => {
+  const errors = {};
+  for (const key of Object.keys(EMPTY)) {
+    const value = String(form[key] ?? "").trim();
+    if (!value) errors[key] = "Requerido";
+    else if (key !== "blood_pressure" && Number.isNaN(Number(value))) errors[key] = "Número inválido";
+  }
+  return errors;
+};
+
 // Modal compacto para registrar o editar una toma de signos vitales.
 // Comparte esta misma forma el botón Actualizar de Historia clínica, el
 // botón Agregar de Signos vitales y el botón de editar de la tabla de
@@ -75,11 +89,17 @@ const VitalSignsFormModal = ({ isOpen, onClose, patientId, onSaved, editEntry })
   // muestra aparte de los errores por campo.
   const [generalError, setGeneralError] = useState(null);
   const [loading, setLoading] = useState(false);
+  // Se activa al intentar guardar, para mostrar "Requerido" en los campos
+  // vacíos solo desde ese momento y no al abrir el formulario.
+  const [submitted, setSubmitted] = useState(false);
 
   // Se recalcula con cada tecla, no solo al enviar, para que el label rojo
   // aparezca o desaparezca al instante debajo del input que corresponde,
   // igual que en TriageCard.jsx.
-  const fieldErrors = useMemo(() => getFieldErrors(form), [form]);
+  const fieldErrors = useMemo(
+    () => ({ ...(submitted ? getMissingErrors(form) : {}), ...getFieldErrors(form) }),
+    [form, submitted]
+  );
   const hasFieldErrors = Object.keys(fieldErrors).length > 0;
 
   // El componente se queda montado entre aperturas, el padre solo cambia
@@ -88,6 +108,7 @@ const VitalSignsFormModal = ({ isOpen, onClose, patientId, onSaved, editEntry })
   useEffect(() => {
     if (!isOpen) return;
     setGeneralError(null);
+    setSubmitted(false);
     if (editEntry) {
       setForm({
         blood_pressure: editEntry.presion !== "—" ? String(editEntry.presion) : "",
@@ -115,9 +136,10 @@ const VitalSignsFormModal = ({ isOpen, onClose, patientId, onSaved, editEntry })
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleSave = async () => {
-    if (loading || hasFieldErrors) return;
-    if (Object.values(form).every((v) => v === "")) {
-      setGeneralError("Completa al menos un campo");
+    if (loading) return;
+    setSubmitted(true);
+    if (hasFieldErrors || Object.keys(getMissingErrors(form)).length > 0) {
+      setGeneralError("Completa todos los signos vitales con valores válidos");
       return;
     }
     setGeneralError(null);

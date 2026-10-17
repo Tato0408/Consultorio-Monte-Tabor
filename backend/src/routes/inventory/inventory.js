@@ -1,7 +1,7 @@
 import express from "express";
 import upload from "../../utils/CloudinaryConfig.js";
 import inventoryController from "../../controllers/inventory/inventoryController.js";
-import { authorize } from "../../middlewares/authorizeMiddleware.js";
+import { authorize, authorizeAny } from "../../middlewares/authorizeMiddleware.js";
 
 const router = express.Router();
 
@@ -9,6 +9,16 @@ const router = express.Router();
 router.get("/stats",     authorize("inventory.reports", "view"), inventoryController.getStats);
 router.get("/movements", authorize("inventory.movements", "view"), inventoryController.getMovements);
 router.get("/charts",    authorize("inventory.reports", "view"), inventoryController.getCharts);
+
+// Catálogo de insumos para el selector de materiales de una consulta. Solo
+// lectura y con los datos mínimos (nombre, stock, unidad y vencimiento), así
+// que alcanza con ver Consultas: atender una consulta no exige tener acceso
+// al módulo de inventario completo.
+router.get(
+  "/consultation-catalog",
+  authorizeAny(["inventory.products", "view"], ["calendar.consultations", "view"]),
+  inventoryController.getConsultationCatalog
+);
 
 // CRUD principal
 router.route("/")

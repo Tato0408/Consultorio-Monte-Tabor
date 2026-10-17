@@ -691,7 +691,7 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
                         onClick={() => navigate(`/calendar/appointments/${appt._id}`, { state: { fromView: "calendar" } })}
                         className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                     >
-                        Ver expediente
+                        Ver detalle
                     </button>
                     {/* Reagendar aplica a Programada, Pendiente, Por reagendar y Vencida:
                         ninguna tiene todavía una atención real comprometida, se les puede
@@ -705,7 +705,9 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
                             Reagendar cita
                         </button>
                     )}
-                    {canUpdateAppt && !isPendingAction && appt.status !== "cancelled" && appt.status !== "completed" && (
+                    {/* Una cita no presentada ya quedó cerrada con ese estado: solo admite
+                        ver el expediente o eliminarla, igual que en la lista de Citas. */}
+                    {canUpdateAppt && !isPendingAction && !["cancelled", "completed", "no_show"].includes(appt.status) && (
                         <button
                             onClick={handleCancel}
                             disabled={cancelling}

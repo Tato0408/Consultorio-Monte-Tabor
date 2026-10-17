@@ -35,6 +35,13 @@ export const maskDui = (text) => {
 // solo letras (con acentos/ñ) y espacios.
 export const maskName = (text) => text.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]/g, "");
 
+// Máscara de texto de historia clínica (enfermedades, antecedentes, hábitos): permite
+// letras con tildes, ñ y ü, números (hay diagnósticos que los llevan, como Diabetes tipo 2,
+// COVID-19 o VIH-1), espacios, saltos de línea y la puntuación de una oración
+// (. , ; : ' " ( ) [ ] - / ¿ ? ¡ ! %). Bloquea símbolos que no se usan al redactar, como
+// + * = # @ $ & _ < > { } | \ ^ ~ × ÷. Misma regla que el backend y las dos webs.
+export const maskClinicalText = (text) => text.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ0-9\s.,;:'"()[\]\-/¿?¡!%]/g, "");
+
 // Misma regla que el checklist de contraseña de la web: más de 8 caracteres, mayúscula,
 // minúscula, número y carácter especial. Devuelve el mensaje del primer requisito incumplido,
 // o null si la contraseña cumple todos los requisitos.

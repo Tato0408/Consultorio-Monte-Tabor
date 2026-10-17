@@ -1,10 +1,12 @@
 import express from 'express'
 import proceduresController from '../../controllers/procedures/procedureController.js'
-import { authorize } from '../../middlewares/authorizeMiddleware.js'
+import { authorize, authorizeAny } from '../../middlewares/authorizeMiddleware.js'
 
 const router = express.Router()
+// El listado también lo necesita el formulario de consulta para elegir el
+// procedimiento realizado, así que basta con ver Procedimientos o Consultas.
 router.route("/")
-.get(authorize("procedures", "view"), proceduresController.getProcedures)
+.get(authorizeAny(["procedures", "view"], ["calendar.consultations", "view"]), proceduresController.getProcedures)
 .post(authorize("procedures", "create"), proceduresController.insertProcedure)
 
 router.route("/:id")

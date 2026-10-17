@@ -64,6 +64,10 @@ const HealthInfoScreen = ({ navigation }) => {
   useFocusEffect(useCallback(() => { loadProfile(); }, [loadProfile]));
 
   const history = patient?.clinical_history;
+  // Procedimiento con la fecha más reciente del historial, o null si no hay ninguno.
+  const lastProcedure = [...(history?.procedures || [])]
+    .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0))
+    .at(-1) || null;
 
   // Borrado optimista: se quita de la lista al instante y se restaura si el DELETE falla
   const removeEntry = (kind, entry, label) => {
@@ -225,22 +229,22 @@ const HealthInfoScreen = ({ navigation }) => {
           <Ionicons name="chevron-forward" size={18} color={colors.muted} />
         </TouchableOpacity>
 
-        {/* ---------- Procedimientos (solo lectura) ---------- */}
-        <SectionHeader title="Procedimientos" />
-        {history?.procedures?.length ? (
-          history.procedures.map((item, index) => (
-            <View key={item._id || index} style={styles.listItem}>
-              <View style={styles.listIcon}>
-                <Ionicons name="medkit-outline" size={18} color={colors.primary} />
-              </View>
-              <View style={styles.listTexts}>
-                <Text style={styles.listTitle}>{item.procedure_name}</Text>
-                <Text style={styles.listMeta}>
-                  {[dateLabel(item.date), item.doctor_name].filter(Boolean).join(" · ")}
-                </Text>
-              </View>
+        {/* ---------- Último procedimiento realizado (solo lectura) ----------
+            Se toma el de fecha más reciente: el historial se guarda en el orden en
+            que se registró, así que el último no siempre queda al final. */}
+        <SectionHeader title="Último procedimiento realizado" />
+        {lastProcedure ? (
+          <View style={styles.listItem}>
+            <View style={styles.listIcon}>
+              <Ionicons name="medkit-outline" size={18} color={colors.primary} />
             </View>
-          ))
+            <View style={styles.listTexts}>
+              <Text style={styles.listTitle}>{lastProcedure.procedure_name}</Text>
+              <Text style={styles.listMeta}>
+                {[dateLabel(lastProcedure.date), lastProcedure.doctor_name].filter(Boolean).join(" · ")}
+              </Text>
+            </View>
+          </View>
         ) : (
           <EmptyRow text="Aún no tienes procedimientos registrados." />
         )}

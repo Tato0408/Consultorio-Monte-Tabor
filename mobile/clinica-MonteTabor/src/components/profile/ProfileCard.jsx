@@ -56,25 +56,14 @@ const ProfileCard = ({ patient, onEdit }) => {
         </View>
       </View>
 
-      <View style={styles.badgeRow}>
-        {bloodType ? (
+      {bloodType ? (
+        <View style={styles.badgeRow}>
           <View style={styles.badge}>
             <Ionicons name="water" size={12} color="#fff" />
             <Text style={styles.badgeText}>{bloodType}</Text>
           </View>
-        ) : null}
-
-        <View style={styles.badge}>
-          <Ionicons
-            name={patient?.is_verified ? "checkmark-circle" : "alert-circle"}
-            size={12}
-            color="#fff"
-          />
-          <Text style={styles.badgeText}>
-            {patient?.is_verified ? "Cuenta verificada" : "Sin verificar"}
-          </Text>
         </View>
-      </View>
+      ) : null}
 
       <TouchableOpacity style={styles.editButton} activeOpacity={0.85} onPress={onEdit}>
         <Text style={styles.editButtonText}>Editar perfil</Text>

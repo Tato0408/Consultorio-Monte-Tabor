@@ -1,5 +1,6 @@
 import "./timezone.js";
 import http from "http";
+import mongoose from "mongoose";
 import app from './app.js';
 import "./database.js";
 import { initRoleSocket } from "./src/services/roleSocket.js";
@@ -16,6 +17,10 @@ const background_jobs_interval_ms = 15 * 60 * 1000;
 // notificaciones y sus push salen aunque nadie abra la app. Cada tarea
 // captura sus propios errores para no detener a las demás.
 const run_background_jobs = async () => {
+    // Sin conexión a la base las consultas quedarían en espera hasta fallar
+    // por tiempo agotado, así que se salta esta vuelta y se intenta en la
+    // siguiente.
+    if (mongoose.connection.readyState !== 1) return;
     await runAppointmentAutoTransitions().catch((error) =>
         console.log("Error en transiciones automáticas de citas:", error)
     );
@@ -30,9 +35,10 @@ async function main() {
     initRoleSocket(server);
     server.listen(4000, "0.0.0.0", () => console.log("Server on port 4000"))
 
-    // Se ejecutan al arrancar (Render despierta el servidor tras dormir) y
-    // luego cada 15 minutos mientras siga encendido.
-    run_background_jobs();
+    // Se ejecutan apenas la base queda conectada (Render despierta el
+    // servidor tras dormir) y luego cada 15 minutos mientras siga encendido.
+    if (mongoose.connection.readyState === 1) run_background_jobs();
+    else mongoose.connection.once("open", run_background_jobs);
     setInterval(run_background_jobs, background_jobs_interval_ms).unref?.();
 }
 

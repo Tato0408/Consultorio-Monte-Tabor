@@ -61,6 +61,27 @@ export const DUI_REGEX = /^\d{8}-\d{1}$/;
 // caracteres especiales. Mismo patrón que las máscaras del frontend (móvil y web), el
 // backend nunca debe confiar solo en que el cliente ya filtró la escritura.
 export const NAME_REGEX = /^[A-Za-zÁÉÍÓÚÑáéíóúñ]+(\s[A-Za-zÁÉÍÓÚÑáéíóúñ]+)*$/;
+// Texto libre de historia clínica (enfermedades, antecedentes, hábitos):
+// letras con tildes, ñ y ü, números (Diabetes tipo 2, COVID-19, VIH-1),
+// espacios, saltos de línea y la puntuación de una oración
+// (. , ; : ' " ( ) [ ] - / ¿ ? ¡ ! %). Cualquier otro símbolo, como + * = #
+// @ $ & _ < > { } | \ ^ ~ × ÷, se rechaza. Misma regla que las máscaras del
+// panel, el portal público y la app móvil.
+export const CLINICAL_TEXT_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ0-9\s.,;:'"()[\]\-/¿?¡!%]*$/;
+
+// Revisa varios campos de texto clínico a la vez. Recibe un objeto
+// { etiqueta: valor } y devuelve el mensaje del primer campo con símbolos no
+// permitidos, o null. Los campos vacíos o ausentes no se revisan aquí.
+export const getClinicalTextError = (fields = {}) => {
+    for (const [label, value] of Object.entries(fields)) {
+        if (value === undefined || value === null || value === "") continue;
+        if (!CLINICAL_TEXT_REGEX.test(String(value))) {
+            return `El campo ${label} contiene símbolos no permitidos. Usa solo letras, números y signos de puntuación.`;
+        }
+    }
+    return null;
+};
+
 // Valores de género que acepta el sistema, los mismos del select del frontend.
 export const valid_genders = ["Masculino", "Femenino"];
 
@@ -251,6 +272,35 @@ export const getVitalSignsError = (vitals = {}) => {
         const num = Number(value);
         if (Number.isNaN(num)) return `${range.label} debe ser un número`;
         if (num < range.min || num > range.max) return `${range.label} debe estar entre ${range.min} y ${range.max}`;
+    }
+    return null;
+};
+
+// Campos de una toma de signos vitales registrada a mano desde el expediente,
+// con el nombre que se muestra al usuario.
+const required_vital_signs = {
+    blood_pressure: "Presión arterial",
+    glucosa_mgdl: "Glucosa",
+    weight: "Peso",
+    height: "Talla",
+    temperature: "Temperatura",
+    spo2: "Saturación de oxígeno",
+};
+
+// Exige que una toma registrada a mano traiga todos sus campos con un valor
+// real: vacío, solo espacios o un número inválido (por ejemplo un punto
+// suelto) no cuentan. Sin esto se guardaban tomas en blanco que aparecían
+// vacías en la gráfica y la tabla del expediente. Devuelve el mensaje del
+// primer campo faltante, o null.
+export const getMissingVitalSignsError = (vitals = {}) => {
+    for (const [key, label] of Object.entries(required_vital_signs)) {
+        const value = vitals[key];
+        if (value === undefined || value === null || String(value).trim() === "") {
+            return `El campo ${label} es obligatorio`;
+        }
+        if (key !== "blood_pressure" && Number.isNaN(Number(value))) {
+            return `${label} debe ser un número`;
+        }
     }
     return null;
 };

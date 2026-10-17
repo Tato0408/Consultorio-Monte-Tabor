@@ -84,9 +84,13 @@ const styles = StyleSheet.create({
 
   /* Fecha/Hora repartidas en dos mitades exactamente iguales */
   dateTimeRow: { flexDirection: "row", backgroundColor: colors.bg, borderRadius: 12, padding: 12, marginBottom: 14 },
-  dateTimeCol: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  // minWidth 0 deja que cada mitad se encoja a su ancho real; sin él, una fecha larga
+  // empujaba el texto por encima del ícono de la otra mitad.
+  dateTimeCol: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 8 },
   dateTimeDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginHorizontal: 10 },
-  dateTimeIconWrap: { width: 30, height: 30, borderRadius: 10, backgroundColor: "#FFF", alignItems: "center", justifyContent: "center" },
+  dateTimeIconWrap: { width: 30, height: 30, borderRadius: 10, backgroundColor: "#FFF", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  // El texto ocupa solo lo que queda de su mitad y baja de línea si no cabe.
+  dateTimeTextWrap: { flex: 1, minWidth: 0 },
   dateTimeColLabel: { fontSize: 10, color: colors.muted, fontWeight: "600" },
   dateTimeColValue: { fontSize: 12.5, color: colors.text, fontWeight: "700", marginTop: 1 },
 
