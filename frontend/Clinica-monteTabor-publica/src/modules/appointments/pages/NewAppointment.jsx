@@ -133,6 +133,9 @@ const ResumenCita = ({ tipoLabel, doctor, nurse, date, slot, duracion }) => (
   </div>
 );
 
+// Máximo de procedimientos que se pueden elegir en una misma cita.
+const MAX_PROCEDIMIENTOS_POR_CITA = 3;
+
 const NewAppointment = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -292,8 +295,13 @@ const NewAppointment = () => {
   // Agregar o quitar un procedimiento de la selección invalida la fecha/hora/proveedor ya
   // elegidos, porque la duración, disponibilidad y si aplica doctor o enfermera dependen
   // del conjunto elegido.
+  // Una cita admite como máximo 3 procedimientos: al elegir un cuarto se quita el que se
+  // eligió primero, igual que en la app móvil. Mismo límite que valida el backend.
   const elegirTipo = (valor) => {
-    setTipos((prev) => (prev.includes(valor) ? prev.filter((id) => id !== valor) : [...prev, valor]));
+    setTipos((prev) => {
+      if (prev.includes(valor)) return prev.filter((id) => id !== valor);
+      return [...prev, valor].slice(-MAX_PROCEDIMIENTOS_POR_CITA);
+    });
     setDate(null);
     setSlot(null);
     setDoctor(null);

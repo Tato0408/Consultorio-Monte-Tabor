@@ -26,6 +26,17 @@ const normalizeIds = (procedureIds) => {
     return out;
 };
 
+// Máximo de procedimientos que admite una misma cita. El panel, el portal público
+// y la app móvil aplican el mismo límite al elegir.
+export const MAX_PROCEDURES_PER_APPOINTMENT = 3;
+
+// Devuelve el mensaje de error si la cita trae más procedimientos de los
+// permitidos (contando ids distintos), o null si está dentro del límite.
+export const getProcedureCountError = (procedureIds) =>
+    normalizeIds(procedureIds).length > MAX_PROCEDURES_PER_APPOINTMENT
+        ? `Una cita admite como máximo ${MAX_PROCEDURES_PER_APPOINTMENT} procedimientos.`
+        : null;
+
 // Punto único donde se resuelve una cita a partir de uno o varios procedimientos del
 // catálogo. Reemplaza la lógica que antes vivía duplicada en resolvePatientService
 // (appointmentsController.js) y en patientPortalController.bookAppointment, cada una con

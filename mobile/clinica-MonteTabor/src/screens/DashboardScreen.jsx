@@ -167,7 +167,7 @@ const NextAppointmentCard = ({ appointment, onBook, onDetail, onReschedule }) =>
       <View style={styles.dateTimeRow}>
         <View style={styles.dateTimeCol}>
           <View style={styles.dateTimeIconWrap}><Ionicons name="calendar-outline" size={15} color={colors.primary} /></View>
-          <View>
+          <View style={styles.dateTimeTextWrap}>
             <Text style={styles.dateTimeColLabel}>Fecha</Text>
             <Text style={styles.dateTimeColValue}>{formatLongDate(appointment.date)}</Text>
           </View>
@@ -175,7 +175,7 @@ const NextAppointmentCard = ({ appointment, onBook, onDetail, onReschedule }) =>
         <View style={styles.dateTimeDivider} />
         <View style={styles.dateTimeCol}>
           <View style={styles.dateTimeIconWrap}><Ionicons name="time-outline" size={15} color={colors.primary} /></View>
-          <View>
+          <View style={styles.dateTimeTextWrap}>
             <Text style={styles.dateTimeColLabel}>Hora</Text>
             <Text style={styles.dateTimeColValue}>{formatTime12h(appointment.start_time)}</Text>
           </View>

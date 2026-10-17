@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, ChevronDown, Loader2, User, IdCard, CalendarDays,
   Phone, Mail, FileText, Activity, Droplet, Lock, LogOut,
-  Pencil, Pill, AlertCircle, RefreshCw, Check,
+  Pencil, Pill, AlertCircle, RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getMyProfile } from "@/services/profileService";
@@ -184,17 +184,13 @@ const MyProfile = () => {
                     {patient?.email && <p className="text-xs text-white/80 mt-0.5 truncate">{patient.email}</p>}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {bloodType && (
+                {bloodType && (
+                  <div className="flex flex-wrap gap-2 mt-4">
                     <span className="flex items-center gap-1.5 bg-white/15 rounded-full px-2.5 py-1 text-[11px] font-semibold">
                       <Droplet className="w-3 h-3 fill-white" /> {bloodType}
                     </span>
-                  )}
-                  <span className="flex items-center gap-1.5 bg-white/15 rounded-full px-2.5 py-1 text-[11px] font-semibold">
-                    {patient?.is_verified ? <Check className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                    {patient?.is_verified ? "Cuenta verificada" : "Sin verificar"}
-                  </span>
-                </div>
+                  </div>
+                )}
                 <button onClick={() => irA("datos")} className="mt-4 w-full flex items-center justify-center gap-2 bg-white/20 hover:bg-white/25 rounded-xl py-2.5 text-sm font-semibold transition-colors">
                   Editar perfil <Pencil className="w-4 h-4" />
                 </button>

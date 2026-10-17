@@ -6,7 +6,7 @@ import patientsModel from "../../models/patients/patients.js";
 import doctorsModel from "../../models/doctors/doctors.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import inventoryController from "../inventory/inventoryController.js";
-import { getVitalSignsError, getRequiredConsultationFieldsError } from "../../utils/validators.js";
+import { getVitalSignsError, getRequiredConsultationFieldsError, getClinicalTextError } from "../../utils/validators.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import { assertActiveParties, isPatientInactive } from "../../utils/activeScope.js";
 import { getModulePermission } from "../../services/roleCache.js";
@@ -108,6 +108,28 @@ const notifyNurseNoteIfNeeded = async (appointment) => {
   } catch (error) {
     console.log("error notifyNurseNoteIfNeeded" + error);
   }
+};
+
+// Revisa que los antecedentes que la consulta escribe en la historia clínica
+// solo tengan letras, números y puntuación de oración (ver
+// CLINICAL_TEXT_REGEX). Recibe antecedents tal como llega del formulario y
+// devuelve el mensaje del primer campo inválido, o null.
+const get_antecedents_text_error = (antecedents) => {
+  if (!antecedents) return null;
+  const fields = {};
+  (antecedents.hereditary || []).forEach((h, i) => {
+    fields[`Parentesco del antecedente heredofamiliar ${i + 1}`] = h?.relative ?? h?.relationship;
+    fields[`Condición del antecedente heredofamiliar ${i + 1}`] = h?.condition;
+    fields[`Tipo del antecedente heredofamiliar ${i + 1}`] = h?.type;
+  });
+  (antecedents.pathological || []).forEach((p, i) => {
+    fields[`Enfermedad del antecedente patológico ${i + 1}`] = p?.disease;
+    fields[`Diagnóstico del antecedente patológico ${i + 1}`] = p?.diagnosis;
+    fields[`Tipo del antecedente patológico ${i + 1}`] = p?.type;
+  });
+  (antecedents.non_pathological || []).forEach((r, i) => { fields[`Antecedente no patológico ${i + 1}`] = r?.description; });
+  (antecedents.socio_ecological || []).forEach((r, i) => { fields[`Antecedente ecológico-social ${i + 1}`] = r?.description; });
+  return getClinicalTextError(fields);
 };
 
 // Convierte el triage de la consulta al shape de Patients.clinical_history.vital_signs — null si
@@ -516,6 +538,13 @@ consultationController.insertConsultation = async (req, res) => {
       return res.status(400).json({ message: materialError });
     }
 
+    const antecedentsTextError = get_antecedents_text_error(antecedents);
+    if (antecedentsTextError) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: antecedentsTextError });
+    }
+
     // La consulta nunca traía su propio "date" (el campo quedaba undefined
     // para siempre; todo lo que lo usaba como fuente terminaba cayendo en el
     // "|| new Date()" de respaldo). Se fija aquí, al momento real de
@@ -780,6 +809,13 @@ consultationController.updateConsultation = async (req, res) => {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({ message: materialError });
+    }
+
+    const antecedentsTextError = get_antecedents_text_error(antecedents);
+    if (antecedentsTextError) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: antecedentsTextError });
     }
 
     const consultationUpdated = await consultationsModel.findByIdAndUpdate(

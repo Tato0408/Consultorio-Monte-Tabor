@@ -17,6 +17,7 @@ import { showError, showSuccess } from "../../lib/toast";
 import styles from "../../styles/profile/healthStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
+import { maskClinicalText } from "../../utils/validation";
 const MAX = 300;
 
 const LifestyleScreen = ({ navigation, route }) => {
@@ -104,7 +105,7 @@ const LifestyleScreen = ({ navigation, route }) => {
           <TextInput
             style={styles.textArea}
             value={lifestyle}
-            onChangeText={(value) => value.length <= MAX && setLifestyle(value)}
+            onChangeText={(value) => setLifestyle(maskClinicalText(value).slice(0, MAX))}
             placeholder="Ej. No fumo, camino 30 minutos al día, dieta balanceada."
             placeholderTextColor={colors.muted}
             multiline
@@ -118,7 +119,7 @@ const LifestyleScreen = ({ navigation, route }) => {
           <TextInput
             style={styles.textArea}
             value={environment}
-            onChangeText={(value) => value.length <= MAX && setEnvironment(value)}
+            onChangeText={(value) => setEnvironment(maskClinicalText(value).slice(0, MAX))}
             placeholder="Ej. Casa de sistema mixto, agua potable, vivo con 3 personas y un perro."
             placeholderTextColor={colors.muted}
             multiline

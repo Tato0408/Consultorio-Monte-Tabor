@@ -12,10 +12,14 @@ import { getNonNegativeError, escapeRegex } from "../../utils/validators.js";
 import { RESCHEDULE_REASONS, isCancelLockedForPatient } from "../../utils/appointmentStatus.js";
 import { buildActivePartiesAppointmentFilter, assertActiveParties } from "../../utils/activeScope.js";
 import { deleteAppointmentCascade } from "../../services/consultationCascade.js";
-import { resolveProcedures, resolveProcedureFlags } from "../../utils/procedureAggregation.js";
+import { resolveProcedures, resolveProcedureFlags, getProcedureCountError } from "../../utils/procedureAggregation.js";
 import { getModulePermission } from "../../services/roleCache.js";
 
 const appointmentsController = {};
+
+// Orden de estados de la pestaña "Todos" del módulo de Consultas: primero las
+// que siguen en espera de atención y luego las ya cerradas.
+const consultation_status_order = ["scheduled", "completed", "cancelled", "no_show"];
 
 // Falsy-check que además detecta un array vacío ([] es truthy en JS, así que
 // "!procedure_ids" solo no bastaba una vez que el campo pasó a ser una lista).
@@ -276,6 +280,9 @@ appointmentsController.getAppointments = async (req, res) => {
         // Indica que el listado de la enfermera mezcla sus citas con las de
         // otros proveedores y que las suyas deben ir primero.
         let nurse_own_first = false;
+        // Doctor espejo del admin, para listar primero sus propias citas en el
+        // módulo de Consultas (ver los bloques de paginación más abajo).
+        let admin_mirror_id = null;
 
         // Filtro por un día exacto.
         if (date) {
@@ -400,6 +407,7 @@ appointmentsController.getAppointments = async (req, res) => {
             // doctor o enfermera solo la atiende ese proveedor. El resto de
             // estados se listan completos.
             const mirror_id = await find_admin_mirror_id(req.user.id);
+            admin_mirror_id = mirror_id;
             filters.$and = (filters.$and || []).concat([{
                 $or: [
                     { status: { $ne: "pending" } },
@@ -449,25 +457,51 @@ appointmentsController.getAppointments = async (req, res) => {
             .skip(page_skip)
             .limit(page_limit);
 
+        // Bloques en que se divide el listado, en el orden en que se muestran.
+        // Cada bloque es un filtro extra sobre filters y conserva el orden por
+        // fecha dentro de sí. La enfermera ve primero sus propias citas
+        // (nurse_own_first). La pestaña "Todos" del módulo de Consultas
+        // (status_order=consultations con exactamente esos cuatro estados)
+        // muestra primero En espera, luego Atendido, Cancelado y No se presentó.
+        let buckets = [{}];
+        if (nurse_own_first) {
+            buckets = [{ nurse_id: req.user.id }, { nurse_id: { $ne: req.user.id } }];
+        }
+        const requested_statuses = String(status || "").split(",").map((s) => s.trim()).filter(Boolean);
+        const is_consultations_all_tab = req.query.status_order === "consultations"
+            && requested_statuses.length === consultation_status_order.length
+            && consultation_status_order.every((s) => requested_statuses.includes(s));
+        if (is_consultations_all_tab) {
+            buckets = buckets.flatMap((bucket) => consultation_status_order.map((s) => ({ ...bucket, status: s })));
+        }
+        // En el módulo de Consultas el admin ve primero, dentro de cada estado,
+        // las citas de su doctor espejo y después las de los demás doctores.
+        if (req.query.status_order === "consultations" && req.user.role === "admin" && admin_mirror_id) {
+            buckets = buckets.flatMap((bucket) => [
+                { ...bucket, doctor_id: admin_mirror_id },
+                { ...bucket, doctor_id: { $ne: admin_mirror_id } },
+            ]);
+        }
+
         let appointments;
         let total;
-        if (nurse_own_first) {
-            // Dos bloques paginados como uno solo: primero todas las citas de
-            // la enfermera y después las de los demás proveedores, cada bloque
-            // en su orden normal por fecha.
-            const own_filter = { $and: [filters, { nurse_id: req.user.id }] };
-            const others_filter = { $and: [filters, { nurse_id: { $ne: req.user.id } }] };
-            const [own_total, others_total] = await Promise.all([
-                appointmentsModel.countDocuments(own_filter),
-                appointmentsModel.countDocuments(others_filter),
-            ]);
-            total = own_total + others_total;
-            const own_page = skip < own_total ? await find_page(own_filter, skip, limitNumber) : [];
-            const remaining = limitNumber - own_page.length;
-            const others_page = remaining > 0
-                ? await find_page(others_filter, Math.max(skip - own_total, 0), remaining)
-                : [];
-            appointments = [...own_page, ...others_page];
+        if (buckets.length > 1) {
+            // Se paginan los bloques como si fueran una sola lista: se salta lo
+            // que corresponde a páginas anteriores y se llena la página actual
+            // con el bloque siguiente cuando uno se termina.
+            const bucket_filters = buckets.map((bucket) => ({ $and: [filters, bucket] }));
+            const counts = await Promise.all(bucket_filters.map((f) => appointmentsModel.countDocuments(f)));
+            total = counts.reduce((sum, n) => sum + n, 0);
+            appointments = [];
+            let offset = skip;
+            let remaining = limitNumber;
+            for (let i = 0; i < bucket_filters.length && remaining > 0; i++) {
+                if (offset >= counts[i]) { offset -= counts[i]; continue; }
+                const page = await find_page(bucket_filters[i], offset, remaining);
+                appointments.push(...page);
+                remaining -= page.length;
+                offset = 0;
+            }
         } else {
             [appointments, total] = await Promise.all([
                 find_page(filters, skip, limitNumber),
@@ -692,6 +726,10 @@ appointmentsController.insertAppointment = async (req, res) => {
         // actualizados) o procedure_id (nombre de siempre, admite además un solo id
         // suelto para no romper ningún cliente viejo que todavía no se haya actualizado).
         procedure_id = procedure_ids ?? procedure_id;
+        const procedureCountError = getProcedureCountError(procedure_id);
+        if (procedureCountError) {
+            return res.status(400).json({ message: procedureCountError });
+        }
 
         // Sanitiza los campos de texto.
         type = type?.trim();
@@ -922,6 +960,10 @@ appointmentsController.updateAppointment = async (req, res) => {
             confirm_no_nurse,
         } = req.body;
         procedure_id = procedure_ids ?? procedure_id;
+        const procedureCountError = getProcedureCountError(procedure_id);
+        if (procedureCountError) {
+            return res.status(400).json({ message: procedureCountError });
+        }
 
         // Sanitiza los campos de texto.
         type = type?.trim();
@@ -1039,6 +1081,11 @@ appointmentsController.updateAppointment = async (req, res) => {
         if (!["scheduled", "pending", "needs_reschedule", "expired"].includes(existing.status)) {
             return res.status(400).json({ message: "Esta cita ya no puede modificarse." });
         }
+        // El paciente de una cita no se puede cambiar al reagendarla o editarla:
+        // convertiría la cita de una persona en la de otra.
+        if (String(patient_id) !== String(existing.patient_id)) {
+            return res.status(400).json({ message: "No se puede cambiar el paciente de una cita existente." });
+        }
 
         const appointmentUpdated = await appointmentsModel.findByIdAndUpdate(
             req.params.id,
@@ -1138,6 +1185,10 @@ appointmentsController.updatePatientAppointment = async (req, res) => {
 
         const { procedure_id, procedure_ids, description } = req.body;
         const procedureInput = procedure_ids ?? procedure_id;
+        const procedureCountError = procedureInput !== undefined ? getProcedureCountError(procedureInput) : null;
+        if (procedureCountError) {
+            return res.status(400).json({ message: procedureCountError });
+        }
         if (procedureInput !== undefined) {
             const service = await resolveProcedures(procedureInput);
             if (!service) {
