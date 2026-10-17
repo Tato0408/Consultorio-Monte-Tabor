@@ -4,7 +4,7 @@
 // la bloquean, ver el 403 "No se encontró la cookie de sesión" que daba antes yendo
 // directo a onrender.com). En desarrollo se apunta directo al backend de Render (incluye
 // el prefijo /api) — cambia a "http://localhost:4000/api" si corres el backend local.
-const API_URL = import.meta.env.DEV ? "https://clinica-monte-tabor.onrender.com/api" : "/api";
+const API_URL = import.meta.env.DEV ? "http://localhost:4000/api" : "/api";
 
 // URL del WebSocket de tiempo real (mismo canal que usa el portal público, ver
 // AuthContext.jsx allá y roleSocket.js en el backend). A diferencia de las peticiones

@@ -201,7 +201,7 @@ const EditProfileScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.headerSide}
+          style={styles.headerSideWide}
           activeOpacity={0.7}
           onPress={() => navigation?.goBack()}
         >
@@ -211,12 +211,12 @@ const EditProfileScreen = ({ navigation, route }) => {
         <Text style={styles.headerTitle}>Editar Perfil</Text>
 
         <TouchableOpacity
-          style={styles.headerSide}
+          style={styles.headerSideWide}
           activeOpacity={0.7}
           onPress={handleSave}
           disabled={saving}
         >
-          <Text style={[styles.headerAction, saving && { opacity: 0.5 }]}>
+          <Text style={[styles.headerAction, saving && { opacity: 0.5 }]} numberOfLines={1}>
             {saving ? "..." : "Guardar"}
           </Text>
         </TouchableOpacity>

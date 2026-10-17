@@ -44,6 +44,9 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   headerSide: { width: 60 },
+  // Variante más ancha para el encabezado de Editar Perfil: con 60 px,
+  // "Guardar" se partía en dos líneas cuando el teléfono usa letra grande.
+  headerSideWide: { width: 90 },
   headerTitle: {
     fontSize: 16,
     fontWeight: "700",

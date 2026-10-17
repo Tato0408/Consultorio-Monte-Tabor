@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -29,7 +29,7 @@ const longLabel = (date) => `${date.getDate()} de ${MONTHS[date.getMonth()].toLo
 
 /**
  * Campo de fecha con el mismo selector que la app móvil (DatePickerSheet.jsx):
- * vistas de Día (con saltos de una semana y "Hoy"), Mes y Año, para no tener
+ * vistas de Día (con botón "Hoy"), Mes y Año, para no tener
  * que avanzar mes por mes. Por defecto no deja elegir fechas posteriores a
  * hoy. value y max/min usan "AAAA-MM-DD"; onChange recibe un objeto
  * { target: { value } } para ser compatible con los manejadores que antes
@@ -82,11 +82,6 @@ export default function DatePickerField({
   const moveMonth = (delta) => {
     const target = new Date(shown.year, shown.month + delta, 1);
     setShown({ year: target.getFullYear(), month: target.getMonth() });
-  };
-  const moveWeek = (delta) => {
-    const next = new Date(selected);
-    next.setDate(next.getDate() + delta * 7);
-    select(next);
   };
 
   const dayCells = useMemo(() => {
@@ -231,15 +226,9 @@ export default function DatePickerField({
                       );
                     })}
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <button type="button" onClick={() => moveWeek(-1)} className="flex items-center justify-center gap-1 rounded-lg border border-[#3B6FCA]/20 bg-[#3B6FCA]/5 py-2 text-xs font-bold text-[#3B6FCA] hover:bg-[#3B6FCA]/10">
-                      <ChevronsLeft className="h-3.5 w-3.5" /> 1 semana
-                    </button>
-                    <button type="button" onClick={() => select(today)} className="rounded-lg bg-[#3B6FCA] py-2 text-xs font-bold text-white hover:bg-[#2d5ab5]">
+                  <div className="mt-3">
+                    <button type="button" onClick={() => select(today)} className="w-full rounded-lg bg-[#3B6FCA] py-2 text-xs font-bold text-white hover:bg-[#2d5ab5]">
                       Hoy
-                    </button>
-                    <button type="button" onClick={() => moveWeek(1)} className="flex items-center justify-center gap-1 rounded-lg border border-[#3B6FCA]/20 bg-[#3B6FCA]/5 py-2 text-xs font-bold text-[#3B6FCA] hover:bg-[#3B6FCA]/10">
-                      1 semana <ChevronsRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </>

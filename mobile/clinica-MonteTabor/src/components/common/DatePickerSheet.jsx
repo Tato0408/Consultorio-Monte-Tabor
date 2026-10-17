@@ -34,7 +34,7 @@ const longLabel = (date) => `${date.getDate()} de ${MONTHS[date.getMonth()].toLo
 
 /**
  * Hoja inferior para elegir una fecha con tres vistas:
- *  - Día: calendario del mes, con flechas de mes y saltos de una semana.
+ *  - Día: calendario del mes, con flechas de mes y botón para volver a hoy.
  *  - Mes: los 12 meses del año mostrado, con flechas de año.
  *  - Año: lista de años para saltar directo, sin recorrer mes por mes.
  * Las fechas fuera de [minimumDate, maximumDate] se ven bloqueadas y no se
@@ -80,12 +80,6 @@ export default function DatePickerSheet({
   const moveMonth = (delta) => {
     const target = new Date(shown.year, shown.month + delta, 1);
     setShown({ year: target.getFullYear(), month: target.getMonth() });
-  };
-
-  const moveWeek = (delta) => {
-    const next = new Date(selected);
-    next.setDate(next.getDate() + delta * 7);
-    select(next);
   };
 
   const pickMonth = (month) => {
@@ -195,16 +189,8 @@ export default function DatePickerSheet({
       </View>
 
       <View style={styles.quickRow}>
-        <TouchableOpacity style={styles.quickChip} onPress={() => moveWeek(-1)}>
-          <Ionicons name="play-back" size={12} color="#2F6BFF" />
-          <Text style={styles.quickText}>1 semana</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={[styles.quickChip, styles.quickChipToday]} onPress={() => select(today)}>
           <Text style={[styles.quickText, styles.quickTextToday]}>Hoy</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.quickChip} onPress={() => moveWeek(1)}>
-          <Text style={styles.quickText}>1 semana</Text>
-          <Ionicons name="play-forward" size={12} color="#2F6BFF" />
         </TouchableOpacity>
       </View>
     </>
