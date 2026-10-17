@@ -187,26 +187,36 @@ const normalizeReferral = (referral, consultationDate) => {
 // useConsultation.js a getPatientAntecedents), así que lo que llega aquí YA es la versión
 // editada por el doctor, no una lista parcial. Signos vitales y procedimientos en cambio se
 // ACUMULAN como historial (cada consulta agrega una toma/entrada nueva, no reemplaza la anterior).
-const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedure, consultationId, consultationDate, followUpDate, patientId }) => {
+const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedure, consultationId, consultationDate, followUpDate, patientId, replaceVitalSigns = false }) => {
   const set = {};
   const push = {};
 
   const currentPatient = await patientsModel.findById(patientId).select("clinical_history.blood_type").lean();
   const currentBloodType = currentPatient?.clinical_history?.blood_type || null;
 
+  // Mismo formato que escriben el expediente, el portal y la app móvil:
+  // hereditary { relationship, condition, type } y pathological
+  // { disease, diagnosis, type }. El formulario de consulta edita parentesco
+  // (relative), condición, enfermedad y tipo; type de los hereditarios y
+  // diagnosis de los patológicos llegan ocultos en la fila y se conservan.
   if (antecedents) {
-    set["clinical_history.hereditary"] = nonEmptyRows(antecedents.hereditary, ["relative", "condition"])
-      .map((h) => ({ relationship: h.relative, condition: h.condition }));
-    set["clinical_history.pathological"] = nonEmptyRows(antecedents.pathological, ["disease", "type"])
-      .map((p) => ({ disease: p.disease, diagnosis: p.type }));
+    set["clinical_history.hereditary"] = nonEmptyRows(antecedents.hereditary, ["relative", "condition", "type"])
+      .map((h) => ({ relationship: h.relative ?? h.relationship, condition: h.condition, type: h.type || undefined }));
+    set["clinical_history.pathological"] = nonEmptyRows(antecedents.pathological, ["disease", "diagnosis", "type"])
+      .map((p) => ({ disease: p.disease, diagnosis: p.diagnosis || undefined, type: p.type || undefined }));
     set["clinical_history.non_pathological"] = nonEmptyRows(antecedents.non_pathological, ["description"])
       .map((r) => r.description).join("\n");
     set["clinical_history.ecologycal_social"] = nonEmptyRows(antecedents.socio_ecological, ["description"])
       .map((r) => r.description).join("\n");
   }
 
+  // La toma queda marcada con la consulta de la que sale. Al crear la
+  // consulta se agrega con $push; al editarla (replaceVitalSigns) la
+  // reemplaza sync_consultation_vital_signs, para no repetirla en cada
+  // guardado.
   const vitalSignsEntry = buildVitalSignsEntry(clinical_data?.triage, consultationDate);
-  if (vitalSignsEntry) {
+  if (vitalSignsEntry) vitalSignsEntry.consultation_id = consultationId;
+  if (vitalSignsEntry && !replaceVitalSigns) {
     push["clinical_history.vital_signs"] = vitalSignsEntry;
   }
 
@@ -249,7 +259,43 @@ const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedur
   const update = {};
   if (Object.keys(set).length) update.$set = set;
   if (Object.keys(push).length) update.$push = push;
-  return { update: Object.keys(update).length ? update : null, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById };
+  return { update: Object.keys(update).length ? update : null, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById, vitalSignsEntry };
+};
+
+/*
+ * Reemplaza en el expediente la toma de signos vitales de una consulta que
+ * se está editando. Quita la toma marcada con esa consulta y, para tomas
+ * antiguas guardadas antes de existir la marca, la que tiene la misma fecha
+ * que la consulta (margen de 5 segundos). Después agrega la toma nueva con
+ * la fecha original de la consulta. Recibe el paciente, la consulta
+ * guardada, la toma nueva (o null si el triage quedó vacío) y la sesión.
+ */
+const sync_consultation_vital_signs = async ({ patientId, consultation, entry, session }) => {
+  const reference = new Date(consultation.date || consultation.createdAt || Date.now());
+  await patientsModel.updateOne(
+    { _id: patientId },
+    { $pull: { "clinical_history.vital_signs": { consultation_id: consultation._id } } },
+    { session }
+  );
+  await patientsModel.updateOne(
+    { _id: patientId },
+    {
+      $pull: {
+        "clinical_history.vital_signs": {
+          consultation_id: null,
+          last_date_taken: { $gte: new Date(reference.getTime() - 5000), $lte: new Date(reference.getTime() + 5000) },
+        },
+      },
+    },
+    { session }
+  );
+  if (entry) {
+    await patientsModel.updateOne(
+      { _id: patientId },
+      { $push: { "clinical_history.vital_signs": { ...entry, last_date_taken: reference } } },
+      { session }
+    );
+  }
 };
 
 // Sincroniza Patients.clinical_history.procedures fila por fila, en vez de simplemente empujar
@@ -403,6 +449,23 @@ consultationController.insertConsultation = async (req, res) => {
       ? await appointmentsModel.findById(appointment_id).select("doctor_id nurse_id procedure_id status date start_time patient_id").lean()
       : null;
 
+    // Una cita tiene una sola consulta. Si ya existe, se responde 409 con su
+    // id para que el formulario la actualice con PUT en lugar de crear un
+    // duplicado (cada duplicado repetía procedimientos, signos vitales y
+    // descuentos de inventario en el expediente).
+    if (appointment_id) {
+      const existing = await consultationsModel.findOne({ appointment_id }).select("_id").lean();
+      if (existing) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(409).json({
+          message: "Esta cita ya tiene una consulta registrada.",
+          code: "CONSULTATION_EXISTS",
+          consultation_id: existing._id,
+        });
+      }
+    }
+
     // Una cita cancelada (por el paciente o desde el panel) o marcada como no
     // presentada ya no admite una consulta nueva, aunque el formulario se haya
     // abierto antes de que cambiara su estado.
@@ -441,6 +504,18 @@ consultationController.insertConsultation = async (req, res) => {
     }
 
     const sanitizedProcedure = sanitizeProcedureRows(procedure);
+
+    // Un insumo vencido, agotado o sin stock suficiente no puede usarse.
+    const materialError = await inventoryController.getMaterialUsageError({
+      previousProcedureRows: [],
+      procedureRows: sanitizedProcedure,
+    });
+    if (materialError) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: materialError });
+    }
+
     // La consulta nunca traía su propio "date" (el campo quedaba undefined
     // para siempre; todo lo que lo usaba como fuente terminaba cayendo en el
     // "|| new Date()" de respaldo). Se fija aquí, al momento real de
@@ -565,7 +640,9 @@ consultationController.insertConsultation = async (req, res) => {
     await notifyNurseNoteIfNeeded(consultationAppointment);
     await notify_owner_if_attended_by_other(consultationAppointment, req);
 
-    return res.status(200).json({ message: "Consulta guardada" });
+    // Se devuelve el id para que el formulario actualice esta misma consulta
+    // en los siguientes guardados en lugar de crear otra.
+    return res.status(200).json({ message: "Consulta guardada", _id: savedConsultation._id });
   } catch (error) {
     //Si algo ocurre mal, no inserta ningun dato
     await session.abortTransaction();
@@ -692,6 +769,19 @@ consultationController.updateConsultation = async (req, res) => {
 
     const sanitizedProcedure = sanitizeProcedureRows(procedure);
 
+    // Solo se valida lo que se agrega de más respecto de la consulta
+    // guardada: un insumo que ya estaba registrado puede quedarse aunque
+    // después se haya vencido.
+    const materialError = await inventoryController.getMaterialUsageError({
+      previousProcedureRows: previousConsultation?.procedure || [],
+      procedureRows: sanitizedProcedure,
+    });
+    if (materialError) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: materialError });
+    }
+
     const consultationUpdated = await consultationsModel.findByIdAndUpdate(
       req.params.id,
       {
@@ -746,7 +836,7 @@ consultationController.updateConsultation = async (req, res) => {
     // Misma sincronización que insertConsultation al editar una consulta ya existente
     // (ej. completar el registro de una cita en curso) el expediente del paciente también
     // debe quedar al día.
-    const { update: patientUpdate, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById } = await buildClinicalHistoryUpdate({
+    const { update: patientUpdate, procedureNames, doctorName, procedureRows, procedureNameById, doctorNameById, vitalSignsEntry } = await buildClinicalHistoryUpdate({
       clinical_data,
       antecedents,
       procedure: sanitizedProcedure,
@@ -754,6 +844,7 @@ consultationController.updateConsultation = async (req, res) => {
       consultationDate: consultationUpdated.date,
       followUpDate: follow_up_date,
       patientId: patient_id,
+      replaceVitalSigns: true,
     });
     if (patientUpdate) {
       await patientsModel.findByIdAndUpdate(patient_id, patientUpdate, {
@@ -762,6 +853,12 @@ consultationController.updateConsultation = async (req, res) => {
         runValidators: true,
       });
     }
+    await sync_consultation_vital_signs({
+      patientId: patient_id,
+      consultation: consultationUpdated,
+      entry: vitalSignsEntry,
+      session,
+    });
     // syncProcedureHistory (no un $push directo): esta consulta puede que ya se haya guardado
     // antes, así que hay que actualizar en su lugar la entrada existente en vez de duplicarla
     // ver el comentario junto a la función para el detalle del bug que esto evita.

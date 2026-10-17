@@ -603,6 +603,7 @@ const ConsultationForm = () => {
                             fields={[
                                 { key: "relative", label: "Parentesco", maxLength: 50, placeholder: "Ej. Madre" },
                                 { key: "condition", label: "Condición", maxLength: 50, placeholder: "Ej. Diabetes tipo 2" },
+                                { key: "type", label: "Tipo", maxLength: 30, placeholder: "Ej. Crónico" },
                             ]}
                             readOnly={readOnly}
                         />
@@ -612,6 +613,7 @@ const ConsultationForm = () => {
                             name="antecedents.pathological"
                             fields={[
                                 { key: "disease", label: "Enfermedad", maxLength: 50, placeholder: "Ej. Apendicitis" },
+                                { key: "diagnosis", label: "Diagnóstico", maxLength: 30, placeholder: "Ej. Confirmado" },
                                 { key: "type", label: "Tipo", maxLength: 30, placeholder: "Ej. Quirúrgico" },
                             ]}
                             readOnly={readOnly}

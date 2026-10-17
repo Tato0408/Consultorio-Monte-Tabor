@@ -104,6 +104,13 @@ const patientSchema = new Schema({
             },
             last_date_taken: {
                 type: Date
+            },
+            // Consulta de la que salió esta toma, o null si se registró a
+            // mano desde el expediente. Permite reemplazarla al editar la
+            // consulta en lugar de agregar una toma repetida.
+            consultation_id: {
+                type: mongoose.Schema.Types.ObjectId,
+                default: null
             }
         }],
         // Los tres ref de abajo tenían el nombre del modelo real mal escrito

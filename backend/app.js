@@ -43,6 +43,7 @@ import permissionsRoutes from './src/routes/permissions/permissions.js'
 import reportsRoutes from './src/routes/reports/reports.js'
 import sickLeavesRoutes from './src/routes/sickLeaves/sickLeaves.js'
 import notificationsRoutes from './src/routes/notifications/notifications.js'
+import { uploadErrorHandler } from "./src/middlewares/uploadErrorHandler.js";
 import appointmentTypesRoutes from './src/routes/appointmentTypes/appointmentTypes.js'
 import swaggerDocument from "./src/utils/montetabor-60e-ptc-api-1.0.0-resolved.json" with {type: "json"}
 import patientPortalRoutes from './src/routes/patientPortal/patientPortal.js'
@@ -181,5 +182,9 @@ app.use("/api/wompi", authenticate(["patient"]), requireActiveUser, wompiRoutes)
 // el servidor se duerme tras 15 minutos sin tráfico, y dormido no puede
 // enviar recordatorios ni notificaciones push.
 app.get("/api/health", (req, res) => res.status(200).json({ status: "ok" }));
+
+// Convierte los errores de subida de imágenes (multer y Cloudinary) en una
+// respuesta JSON con la causa. Va después de todas las rutas.
+app.use(uploadErrorHandler);
 
 export default app;

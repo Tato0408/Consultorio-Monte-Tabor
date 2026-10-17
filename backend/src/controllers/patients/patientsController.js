@@ -2,7 +2,7 @@ import patientsModel from "../../models/patients/patients.js";
 import proceduresModel from "../../models/procedures/procedures.js";
 import inventoryController from "../inventory/inventoryController.js";
 import bcryptjs from "bcryptjs";
-import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, getVitalSignsError } from "../../utils/validators.js";
+import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, getVitalSignsError, getMissingVitalSignsError } from "../../utils/validators.js";
 import { sendEmail } from "../../utils/sendMailMailjet.js";
 import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js";
 import { countPatientRelatedRecords, deletePatientCascade } from "../../utils/cascadeDelete.js";
@@ -420,7 +420,7 @@ patientsController.updatePatient = async (req, res) => {
     //Envia los signos vitales, los prepara usando comillas y puntos para que MongoDB actualice solo esa casilla interna y no borre los demás datos médicos, si no los mandó, los ignora por completo
     //Usamos el fieldsToPush porque es una lista de datos
     if (new_vital_signs) {
-      const vitalSignsError = getVitalSignsError(new_vital_signs);
+      const vitalSignsError = getMissingVitalSignsError(new_vital_signs) || getVitalSignsError(new_vital_signs);
       if (vitalSignsError) {
         return res.status(400).json({ message: vitalSignsError });
       }
@@ -546,7 +546,8 @@ patientsController.updateVitalSign = async (req, res) => {
     const { patientId, vitalSignId } = req.params;
     const { blood_pressure, glucosa_mgdl, weight, height, imc, temperature, spo2 } = req.body;
 
-    const vitalSignsError = getVitalSignsError({ blood_pressure, glucosa_mgdl, weight, height, temperature, spo2 });
+    const vitals = { blood_pressure, glucosa_mgdl, weight, height, temperature, spo2 };
+    const vitalSignsError = getMissingVitalSignsError(vitals) || getVitalSignsError(vitals);
     if (vitalSignsError) {
       return res.status(400).json({ message: vitalSignsError });
     }

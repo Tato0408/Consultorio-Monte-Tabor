@@ -4,6 +4,7 @@ import { BLOOD_TYPES, BLOOD_COMPAT, describeBloodType } from "../bloodCompat";
 import { updateMyBloodType } from "@/services/profileService";
 import { showSuccess, showError } from "@/lib/alerts";
 
+import DatePickerField from "@/components/ui/DatePickerField";
 const fmtFecha = (iso) =>
   iso ? new Date(iso).toLocaleDateString("es-SV", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : null;
 
@@ -86,11 +87,11 @@ const BloodTypeSection = ({ patient, onSaved }) => {
           {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
 
           <label className="block text-sm font-medium text-gray-700 mt-5 mb-1.5">Fecha del registro</label>
-          <input
-            type="date"
+          <DatePickerField
+            label=""
+            id="blood_type_date"
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
-            className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 outline-none focus:border-[#3B6FCA] focus:ring-2 focus:ring-[#3B6FCA]/20 transition-all"
           />
 
           <div className="flex items-start gap-2 bg-[#3B6FCA]/5 rounded-xl p-3 mt-4">

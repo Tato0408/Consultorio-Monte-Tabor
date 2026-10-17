@@ -10,6 +10,7 @@ const FormSelect = ({
   options = [],
   placeholder = "Seleccionar",
   onChange,
+  error,
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -23,7 +24,7 @@ const FormSelect = ({
       <Text style={styles.label}>{label}</Text>
 
       <TouchableOpacity
-        style={[styles.input, styles.inputRow]}
+        style={[styles.input, styles.inputRow, error && { borderColor: colors.danger }]}
         activeOpacity={0.7}
         onPress={() => setOpen(true)}
       >
@@ -32,6 +33,7 @@ const FormSelect = ({
         </Text>
         <Ionicons name="chevron-down" size={16} color={colors.muted} />
       </TouchableOpacity>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <Modal visible={open} transparent animationType="slide">
         <TouchableOpacity

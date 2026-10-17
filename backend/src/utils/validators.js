@@ -255,6 +255,35 @@ export const getVitalSignsError = (vitals = {}) => {
     return null;
 };
 
+// Campos de una toma de signos vitales registrada a mano desde el expediente,
+// con el nombre que se muestra al usuario.
+const required_vital_signs = {
+    blood_pressure: "Presión arterial",
+    glucosa_mgdl: "Glucosa",
+    weight: "Peso",
+    height: "Talla",
+    temperature: "Temperatura",
+    spo2: "Saturación de oxígeno",
+};
+
+// Exige que una toma registrada a mano traiga todos sus campos con un valor
+// real: vacío, solo espacios o un número inválido (por ejemplo un punto
+// suelto) no cuentan. Sin esto se guardaban tomas en blanco que aparecían
+// vacías en la gráfica y la tabla del expediente. Devuelve el mensaje del
+// primer campo faltante, o null.
+export const getMissingVitalSignsError = (vitals = {}) => {
+    for (const [key, label] of Object.entries(required_vital_signs)) {
+        const value = vitals[key];
+        if (value === undefined || value === null || String(value).trim() === "") {
+            return `El campo ${label} es obligatorio`;
+        }
+        if (key !== "blood_pressure" && Number.isNaN(Number(value))) {
+            return `${label} debe ser un número`;
+        }
+    }
+    return null;
+};
+
 // Campos mínimos para poder guardar una consulta (ver
 // ConsultationForm.jsx): síntomas y evolución, triage básico (presión
 // arterial y temperatura) y diagnóstico completo (CIE-10, nombre y

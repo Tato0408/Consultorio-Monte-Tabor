@@ -4,6 +4,7 @@ import InputField from "@/components/ui/InputField";
 import { updateMyProfile, verifyMyEmailChange } from "@/services/profileService";
 import { showSuccess, showError, promptCode } from "@/lib/alerts";
 
+import DatePickerField from "@/components/ui/DatePickerField";
 // Mismo enum que Register.jsx (este portal) y PatientFormModal.jsx (panel privado):
 // antes este formulario ofrecía 2 opciones más ("Otro", "Prefiero no decirlo") que
 // ninguna otra pantalla del sistema soporta, así que un paciente podía terminar con un
@@ -24,7 +25,9 @@ const fromPatient = (p) => ({
   last_name: p?.last_name || "",
   dui: p?.dui || "",
   birth_date: isoToInput(p?.birth_date),
-  gender: p?.gender || "",
+  // Un valor guardado antes que ya no es válido ("Otro") queda vacío para
+  // obligar a elegir Masculino o Femenino, igual que en la app móvil.
+  gender: GENEROS.includes(p?.gender) ? p.gender : "",
   phone: p?.phone || "",
   email: p?.email || "",
 });
@@ -47,6 +50,7 @@ const EditProfileForm = ({ patient, onSaved, onCancel }) => {
     if (!form.phone.trim()) next.phone = "Ingresa un teléfono";
     if (form.dui.trim() && !/^\d{8}-\d$/.test(form.dui.trim())) next.dui = "Formato: 12345678-9";
     if (!form.birth_date) next.birth_date = "Ingresa tu fecha de nacimiento";
+    if (!GENEROS.includes(form.gender)) next.gender = "Selecciona Masculino o Femenino";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -104,17 +108,18 @@ const EditProfileForm = ({ patient, onSaved, onCancel }) => {
           <InputField label="Nombres" value={form.name} onChange={(e) => setField("name")(e.target.value)} error={errors.name} />
           <InputField label="Apellidos" value={form.last_name} onChange={(e) => setField("last_name")(e.target.value)} error={errors.last_name} />
           <InputField label="DUI (opcional)" value={form.dui} onChange={(e) => setField("dui")(e.target.value)} placeholder="12345678-9" error={errors.dui} />
-          <InputField label="Fecha de nacimiento" type="date" value={form.birth_date} onChange={(e) => setField("birth_date")(e.target.value)} error={errors.birth_date} />
+          <DatePickerField label="Fecha de nacimiento" id="birth_date" value={form.birth_date} onChange={(e) => setField("birth_date")(e.target.value)} error={errors.birth_date} />
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Género</label>
             <select
               value={form.gender}
               onChange={(e) => setField("gender")(e.target.value)}
-              className="px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 outline-none focus:border-[#3B6FCA] focus:ring-2 focus:ring-[#3B6FCA]/20 transition-all"
+              className={`px-3.5 py-2.5 bg-white border rounded-lg text-sm text-gray-800 outline-none focus:border-[#3B6FCA] focus:ring-2 focus:ring-[#3B6FCA]/20 transition-all ${errors.gender ? "border-red-400" : "border-gray-200"}`}
             >
               <option value="">Seleccionar</option>
               {GENEROS.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
+            {errors.gender && <p className="text-xs text-red-500 mt-0.5">{errors.gender}</p>}
           </div>
         </div>
       </div>

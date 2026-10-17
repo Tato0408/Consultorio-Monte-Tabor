@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   Activity,
   ArrowLeftRight,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -26,6 +25,7 @@ import {
 } from "@/lib/pdf/patientDocuments";
 import { countSelectedTests } from "@/lib/labOrderCatalog";
 
+import DatePickerField from "@/components/ui/DatePickerField";
 // Config del "botón especial" de historial clínico: mismo lenguaje visual que TIPOS,
 // pero no es una categoría con listado propio — al tocarlo descarga directo, igual que
 // "Descargar historial clínico" en Historia clínica (HealthHistory.jsx) y en la app móvil
@@ -408,15 +408,13 @@ const Documents = () => {
         ) : (
           <div className="mx-auto max-w-2xl px-6 py-8">
             <div className="mb-6 flex items-center gap-2.5">
-              <div className="relative w-full max-w-xs">
-                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="date"
-                  value={filtroFecha}
-                  onChange={(e) => setFiltroFecha(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-700 focus:border-[#3B6FCA] focus:outline-none"
-                />
-              </div>
+              <DatePickerField
+                label="Filtrar por fecha"
+                value={filtroFecha}
+                onChange={(e) => setFiltroFecha(e.target.value)}
+                placeholder="Filtrar por fecha"
+                className="w-full max-w-xs [&>label]:sr-only"
+              />
               {filtroFecha && (
                 <button
                   type="button"
@@ -529,15 +527,14 @@ const Documents = () => {
             <div className="my-3 h-px bg-gray-100" />
 
             <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Filtrar</p>
-            <div className="relative">
-              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                type="date"
-                value={filtroFecha}
-                onChange={(e) => setFiltroFecha(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-2 text-[13px] text-gray-700 focus:border-[#3B6FCA] focus:outline-none"
-              />
-            </div>
+            <DatePickerField
+              label="Filtrar por fecha"
+              value={filtroFecha}
+              onChange={(e) => setFiltroFecha(e.target.value)}
+              placeholder="Filtrar por fecha"
+              compact
+              className="[&>label]:sr-only"
+            />
             {filtroFecha && (
               <button
                 type="button"

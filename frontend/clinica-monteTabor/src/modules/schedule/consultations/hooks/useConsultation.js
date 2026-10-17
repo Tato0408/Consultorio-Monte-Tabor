@@ -88,53 +88,47 @@ function useConsultation(appointmentId) {
       };
     }
 
-    // Mapea los antecedentes hereditarios, aceptando tanto el campo
-    // relationship como relative para el mismo dato.
+    // Hereditarios con el mismo formato que el expediente y la app móvil
+    // ({ relationship, condition, type }). El formulario edita parentesco
+    // (relative) y condición; type viaja oculto en la fila para que el
+    // backend lo conserve al guardar.
     const hereditary = Array.isArray(clinicalHistory.hereditary)
       ? clinicalHistory.hereditary.map((item) => ({
           relative: item.relationship || item.relative || "",
           condition: item.condition || "",
+          type: item.type || "",
           _id: item._id,
         }))
       : [];
 
-    // Mapea los antecedentes patológicos, aceptando tanto el campo
-    // type como diagnosis para el mismo dato.
+    // Patológicos con el formato { disease, diagnosis, type }. El
+    // formulario edita enfermedad y tipo; diagnosis viaja oculto en la fila
+    // para que el backend lo conserve al guardar.
     const pathological = Array.isArray(clinicalHistory.pathological)
       ? clinicalHistory.pathological.map((item) => ({
           disease: item.disease || "",
-          type: item.type || item.diagnosis || "",
+          type: item.type || "",
+          diagnosis: item.diagnosis || "",
           _id: item._id,
         }))
       : [];
 
-    // Normaliza los antecedentes no patológicos, que pueden venir como
-    // arreglo de objetos o como un string suelto.
-    let non_pathological = [];
-    if (Array.isArray(clinicalHistory.non_pathological)) {
-      non_pathological = clinicalHistory.non_pathological.map((item) => ({
-        description: typeof item === "string" ? item : item.description || "",
-      }));
-    } else if (
-      typeof clinicalHistory.non_pathological === "string" &&
-      clinicalHistory.non_pathological
-    ) {
-      non_pathological = [{ description: clinicalHistory.non_pathological }];
-    }
-
-    // Normaliza los antecedentes socioecológicos, que pueden venir como
-    // arreglo de objetos o como un string suelto.
-    let socio_ecological = [];
-    if (Array.isArray(clinicalHistory.socio_ecological)) {
-      socio_ecological = clinicalHistory.socio_ecological.map((item) => ({
-        description: typeof item === "string" ? item : item.description || "",
-      }));
-    } else if (
-      typeof clinicalHistory.socio_ecological === "string" &&
-      clinicalHistory.socio_ecological
-    ) {
-      socio_ecological = [{ description: clinicalHistory.socio_ecological }];
-    }
+    // No patológicos y socioecológicos se guardan en la base como un solo
+    // texto (non_pathological y ecologycal_social), con una línea por
+    // antecedente. Se separa por líneas para mostrar una fila por cada uno,
+    // y el backend las vuelve a unir igual al guardar.
+    const text_to_rows = (value) => {
+      if (Array.isArray(value)) {
+        return value.map((item) => ({ description: typeof item === "string" ? item : item.description || "" }));
+      }
+      return String(value || "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((description) => ({ description }));
+    };
+    const non_pathological = text_to_rows(clinicalHistory.non_pathological);
+    const socio_ecological = text_to_rows(clinicalHistory.ecologycal_social);
 
     return {
       hereditary,
@@ -186,28 +180,12 @@ function useConsultation(appointmentId) {
         );
 
         if (consultRes && Object.keys(consultRes).length > 0) {
-          const consultationAntecedents = consultRes.antecedents || {};
-
-          // Usa los antecedentes de la consulta cuando existen, y si
-          // no, recurre a los del historial del paciente.
-          const combinedAntecedents = {
-            hereditary:
-              consultationAntecedents.hereditary?.length > 0
-                ? consultationAntecedents.hereditary
-                : patientAntecedents.hereditary,
-            pathological:
-              consultationAntecedents.pathological?.length > 0
-                ? consultationAntecedents.pathological
-                : patientAntecedents.pathological,
-            non_pathological:
-              consultationAntecedents.non_pathological?.length > 0
-                ? consultationAntecedents.non_pathological
-                : patientAntecedents.non_pathological,
-            socio_ecological:
-              consultationAntecedents.socio_ecological?.length > 0
-                ? consultationAntecedents.socio_ecological
-                : patientAntecedents.socio_ecological,
-          };
+          // Los antecedentes siempre se precargan desde el historial actual
+          // del paciente, no desde la copia guardada en esta consulta: al
+          // guardar, el backend los escribe en el historial del paciente, y
+          // partir de la copia vieja revertía lo que se agregó después desde
+          // el expediente, el portal o la app móvil.
+          const combinedAntecedents = patientAntecedents;
 
           // Valida que procedure sea un array.
           const procedureData = Array.isArray(consultRes.procedure)
@@ -315,19 +293,27 @@ function useConsultation(appointmentId) {
         };
 
         // Usa PUT si ya existe una consulta guardada para esta cita, o
-        // POST para crear una nueva.
-        const response = consultationId
-          ? await apiClient(`/consultations/${consultationId}`, {
-              method: "PUT",
-              body: payload,
-            })
-          : await apiClient("/consultations", {
-              method: "POST",
-              body: payload,
-            });
+        // POST para crear una nueva. Si el POST responde 409 (la cita ya
+        // tiene consulta, por ejemplo guardada desde otra pestaña), se
+        // actualiza esa misma consulta en vez de crear un duplicado.
+        const put = (id) => apiClient(`/consultations/${id}`, { method: "PUT", body: payload });
+        let savedId = consultationId;
+        if (consultationId) {
+          await put(consultationId);
+        } else {
+          try {
+            const created = await apiClient("/consultations", { method: "POST", body: payload });
+            savedId = created?._id || null;
+          } catch (postErr) {
+            const existingId = postErr.status === 409 ? postErr.data?.consultation_id : null;
+            if (!existingId) throw postErr;
+            await put(existingId);
+            savedId = existingId;
+          }
+        }
 
-        if (response?._id) {
-          setConsultationId(response._id);
+        if (savedId) {
+          setConsultationId(savedId);
         }
 
         if (markCompleted) {
@@ -352,7 +338,7 @@ function useConsultation(appointmentId) {
           }
         }
 
-        return response;
+        return { _id: savedId };
       } catch (err) {
         setError(err.message || "Error al guardar la consulta");
         throw err;

@@ -23,8 +23,9 @@ import { NAME_REGEX, PHONE_REGEX, DUI_REGEX, maskName, maskDui, maskPhone } from
 import styles from "../../styles/profile/editProfileStyle";
 import { colors } from "../../styles/profile/profileStyle";
 
-// Deben coincidir con el enum de gender en el modelo de Mongoose
-const GENEROS = ["Masculino", "Femenino", "Otro", "Prefiero no decirlo"];
+// Mismos valores que acepta el backend (GENEROS_VALIDOS en
+// patientSelfController.js): solo Masculino o Femenino.
+const GENEROS = ["Masculino", "Femenino"];
 
 const EMPTY_FORM = {
   nombres: "",
@@ -54,7 +55,9 @@ const fromApi = (patient) => ({
   apellidos: patient?.last_name || "",
   dui: patient?.dui || "",
   fechaNacimiento: isoToDisplay(patient?.birth_date),
-  genero: patient?.gender || "",
+  // Un valor guardado antes que ya no es válido ("Otro") queda vacío para
+  // obligar a elegir Masculino o Femenino.
+  genero: GENEROS.includes(patient?.gender) ? patient.gender : "",
   telefono: patient?.phone || "",
   correo: patient?.email || "",
 });
@@ -127,6 +130,7 @@ const EditProfileScreen = ({ navigation, route }) => {
     if (form.dui.trim() && !DUI_REGEX.test(form.dui.trim())) {
       next.dui = "Formato: 12345678-9";
     }
+    if (!GENEROS.includes(form.genero)) next.genero = "Selecciona Masculino o Femenino";
     if (!form.fechaNacimiento) next.fechaNacimiento = "Ingresa tu fecha de nacimiento";
     else if (!displayToIso(form.fechaNacimiento)) next.fechaNacimiento = "Usa el formato DD/MM/AAAA";
     setErrors(next);
@@ -262,6 +266,7 @@ const EditProfileScreen = ({ navigation, route }) => {
             options={GENEROS}
             placeholder="Seleccionar"
             onChange={setField("genero")}
+            error={errors.genero}
           />
 
           <Text style={styles.sectionTitle}>Información de contacto</Text>
