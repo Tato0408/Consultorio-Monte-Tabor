@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import DataCombobox from "@/components/ui/DataCombobox"
 import { Combobox, ComboboxContent, ComboboxItem, ComboboxTrigger } from "@/components/ui/combobox"
-import { patientLabel, doctorLabel, nurseLabel } from "../lib/personLabels"
+import { doctor_option, nurse_option, patient_option } from "../lib/personOptions";
 import { es } from "date-fns/locale"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import useAppointments from "../hooks/useAppointments"
@@ -613,7 +613,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 label="Paciente"
                 value={formData.patient_id}
                 onChange={v => setFormData(p => ({ ...p, patient_id: v }))}
-                options={patients.map(p => ({ value: p._id, label: patientLabel(p) }))}
+                options={patients.map(p => patient_option(p))}
                 placeholder="Seleccione un paciente"
                 disabled={!isEditing || Boolean(id)}
               />
@@ -703,7 +703,7 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 label="Doctor asignado"
                 value={formData.doctor_id}
                 onChange={v => setFormData(p => ({ ...p, doctor_id: v }))}
-                options={doctors.map(d => ({ value: d._id, label: doctorLabel(d) }))}
+                options={doctors.map(d => doctor_option(d))}
                 placeholder={requiresDoctorForProcedure ? "Seleccione un doctor" : "No requerido para este servicio"}
                 disabled={isDoctor || !isEditing || !requiresDoctorForProcedure}
               />
@@ -717,8 +717,8 @@ export default function AppointmentsForm({ onCloseOverride, onSavedOverride } = 
                 onChange={v => setFormData(p => ({ ...p, nurse_id: v }))}
                 options={
                   requiresDoctorForProcedure
-                    ? availableNurses.map(n => ({ value: n._id, label: nurseLabel(n) }))
-                    : schedulableNurses.map(n => ({ value: n._id, label: nurseLabel(n) }))
+                    ? availableNurses.map(n => nurse_option(n))
+                    : schedulableNurses.map(n => nurse_option(n))
                 }
                 placeholder={
                   !requiresDoctorForProcedure

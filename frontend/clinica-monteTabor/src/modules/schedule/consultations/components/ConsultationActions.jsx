@@ -1,8 +1,7 @@
 // Barra de acciones de la derecha. En modo de solo lectura (readOnly) se
 // ocultan las acciones de escritura y el botón inferior pasa a ser
 // "Finalizar", que solo cierra el formulario (onClose) sin guardar nada.
-
-const ConsultationActions = ({ readOnly, isSaving, onFinish, onClose, onPreview, onGenerateIncapacidad, onGenerateLabOrder, onGenerateReceta, onGenerateReferencia }) => {
+const ConsultationActions = ({ readOnly, isSaving, onClose, onPreview, onGenerateIncapacidad, onGenerateLabOrder, onGenerateReceta, onGenerateReferencia }) => {
     return (
         <div className="bg-white border border-slate-100 rounded-xl p-4 space-y-2">
             {!readOnly && (
@@ -17,7 +16,7 @@ const ConsultationActions = ({ readOnly, isSaving, onFinish, onClose, onPreview,
 
             {/* Solo lee lo que ya está cargado en la tarjeta Receta y
                 seguimiento (no guarda nada), así que también queda disponible
-                en solo lectura para revisar/descargar el recetario de una
+                en solo lectura para revisar o descargar el recetario de una
                 consulta ya atendida. */}
             <button
                 type="button"
@@ -28,7 +27,8 @@ const ConsultationActions = ({ readOnly, isSaving, onFinish, onClose, onPreview,
             </button>
 
             {/* La orden de laboratorio es opcional y se llena en una pantalla
-                aparte. Disponible también en solo lectura para revisarla/descargarla. */}
+                aparte. Disponible también en solo lectura para revisarla o
+                descargarla. */}
             <button
                 type="button"
                 onClick={onGenerateLabOrder}
@@ -37,9 +37,9 @@ const ConsultationActions = ({ readOnly, isSaving, onFinish, onClose, onPreview,
                 Generar orden de laboratorio
             </button>
 
-            {/* Referencia a otro nivel de atención. Lee lo que el doctor cargó en
-                la tarjeta "Referencia" + datos de la consulta; también disponible
-                en solo lectura para reimprimirla. */}
+            {/* Referencia a otro nivel de atención. Lee lo que el doctor cargó
+                en la tarjeta "Referencia" y datos de la consulta, también
+                disponible en solo lectura para reimprimirla. */}
             <button
                 type="button"
                 onClick={onGenerateReferencia}
@@ -67,11 +67,11 @@ const ConsultationActions = ({ readOnly, isSaving, onFinish, onClose, onPreview,
                     Finalizar
                 </button>
             ) : (
-                // type="submit" porque dispara el handleSubmit del <form> padre
+                // Envía el <form> padre, cuyo onSubmit ejecuta el guardado una
+                // sola vez.
                 <button
                     type="submit"
                     disabled={isSaving}
-                    onClick={onFinish}
                     className="w-full bg-[#0b66d6] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#0a59ba] disabled:opacity-50"
                 >
                     {isSaving ? "Guardando..." : "Finalizar y guardar"}

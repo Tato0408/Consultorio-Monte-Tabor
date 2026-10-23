@@ -88,7 +88,7 @@ const Register = () => {
     if (!formData.email.trim()) e.email = "Requerido";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = "Correo inválido";
 
-    if (!formData.password) e.password = "Requerido";
+    if (!formData.password.trim()) e.password = "Requerido";
     else if (
       formData.password.length <= 8 ||
       !/[A-Z]/.test(formData.password) ||
@@ -181,7 +181,7 @@ const Register = () => {
               <div className="mb-2 flex items-center justify-center" style={{ width: "44px", height: "50px" }}>
                 <img
                   src="/logoConsultorioSInFondo.png"
-                  alt="Clínica Monte Tabor"
+                  alt="Consultorio Médico Familiar Monte Tabor"
                   className="w-full h-full object-contain"
                   style={{ filter: "drop-shadow(0 4px 12px rgba(59,111,202,0.35))" }}
                 />

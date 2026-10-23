@@ -8,7 +8,7 @@ import { maskClinicalText } from "@/lib/inputMasks";
 const borderClass = (hasError) => (hasError ? "border-red-400" : "border-slate-200");
 
 const PrescriptionCard = ({ readOnly }) => {
-    const { control, register, setValue, watch, formState: { errors } } = useFormContext();
+    const { control, register, setValue, watch, formState: { errors, defaultValues } } = useFormContext();
 
     // Aplica la máscara de texto clínico y actualiza react-hook-form. Se reutiliza en
     // todos los inputs de esta tarjeta (medicamentos e indicaciones), que son de texto
@@ -36,7 +36,7 @@ const PrescriptionCard = ({ readOnly }) => {
                                     maxLength={100}
                                     disabled={readOnly}
                                     {...register(`prescription.medications.${index}.name`, {
-                                        required: "El nombre del medicamento es obligatorio",
+                                        required: "El nombre del medicamento es obligatorio", pattern: { value: /\S/, message: "El nombre del medicamento es obligatorio" },
                                     })}
                                     onChange={maskChange(`prescription.medications.${index}.name`, 100)}
                                     className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.name)}`}
@@ -53,7 +53,7 @@ const PrescriptionCard = ({ readOnly }) => {
                                     maxLength={50}
                                     disabled={readOnly}
                                     {...register(`prescription.medications.${index}.dose`, {
-                                        required: "La dosis es obligatoria",
+                                        required: "La dosis es obligatoria", pattern: { value: /\S/, message: "La dosis es obligatoria" },
                                     })}
                                     onChange={maskChange(`prescription.medications.${index}.dose`, 50)}
                                     className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.dose)}`}
@@ -74,7 +74,7 @@ const PrescriptionCard = ({ readOnly }) => {
                                     maxLength={50}
                                     disabled={readOnly}
                                     {...register(`prescription.medications.${index}.frequency`, {
-                                        required: "La frecuencia es obligatoria",
+                                        required: "La frecuencia es obligatoria", pattern: { value: /\S/, message: "La frecuencia es obligatoria" },
                                     })}
                                     onChange={maskChange(`prescription.medications.${index}.frequency`, 50)}
                                     className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.frequency)}`}
@@ -91,7 +91,7 @@ const PrescriptionCard = ({ readOnly }) => {
                                     maxLength={50}
                                     disabled={readOnly}
                                     {...register(`prescription.medications.${index}.duration`, {
-                                        required: "La duración es obligatoria",
+                                        required: "La duración es obligatoria", pattern: { value: /\S/, message: "La duración es obligatoria" },
                                     })}
                                     onChange={maskChange(`prescription.medications.${index}.duration`, 50)}
                                     className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.prescription?.medications?.[index]?.duration)}`}
@@ -155,13 +155,14 @@ const PrescriptionCard = ({ readOnly }) => {
                 max={`${new Date().getFullYear() + 2}-12-31`}
                 disabled={readOnly}
                 {...register("prescription.next_appointment_suggested", {
-                    // El atributo HTML min de arriba no basta: no bloquea el envío ni todos
-                    // los navegadores lo respetan. Mismo criterio que follow_up_date en
-                    // ProceduresCard.jsx — ambos campos alimentan el mismo
-                    // treatment.next_control_date en el backend, así que una fecha pasada acá
-                    // generaba una alerta de "control vencido" incorrecta desde que se guardaba.
+                    // El atributo min no bloquea el envío del formulario, por eso
+                    // se valida aquí. Una fecha pasada marcaría el control del
+                    // tratamiento como vencido (mismo criterio que follow_up_date
+                    // en ProceduresCard.jsx). La fecha ya guardada se acepta
+                    // aunque haya pasado, para poder editar la consulta después.
                     validate: (value) =>
                         !value ||
+                        value === defaultValues?.prescription?.next_appointment_suggested ||
                         value >= new Date().toISOString().split("T")[0] ||
                         "La fecha no puede ser anterior a hoy",
                 })}

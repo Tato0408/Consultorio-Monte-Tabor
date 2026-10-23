@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 // Misma API que los SelectField locales del sistema para que la migración sea mecánica:
 //
 //   <DataCombobox label="Paciente" value={id} onChange={setId}
-//                 options={[{ value, label }]} placeholder="..." disabled error="..." />
+//                 options={[{ value, label, content? }]} placeholder="..." disabled error="..." />
 //
 // El value es el id crudo (string), igual que guardaban los <select>. Envuelve el
 // Combobox base (components/ui/combobox.jsx).
@@ -47,9 +47,11 @@ const DataCombobox = ({
         )}
       />
       <ComboboxContent className="max-h-72">
+        {/* content es opcional: el diseño de la opción (ver PersonOption.jsx). label
+            sigue siendo el texto que se busca y se muestra al elegir. */}
         {options.map((o) => (
-          <ComboboxItem key={o.value} value={o.value}>
-            {o.label}
+          <ComboboxItem key={o.value} value={o.value} label={o.label}>
+            {o.content ?? o.label}
           </ComboboxItem>
         ))}
       </ComboboxContent>

@@ -83,7 +83,7 @@ const SideBar = ({ onClose = () => {} }) => {
             <div className="flex items-center gap-3 px-2 py-4 mb-2 shrink-0">
                 <img
                     src="/logoAppSinFondo.png"
-                    alt="Clínica Monte Tabor"
+                    alt="Consultorio Médico Familiar Monte Tabor"
                     className="w-10 h-10 object-contain flex-shrink-0"
                 />
                 <span className="font-bold text-slate-800 text-lg tracking-wide flex-1">Monte Tabor</span>

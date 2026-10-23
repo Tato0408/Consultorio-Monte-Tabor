@@ -4,7 +4,9 @@ import apiClient from "@/lib/apiClient";
 import { showSuccess, showError, confirmProceedWithoutNurse } from "@/lib/alerts";
 import { Combobox, ComboboxTrigger, ComboboxContent, ComboboxItem } from "@/components/ui/combobox";
 import DataCombobox from "@/components/ui/DataCombobox";
-import { patientLabel, doctorLabel, nurseLabel } from "@/modules/schedule/appointments/lib/personLabels";
+import { doctorLabel, nurseLabel, doctor_parts, nurse_parts } from "@/modules/schedule/appointments/lib/personLabels";
+import { patient_option } from "@/modules/schedule/appointments/lib/personOptions";
+import PersonOption from "@/modules/schedule/appointments/components/PersonOption";
 import { max_procedures_per_appointment } from "@/modules/schedule/appointments/lib/appointmentLimits";
 
 const todayStr = () => {
@@ -312,7 +314,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                             <DataCombobox
                                 value={form.patientId}
                                 onChange={(v) => setForm((f) => ({ ...f, patientId: v }))}
-                                options={patients.map((p) => ({ value: p._id, label: patientLabel(p) }))}
+                                options={patients.map((p) => patient_option(p))}
                                 placeholder="Buscar paciente..."
                                 size="sm"
                                 className="flex-1 min-w-0"
@@ -470,7 +472,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                                 />
                                                 <ComboboxContent>
                                                     {slotDoctors.map((d) => (
-                                                        <ComboboxItem key={d._id} value={d._id}>{doctorLabel(d)}</ComboboxItem>
+                                                        <ComboboxItem key={d._id} value={d._id} label={doctorLabel(d)}><PersonOption {...doctor_parts(d)} /></ComboboxItem>
                                                     ))}
                                                 </ComboboxContent>
                                             </Combobox>
@@ -493,7 +495,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                                 />
                                                 <ComboboxContent>
                                                     {slotNurses.map((n) => (
-                                                        <ComboboxItem key={n._id} value={n._id}>{nurseLabel(n)}</ComboboxItem>
+                                                        <ComboboxItem key={n._id} value={n._id} label={nurseLabel(n)}><PersonOption {...nurse_parts(n)} /></ComboboxItem>
                                                     ))}
                                                 </ComboboxContent>
                                             </Combobox>
@@ -518,7 +520,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                         />
                                         <ComboboxContent>
                                             {slotDoctors.map((d) => (
-                                                <ComboboxItem key={d._id} value={d._id}>{doctorLabel(d)}</ComboboxItem>
+                                                <ComboboxItem key={d._id} value={d._id} label={doctorLabel(d)}><PersonOption {...doctor_parts(d)} /></ComboboxItem>
                                             ))}
                                         </ComboboxContent>
                                     </Combobox>
@@ -542,7 +544,7 @@ const QuickAppointmentForm = ({ medicalData, prefill, onCreated, onRequestNewPat
                                         />
                                         <ComboboxContent>
                                             {slotNurses.map((n) => (
-                                                <ComboboxItem key={n._id} value={n._id}>{nurseLabel(n)}</ComboboxItem>
+                                                <ComboboxItem key={n._id} value={n._id} label={nurseLabel(n)}><PersonOption {...nurse_parts(n)} /></ComboboxItem>
                                             ))}
                                         </ComboboxContent>
                                     </Combobox>

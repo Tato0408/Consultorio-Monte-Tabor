@@ -300,7 +300,7 @@ const ClinicalHistoryDocument = ({
                 )}
 
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>Clínica Familiar Monte Tabor · Expediente clínico</Text>
+                    <Text style={styles.footerText}>Consultorio Médico Familiar Monte Tabor · Expediente clínico</Text>
                     <Text style={styles.footerText}>
                         Documento generado el {date}{time ? `, ${time}` : ""}
                     </Text>

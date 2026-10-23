@@ -109,7 +109,7 @@ const HTMLCreatePatient = (name, code) => {
 
                         <tr>
                             <td style="border-top: 1px solid #e5e7eb; padding-top: 24px; text-align: center;">
-                                <p style="color: #9ca3af; font-size: 12px; margin: 0;">&copy; 2026 Clínica Médica Monte Tabor. Todos los derechos reservados.</p>
+                                <p style="color: #9ca3af; font-size: 12px; margin: 0;">&copy; 2026 Consultorio Médico Familiar Monte Tabor. Todos los derechos reservados.</p>
                             </td>
                         </tr>
 

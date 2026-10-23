@@ -67,7 +67,7 @@ const MainLayout = () => {
                         </button>
                         <img
                             src="/logoAppSinFondo.png"
-                            alt="Clínica Monte Tabor"
+                            alt="Consultorio Médico Familiar Monte Tabor"
                             className="w-7 h-7 object-contain flex-shrink-0"
                         />
                         <span className="font-bold text-slate-800 text-sm">Monte Tabor</span>

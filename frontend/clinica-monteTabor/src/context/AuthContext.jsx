@@ -188,7 +188,7 @@ export const AuthProvider = ({ children }) => {
     // Envía las credenciales al backend para iniciar sesión, guarda el
     // estado si es exitoso y muestra una notificación.
     const login = async (email, password) => {
-        if (!email || !password) {
+        if (!email?.trim() || !password?.trim()) {
             toast.error("Por favor, completa todos los campos.");
             return false;
         }

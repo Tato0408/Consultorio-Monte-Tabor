@@ -111,7 +111,7 @@ const ReferralFormModal = ({ isOpen, onClose, entry, onSaved }) => {
                 type="text"
                 placeholder="Ej. Dr. Pérez, Cardiología"
                 maxLength={100}
-                {...register("referred_to", { required: "Requerido" })}
+                {...register("referred_to", { required: "Requerido", pattern: { value: /\S/, message: "Requerido" } })}
                 onChange={maskChange("referred_to", maskClinicalText, 100)}
                 className={inputClass(errors.referred_to)}
               />
@@ -194,7 +194,7 @@ const ReferralFormModal = ({ isOpen, onClose, entry, onSaved }) => {
                 rows={3}
                 maxLength={500}
                 placeholder="Ej. Paciente requiere valoración cardiológica"
-                {...register("reason", { required: "Requerido" })}
+                {...register("reason", { required: "Requerido", pattern: { value: /\S/, message: "Requerido" } })}
                 onChange={maskChange("reason", maskClinicalText, 500)}
                 className={inputClass(errors.reason)}
               />

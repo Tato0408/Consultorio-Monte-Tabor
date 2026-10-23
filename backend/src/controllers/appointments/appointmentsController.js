@@ -1952,7 +1952,9 @@ appointmentsController.getPatientProcedures = async (req, res) => {
 appointmentsController.getNursesForAcceptance = async (req, res) => {
     try {
         const { date, start_time, end_time, appointment_id } = req.query;
-        const nurses = await nursesModel.find({ is_active: true }).select("name last_name").sort({ name: 1 }).lean();
+        // El DUI identifica a la enfermera en los selectores del panel (ver
+        // personLabels.js); esta ruta solo la usa el personal.
+        const nurses = await nursesModel.find({ is_active: true }).select("name last_name dui").sort({ name: 1 }).lean();
 
         if (!date || !start_time || !end_time) {
             return res.json({ data: nurses });

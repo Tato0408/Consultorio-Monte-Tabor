@@ -145,7 +145,7 @@ const variationColor = (value, tone) => {
 // para los gráficos, tabla de servicios e indicadores) y el nombre de la
 // clínica, y arma una página A4 con encabezado, tarjetas de estadísticas,
 // gráficos, tabla resumen, indicadores financieros y observaciones.
-const ReportPDFDocument = ({ data, clinicName = "Clínica Familia Monte Tabor" }) => {
+const ReportPDFDocument = ({ data, clinicName = "Consultorio Médico Familiar Monte Tabor" }) => {
   const {
     reportTitle,
     periodLabel,

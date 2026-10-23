@@ -13,7 +13,7 @@ const EvolutionCard = ({ readOnly }) => {
             <Controller
                 name="clinical_data.evolution"
                 control={control}
-                rules={{ required: "Describe los síntomas o la evolución del paciente" }}
+                rules={{ required: "Describe los síntomas o la evolución del paciente", pattern: { value: /\S/, message: "Describe los síntomas o la evolución del paciente" } }}
                 render={({ field }) => (
                     <textarea
                         {...field}

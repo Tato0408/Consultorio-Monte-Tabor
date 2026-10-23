@@ -40,7 +40,7 @@ const Recovery = () => {
       <div className="flex flex-col items-center mb-8">
         <img
           src="/logoConsultorioSInFondo.png"
-          alt="Clínica Monte Tabor"
+          alt="Consultorio Médico Familiar Monte Tabor"
           className="object-contain mb-4"
           style={{ width: "200px", height: "auto" }}
         />

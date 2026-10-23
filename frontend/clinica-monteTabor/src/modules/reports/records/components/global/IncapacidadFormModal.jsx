@@ -134,7 +134,7 @@ const IncapacidadFormModal = ({ isOpen, onClose, patientId, doctorId, onSaved, e
               placeholder="Ej. Gripe estacional"
               maxLength={150}
               {...register("diagnosis", {
-                required: "El diagnóstico es requerido",
+                required: "El diagnóstico es requerido", pattern: { value: /\S/, message: "El diagnóstico es requerido" },
                 minLength: { value: 2, message: "Debe tener al menos 2 caracteres" },
                 maxLength: { value: 150, message: "Máximo 150 caracteres" },
               })}

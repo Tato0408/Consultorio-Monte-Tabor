@@ -73,7 +73,7 @@ const DiagnosisCard = ({
                         disabled={readOnly || !icdCode}
                         placeholder={icdCode ? "" : "Elige primero un código CIE-10"}
                         {...register("clinical_data.diagnosis", {
-                            required: "El nombre del diagnóstico es obligatorio",
+                            required: "El nombre del diagnóstico es obligatorio", pattern: { value: /\S/, message: "El nombre del diagnóstico es obligatorio" },
                         })}
                         className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50"
                     />
@@ -97,7 +97,7 @@ const DiagnosisCard = ({
                 disabled={readOnly}
                 placeholder="Ej. Eritema faríngeo con fiebre de 38°C de dos días de evolución"
                 {...register("clinical_data.diagnosis_description", {
-                    required: "La descripción del diagnóstico es obligatoria",
+                    required: "La descripción del diagnóstico es obligatoria", pattern: { value: /\S/, message: "La descripción del diagnóstico es obligatoria" },
                 })}
                 className="w-full border border-slate-200 rounded-lg p-2 text-sm disabled:bg-slate-50"
             />
