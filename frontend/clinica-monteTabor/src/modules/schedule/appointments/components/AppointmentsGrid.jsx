@@ -14,7 +14,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import DataCombobox from "@/components/ui/DataCombobox";
-import { doctorLabel, nurseLabel } from "../lib/personLabels";
+import { doctor_option, nurse_option } from "../lib/personOptions";
 import { useNavigate, useLocation } from "react-router-dom";
 import useAppointments from "../hooks/useAppointment.js";
 import useAppointmentTypes from "../hooks/useAppointmentTypes";
@@ -594,7 +594,7 @@ export default function AppointmentsGrid() {
                         onChange={(value) => updateFilters({ doctor_id: !value || value === "all" ? undefined : value })}
                         options={[
                             { value: "all", label: "Todos los doctores" },
-                            ...doctorFilterOptions.map((d) => ({ value: d._id, label: doctorLabel(d) })),
+                            ...doctorFilterOptions.map((d) => doctor_option(d)),
                         ]}
                         placeholder="Todos los doctores"
                         labelClassName="hidden"
@@ -969,7 +969,7 @@ export default function AppointmentsGrid() {
                         <DataCombobox
                             value={selectedNurseId}
                             onChange={setSelectedNurseId}
-                            options={nurses.map((nurse) => ({ value: nurse._id, label: nurseLabel(nurse) }))}
+                            options={nurses.map((nurse) => nurse_option(nurse))}
                             placeholder={loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}
                             disabled={loadingNurses}
                             labelClassName="hidden"
@@ -1005,7 +1005,7 @@ export default function AppointmentsGrid() {
                         <DataCombobox
                             value={selectedNurseId}
                             onChange={setSelectedNurseId}
-                            options={nurses.map((nurse) => ({ value: nurse._id, label: nurseLabel(nurse) }))}
+                            options={nurses.map((nurse) => nurse_option(nurse))}
                             placeholder={loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}
                             disabled={loadingNurses}
                             labelClassName="hidden"
@@ -1031,10 +1031,7 @@ export default function AppointmentsGrid() {
                         <DataCombobox
                             value={selectedDoctorId}
                             onChange={setSelectedDoctorId}
-                            options={doctors.map((doctor) => ({
-                                value: doctor._id,
-                                label: `${doctorLabel(doctor)}${doctor.specialty ? ` — ${doctor.specialty}` : ""}`,
-                            }))}
+                            options={doctors.map((doctor) => doctor_option(doctor, { with_specialty: true }))}
                             placeholder={loadingDoctors ? "Cargando doctores…" : "Selecciona un doctor"}
                             disabled={loadingDoctors}
                             labelClassName="hidden"
@@ -1046,7 +1043,7 @@ export default function AppointmentsGrid() {
                                 <DataCombobox
                                     value={selectedNurseId}
                                     onChange={setSelectedNurseId}
-                                    options={nurses.map((nurse) => ({ value: nurse._id, label: nurseLabel(nurse) }))}
+                                    options={nurses.map((nurse) => nurse_option(nurse))}
                                     placeholder={loadingNurses ? "Cargando enfermeras…" : "Selecciona una enfermera"}
                                     disabled={loadingNurses}
                                     labelClassName="hidden"

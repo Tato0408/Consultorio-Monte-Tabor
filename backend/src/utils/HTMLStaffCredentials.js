@@ -23,7 +23,7 @@ const HTMLStaffCredentials = (fullName, roleLabel, email, password) => {
                     Bienvenido(a), ${fullName}
                   </h1>
                   <p style="margin:0;font-size:14px;color:#8a93b2;line-height:1.6;">
-                    Un administrador creó tu cuenta de <strong>${roleLabel}</strong> en el sistema de Clínica Monte Tabor. Estas son tus credenciales de acceso.
+                    Un administrador creó tu cuenta de <strong>${roleLabel}</strong> en el sistema del Consultorio Médico Familiar Monte Tabor. Estas son tus credenciales de acceso.
                   </p>
                 </td>
               </tr>
@@ -78,7 +78,7 @@ const HTMLStaffCredentials = (fullName, roleLabel, email, password) => {
                         &#9675;&nbsp; Si no esperabas este correo, contacta a la clínica
                       </td>
                       <td align="right" style="font-size:12px;color:#4A6CF7;font-weight:600;">
-                        Clínica Monte Tabor
+                        Consultorio Médico Familiar Monte Tabor
                       </td>
                     </tr>
                   </table>

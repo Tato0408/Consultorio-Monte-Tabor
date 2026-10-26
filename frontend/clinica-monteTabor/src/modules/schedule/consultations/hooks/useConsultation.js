@@ -62,6 +62,66 @@ const emptyConsultation = {
   },
 };
 
+// Convierte una fecha guardada (ISO) al formato AAAA MM DD con guiones que
+// exige un input de tipo date. Devuelve texto vacío si no hay fecha válida.
+const to_input_date = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
+};
+
+/*
+ * Arma los valores del formulario a partir de una consulta ya guardada.
+ * Recibe la respuesta de /consultations/by-appointment y los antecedentes
+ * actuales del paciente, y devuelve un objeto con la misma forma que
+ * emptyConsultation. Las indicaciones y la próxima cita sugerida vienen de
+ * la receta (prescription), con los nombres que usa PrescriptionCard. Las
+ * fechas se pasan al formato del input date para que se muestren y se
+ * reenvíen sin perderse. No incluye patient_id ni appointment_id, que llegan
+ * poblados y los agrega save() como ids.
+ */
+const build_form_values = (consultation, patient_antecedents) => {
+  const clinical_data = consultation.clinical_data || {};
+  const physical_exam = consultation.physical_exam || {};
+  const referral = consultation.referral || {};
+  const prescription = consultation.prescription || {};
+
+  return {
+    ...emptyConsultation,
+    clinical_data: {
+      ...emptyConsultation.clinical_data,
+      ...clinical_data,
+      triage: { ...emptyConsultation.clinical_data.triage, ...(clinical_data.triage || {}) },
+    },
+    // PhysicalExamCard guarda el examen neurológico con la clave
+    // "neorulogical", las consultas antiguas pueden traerlo como
+    // "neurological".
+    physical_exam: {
+      ...emptyConsultation.physical_exam,
+      ...physical_exam,
+      neorulogical: physical_exam.neorulogical ?? physical_exam.neurological ?? "",
+    },
+    procedure: Array.isArray(consultation.procedure) ? consultation.procedure : [],
+    prescription: {
+      medications: Array.isArray(prescription.medications) ? prescription.medications : [],
+      indications: prescription.post_operative_instructions || prescription.indications || "",
+      next_appointment_suggested: to_input_date(prescription.next_appointment_suggested),
+    },
+    referral: {
+      ...emptyConsultation.referral,
+      ...referral,
+      referred_date: to_input_date(referral.referred_date),
+    },
+    // Los antecedentes salen del historial actual del paciente y no de la
+    // copia de esta consulta, porque el backend los escribe en el historial
+    // y pudieron cambiar después desde el expediente, el portal o la app.
+    antecedents: patient_antecedents,
+    follow_up_date: to_input_date(consultation.follow_up_date),
+    nurse_note: consultation.nurse_note || "",
+    nurse_note_at: consultation.nurse_note_at || null,
+  };
+};
+
 function useConsultation(appointmentId) {
   // Valores actuales del formulario, id de la consulta ya guardada (si
   // existe) y datos completos de la cita asociada.
@@ -179,28 +239,8 @@ function useConsultation(appointmentId) {
           `/consultations/by-appointment/${appointmentId}`
         );
 
-        if (consultRes && Object.keys(consultRes).length > 0) {
-          // Los antecedentes siempre se precargan desde el historial actual
-          // del paciente, no desde la copia guardada en esta consulta: al
-          // guardar, el backend los escribe en el historial del paciente, y
-          // partir de la copia vieja revertía lo que se agregó después desde
-          // el expediente, el portal o la app móvil.
-          const combinedAntecedents = patientAntecedents;
-
-          // Valida que procedure sea un array.
-          const procedureData = Array.isArray(consultRes.procedure)
-            ? consultRes.procedure
-            : [];
-
-          // Agrupa los datos normalizados de la consulta para precargar
-          // los valores por defecto del formulario.
-          const consultationData = {
-            ...consultRes,
-            antecedents: combinedAntecedents,
-            procedure: procedureData,
-          };
-
-          setDefaultValues((prev) => ({ ...prev, ...consultationData }));
+        if (consultRes && consultRes._id) {
+          setDefaultValues(build_form_values(consultRes, patientAntecedents));
           setConsultationId(consultRes._id);
         } else {
           // No hay consulta guardada todavía. Si la cita ya trae uno o más
@@ -248,10 +288,9 @@ function useConsultation(appointmentId) {
       }
     } catch (err) {
       // Aquí solo caen los fallos al traer la cita (el 404 de la consulta se
-      // maneja arriba, en su propio try). Un 404 o 403 sobre la cita ahora
-      // significa que pertenece a un paciente o doctor inactivo y ya no debe
-      // abrirse: se trata como error de carga para redirigir fuera de la
-      // pantalla, igual que una cita eliminada.
+      // maneja arriba, en su propio try). Un 404 o 403 sobre la cita
+      // significa que no existe o que pertenece a un paciente o doctor
+      // inactivo: se trata como error de carga para salir de la pantalla.
       const status = err.status || err.response?.status;
       if (status === 404 || status === 403) {
         setError("Esta cita ya no está disponible.");
@@ -284,12 +323,13 @@ function useConsultation(appointmentId) {
         const patientId =
           appointment?.patient_id?._id || appointment?.patient_id;
 
-        // Arma el payload agregando los ids de la cita y el paciente a
-        // los datos del formulario.
+        // Arma el payload con los datos del formulario y los ids de la cita
+        // y del paciente, que van al final para que ningún valor del
+        // formulario los reemplace.
         const payload = {
+          ...formValues,
           appointment_id: appointmentId,
           patient_id: patientId,
-          ...formValues,
         };
 
         // Usa PUT si ya existe una consulta guardada para esta cita, o
@@ -317,13 +357,10 @@ function useConsultation(appointmentId) {
         }
 
         if (markCompleted) {
-          // Marca la cita como completada. Va en su PROPIO try/catch: si esto falla
-          // DESPUÉS de que el PUT/POST de arriba ya tuvo éxito, los datos clínicos SÍ
-          // quedaron guardados — antes, ambos pasos compartían el mismo catch de abajo y
-          // ConsultationForm.jsx mostraba el mismo "No se pudo guardar la consulta" sin
-          // importar cuál de los dos pasos había fallado, dándole al doctor la impresión
-          // de que nada se guardó (y el riesgo de reintentar innecesariamente) cuando en
-          // realidad solo faltó marcarla como completada.
+          // Marca la cita como completada en un try aparte. Si solo falla este
+          // paso, los datos clínicos ya quedaron guardados: el error lleva
+          // consultationSaved para que ConsultationForm.jsx avise de un
+          // guardado parcial en lugar de un fallo total.
           try {
             await apiClient(`/appointments/${appointmentId}/status`, {
               method: "PATCH",

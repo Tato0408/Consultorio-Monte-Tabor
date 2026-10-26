@@ -106,7 +106,7 @@ const PrescriptionFormModal = ({ isOpen, onClose, entry, onSaved }) => {
                         placeholder="Ej. Paracetamol 500mg"
                         maxLength={100}
                         {...register(`medications.${index}.name`, {
-                          required: "Requerido",
+                          required: "Requerido", pattern: { value: /\S/, message: "Requerido" },
                         })}
                         className={inputClass(errors?.medications?.[index]?.name)}
                       />

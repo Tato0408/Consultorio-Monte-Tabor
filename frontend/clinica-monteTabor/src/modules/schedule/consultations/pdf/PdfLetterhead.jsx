@@ -1,7 +1,7 @@
 import { View, Image, Text, StyleSheet } from "@react-pdf/renderer";
 
 const CLINIC_INFO = {
-    name: "Clínica Familiar Monte Tabor",
+    name: "Consultorio Médico Familiar Monte Tabor",
     address: "Barrio Concepción, Pasaje San Antonio, casa N.° 6, Distrito de Soyapango, Municipio de San Salvador Este",
     whatsapp: "7548-6791",
     logoUrl: "/logoConsultorioSInFondo.png",

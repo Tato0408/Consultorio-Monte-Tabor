@@ -7,7 +7,7 @@ const FooterLogin = () => {
             <span>Todos tus datos están protegidos</span>
           </div>
           <span className="text-xs font-medium text-[#3B6FCA] hover:underline cursor-pointer">
-            Clínica Familia Monte Tabor
+            Consultorio Médico Familiar Monte Tabor
           </span>
         </footer>
     );

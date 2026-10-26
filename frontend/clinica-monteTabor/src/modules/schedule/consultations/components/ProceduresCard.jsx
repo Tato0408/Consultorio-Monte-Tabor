@@ -9,7 +9,7 @@ import apiClient from "@/lib/apiClient";
 // Orquesta la lista de procedimientos, cada fila (con su propio
 // manejo de materiales) vive en ProcedureRow.
 const ProceduresCard = ({ readOnly }) => {
-    const { control, register, formState: { errors } } = useFormContext();
+    const { control, register, formState: { errors, defaultValues } } = useFormContext();
     const { fields: rows, append, remove } = useFieldArray({
         control,
         name: "procedure",
@@ -90,8 +90,11 @@ const ProceduresCard = ({ readOnly }) => {
                         placeholder="dd/mm/aaaa"
                         min={new Date().toISOString().split("T")[0]}
                         {...register("follow_up_date", {
+                            // La fecha ya guardada se acepta aunque haya pasado,
+                            // así la consulta se puede editar después del control.
                             validate: (value) =>
                                 !value ||
+                                value === defaultValues?.follow_up_date ||
                                 value >= new Date().toISOString().split("T")[0] ||
                                 "La fecha no puede ser anterior a hoy",
                         })}

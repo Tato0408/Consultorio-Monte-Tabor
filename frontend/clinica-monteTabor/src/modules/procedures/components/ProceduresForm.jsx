@@ -132,7 +132,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
               type="text"
               placeholder="Ej. Apendicectomía laparoscópica"
               maxLength={100}
-              {...register("name", { required: "El campo tiene que llenarse" })}
+              {...register("name", { required: "El campo tiene que llenarse", pattern: { value: /\S/, message: "El campo tiene que llenarse" } })}
               className={`w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors ${
                 errors.name
                   ? "border border-red-500 bg-red-50/30 focus:border-red-500"
@@ -151,7 +151,7 @@ const ProcedureForm = ({ onSubmit, initialData = null, isSubmitting = false, for
               placeholder="Describa el procedimiento, su objetivo, alcance..."
               rows={4}
               maxLength={1000}
-              {...register("description", { required: "El campo tiene que llenarse" })}
+              {...register("description", { required: "El campo tiene que llenarse", pattern: { value: /\S/, message: "El campo tiene que llenarse" } })}
               className={`w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors resize-none ${
                 errors.description
                   ? "border border-red-500 bg-red-50/30 focus:border-red-500"

@@ -1,4 +1,5 @@
 import multer from "multer";
+import { trim_request_body } from "../middlewares/trimRequestBody.js";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { v2 as cloudinary } from "cloudinary";
 import { config } from "../../config.js";
@@ -30,4 +31,16 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-export default upload;
+// Cada middleware de subida va seguido de trim_request_body: multer arma
+// req.body dentro de la ruta, después del recorte general de app.js, así que
+// sin esto los textos de un formulario con archivo llegarían sin recortar.
+// Express acepta el arreglo como si fueran dos middlewares seguidos.
+const with_trim = (middleware) => [middleware, trim_request_body];
+
+export default {
+  single: (...args) => with_trim(upload.single(...args)),
+  fields: (...args) => with_trim(upload.fields(...args)),
+  array: (...args) => with_trim(upload.array(...args)),
+  none: (...args) => with_trim(upload.none(...args)),
+  any: (...args) => with_trim(upload.any(...args)),
+};

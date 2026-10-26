@@ -7,10 +7,8 @@ import { showWarning } from "@/lib/alerts";
 // validación pendiente, gris en cualquier otro caso.
 const borderClass = (hasError) => (hasError ? "border-red-400" : "border-slate-200");
 
-// inventory/procedures/doctors llegan como props desde ProceduresCard.jsx (traídos una
-// sola vez ahí, no por cada fila): antes cada fila tenía su propia copia de estos 3
-// hooks/fetches, así que una consulta con 4 procedimientos disparaba 4 peticiones
-// idénticas a cada endpoint.
+// inventory, procedures y doctors llegan como props desde ProceduresCard.jsx,
+// que los trae una sola vez para todas las filas.
 // Un insumo vencido (fecha de vencimiento hoy o antes) o sin stock no se
 // puede usar en una consulta, así que no se ofrece en el selector. Solo se
 // muestra, deshabilitado, si ya estaba elegido en una consulta guardada.
@@ -43,6 +41,7 @@ const ProcedureRow = ({
 
     const selectedProcedureId = watch(`procedure.${index}.procedure_id`);
     const selectedProcedure = getProcedureById(selectedProcedureId);
+    const selectedDoctorId = watch(`procedure.${index}.doctor_id`);
 
     const handleProcedureChange = (procedureId) => {
         setValue(`procedure.${index}.procedure_id`, procedureId, { shouldValidate: true });
@@ -52,16 +51,10 @@ const ProcedureRow = ({
         }
 
         // Autocompleta los materiales que el catálogo de Procedimientos
-        // declaró para este procedimiento (Procedures.materials), en vez de
-        // dejar que el doctor tenga que volver a elegir cada insumo y
-        // cantidad a mano. Si lo olvidaba, la fila quedaba sin
-        // inventory_id, sanitizeProcedureRows la descartaba en silencio al
-        // guardar, y el inventario nunca se descontaba — justo lo contrario
-        // de lo que promete el propio formulario de Procedimientos ("Los
-        // materiales serán descontados del inventario al asignar el
-        // procedimiento."). Solo se autocompleta si esta fila todavía no
-        // tiene ningún material elegido a mano, para no pisar una edición
-        // que el doctor ya haya hecho.
+        // declara para este procedimiento (Procedures.materials), para que se
+        // descuenten del inventario sin elegirlos a mano. Solo se hace si la
+        // fila todavía no tiene ningún material elegido, para no reemplazar
+        // lo que el doctor ya editó.
         const yaTieneMaterialesElegidos = (getValues(`procedure.${index}.material_used`) || [])
             .some((m) => m?.inventory_id);
         if (procedure?.materials?.length && !yaTieneMaterialesElegidos) {
@@ -118,11 +111,17 @@ const ProcedureRow = ({
                     <label className="text-xs text-slate-500 block mb-1">
                         Médico ejecutante <span className="text-red-500">*</span>
                     </label>
+                    {/* Controlado por el valor del formulario: la lista de médicos
+                        llega después de cargar la consulta, y un select sin
+                        controlar queda en blanco aunque el médico esté
+                        guardado. Los insumos de abajo siguen el mismo criterio. */}
                     <select
                         disabled={readOnly || isLoadingDoctors}
                         {...register(`procedure.${index}.doctor_id`, {
                             required: "Selecciona el médico que ejecutó el procedimiento",
                         })}
+                        value={selectedDoctorId ?? ""}
+                        onChange={(e) => setValue(`procedure.${index}.doctor_id`, e.target.value, { shouldValidate: true, shouldDirty: true })}
                         className={`w-full border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.procedure?.[index]?.doctor_id)}`}
                     >
                         <option value="">
@@ -133,6 +132,12 @@ const ProcedureRow = ({
                                 {doc.name} {doc.last_name}
                             </option>
                         ))}
+                        {/* Médico guardado que ya no está en el catálogo (por
+                            ejemplo, una cuenta desactivada): se muestra para no
+                            perderlo al volver a guardar. */}
+                        {!isLoadingDoctors && selectedDoctorId && !doctors.some((doc) => String(doc._id) === String(selectedDoctorId)) && (
+                            <option value={selectedDoctorId}>Médico no disponible en el catálogo</option>
+                        )}
                     </select>
                 </div>
             </div>
@@ -164,6 +169,8 @@ const ProcedureRow = ({
                                 {...register(`procedure.${index}.material_used.${materialIndex}.inventory_id`, {
                                     required: "Selecciona un insumo",
                                 })}
+                                value={watch(`procedure.${index}.material_used.${materialIndex}.inventory_id`) ?? ""}
+                                onChange={(e) => setValue(`procedure.${index}.material_used.${materialIndex}.inventory_id`, e.target.value, { shouldValidate: true, shouldDirty: true })}
                                 className={`border rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50 ${borderClass(errors?.procedure?.[index]?.material_used?.[materialIndex]?.inventory_id)}`}
                             >
                                 <option value="">
@@ -187,9 +194,8 @@ const ProcedureRow = ({
                                 step={1}
                                 placeholder="Ej. 2"
                                 disabled={readOnly}
-                                // Los <input type="number"> nativos igual dejan escribir e, +, - y
-                                // el punto (no son dígitos pero sí caracteres válidos de notación
-                                // numérica), se bloquean explícitamente para que solo entren
+                                // Bloquea las teclas e, E, el signo más, el signo menos y el
+                                // punto, que un input numérico acepta, para que solo entren
                                 // enteros positivos.
                                 onKeyDown={(e) => { if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault(); }}
                                 {...register(`procedure.${index}.material_used.${materialIndex}.quantity`, {

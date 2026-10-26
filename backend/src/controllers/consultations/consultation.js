@@ -33,6 +33,37 @@ const getNextControlDateError = (value) => {
   return null;
 };
 
+// Día (AAAA MM DD en UTC) de una fecha, o null si no es válida. Sirve para
+// comparar una fecha enviada por el formulario con la guardada.
+const to_day_key = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+};
+
+// Valida la fecha de próximo control al editar una consulta. Recibe la fecha
+// enviada y la que ya estaba guardada en ese mismo campo. Si son el mismo día
+// se acepta aunque ya haya pasado, porque el control pudo vencer después de
+// registrarse. Devuelve el mensaje de error o null.
+const get_edited_next_control_error = (value, saved_value) => {
+  if (!value) return null;
+  if (to_day_key(value) && to_day_key(value) === to_day_key(saved_value)) return null;
+  return getNextControlDateError(value);
+};
+
+// Indicaciones de la receta. El formulario las manda como indications y tienen
+// prioridad, post_operative_instructions se usa si indications no viene.
+const get_prescription_instructions = (prescription) =>
+  prescription?.indications !== undefined
+    ? prescription.indications
+    : prescription?.post_operative_instructions;
+
+// Próxima cita sugerida de la receta como Date, o null si viene vacía.
+const get_suggested_next_appointment = (prescription) =>
+  to_day_key(prescription?.next_appointment_suggested)
+    ? new Date(prescription.next_appointment_suggested)
+    : null;
+
 // Igual que la tarjeta "Plan de tratamiento" del formulario (oculta sin
 // permiso de Ingreso en Tratamientos), el backend tampoco confía solo en lo
 // que mande el cliente: sin ese permiso, un intento de abrir un plan nuevo
@@ -132,10 +163,11 @@ const get_antecedents_text_error = (antecedents) => {
   return getClinicalTextError(fields);
 };
 
-// Convierte el triage de la consulta al shape de Patients.clinical_history.vital_signs — null si
-// no se capturó ningún signo vital (para no empujar un registro vacío al historial).
-// El triage se captura en cm (así lo tipea el doctor, ver TriageCard.jsx); el expediente lo
-// muestra en metros, por eso se convierte aquí.
+// Convierte el triage de la consulta al formato de
+// Patients.clinical_history.vital_signs. Devuelve null si no se capturó
+// ningún signo vital, para no agregar un registro vacío al historial. La
+// talla llega en cm (ver TriageCard.jsx) y se guarda en metros, que es como
+// la muestra el expediente.
 const buildVitalSignsEntry = (triage, consultationDate) => {
   if (!triage) return null;
   const { blood_pressure, glucose, weight, height, temperature, oxygen_saturation } = triage;
@@ -242,14 +274,10 @@ const buildClinicalHistoryUpdate = async ({ clinical_data, antecedents, procedur
     push["clinical_history.vital_signs"] = vitalSignsEntry;
   }
 
-  // El tipo de sangre que el paciente registra desde el móvil queda como autoreportado
-  // (blood_type_verified: false, ver patientSelfController.updateBloodType) hasta que
-  // personal clínico lo confirme. Antes eso solo pasaba si alguien lo reeditaba a mano
-  // desde el expediente (patientsController.updatePatient); una consulta normal nunca lo
-  // tocaba, así que se quedaba "pendiente de confirmación" para siempre aunque el
-  // paciente ya hubiera sido atendido varias veces. Al completarse una consulta se marca
-  // como confirmado por el doctor, si es que ya tenía uno registrado (no se inventa un
-  // tipo de sangre que el paciente nunca ingresó).
+  // El tipo de sangre que el paciente registra desde el portal o el móvil
+  // queda como autoreportado (blood_type_verified: false) hasta que el
+  // personal clínico lo confirma. Al guardar una consulta se marca como
+  // confirmado, solo si el paciente ya tiene uno registrado.
   if (currentBloodType) {
     set["clinical_history.blood_type_verified"] = true;
   }
@@ -353,8 +381,9 @@ const syncProcedureHistory = async ({ patientId, consultationId, procedureRows, 
       { session, runValidators: true }
     );
 
-    // matchedCount === 0 significa que esta fila (procedure_id) todavía no existía para esta
-    // consulta — o es la primera vez que se guarda, o el doctor la agregó en esta edición.
+    // matchedCount en 0 significa que la fila (procedure_id) todavía no
+    // existía para esta consulta: es el primer guardado, o el doctor la
+    // agregó en esta edición.
     if (!setResult.matchedCount) {
       await patientsModel.updateOne(
         { _id: patientId },
@@ -511,10 +540,9 @@ consultationController.insertConsultation = async (req, res) => {
       return res.status(400).json({ message: inactivePartyError });
     }
 
-    // El frontend (TriageCard.jsx) ya bloquea el signo "-" al escribir, pero el backend nunca
-    // debe confiar solo en eso (ej. una llamada directa por Swagger) mismas reglas que ya
-    // exige el expediente clínico para signos vitales (buildVitalSignsEntry hace la misma
-    // conversión cm→m que usa Patients.clinical_history.vital_signs).
+    // Valida los signos vitales con las mismas reglas del expediente
+    // clínico, sin depender de las máscaras del formulario (por ejemplo,
+    // ante una llamada directa a la API).
     const vitalSignsCheck = buildVitalSignsEntry(clinical_data?.triage, null);
     if (vitalSignsCheck) {
       const vitalsError = getVitalSignsError(vitalSignsCheck);
@@ -545,11 +573,8 @@ consultationController.insertConsultation = async (req, res) => {
       return res.status(400).json({ message: antecedentsTextError });
     }
 
-    // La consulta nunca traía su propio "date" (el campo quedaba undefined
-    // para siempre; todo lo que lo usaba como fuente terminaba cayendo en el
-    // "|| new Date()" de respaldo). Se fija aquí, al momento real de
-    // guardarla, para que sea una fecha real y no un campo fantasma —de
-    // paso, es la fecha de referencia que usa normalizeReferral más abajo.
+    // Fecha real de la consulta, fijada al momento de guardarla. También es
+    // la fecha de referencia que usa normalizeReferral más abajo.
     const consultationDate = new Date();
 
     const newConsultation = new consultationsModel({
@@ -566,21 +591,16 @@ consultationController.insertConsultation = async (req, res) => {
     //Guardamos de manera temporal la consulta en el session
     const savedConsultation = await newConsultation.save({ session });
 
-    // El formulario de consulta (PrescriptionCard.jsx) manda este campo como
-    // prescription.indications ("Indicaciones de seguimiento"), no
-    // post_operative_instructions: se acepta cualquiera de los dos nombres
-    // para no perder lo que el doctor escribió (post_operative_instructions
-    // sigue soportado por si algún día llega por ahí, ej. una integración
-    // futura).
-    const postOperativeInstructions =
-      prescription?.post_operative_instructions || prescription?.indications;
+    const postOperativeInstructions = get_prescription_instructions(prescription);
+    const suggestedNextAppointment = get_suggested_next_appointment(prescription);
 
-    //Si viene datos de medicamentos o instrucciones de operacion
-    if (prescription?.medications?.length || postOperativeInstructions) {
+    // La receta se crea si trae medicamentos, indicaciones o próxima cita.
+    if (prescription?.medications?.length || postOperativeInstructions || suggestedNextAppointment) {
       const newPrescription = new prescriptionsModel({
-        consultation_id: savedConsultation._id, // Enlazamos con el id que acabamos de crear
+        consultation_id: savedConsultation._id,
         medications: prescription.medications || [],
         post_operative_instructions: postOperativeInstructions,
+        next_appointment_suggested: suggestedNextAppointment,
         // Momento en que se emite la receta, usado por el portal del paciente para
         // calcular qué medicamentos siguen activos hoy (ver fetchTodayMedications).
         issued_at: new Date(),
@@ -701,7 +721,7 @@ consultationController.deleteConsultation = async (req, res) => {
   }
 };
 
-// DELETE /consultations/by-appointment/:appointmentId — usado por la tabla
+// DELETE /consultations/by-appointment/:appointmentId, usado por la tabla
 // de Consultas (AppointmentTable.jsx), que solo conoce el id de la cita, no
 // el de la consulta. deleteAppointmentCascade resuelve los dos casos: si la
 // cita ya tiene una consulta registrada, la borra con toda su cascada
@@ -756,7 +776,23 @@ consultationController.updateConsultation = async (req, res) => {
       return res.status(400).json({ message: requiredFieldsError });
     }
 
-    const nextControlError = getNextControlDateError(prescription?.next_appointment_suggested || follow_up_date);
+    // Datos guardados antes de esta edición: procedimientos y fecha para
+    // descontar solo la diferencia de material_used (applyMaterialUsageDelta),
+    // y fechas de control para aceptar las que no cambiaron aunque ya pasaron.
+    const previousConsultation = await consultationsModel
+      .findById(req.params.id)
+      .select("procedure date follow_up_date")
+      .session(session)
+      .lean();
+    const previousPrescription = await prescriptionsModel
+      .findOne({ consultation_id: req.params.id })
+      .select("next_appointment_suggested")
+      .session(session)
+      .lean();
+
+    const nextControlError =
+      get_edited_next_control_error(prescription?.next_appointment_suggested, previousPrescription?.next_appointment_suggested)
+      || get_edited_next_control_error(follow_up_date, previousConsultation?.follow_up_date);
     if (nextControlError) {
       await session.abortTransaction();
       session.endSession();
@@ -787,14 +823,6 @@ consultationController.updateConsultation = async (req, res) => {
         return res.status(400).json({ message: vitalsError });
       }
     }
-
-    // Se guarda "lo anterior" ANTES de sobreescribir, para poder descontar solo la diferencia
-    // de material_used (ver applyMaterialUsageDelta) y no el total de nuevo en cada edición.
-    const previousConsultation = await consultationsModel
-      .findById(req.params.id)
-      .select("procedure date")
-      .session(session)
-      .lean();
 
     const sanitizedProcedure = sanitizeProcedureRows(procedure);
 
@@ -841,21 +869,17 @@ consultationController.updateConsultation = async (req, res) => {
       return res.status(404).json({ message: "Consulta no encontrada" });
     }
     if (prescription) {
-      // Mismo criterio que insertConsultation: el formulario manda
-      // prescription.indications, no post_operative_instructions.
-      const postOperativeInstructions =
-        prescription.post_operative_instructions || prescription.indications;
       await prescriptionsModel.findOneAndUpdate(
         { consultation_id: req.params.id },
         {
           $set: {
             consultation_id: req.params.id,
             medications: prescription.medications || [],
-            post_operative_instructions: postOperativeInstructions,
+            post_operative_instructions: get_prescription_instructions(prescription),
+            next_appointment_suggested: get_suggested_next_appointment(prescription),
           },
-          // Solo se fija la primera vez que se crea la receta (al completar una
-          // consulta que todavía no tenía una), para no correr la fecha de emisión
-          // original cada vez que el doctor edita la consulta después.
+          // La fecha de emisión se fija solo cuando se crea la receta, así
+          // editar la consulta no cambia la fecha original.
           $setOnInsert: { issued_at: new Date() },
         },
         { session, upsert: true, new: true, runValidators: true }
@@ -895,9 +919,9 @@ consultationController.updateConsultation = async (req, res) => {
       entry: vitalSignsEntry,
       session,
     });
-    // syncProcedureHistory (no un $push directo): esta consulta puede que ya se haya guardado
-    // antes, así que hay que actualizar en su lugar la entrada existente en vez de duplicarla
-    // ver el comentario junto a la función para el detalle del bug que esto evita.
+    // syncProcedureHistory actualiza la entrada existente de cada
+    // procedimiento en lugar de agregar otra, porque la consulta ya pudo
+    // guardarse antes.
     if (procedureRows.length) {
       await syncProcedureHistory({
         patientId: patient_id,
@@ -925,8 +949,8 @@ consultationController.updateConsultation = async (req, res) => {
       session,
     });
 
-    // Solo mueve la DIFERENCIA entre lo que la consulta usaba antes de esta edición y lo que
-    // usa ahora si no cambió nada en material_used, no se genera ningún movimiento.
+    // Mueve solo la diferencia de material_used entre lo guardado y lo
+    // enviado. Si no hay diferencia, no se genera ningún movimiento.
     const patientForMovement = await patientsModel.findById(patient_id).select("name last_name").session(session).lean();
     await inventoryController.applyMaterialUsageDelta({
       previousProcedureRows: previousConsultation?.procedure || [],
@@ -1035,7 +1059,7 @@ consultationController.getConsultationByAppointmentId = async (req, res) => {
 };
 
 
-// PUT /consultations/:id/referral — edita la referencia de una consulta ya
+// PUT /consultations/:id/referral, edita la referencia de una consulta ya
 // guardada desde la pestaña de Documentos del expediente. La referencia no
 // es una colección propia (vive embebida en la consulta, ver referral en
 // consultation.js), así que se edita como un campo puntual en vez de exigir
@@ -1085,7 +1109,7 @@ consultationController.updateReferral = async (req, res) => {
   }
 };
 
-// DELETE /consultations/:id/referral — quita la referencia de la consulta
+// DELETE /consultations/:id/referral, quita la referencia de la consulta
 // (la consulta en sí no se borra, solo deja de tener una referencia asociada).
 consultationController.deleteReferral = async (req, res) => {
   try {

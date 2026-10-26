@@ -33,7 +33,7 @@ const Login = () => {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Ingresa un email válido";
     }
-    if (!formData.password) {
+    if (!formData.password.trim()) {
       newErrors.password = "La contraseña es requerida";
     }
     return newErrors;
@@ -153,7 +153,7 @@ const Login = () => {
               <div className="mb-4 flex items-center justify-center">
                 <img
                   src="/logoConsultorioSInFondo.png"
-                  alt="Clínica Monte Tabor"
+                  alt="Consultorio Médico Familiar Monte Tabor"
                   className="object-contain"
                   style={{ width: "260px", height: "auto" }}
                 />

@@ -232,7 +232,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
                 type="text"
                 placeholder="Ingrese los nombres"
                 maxLength={50}
-                {...register("name", { required: "El nombre es requerido" })}
+                {...register("name", { required: "El nombre es requerido", pattern: { value: /\S/, message: "El nombre es requerido" } })}
                 onChange={makeLettersMaskHandler("name", 50)}
                 className={inputClass(errors.name)}
               />
@@ -248,7 +248,7 @@ const NurseFormModal = ({ isOpen, onClose, onSave, nurse }) => {
                 type="text"
                 placeholder="Ingrese los apellidos"
                 maxLength={50}
-                {...register("last_name", { required: "El apellido es requerido" })}
+                {...register("last_name", { required: "El apellido es requerido", pattern: { value: /\S/, message: "El apellido es requerido" } })}
                 onChange={makeLettersMaskHandler("last_name", 50)}
                 className={inputClass(errors.last_name)}
               />

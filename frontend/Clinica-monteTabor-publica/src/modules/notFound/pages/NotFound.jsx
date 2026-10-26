@@ -61,7 +61,7 @@ const NotFound = () => {
           <div className="mb-6 flex items-center justify-center" style={{ width: "44px", height: "50px" }}>
             <img
               src="/logoConsultorioSInFondo.png"
-              alt="Clínica Monte Tabor"
+              alt="Consultorio Médico Familiar Monte Tabor"
               className="w-full h-full object-contain"
               style={{ filter: "drop-shadow(0 4px 12px rgba(59,111,202,0.35))" }}
             />
@@ -104,7 +104,7 @@ const NotFound = () => {
           <span>Todos tus datos están protegidos</span>
         </div>
         <span className="text-xs font-medium text-[#3B6FCA] hover:underline cursor-pointer">
-          Clínica Familia Monte Tabor
+          Consultorio Médico Familiar Monte Tabor
         </span>
       </div>
     </div>

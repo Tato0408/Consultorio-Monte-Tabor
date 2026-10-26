@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "PTC API",
-    "description": "Documentación completa de la API de la Clínica Monte Tabor, construida a partir de app.js, todas las rutas, controladores y modelos del backend actual.",
+    "description": "Documentación completa de la API del Consultorio Médico Familiar Monte Tabor, construida a partir de app.js, todas las rutas, controladores y modelos del backend actual.",
     "version": "1.0.0"
   },
   "servers": [

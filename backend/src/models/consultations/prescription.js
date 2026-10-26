@@ -35,6 +35,11 @@ const prescriptionSchema = new Schema({
     post_operative_instructions: {
         type: String
     },
+    // Próxima cita sugerida que el doctor indica en la receta.
+    next_appointment_suggested: {
+        type: Date,
+        default: null
+    },
     issued_at: {
         type: Date
     }

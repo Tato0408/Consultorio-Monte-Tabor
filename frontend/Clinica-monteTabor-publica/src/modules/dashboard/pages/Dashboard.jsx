@@ -13,7 +13,7 @@ import NotificationsMenu from "@/components/NotificationsMenu";
 const Logo = () => (
   <img
     src="/logoAppSinFondo.png"
-    alt="Clínica Monte Tabor"
+    alt="Consultorio Médico Familiar Monte Tabor"
     className="flex-shrink-0 object-contain"
     style={{ width: 40, height: 40 }}
   />
@@ -207,7 +207,7 @@ const Dashboard = () => {
             <div className="flex items-center gap-2 min-w-0">
               <Logo />
               <span className="font-bold text-gray-800 text-sm leading-tight truncate">
-                Clínica<br />Monte Tabor
+                Consultorio Médico Familiar<br />Monte Tabor
               </span>
             </div>
             <span className="hidden sm:block text-gray-300">|</span>

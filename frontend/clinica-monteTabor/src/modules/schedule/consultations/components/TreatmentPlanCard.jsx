@@ -94,7 +94,7 @@ const TreatmentPlanCard = ({ readOnly, activeTreatment }) => {
                 // callaba en silencio sin crear el tratamiento (ver treatmentSync.js) — el
                 // médico creía que el plan había quedado registrado y no aparecía en
                 // ningún lado.
-                required: "El objetivo es obligatorio para iniciar un plan de tratamiento.",
+                required: "El objetivo es obligatorio para iniciar un plan de tratamiento.", pattern: { value: /\S/, message: "El objetivo es obligatorio para iniciar un plan de tratamiento." },
               })}
               onChange={maskChange("treatment_plan.objective", OBJECTIVE_MAX)}
               className={`w-full border rounded-lg p-2 text-sm disabled:bg-slate-50 ${borderClass(errors?.treatment_plan?.objective)}`}
@@ -116,7 +116,7 @@ const TreatmentPlanCard = ({ readOnly, activeTreatment }) => {
               disabled={readOnly}
               placeholder="Ej. Curación avanzada cada 3 días + terapia compresiva"
               {...register("treatment_plan.plan_description", {
-                required: "El plan es obligatorio para iniciar un plan de tratamiento.",
+                required: "El plan es obligatorio para iniciar un plan de tratamiento.", pattern: { value: /\S/, message: "El plan es obligatorio para iniciar un plan de tratamiento." },
               })}
               onChange={maskChange("treatment_plan.plan_description", PLAN_MAX)}
               className={`w-full border rounded-lg p-2 text-sm disabled:bg-slate-50 ${borderClass(errors?.treatment_plan?.plan_description)}`}

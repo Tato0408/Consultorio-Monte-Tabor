@@ -8,7 +8,7 @@ import useAppointmentTypes from "../hooks/useAppointmentTypes";
 import { confirmDelete, confirmNoShow, showError, showSuccess } from "@/lib/alerts";
 import apiClient from "@/lib/apiClient";
 import DataCombobox from "@/components/ui/DataCombobox";
-import { doctorLabel, nurseLabel } from "../lib/personLabels";
+import { doctor_option, nurse_option } from "../lib/personOptions";
 import { formatTime12h as fmt12 } from "@/lib/timeFormat";
 
 
@@ -632,7 +632,7 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
                                 <DataCombobox
                                     value={chosenDoctorId}
                                     onChange={setChosenDoctorId}
-                                    options={doctorOptions.map((d) => ({ value: d._id, label: doctorLabel(d) }))}
+                                    options={doctorOptions.map((d) => doctor_option(d))}
                                     placeholder="Selecciona un doctor"
                                     labelClassName="hidden"
                                     size="sm"
@@ -646,7 +646,7 @@ const DetailPanel = ({ appt, isDoctor, isAdmin, isNurse, onClose, onRefresh, nav
                                 <DataCombobox
                                     value={chosenNurseId}
                                     onChange={setChosenNurseId}
-                                    options={nurseOptions.map((n) => ({ value: n._id, label: nurseLabel(n) }))}
+                                    options={nurseOptions.map((n) => nurse_option(n))}
                                     placeholder={nurseOptions.length ? "Selecciona una enfermera" : "Sin enfermeras disponibles en ese horario"}
                                     disabled={!nurseOptions.length}
                                     labelClassName="hidden"
@@ -998,7 +998,7 @@ const AppointmentsCalendar = () => {
                                 onChange={(v) => setFilterDoctor(!v || v === "all" ? "" : v)}
                                 options={[
                                     { value: "all", label: "Todos los doctores" },
-                                    ...doctors.map(d => ({ value: d._id, label: doctorLabel(d) })),
+                                    ...doctors.map(d => doctor_option(d)),
                                 ]}
                                 placeholder="Todos los doctores"
                                 labelClassName="hidden"

@@ -216,16 +216,14 @@ const ConsultationForm = () => {
                 : "La consulta médica ha sido registrada con éxito.";
             await showSuccess("¡Guardado!", successMsg);
 
-            // No se queda en la misma pantalla: quedarse en la misma consulta en modo
-            // lectura se veía casi idéntico a como estaba antes de guardar, y eso hacía
-            // dudar si el guardado realmente se envió. goBack() ya limpia el borrador y
-            // vuelve a donde se abrió esta consulta (listado o expediente del paciente).
+            // Sale de la consulta al guardar, para que quede claro que el
+            // guardado se hizo. goBack() limpia el borrador y vuelve a donde se
+            // abrió la consulta (listado o expediente del paciente).
             goBack();
         } catch (err) {
-            // err.consultationSaved (ver useConsultation.js): el PUT/POST de la consulta sí
-            // tuvo éxito, solo falló el PATCH que la marca como completada — el título y el
-            // mensaje reflejan que los datos clínicos no se perdieron, en vez de sonar a
-            // fallo total e invitar a reintentar todo desde cero sin necesidad.
+            // err.consultationSaved (ver useConsultation.js) indica que los datos
+            // clínicos se guardaron y solo falló marcar la cita como completada,
+            // por eso el aviso es de guardado parcial.
             showError(
                 err?.consultationSaved ? "Guardado parcial" : "Error al guardar",
                 err?.message || "No se pudo conectar con el servidor. Inténtalo de nuevo."
@@ -553,7 +551,10 @@ const ConsultationForm = () => {
         // FormProvider expone methods (control, register, etc.) a todos
         // los hijos vía useFormContext(), sin tener que pasarlos por props.
         <FormProvider {...methods}>
-            <form onSubmit={methods.handleSubmit(onSubmit)} className="p-4 sm:p-8">
+            {/* noValidate: la validación la hace react-hook-form. Sin esto, el
+                atributo min de los campos de fecha bloquea el envío al editar
+                una consulta con una fecha de control ya pasada. */}
+            <form noValidate onSubmit={methods.handleSubmit(onSubmit)} className="p-4 sm:p-8">
                 <button
                     type="button"
                     disabled={isSaving}
@@ -650,7 +651,6 @@ const ConsultationForm = () => {
                         <ConsultationActions
                             readOnly={readOnly}
                             isSaving={isSaving}
-                            onFinish={methods.handleSubmit(onSubmit)}
                             onClose={goBack}
                             onPreview={handlePreview}
                             onGenerateIncapacidad={handleOpenIncapacidad}

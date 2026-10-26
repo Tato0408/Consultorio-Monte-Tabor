@@ -71,7 +71,7 @@ const HTMLRecoveryEmail = (code) => {
                         &#9675;&nbsp; Todos tus datos están protegidos
                       </td>
                       <td align="right" style="font-size:12px;color:#4A6CF7;font-weight:600;">
-                        Clínica Monte Tabor
+                        Consultorio Médico Familiar Monte Tabor
                       </td>
                     </tr>
                   </table>

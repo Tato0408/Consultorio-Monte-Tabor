@@ -9,7 +9,7 @@ import apiClient from "@/lib/apiClient";
 const Logo = ({ size = 36 }) => (
   <img
     src="/logoConsultorioSInFondo.png"
-    alt="Clínica Monte Tabor"
+    alt="Consultorio Médico Familiar Monte Tabor"
     className="flex-shrink-0 object-contain"
     style={{ height: size, width: size * 1.075 }}
   />
@@ -91,7 +91,7 @@ const Home = () => {
           <div className="flex items-center gap-2.5">
             <Logo size={52} />
             <span className="font-bold text-gray-800 tracking-tight leading-tight text-sm sm:text-base">
-              Clínica Familiar<br className="hidden sm:block" /> Monte Tabor
+              Consultorio Médico Familiar<br className="hidden sm:block" /> Monte Tabor
             </span>
           </div>
 
@@ -132,7 +132,7 @@ const Home = () => {
               <span className="text-[#3B6FCA]">en cada etapa de tu vida</span>
             </h1>
             <p className="mt-6 text-gray-500 text-lg leading-relaxed max-w-lg">
-              En Clínica Familia Monte Tabor combinamos atención médica cercana
+              En el Consultorio Médico Familiar Monte Tabor combinamos atención médica cercana
               con tecnología moderna para que gestionar tu salud sea simple,
               rápido y seguro.
             </p>
@@ -454,7 +454,7 @@ const Home = () => {
       <footer className="max-w-6xl mx-auto px-6 sm:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
         <div className="flex items-center gap-2">
           <Logo size={22} />
-          <span>Clínica Familia Monte Tabor</span>
+          <span>Consultorio Médico Familiar Monte Tabor</span>
         </div>
         <span>© {new Date().getFullYear()} Todos los derechos reservados.</span>
       </footer>

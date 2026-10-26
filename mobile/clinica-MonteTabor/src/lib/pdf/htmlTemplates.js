@@ -5,7 +5,7 @@
 import { LAB_ORDER_CATALOG, testKey } from "../labOrderCatalog";
 
 const CLINIC_INFO = {
-  name: "Clínica Familiar Monte Tabor",
+  name: "Consultorio Médico Familiar Monte Tabor",
   address: "Barrio Concepción, Pasaje San Antonio, casa N.° 6, Distrito de Soyapango, Municipio de San Salvador Este",
   whatsapp: "7548-6791",
 };
@@ -403,7 +403,7 @@ export function buildClinicalHistoryHtml({
   </table>
 
   <div class="histFooter">
-    <span>Clínica Familiar Monte Tabor · Expediente clínico</span>
+    <span>Consultorio Médico Familiar Monte Tabor · Expediente clínico</span>
     <span>Documento generado el ${histCell(date)}${time ? `, ${escapeHtml(time)}` : ""}</span>
   </div>
 </body></html>`;

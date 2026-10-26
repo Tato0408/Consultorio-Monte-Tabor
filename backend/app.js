@@ -44,6 +44,7 @@ import reportsRoutes from './src/routes/reports/reports.js'
 import sickLeavesRoutes from './src/routes/sickLeaves/sickLeaves.js'
 import notificationsRoutes from './src/routes/notifications/notifications.js'
 import { uploadErrorHandler } from "./src/middlewares/uploadErrorHandler.js";
+import { trim_request_body } from "./src/middlewares/trimRequestBody.js";
 import appointmentTypesRoutes from './src/routes/appointmentTypes/appointmentTypes.js'
 import swaggerDocument from "./src/utils/montetabor-60e-ptc-api-1.0.0-resolved.json" with {type: "json"}
 import patientPortalRoutes from './src/routes/patientPortal/patientPortal.js'
@@ -73,6 +74,11 @@ app.use((req, res, next) => {
     if (req.body === undefined) req.body = {};
     next();
 });
+
+// Recorta los espacios de los textos recibidos: un campo con solo espacios
+// llega vacío y lo rechazan las mismas validaciones que un campo vacío. Las
+// peticiones con archivos lo aplican después de multer (ver CloudinaryConfig).
+app.use(trim_request_body);
 
 app.use(cors({
     // El último dominio le faltaba el esquema "https://": el navegador siempre manda el

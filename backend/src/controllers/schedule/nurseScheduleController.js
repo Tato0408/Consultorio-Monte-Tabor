@@ -492,9 +492,11 @@ export const getPatientNursesForSlot = async (req, res) => {
             if (free) matchingNurseIds.push(schedule.nurse_id);
         }
 
+        // El DUI identifica a la enfermera en los selectores del panel. La ruta
+        // admite cualquier sesión, así que a un paciente nunca se le entrega.
         const nurses = await nursesModel
             .find({ _id: { $in: matchingNurseIds }, is_active: true })
-            .select("name last_name img_url");
+            .select(req.user?.role === "patient" ? "name last_name img_url" : "name last_name img_url dui");
 
         return res.status(200).json({ nurses });
     } catch (error) {

@@ -323,7 +323,7 @@ const DoctorForm = ({
                   type="text"
                   placeholder="Ingrese los nombres"
                   maxLength={50}
-                  {...register("name", { required: "El nombre es requerido" })}
+                  {...register("name", { required: "El nombre es requerido", pattern: { value: /\S/, message: "El nombre es requerido" } })}
                   onChange={makeLettersMaskHandler("name", 50)}
                   className={inputClass(errors.name)}
                 />
@@ -339,7 +339,7 @@ const DoctorForm = ({
                   type="text"
                   placeholder="Ingrese los apellidos"
                   maxLength={50}
-                  {...register("last_name", { required: "El apellido es requerido" })}
+                  {...register("last_name", { required: "El apellido es requerido", pattern: { value: /\S/, message: "El apellido es requerido" } })}
                   onChange={makeLettersMaskHandler("last_name", 50)}
                   className={inputClass(errors.last_name)}
                 />
@@ -441,7 +441,7 @@ const DoctorForm = ({
                   type="text"
                   placeholder="Ingrese el número de licencia"
                   maxLength={30}
-                  {...register("license_number", { required: "El número de licencia es requerido" })}
+                  {...register("license_number", { required: "El número de licencia es requerido", pattern: { value: /\S/, message: "El número de licencia es requerido" } })}
                   onChange={handleLicenseMask}
                   className={inputClass(errors.license_number)}
                 />
