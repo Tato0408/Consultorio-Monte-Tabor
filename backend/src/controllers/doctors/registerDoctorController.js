@@ -5,7 +5,7 @@ import bcryptjs from "bcryptjs";
 import doctorsModel from "../../models/doctors/doctors.js";
 
 import { config } from "../../../config.js";
-import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { sendEmail } from "../../utils/sendMail.js";
 
 // array de funcioness
 const registerDoctorController = {};

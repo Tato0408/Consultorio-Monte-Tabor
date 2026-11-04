@@ -7,7 +7,7 @@ import proceduresModel from "../../models/procedures/procedures.js";
 import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js";
-import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { sendEmail } from "../../utils/sendMail.js";
 import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js";
 import { countDoctorRelatedRecords, deleteDoctorCascade } from "../../utils/cascadeDelete.js";
 
@@ -284,7 +284,7 @@ doctorController.createDoctor = async (req, res) => {
     // Le manda al correo registrado el usuario y la contraseña que el admin
     // acaba de definir, para que el doctor tenga la certeza de haber
     // recibido sus credenciales de acceso. No bloquea la respuesta si el
-    // envío falla (ej. Mailjet caído): la cuenta ya quedó creada de todos
+    // envío falla (ej. Gmail caído): la cuenta ya quedó creada de todos
     // modos, y el admin puede reenviarlas manualmente si hace falta.
     sendEmail(
       email,

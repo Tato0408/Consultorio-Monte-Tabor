@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import bcryptjs from "bcryptjs";
 import jsonwebtoken from "jsonwebtoken";
-import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { sendEmail } from "../../utils/sendMail.js";
 import patientsModel from "../../models/patients/patients.js";
 import appointmentsModel from "../../models/appointments/appointments.js";
 import consultationsModel from "../../models/consultations/consultation.js";

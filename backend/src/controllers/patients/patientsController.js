@@ -3,7 +3,7 @@ import proceduresModel from "../../models/procedures/procedures.js";
 import inventoryController from "../inventory/inventoryController.js";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, getVitalSignsError, getMissingVitalSignsError, getClinicalTextError } from "../../utils/validators.js";
-import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { sendEmail } from "../../utils/sendMail.js";
 import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js";
 import { countPatientRelatedRecords, deletePatientCascade } from "../../utils/cascadeDelete.js";
 import { getModulePermission } from "../../services/roleCache.js";
@@ -160,7 +160,7 @@ patientsController.createPatient = async (req, res) => {
 
     // Le manda al correo registrado el usuario y la contraseña que recepción/admin acaba de
     // definir, mismo patrón que doctorsController/nursesController/receptionistController. No
-    // bloquea la respuesta si el envío falla (ej. Mailjet caído): la cuenta ya quedó creada de
+    // bloquea la respuesta si el envío falla (ej. Gmail caído): la cuenta ya quedó creada de
     // todos modos, y se le pueden reenviar las credenciales manualmente si hace falta.
     sendEmail(
       email,

@@ -2,7 +2,7 @@ import jsonwebtoken from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
-import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { sendEmail } from "../../utils/sendMail.js";
 import HTMLRecoveryEmail from "../../utils/HTMLsendRecoveryPassword.js";
 import { getPasswordError } from "../../utils/validators.js";
 import { config } from "../../../config.js";

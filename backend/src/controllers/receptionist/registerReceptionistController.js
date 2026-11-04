@@ -5,7 +5,7 @@ import bcryptjs from "bcryptjs";
 import receptionistsModel from "../../models/receptionist/receptionist.js";
 
 import { config } from "../../../config.js";
-import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { sendEmail } from "../../utils/sendMail.js";
 
 //array de funciones, aqui agregamos las funciones y 
 //al final del archivo este objeto lo exportaremos
@@ -124,7 +124,7 @@ registerReceptionistController.register =
         ". Expira en 15 minutos.";
 
       // SE ENVÍA EMAIL
-      //Envia el correo utilizando Mailjet
+      //Envia el correo utilizando nodemailer (Gmail)
       try {
         await sendEmail(
           email,

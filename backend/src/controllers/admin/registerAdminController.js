@@ -5,7 +5,7 @@ import adminModel from "../../models/admin/admins.js";
 import { config } from "../../../config.js";
 import { v2 as cloudinary } from "cloudinary";
 import { findStaffDuplicate, getMissingRequiredField, validateUserFieldFormats } from "../../utils/validators.js";
-import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { sendEmail } from "../../utils/sendMail.js";
 
 const registerAdminController = {};
 

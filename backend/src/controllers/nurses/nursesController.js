@@ -6,7 +6,7 @@ import nurseScheduleModel from "../../models/schedule/nurseSchedule.js"
 import { v2 as cloudinary } from "cloudinary"
 import bcrypt from 'bcryptjs'
 import { config } from "../../../config.js"
-import { sendEmail } from "../../utils/sendMailMailjet.js"
+import { sendEmail } from "../../utils/sendMail.js"
 import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js"
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js"
 import { countNurseRelatedRecords, deleteNurseCascade } from "../../utils/cascadeDelete.js"

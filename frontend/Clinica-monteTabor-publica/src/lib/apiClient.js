@@ -1,18 +1,11 @@
-// En producción se llama a "/api" en el MISMO dominio de Vercel; vercel.json lo redirige
-// (proxy inverso) al backend de Render. Es mismo-origen a propósito: así la cookie de
-// sesión queda de primera parte y Safari/iOS la acepta (cross-site la bloquea el ITP).
-// En desarrollo se apunta directo al backend de Render (incluye el prefijo /api).
-const API_URL = import.meta.env.DEV ? "https://clinica-monte-tabor.onrender.com/api" : "/api";
+// URL del backend local (incluye el prefijo /api). Se puede cambiar con VITE_API_URL en
+// un archivo .env.local (ver .env.example), por ejemplo para usar la IP de la PC en la red.
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
 
 // URL del WebSocket de tiempo real (mismo canal que usa el panel privado,
-// ver AuthContext.jsx allá y roleSocket.js en el backend). A diferencia de
-// las peticiones REST, esta SIEMPRE apunta directo a Render, nunca al mismo
-// origen de Vercel: el rewrite de vercel.json solo hace proxy de HTTP, no
-// sabe hacer el upgrade a WebSocket. La cookie de sesión (sameSite:"none")
-// igual viaja en el handshake porque es la misma para ambos destinos.
-export const WS_URL = import.meta.env.DEV
-    ? "ws://localhost:4000/ws/roles"
-    : "wss://clinica-monte-tabor.onrender.com/ws/roles";
+// ver AuthContext.jsx allá y roleSocket.js en el backend): mismo host que la API,
+// con esquema ws y sin el sufijo "/api".
+export const WS_URL = API_URL.replace(/^http/, "ws").replace(/\/api\/?$/, "") + "/ws/roles";
 
 async function apiClient(path, { method = "GET", body, params, signal } = {}) {
     //Construimos la url de la peticion enviando primero la url y segundo el endpoint que queremos

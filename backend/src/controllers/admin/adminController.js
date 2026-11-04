@@ -5,7 +5,7 @@ import jsonwebtoken from "jsonwebtoken";
 import { config } from "../../../config.js";
 import bcrypt from "bcryptjs";
 import { validateUserFieldFormats, getPasswordError } from "../../utils/validators.js";
-import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { sendEmail } from "../../utils/sendMail.js";
 
 //Array de funciones
 const adminController = {};

@@ -2,7 +2,7 @@ import receptionistsModel from "../../models/receptionist/receptionist.js";
 import { v2 as cloudinary } from "cloudinary";
 import bcryptjs from "bcryptjs";
 import { validateUserFieldFormats, getMissingRequiredField, getPasswordError, findStaffDuplicate } from "../../utils/validators.js";
-import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { sendEmail } from "../../utils/sendMail.js";
 import HTMLStaffCredentials from "../../utils/HTMLStaffCredentials.js";
 
 //Array de funciones, aqui agregamos las funciones y 

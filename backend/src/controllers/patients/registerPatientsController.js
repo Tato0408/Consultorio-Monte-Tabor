@@ -4,7 +4,7 @@ import bcryptjs from "bcryptjs";
 import patientsModel from "../../models/patients/patients.js"
 import { config } from "../../../config.js"
 import HTMLCreatePatient from "../../utils/HTMLCreatePatient.js";
-import { sendEmail } from "../../utils/sendMailMailjet.js";
+import { sendEmail } from "../../utils/sendMail.js";
 import { getMissingRequiredField, validateUserFieldFormats, getPasswordError } from "../../utils/validators.js";
 
 // Mismo enum que ofrece el formulario de pacientes del panel privado (PatientFormModal.jsx).

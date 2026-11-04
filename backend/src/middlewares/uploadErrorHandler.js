@@ -20,6 +20,9 @@ const get_upload_error_cause = (error) => {
         return `No se pudo recibir el archivo (${error.code}).`;
     }
 
+    // Formato rechazado por el almacenamiento local (ver localUploads.js).
+    if (error?.local_upload) return error.message;
+
     // Cloudinary responde con http_code y un mensaje en inglés.
     if (error?.http_code) {
         const message = String(error.message || "");

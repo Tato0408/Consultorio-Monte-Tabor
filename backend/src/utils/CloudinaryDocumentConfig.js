@@ -3,6 +3,7 @@ import { trim_request_body } from "../middlewares/trimRequestBody.js";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { v2 as cloudinary } from "cloudinary";
 import { config } from "../../config.js";
+import { USE_LOCAL_UPLOADS, create_local_upload } from "./localUploads.js";
 
 // Cloudinary ya está configurado en CloudinaryConfig.js, pero ese storage
 // solo acepta formatos de imagen (jpg, png, jpeg, gif, avif) y sube todo
@@ -29,11 +30,18 @@ const storage = new CloudinaryStorage({
   },
 });
 
-const uploadDocument = multer({
-  storage,
-  // 10 MB, suficiente para un PDF escaneado y evita adjuntos gigantes.
-  limits: { fileSize: 10 * 1024 * 1024 },
-});
+// Sin credenciales de Cloudinary en el .env se guarda en disco (ver localUploads.js).
+const uploadDocument = USE_LOCAL_UPLOADS
+  ? create_local_upload({
+      folder: "PATIENT_DOCUMENTS",
+      allowed_formats: ["pdf", "doc", "docx", "jpg", "jpeg", "png"],
+      limits: { fileSize: 10 * 1024 * 1024 },
+    })
+  : multer({
+      storage,
+      // 10 MB, suficiente para un PDF escaneado y evita adjuntos gigantes.
+      limits: { fileSize: 10 * 1024 * 1024 },
+    });
 
 // Cada middleware de subida va seguido de trim_request_body: multer arma
 // req.body dentro de la ruta, después del recorte general de app.js, así que

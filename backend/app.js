@@ -52,6 +52,7 @@ import wompiWebhookRoutes from './src/routes/webhooks/wompi.js'
 import wompiRoutes from './src/routes/wompiRoutes.js'
 import limiter from './src/middlewares/limiter.js'
 import { ALLOWED_ORIGINS } from './src/config/allowedOrigins.js'
+import { UPLOADS_DIR } from './src/utils/localUploads.js'
 const app = express();
 
 
@@ -96,6 +97,9 @@ app.use(cors({
 }))
 
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument))
+
+// Archivos subidos en modo local (sin Cloudinary), ver localUploads.js.
+app.use("/uploads", express.static(UPLOADS_DIR, { maxAge: "7d" }))
 
 //Endpoints públicos
 app.use("/api/auth" , authRoutes);

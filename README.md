@@ -71,7 +71,7 @@ La solución se divide en **tres partes**, todas contra la misma API REST:
 
 | Capa | Tecnologías |
 |------|-------------|
-| **Backend** | Node.js, Express 5, MongoDB (Mongoose), JWT, Cloudinary, Nodemailer/Mailjet |
+| **Backend** | Node.js, Express 5, MongoDB (Mongoose), JWT, Cloudinary, Nodemailer (Gmail) |
 | **Panel privado (web)** | React 19, React Router, Tailwind CSS 4, shadcn/ui + Radix, Recharts |
 | **Sitio público (web)** | React 19, React Router, Tailwind CSS 4, shadcn/ui + Radix, Wompi (pagos) |
 | **App móvil** | React Native 0.81 (Expo 54), React Navigation |
@@ -84,7 +84,7 @@ La solución se divide en **tres partes**, todas contra la misma API REST:
 |---|---|
 | Node.js 18+ (LTS recomendado) y npm | Backend y ambos frontends (React + Vite) |
 | MongoDB (local o un clúster de Atlas) | Base de datos del backend |
-| Cuenta de Cloudinary, Mailjet/Gmail y Wompi (modo de prueba) | Solo si vas a probar imágenes, correos o pagos en línea — ver [Variables de entorno](#variables-de-entorno) |
+| Cuenta de Cloudinary, Gmail y Wompi (modo de prueba) | Solo si vas a probar imágenes, correos o pagos en línea — ver [Variables de entorno](#variables-de-entorno) |
 | App **Expo Go** (Android/iOS), o Android Studio / Xcode | Correr la app móvil en un dispositivo físico o en un emulador |
 
 ---
@@ -156,7 +156,7 @@ Clinica-Monte-Tabor/
 | `dotenv` | Carga las variables de entorno desde `.env` |
 | `multer` + `multer-storage-cloudinary` | Recepción de archivos (imágenes) desde formularios |
 | `cloudinary` | Almacenamiento y entrega de imágenes (fotos de perfil, etc.) |
-| `nodemailer` / `node-mailjet` | Envío de correos (verificación de cuenta, recuperación de contraseña) |
+| `nodemailer` | Envío de correos (verificación de cuenta, recuperación de contraseña) |
 | `swagger-ui-express` | Documentación interactiva de la API, disponible en `/api/docs` |
 | `nodemon` _(dev)_ | Reinicio automático del servidor al guardar cambios |
 
@@ -304,8 +304,6 @@ El backend requiere un archivo `.env` dentro de `/backend` (ya está en `.gitign
 | `DB_URI` | Sí | Cadena de conexión a MongoDB |
 | `JWT_secret_key` | Sí | Clave secreta para firmar los tokens de sesión |
 | `USER_EMAIL` / `USER_PASSWORD` | Sí | Cuenta de Gmail usada por Nodemailer para enviar correos |
-| `API_KEY_MAILJET` / `API_SECRET_MAILJET` | Sí | Credenciales de Mailjet (envío de correos alternativo/transaccional) |
-| `MAILJET_FROM_EMAIL` / `MAILJET_FROM_NAME` | Sí | Remitente que verán los correos enviados por Mailjet |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Sí | Credenciales de Cloudinary para el almacenamiento de imágenes |
 | `GRANT_TYPE` / `AUDIENCE` / `CLIENT_ID` / `CLIENT_SECRET` | Sí, para pagos | Credenciales OAuth2 de Wompi El Salvador (modo de prueba) usadas por el portal público del paciente |
 | `FRONTEND_URL` | No _(default `http://localhost:5173`)_ | URL pública del sitio del paciente, usada para armar el link de retorno tras pagar |
@@ -323,10 +321,6 @@ JWT_secret_key=una_clave_secreta_larga_y_dificil_de_adivinar
 # ── Correo saliente (verificación de cuenta, recuperación) ───────
 USER_EMAIL=clinica.montetabor@gmail.com
 USER_PASSWORD=contraseña_de_aplicacion_de_gmail
-API_KEY_MAILJET=tu_api_key_de_mailjet
-API_SECRET_MAILJET=tu_api_secret_de_mailjet
-MAILJET_FROM_EMAIL=notificaciones@clinicamontetabor.com
-MAILJET_FROM_NAME=Clínica Monte Tabor
 
 # ── Cloudinary (almacenamiento de imágenes) ───────────────────────
 CLOUDINARY_CLOUD_NAME=tu_cloud_name

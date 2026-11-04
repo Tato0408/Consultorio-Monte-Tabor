@@ -13,4 +13,6 @@ export default defineConfig({
     },
   },
    assetsInclude: ['**/*.png', '**/*.jpg', '**/*.jpeg'],
+  // Puerto fijo: el backend local solo acepta estos orígenes (ver allowedOrigins.js).
+  server: { port: 5173, strictPort: true },
 })
